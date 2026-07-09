@@ -1,7 +1,7 @@
 # Radal — Local Development Setup
 
 Step-by-step to run the Radal corredora app locally: FastAPI backend on
-`:8000` and Vite/React frontend on `:5173`.
+`:8000` and Vite/React frontend on `:4000`.
 
 Repo root: `/Users/bgg/Documents/repos/radal/radal-app`
 ```
@@ -57,7 +57,7 @@ JWT_SECRET_KEY=change-me-in-prod
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
-CORS_ORIGINS=http://localhost:5173
+CORS_ORIGINS=http://localhost:4000
 ```
 > **Note:** `.env` is git-ignored. It will later be uploaded to **S3** for shared
 > environment provisioning; for now each dev keeps a local copy derived from
@@ -65,7 +65,7 @@ CORS_ORIGINS=http://localhost:5173
 
 ---
 
-## 2. Frontend (`:5173`)
+## 2. Frontend (`:4000`)
 
 All commands run from `frontend/`.
 
@@ -84,7 +84,7 @@ cp .env.example .env
 npm run dev
 ```
 
-- App: **`http://localhost:5173`**.
+- App: **`http://localhost:4000`**.
 - **`VITE_API_URL`** must point to the backend API base
   (`http://localhost:8000/api/v1`). All axios calls read this.
 - Path alias `@/` → `src` (configured in `vite.config.ts` + `tsconfig`).
@@ -119,18 +119,18 @@ users is `radal1234`.
 | `admin@radalseguros.cl` | Admin Radal   | Gerente             | admin_corredora      |
 | `ben@nirvana-ai.com`    | Ben           | Owner               | admin_corredora      |
 
-Log in at `http://localhost:5173/login`.
+Log in at `http://localhost:4000/login`.
 
 ---
 
 ## 5. Run order & troubleshooting
 
 1. Start the **backend first** (`uvicorn ... :8000`) so the API is up.
-2. Start the **frontend** (`npm run dev` → `:5173`).
+2. Start the **frontend** (`npm run dev` → `:4000`).
 3. If login fails, confirm the DB was seeded (`python -m app.seed`) and that
    `VITE_API_URL` matches the backend port.
 4. **CORS errors** → ensure `CORS_ORIGINS` in `backend/.env` includes
-   `http://localhost:5173`.
+   `http://localhost:4000`.
 5. **Reset data** → stop the server, delete `backend/radal.db`, re-seed.
 
 `.gitignore` covers: `.venv`, `__pycache__`, `*.db`, `node_modules`, `dist`,

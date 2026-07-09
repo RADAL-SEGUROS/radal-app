@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./radal.db"
 
     # CORS — comma-separated origins
-    CORS_ORIGINS: str = "http://localhost:5173"
+    CORS_ORIGINS: str = "http://localhost:4000"
 
     # API
     API_V1_PREFIX: str = "/api/v1"

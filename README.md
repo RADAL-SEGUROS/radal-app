@@ -37,7 +37,7 @@ curl http://localhost:8000/api/v1/health     # -> {"status":"ok","service":"rada
 
 Interactive API docs: <http://localhost:8000/docs>.
 
-### 2. Frontend (port 5173)
+### 2. Frontend (port 4000)
 
 ```bash
 cd frontend
@@ -46,7 +46,7 @@ cp .env.example .env            # sets VITE_API_URL=http://localhost:8000/api/v1
 npm run dev
 ```
 
-Open <http://localhost:5173> and log in with the demo credentials below.
+Open <http://localhost:4000> and log in with the demo credentials below.
 
 ## Demo credentials
 
