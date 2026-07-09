@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Neutrals */
+  --ink: #0b1418;
+  --ink-2: #16242b;
+  --ink-3: #324049;
+  --paper: #eef2ef;
+  --paper-2: #e2e8e4;
+  --bone: #fffffb;
+  --line: #cfd8d2;
+
+  /* Accents */
+  --teal: #14b8a6;
+  --teal-deep: #0e7c70;
+  --teal-soft: #b8ebe5;
+  --blue: #2563eb;
+  --blue-deep: #1a47b8;
+  --lime: #84cc16;
+
+  /* Semantic signals */
+  --signal-success: var(--lime);
+  --signal-action: var(--blue);
+  --signal-brand: var(--teal);
+  --signal-warn: #d97706;
+  --signal-danger: #dc2626;
+  --signal-muted: var(--ink-3);
+
+  /* Surface / text roles (light default) */
+  --bg-app: var(--paper);
+  --bg-surface: var(--bone);
+  --bg-recessed: var(--paper-2);
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--ink-3);
+  --border: var(--line);
+  --focus-ring: var(--teal);
+
+  /* Fonts */
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-ui: "Inter Tight", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius-card: 12px;
+  --shadow-card: 0 1px 2px rgba(11, 20, 24, 0.06);
+}
+
+/* Dark theme override — Ink surfaces, white/teal logo */
+:root[data-theme="dark"],
+.dark {
+  --bg-app: var(--ink);
+  --bg-surface: var(--ink-2);
+  --bg-recessed: var(--ink-2);
+  --text-primary: #fffffb;
+  --text-secondary: #c7d2cd;
+  --text-muted: #7c8b92;
+  --border: var(--ink-3);
+  --teal-soft: var(--teal-deep);
+  --focus-ring: var(--teal);
+  --shadow-card: none;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+.wordmark {
+  font-family: var(--font-display);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+.font-ui {
+  font-family: var(--font-ui);
+}
+.mono,
+code,
+.tabular,
+.font-mono {
+  font-family: var(--font-mono);
+}

@@ -1,0 +1,52 @@
+{
+  "greeting": {
+    "manana": "Good morning",
+    "tarde": "Good afternoon",
+    "noche": "Good evening",
+    "line": "{{saludo}}, {{nombre}}",
+    "subtitle": "Today is {{dia}}"
+  },
+  "kpis": {
+    "polizasVigentes": "Active policies",
+    "clientesActivos": "Active clients",
+    "renovacionesActivas": "Active renewals",
+    "pipelinePonderado": "Weighted pipeline",
+    "pipelineHint": "Sum of estimated premiums"
+  },
+  "quickActions": {
+    "title": "Quick actions",
+    "nuevoCliente": "New client",
+    "nuevaPoliza": "New policy",
+    "reportarSiniestro": "Report claim",
+    "solicitarInspeccion": "Request inspection"
+  },
+  "requiereAtencion": {
+    "title": "Needs attention",
+    "empty": "No pending items right now",
+    "tipos": {
+      "renovacion": "Renewal",
+      "cotizacion": "Quote",
+      "siniestro": "Claim",
+      "inspeccion": "Inspection"
+    }
+  },
+  "principalesClientes": {
+    "title": "Top clients",
+    "empty": "No clients registered",
+    "polizas_one": "{{count}} policy",
+    "polizas_other": "{{count}} policies"
+  },
+  "actividadReciente": {
+    "title": "Recent activity",
+    "empty": "No recent activity",
+    "verMas": "Show more",
+    "verMenos": "Show less"
+  },
+  "proximasRenovaciones": {
+    "title": "Upcoming renewals",
+    "empty": "No upcoming renewals",
+    "vence": "Due {{fecha}}",
+    "diasRestantes_one": "{{count}} day",
+    "diasRestantes_other": "{{count}} days"
+  }
+}

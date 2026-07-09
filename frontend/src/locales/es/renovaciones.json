@@ -1,0 +1,124 @@
+{
+  "title": "Renovaciones",
+  "subtitle": "Defiende la prima y la comisión de las pólizas por vencer.",
+  "kpis": {
+    "activas": "Renovaciones activas",
+    "enNegociacion": "En negociación",
+    "primaEnJuego": "Prima en juego",
+    "porVencer30d": "Por vencer 30D",
+    "porVencer30dHint": "Vencen en 30 días o menos"
+  },
+  "filters": {
+    "searchPlaceholder": "Buscar por ID, cliente o póliza…",
+    "estado": "Estado",
+    "estadoAll": "Todos los estados",
+    "aseguradora": "Aseguradora",
+    "aseguradoraAll": "Todas las aseguradoras",
+    "clear": "Limpiar filtros"
+  },
+  "columns": {
+    "id": "ID",
+    "poliza": "Póliza",
+    "cliente": "Cliente",
+    "ramo": "Ramo",
+    "aseguradora": "Compañía",
+    "coaseguro": "Coaseguro",
+    "primaDefender": "Prima a defender",
+    "comision": "Comisión %",
+    "vencimiento": "Vencimiento",
+    "diasRestantes": "Días restantes",
+    "ejecutivo": "Ejecutivo",
+    "estado": "Estado"
+  },
+  "estados": {
+    "por_iniciar": "Por iniciar",
+    "cotizando": "Cotizando",
+    "negociando": "Negociando"
+  },
+  "dias": {
+    "vencida": "Vencida",
+    "vence_hoy": "Vence hoy",
+    "restantes_one": "{{count}} día",
+    "restantes_other": "{{count}} días"
+  },
+  "empty": "No hay renovaciones que coincidan con los filtros.",
+  "error": "No se pudieron cargar las renovaciones.",
+  "detail": {
+    "eyebrow": "Renovación",
+    "back": "Volver a Renovaciones",
+    "notFound": "No se encontró la renovación.",
+    "header": {
+      "vence": "Vence",
+      "diasRestantes": "Días restantes",
+      "ejecutivo": "Ejecutivo",
+      "sinEjecutivo": "Sin asignar"
+    },
+    "actions": {
+      "iniciarNegociacion": "Iniciar negociación",
+      "solicitarCotizacion": "Solicitar cotización",
+      "marcarRenovada": "Marcar renovada"
+    },
+    "resumen": {
+      "title": "Resumen de la renovación",
+      "polizaOrigen": "Póliza origen",
+      "cliente": "Cliente",
+      "ramo": "Ramo",
+      "aseguradora": "Compañía líder",
+      "aplicaCoaseguro": "Aplica coaseguro",
+      "primaDefender": "Prima a defender",
+      "comision": "Comisión",
+      "vencimiento": "Fecha de vencimiento",
+      "estado": "Estado"
+    },
+    "poliza": {
+      "title": "Póliza vigente",
+      "numero": "N.º de póliza",
+      "bien": "Bien asegurado",
+      "suma": "Suma asegurada",
+      "limite": "Límite de indemnización",
+      "deducible": "Deducible",
+      "cobertura": "Cobertura",
+      "vigencia": "Vigencia",
+      "verPoliza": "Ver póliza",
+      "sinPoliza": "No hay póliza vigente asociada."
+    },
+    "planPago": {
+      "title": "Plan de pago",
+      "cuotas": "Cuotas",
+      "metodo": "Método",
+      "cuotas_one": "{{count}} cuota",
+      "cuotas_other": "{{count}} cuotas"
+    },
+    "coaseguro": {
+      "title": "Coaseguro",
+      "lider": "Líder",
+      "participacion": "Participación",
+      "sinCoaseguro": "Esta póliza no tiene coaseguro."
+    },
+    "ubicaciones": {
+      "title": "Ubicaciones",
+      "nombre": "Ubicación",
+      "direccion": "Dirección",
+      "suma": "Suma asegurada",
+      "porcentaje": "%",
+      "sinUbicaciones": "No hay ubicaciones registradas."
+    },
+    "coberturas": {
+      "title": "Coberturas y exclusiones",
+      "coberturas": "Coberturas",
+      "exclusiones": "Exclusiones",
+      "sinCoberturas": "Sin coberturas registradas.",
+      "sinExclusiones": "Sin exclusiones registradas."
+    },
+    "negociacion": {
+      "title": "Estado de negociación",
+      "hint": "Registra el avance de la negociación con la compañía.",
+      "placeholder": "Describe el avance de la negociación, contrapropuestas, plazos acordados…",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "saved": "Estado de negociación guardado",
+      "error": "No se pudo guardar el estado de negociación.",
+      "vacio": "Sin notas de negociación."
+    }
+  }
+}

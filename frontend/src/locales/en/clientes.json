@@ -1,0 +1,139 @@
+{
+  "title": "Clients",
+  "subtitle": "Broker client portfolio",
+  "actions": {
+    "alta": "Register new client",
+    "export": "Export",
+    "agregarPoliza": "Add policy",
+    "reportarSiniestro": "Report claim",
+    "editarDatos": "Edit details",
+    "nuevaCotizacion": "New quote",
+    "solicitarInspeccion": "Request inspection",
+    "agregarActivo": "Add asset",
+    "verFicha": "View file",
+    "whatsapp": "Message on WhatsApp"
+  },
+  "kpis": {
+    "total": "Total clients",
+    "activos": "Active",
+    "onboarding": "Onboarding",
+    "prospectos": "Prospects"
+  },
+  "filters": {
+    "searchPlaceholder": "Search by name or RUT…",
+    "estado": "Status",
+    "sector": "Sector",
+    "ejecutivo": "Executive",
+    "todos": "All",
+    "todas": "All"
+  },
+  "table": {
+    "idExpediente": "File ID",
+    "cliente": "Client",
+    "rut": "RUT",
+    "contacto": "Contact",
+    "polizas": "Policies",
+    "aseguradosAdicionales": "Add'l insured",
+    "primaIntermediada": "Intermediated premium",
+    "ejecutivo": "Executive",
+    "fechaAlta": "Registered",
+    "estado": "Status",
+    "empty": "No clients match the search.",
+    "sinEjecutivo": "Unassigned"
+  },
+  "estado": {
+    "activo": "Active",
+    "onboarding": "Onboarding",
+    "prospecto": "Prospect",
+    "suspendido": "Suspended",
+    "archivado": "Archived"
+  },
+  "detail": {
+    "back": "Back to Clients",
+    "eyebrow": "Client file",
+    "notFound": "Client not found",
+    "loadError": "Could not load the client file.",
+    "info": {
+      "contacto": "Primary contact",
+      "telefono": "Phone",
+      "email": "Email",
+      "ejecutivo": "Assigned executive",
+      "cartera": "Portfolio summary",
+      "sinEjecutivo": "Unassigned",
+      "polizasVigentes": "Active policies",
+      "primaCartera": "Portfolio premium",
+      "sumaAsegurada": "Sum insured",
+      "activos": "Assets",
+      "siniestrosAbiertos": "Open claims"
+    },
+    "sections": {
+      "polizas": "Active policies",
+      "aseguradosAdicionales": "Additional insured",
+      "cotizaciones": "Quotes",
+      "documentos": "Documents",
+      "siniestros": "Claims",
+      "actividad": "Activity history"
+    },
+    "polizas": {
+      "numero": "Policy no.",
+      "ramo": "Line",
+      "aseguradora": "Insurer",
+      "prima": "Premium",
+      "cobertura": "Coverage",
+      "vigencia": "Term",
+      "estado": "Status",
+      "empty": "The client has no policies on record.",
+      "agregar": "Add policy"
+    },
+    "aseguradosAdicionales": {
+      "rut": "RUT",
+      "entidad": "Entity",
+      "tipoSeguro": "Insurance type",
+      "relacionBien": "Relation to asset",
+      "empty": "No additional insured."
+    },
+    "cotizaciones": {
+      "bien": "Asset to insure",
+      "ramo": "Line",
+      "valorDeclarado": "Declared value",
+      "fechaVence": "Due",
+      "prioridad": "Priority",
+      "estado": "Status",
+      "empty": "No quotes in progress."
+    },
+    "documentos": {
+      "nombre": "Name",
+      "tipo": "Type",
+      "version": "Version",
+      "fecha": "Date",
+      "empty": "No documents attached.",
+      "ver": "View"
+    },
+    "siniestros": {
+      "id": "ID",
+      "poliza": "Policy",
+      "tipo": "Type",
+      "fechaEvento": "Event date",
+      "estado": "Status",
+      "montoEstimado": "Estimated amount",
+      "empty": "No claims on record."
+    },
+    "actividad": {
+      "empty": "No recent activity.",
+      "por": "by"
+    }
+  },
+  "prioridad": {
+    "baja": "Low",
+    "media": "Medium",
+    "alta": "High"
+  },
+  "cobertura": {
+    "infravalorada": "Underinsurance",
+    "optima": "Optimal coverage",
+    "sobrevalorada": "Overinsurance"
+  },
+  "toast": {
+    "underConstruction": "Under construction"
+  }
+}

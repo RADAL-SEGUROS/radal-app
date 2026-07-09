@@ -1,0 +1,52 @@
+{
+  "greeting": {
+    "manana": "Buenos días",
+    "tarde": "Buenas tardes",
+    "noche": "Buenas noches",
+    "line": "{{saludo}}, {{nombre}}",
+    "subtitle": "Hoy es {{dia}}"
+  },
+  "kpis": {
+    "polizasVigentes": "Pólizas vigentes",
+    "clientesActivos": "Clientes activos",
+    "renovacionesActivas": "Renovaciones activas",
+    "pipelinePonderado": "Pipeline ponderado",
+    "pipelineHint": "Suma de primas estimadas"
+  },
+  "quickActions": {
+    "title": "Acciones rápidas",
+    "nuevoCliente": "Nuevo cliente",
+    "nuevaPoliza": "Nueva póliza",
+    "reportarSiniestro": "Reportar siniestro",
+    "solicitarInspeccion": "Solicitar inspección"
+  },
+  "requiereAtencion": {
+    "title": "Requiere atención",
+    "empty": "No tienes pendientes por ahora",
+    "tipos": {
+      "renovacion": "Renovación",
+      "cotizacion": "Cotización",
+      "siniestro": "Siniestro",
+      "inspeccion": "Inspección"
+    }
+  },
+  "principalesClientes": {
+    "title": "Principales clientes",
+    "empty": "Sin clientes registrados",
+    "polizas_one": "{{count}} póliza",
+    "polizas_other": "{{count}} pólizas"
+  },
+  "actividadReciente": {
+    "title": "Actividad reciente",
+    "empty": "Sin actividad reciente",
+    "verMas": "Ver más",
+    "verMenos": "Ver menos"
+  },
+  "proximasRenovaciones": {
+    "title": "Próximas renovaciones",
+    "empty": "Sin renovaciones próximas",
+    "vence": "Vence {{fecha}}",
+    "diasRestantes_one": "{{count}} día",
+    "diasRestantes_other": "{{count}} días"
+  }
+}

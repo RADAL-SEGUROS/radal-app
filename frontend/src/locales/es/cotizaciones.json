@@ -1,0 +1,73 @@
+{
+  "title": "Cotizaciones",
+  "subtitle": "Gestiona las solicitudes de cotización a las compañías y sus respuestas.",
+  "kpis": {
+    "enCurso": "Cotizaciones en curso",
+    "valorDeclarado": "Valor declarado total",
+    "altaPrioridad": "Alta prioridad",
+    "porVencerL7d": "Por vencer L7D",
+    "porVencerL7dHint": "Vencen en menos de 7 días"
+  },
+  "filters": {
+    "searchPlaceholder": "Buscar por cliente, ramo o bien…",
+    "estado": "Estado",
+    "estadoAll": "Todos los estados",
+    "prioridad": "Prioridad",
+    "prioridadAll": "Todas las prioridades"
+  },
+  "columns": {
+    "id": "ID",
+    "cliente": "Cliente",
+    "ramo": "Ramo",
+    "bienAsegurar": "Bien a asegurar",
+    "valorDeclarado": "Valor declarado",
+    "fechaEnvio": "Enviada",
+    "vence": "Vence",
+    "diasRestantes": "Días restantes",
+    "prioridad": "Prioridad",
+    "estado": "Estado"
+  },
+  "estados": {
+    "pendiente": "Pendiente",
+    "respondida": "Respondida"
+  },
+  "prioridad": {
+    "baja": "Baja",
+    "media": "Media",
+    "alta": "Alta"
+  },
+  "dias": {
+    "vencida": "Vencida",
+    "vence_hoy": "Vence hoy",
+    "restantes_one": "{{count}} día",
+    "restantes_other": "{{count}} días"
+  },
+  "actions": {
+    "nueva": "+ Nueva cotización"
+  },
+  "empty": "No hay cotizaciones que coincidan con los filtros.",
+  "error": "No se pudieron cargar las cotizaciones.",
+  "form": {
+    "title": "Nueva cotización",
+    "subtitle": "Registra una solicitud de cotización para enviar a las compañías.",
+    "cliente": "Cliente",
+    "clientePlaceholder": "Selecciona un cliente",
+    "ramo": "Ramo",
+    "ramoPlaceholder": "Selecciona un ramo",
+    "bienAsegurar": "Bien a asegurar",
+    "bienAsegurarPlaceholder": "Ej.: Planta Talca - Maquinaria",
+    "valorDeclarado": "Valor declarado (UF)",
+    "fechaEnvio": "Fecha de envío",
+    "fechaVence": "Fecha de vencimiento",
+    "prioridad": "Prioridad",
+    "submit": "Crear cotización",
+    "saving": "Guardando…",
+    "success": "Cotización creada correctamente.",
+    "error": "No se pudo crear la cotización.",
+    "errors": {
+      "required": "Este campo es obligatorio.",
+      "valorPositivo": "Ingresa un valor mayor que cero.",
+      "venceOrden": "La fecha de vencimiento no puede ser anterior a la de envío."
+    }
+  }
+}

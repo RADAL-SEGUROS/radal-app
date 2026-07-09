@@ -1,0 +1,113 @@
+{
+  "list": {
+    "title": "Claims",
+    "subtitle": "Claims lifecycle: report, assessment and settlement",
+    "searchPlaceholder": "Search by client, policy or type…",
+    "loadError": "Could not load claims"
+  },
+  "kpis": {
+    "abiertos": "Open claims",
+    "enEvaluacion": "Under assessment",
+    "montoEstimadoTotal": "Total estimated amount",
+    "montoLiquidadoTotal": "Total settled amount"
+  },
+  "table": {
+    "id": "ID",
+    "cliente": "Client",
+    "poliza": "Policy",
+    "tipo": "Type",
+    "fechaEvento": "Event date",
+    "estado": "Status",
+    "montoEstimado": "Estimated amount",
+    "montoLiquidado": "Settled amount"
+  },
+  "filters": {
+    "estado": "Status",
+    "todos": "All statuses"
+  },
+  "estado": {
+    "reportado": "Reported",
+    "en_documentacion": "In documentation",
+    "en_evaluacion": "Under assessment",
+    "pre_liquidado": "Pre-settled",
+    "liquidado": "Settled",
+    "cerrado": "Closed"
+  },
+  "empty": "No claims to display",
+  "actions": {
+    "reportar": "Report claim",
+    "avanzarEstado": "Advance status",
+    "cargarDocumento": "Upload document",
+    "registrarLiquidacion": "Record settlement"
+  },
+  "form": {
+    "title": "Report claim",
+    "subtitle": "Register a new claim against an active policy of the client.",
+    "cliente": "Client",
+    "clientePlaceholder": "Select a client",
+    "poliza": "Policy",
+    "polizaPlaceholder": "Select a policy",
+    "tipo": "Claim type",
+    "tipoPlaceholder": "E.g. Fire, Theft, Water damage",
+    "fechaEvento": "Event date",
+    "montoEstimado": "Estimated amount (UF)",
+    "descripcion": "Description",
+    "descripcionPlaceholder": "Briefly describe what happened…",
+    "submit": "Report claim",
+    "saving": "Reporting…",
+    "success": "Claim reported successfully",
+    "error": "Could not report the claim",
+    "errors": {
+      "required": "This field is required",
+      "montoPositivo": "The amount must be greater than or equal to zero"
+    }
+  },
+  "detail": {
+    "eyebrow": "Claim",
+    "back": "Back to claims",
+    "loadError": "Claim not found",
+    "stub": "Under construction",
+    "timeline": {
+      "title": "Claim status"
+    },
+    "resumen": {
+      "title": "Summary",
+      "cliente": "Client",
+      "poliza": "Policy",
+      "tipo": "Type",
+      "fechaEvento": "Event date",
+      "descripcion": "Description"
+    },
+    "liquidacion": {
+      "title": "Assessment and settlement",
+      "montoEstimado": "Estimated amount",
+      "montoLiquidado": "Settled amount",
+      "fechaLiquidacion": "Settlement date",
+      "estado": "Current status"
+    },
+    "contexto": {
+      "title": "Policy and asset",
+      "poliza": "Policy",
+      "activo": "Insured asset",
+      "tipoActivo": "Asset type",
+      "direccion": "Address",
+      "verPoliza": "View policy"
+    },
+    "sections": {
+      "documentos": "Documents",
+      "observaciones": "Notes",
+      "actividad": "Activity"
+    },
+    "documentos": {
+      "ver": "View",
+      "empty": "No documents registered"
+    },
+    "observaciones": {
+      "empty": "No notes registered"
+    },
+    "actividad": {
+      "por": "by",
+      "empty": "No activity registered"
+    }
+  }
+}

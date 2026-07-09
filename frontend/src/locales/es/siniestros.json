@@ -1,0 +1,113 @@
+{
+  "list": {
+    "title": "Siniestros",
+    "subtitle": "Ciclo de vida de los siniestros: reporte, evaluación y liquidación",
+    "searchPlaceholder": "Buscar por cliente, póliza o tipo…",
+    "loadError": "No se pudieron cargar los siniestros"
+  },
+  "kpis": {
+    "abiertos": "Siniestros abiertos",
+    "enEvaluacion": "En evaluación",
+    "montoEstimadoTotal": "Monto estimado total",
+    "montoLiquidadoTotal": "Monto liquidado total"
+  },
+  "table": {
+    "id": "ID",
+    "cliente": "Cliente",
+    "poliza": "Póliza",
+    "tipo": "Tipo",
+    "fechaEvento": "Fecha evento",
+    "estado": "Estado",
+    "montoEstimado": "Monto estimado",
+    "montoLiquidado": "Monto liquidado"
+  },
+  "filters": {
+    "estado": "Estado",
+    "todos": "Todos los estados"
+  },
+  "estado": {
+    "reportado": "Reportado",
+    "en_documentacion": "En documentación",
+    "en_evaluacion": "En evaluación",
+    "pre_liquidado": "Preliquidado",
+    "liquidado": "Liquidado",
+    "cerrado": "Cerrado"
+  },
+  "empty": "No hay siniestros para mostrar",
+  "actions": {
+    "reportar": "Reportar siniestro",
+    "avanzarEstado": "Avanzar estado",
+    "cargarDocumento": "Cargar documento",
+    "registrarLiquidacion": "Registrar liquidación"
+  },
+  "form": {
+    "title": "Reportar siniestro",
+    "subtitle": "Registra un nuevo siniestro sobre una póliza vigente del cliente.",
+    "cliente": "Cliente",
+    "clientePlaceholder": "Selecciona un cliente",
+    "poliza": "Póliza",
+    "polizaPlaceholder": "Selecciona una póliza",
+    "tipo": "Tipo de siniestro",
+    "tipoPlaceholder": "Ej. Incendio, Robo, Daño por agua",
+    "fechaEvento": "Fecha del evento",
+    "montoEstimado": "Monto estimado (UF)",
+    "descripcion": "Descripción",
+    "descripcionPlaceholder": "Describe brevemente lo ocurrido…",
+    "submit": "Reportar siniestro",
+    "saving": "Reportando…",
+    "success": "Siniestro reportado correctamente",
+    "error": "No se pudo reportar el siniestro",
+    "errors": {
+      "required": "Este campo es obligatorio",
+      "montoPositivo": "El monto debe ser mayor o igual a cero"
+    }
+  },
+  "detail": {
+    "eyebrow": "Siniestro",
+    "back": "Volver a siniestros",
+    "loadError": "No se encontró el siniestro",
+    "stub": "En construcción",
+    "timeline": {
+      "title": "Estado del siniestro"
+    },
+    "resumen": {
+      "title": "Resumen",
+      "cliente": "Cliente",
+      "poliza": "Póliza",
+      "tipo": "Tipo",
+      "fechaEvento": "Fecha del evento",
+      "descripcion": "Descripción"
+    },
+    "liquidacion": {
+      "title": "Evaluación y liquidación",
+      "montoEstimado": "Monto estimado",
+      "montoLiquidado": "Monto liquidado",
+      "fechaLiquidacion": "Fecha de liquidación",
+      "estado": "Estado actual"
+    },
+    "contexto": {
+      "title": "Póliza y activo",
+      "poliza": "Póliza",
+      "activo": "Activo asegurado",
+      "tipoActivo": "Tipo de activo",
+      "direccion": "Dirección",
+      "verPoliza": "Ver póliza"
+    },
+    "sections": {
+      "documentos": "Documentos",
+      "observaciones": "Observaciones",
+      "actividad": "Actividad"
+    },
+    "documentos": {
+      "ver": "Ver",
+      "empty": "Sin documentos registrados"
+    },
+    "observaciones": {
+      "empty": "Sin observaciones registradas"
+    },
+    "actividad": {
+      "por": "por",
+      "empty": "Sin actividad registrada"
+    }
+  }
+}

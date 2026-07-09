@@ -1,0 +1,131 @@
+{
+  "app": {
+    "name": "Radal.",
+    "tagline": "Insurance broker"
+  },
+  "nav": {
+    "sections": {
+      "gestion": "Management",
+      "comercialOperaciones": "Commercial & operations"
+    },
+    "dashboard": "Dashboard",
+    "clientes": "Clients",
+    "polizas": "Policies",
+    "renovaciones": "Renewals",
+    "cotizaciones": "Quotes",
+    "siniestros": "Claims",
+    "inspecciones": "Inspections",
+    "pipeline": "Pipeline",
+    "facturacion": "Billing",
+    "reportes": "Reports",
+    "proximamente": "Coming soon"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "close": "Close",
+    "confirm": "Confirm",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "export": "Export",
+    "download": "Download",
+    "viewAll": "View all",
+    "viewAllF": "View all",
+    "viewDetail": "View detail",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "retry": "Retry",
+    "logout": "Log out",
+    "loading": "Loading…"
+  },
+  "export": {
+    "label": "Export",
+    "word": "Word (.docx)",
+    "excel": "Excel (.xlsx)",
+    "pdf": "PDF (.pdf)"
+  },
+  "search": {
+    "placeholder": "Search clients, policies, assets…",
+    "empty": "No results",
+    "categories": {
+      "clientes": "Clients",
+      "polizas": "Policies",
+      "activos": "Assets"
+    }
+  },
+  "table": {
+    "empty": "No records",
+    "loading": "Loading data…",
+    "error": "Could not load data",
+    "rowsPerPage": "Rows per page",
+    "of": "of",
+    "page": "Page"
+  },
+  "estados": {
+    "activo": "Active",
+    "onboarding": "Onboarding",
+    "prospecto": "Prospect",
+    "suspendido": "Suspended",
+    "archivado": "Archived",
+    "vigente": "Active",
+    "no_vigente": "Inactive"
+  },
+  "cobertura": {
+    "infravalorada": "Underinsured",
+    "optima": "Optimal coverage",
+    "sobrevalorada": "Overinsured"
+  },
+  "greeting": {
+    "manana": "Good morning",
+    "tarde": "Good afternoon",
+    "noche": "Good evening"
+  },
+  "units": {
+    "uf": "UF",
+    "dias": "days",
+    "dias_one": "{{count}} day",
+    "dias_other": "{{count}} days",
+    "si": "Yes",
+    "no": "No"
+  },
+  "theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "language": {
+    "toggle": "Toggle language",
+    "es": "Español",
+    "en": "English"
+  },
+  "devView": {
+    "label": "View",
+    "radal": "Radal",
+    "aseguradora": "Insurer",
+    "asegurado": "Insured"
+  },
+  "user": {
+    "menu": "User menu",
+    "profile": "My profile",
+    "settings": "Settings"
+  },
+  "toast": {
+    "saved": "Changes saved",
+    "created": "Record created",
+    "deleted": "Record deleted",
+    "error": "Something went wrong",
+    "sessionExpired": "Your session expired"
+  },
+  "state": {
+    "loading": "Loading…",
+    "empty": "No data",
+    "error": "Failed to load",
+    "underConstruction": "Under construction"
+  }
+}

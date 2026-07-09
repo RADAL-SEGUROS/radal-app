@@ -1,0 +1,139 @@
+{
+  "title": "Clientes",
+  "subtitle": "Cartera de clientes de la corredora",
+  "actions": {
+    "alta": "Dar de alta nuevo cliente",
+    "export": "Exportar",
+    "agregarPoliza": "Agregar póliza",
+    "reportarSiniestro": "Reportar siniestro",
+    "editarDatos": "Editar datos",
+    "nuevaCotizacion": "Nueva cotización",
+    "solicitarInspeccion": "Solicitar inspección",
+    "agregarActivo": "Agregar activo",
+    "verFicha": "Ver ficha",
+    "whatsapp": "Escribir por WhatsApp"
+  },
+  "kpis": {
+    "total": "Total clientes",
+    "activos": "Activos",
+    "onboarding": "En onboarding",
+    "prospectos": "Prospectos"
+  },
+  "filters": {
+    "searchPlaceholder": "Buscar por nombre o RUT…",
+    "estado": "Estado",
+    "sector": "Sector",
+    "ejecutivo": "Ejecutivo",
+    "todos": "Todos",
+    "todas": "Todas"
+  },
+  "table": {
+    "idExpediente": "ID expediente",
+    "cliente": "Cliente",
+    "rut": "RUT",
+    "contacto": "Contacto",
+    "polizas": "N° pólizas",
+    "aseguradosAdicionales": "Aseg. adicionales",
+    "primaIntermediada": "Prima intermediada",
+    "ejecutivo": "Ejecutivo",
+    "fechaAlta": "Fecha alta",
+    "estado": "Estado",
+    "empty": "No hay clientes que coincidan con la búsqueda.",
+    "sinEjecutivo": "Sin asignar"
+  },
+  "estado": {
+    "activo": "Activo",
+    "onboarding": "Onboarding",
+    "prospecto": "Prospecto",
+    "suspendido": "Suspendido",
+    "archivado": "Archivado"
+  },
+  "detail": {
+    "back": "Volver a Clientes",
+    "eyebrow": "Ficha de cliente",
+    "notFound": "Cliente no encontrado",
+    "loadError": "No se pudo cargar la ficha del cliente.",
+    "info": {
+      "contacto": "Contacto principal",
+      "telefono": "Teléfono",
+      "email": "Correo electrónico",
+      "ejecutivo": "Ejecutivo asignado",
+      "cartera": "Resumen de cartera",
+      "sinEjecutivo": "Sin asignar",
+      "polizasVigentes": "Pólizas vigentes",
+      "primaCartera": "Prima cartera",
+      "sumaAsegurada": "Suma asegurada",
+      "activos": "Activos",
+      "siniestrosAbiertos": "Siniestros abiertos"
+    },
+    "sections": {
+      "polizas": "Pólizas vigentes",
+      "aseguradosAdicionales": "Asegurados adicionales",
+      "cotizaciones": "Cotizaciones",
+      "documentos": "Documentos",
+      "siniestros": "Siniestros",
+      "actividad": "Historial de actividad"
+    },
+    "polizas": {
+      "numero": "N° póliza",
+      "ramo": "Ramo",
+      "aseguradora": "Aseguradora",
+      "prima": "Prima",
+      "cobertura": "Cobertura",
+      "vigencia": "Vigencia",
+      "estado": "Estado",
+      "empty": "El cliente no tiene pólizas registradas.",
+      "agregar": "Agregar póliza"
+    },
+    "aseguradosAdicionales": {
+      "rut": "RUT",
+      "entidad": "Entidad",
+      "tipoSeguro": "Tipo de seguro",
+      "relacionBien": "Relación con el bien",
+      "empty": "No hay asegurados adicionales."
+    },
+    "cotizaciones": {
+      "bien": "Bien a asegurar",
+      "ramo": "Ramo",
+      "valorDeclarado": "Valor declarado",
+      "fechaVence": "Vence",
+      "prioridad": "Prioridad",
+      "estado": "Estado",
+      "empty": "No hay cotizaciones en curso."
+    },
+    "documentos": {
+      "nombre": "Nombre",
+      "tipo": "Tipo",
+      "version": "Versión",
+      "fecha": "Fecha",
+      "empty": "No hay documentos asociados.",
+      "ver": "Ver"
+    },
+    "siniestros": {
+      "id": "ID",
+      "poliza": "Póliza",
+      "tipo": "Tipo",
+      "fechaEvento": "Fecha evento",
+      "estado": "Estado",
+      "montoEstimado": "Monto estimado",
+      "empty": "No hay siniestros registrados."
+    },
+    "actividad": {
+      "empty": "Sin actividad reciente.",
+      "por": "por"
+    }
+  },
+  "prioridad": {
+    "baja": "Baja",
+    "media": "Media",
+    "alta": "Alta"
+  },
+  "cobertura": {
+    "infravalorada": "Infracobertura",
+    "optima": "Cobertura óptima",
+    "sobrevalorada": "Sobrecobertura"
+  },
+  "toast": {
+    "underConstruction": "En construcción"
+  }
+}

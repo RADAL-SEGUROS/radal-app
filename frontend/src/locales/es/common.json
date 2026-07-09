@@ -1,0 +1,131 @@
+{
+  "app": {
+    "name": "Radal.",
+    "tagline": "Corredora de seguros"
+  },
+  "nav": {
+    "sections": {
+      "gestion": "Gestión",
+      "comercialOperaciones": "Comercial y operaciones"
+    },
+    "dashboard": "Dashboard",
+    "clientes": "Clientes",
+    "polizas": "Pólizas",
+    "renovaciones": "Renovaciones",
+    "cotizaciones": "Cotizaciones",
+    "siniestros": "Siniestros",
+    "inspecciones": "Inspecciones",
+    "pipeline": "Pipeline",
+    "facturacion": "Facturación",
+    "reportes": "Reportes",
+    "proximamente": "Próximamente"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "add": "Agregar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "clear": "Limpiar",
+    "export": "Exportar",
+    "download": "Descargar",
+    "viewAll": "Ver todos",
+    "viewAllF": "Ver todas",
+    "viewDetail": "Ver detalle",
+    "back": "Volver",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "retry": "Reintentar",
+    "logout": "Cerrar sesión",
+    "loading": "Cargando…"
+  },
+  "export": {
+    "label": "Exportar",
+    "word": "Word (.docx)",
+    "excel": "Excel (.xlsx)",
+    "pdf": "PDF (.pdf)"
+  },
+  "search": {
+    "placeholder": "Buscar clientes, pólizas, activos…",
+    "empty": "Sin resultados",
+    "categories": {
+      "clientes": "Clientes",
+      "polizas": "Pólizas",
+      "activos": "Activos"
+    }
+  },
+  "table": {
+    "empty": "No hay registros",
+    "loading": "Cargando datos…",
+    "error": "No se pudieron cargar los datos",
+    "rowsPerPage": "Filas por página",
+    "of": "de",
+    "page": "Página"
+  },
+  "estados": {
+    "activo": "Activo",
+    "onboarding": "Onboarding",
+    "prospecto": "Prospecto",
+    "suspendido": "Suspendido",
+    "archivado": "Archivado",
+    "vigente": "Vigente",
+    "no_vigente": "No vigente"
+  },
+  "cobertura": {
+    "infravalorada": "Infracobertura",
+    "optima": "Cobertura óptima",
+    "sobrevalorada": "Sobrecobertura"
+  },
+  "greeting": {
+    "manana": "Buenos días",
+    "tarde": "Buenas tardes",
+    "noche": "Buenas noches"
+  },
+  "units": {
+    "uf": "UF",
+    "dias": "días",
+    "dias_one": "{{count}} día",
+    "dias_other": "{{count}} días",
+    "si": "Sí",
+    "no": "No"
+  },
+  "theme": {
+    "toggle": "Cambiar tema",
+    "light": "Claro",
+    "dark": "Oscuro"
+  },
+  "language": {
+    "toggle": "Cambiar idioma",
+    "es": "Español",
+    "en": "English"
+  },
+  "devView": {
+    "label": "Vista",
+    "radal": "Radal",
+    "aseguradora": "Aseguradora",
+    "asegurado": "Asegurado"
+  },
+  "user": {
+    "menu": "Menú de usuario",
+    "profile": "Mi perfil",
+    "settings": "Configuración"
+  },
+  "toast": {
+    "saved": "Cambios guardados",
+    "created": "Registro creado",
+    "deleted": "Registro eliminado",
+    "error": "Ocurrió un error",
+    "sessionExpired": "Tu sesión expiró"
+  },
+  "state": {
+    "loading": "Cargando…",
+    "empty": "Sin datos",
+    "error": "Error al cargar",
+    "underConstruction": "En construcción"
+  }
+}
