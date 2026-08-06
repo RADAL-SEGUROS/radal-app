@@ -1,0 +1,254 @@
+{
+  "title": "Inspecciones",
+  "subtitle": "Solicitudes de inspección e informes técnicos de riesgo",
+  "tabs": {
+    "requests": "Solicitudes",
+    "reports": "Informes"
+  },
+  "kpi": {
+    "pendingRequests": "Solicitudes pendientes",
+    "pendingRequestsHint": "Aún sin inspector en terreno",
+    "inProgress": "En terreno",
+    "inProgressHint": "Inspecciones en ejecución",
+    "issued": "Informes emitidos",
+    "issuedHint": "Informes cerrados y firmados",
+    "avgScore": "Puntaje global promedio",
+    "avgScoreHint": "Sobre los informes con puntaje"
+  },
+  "filters": {
+    "status": "Estado",
+    "all": "Todos",
+    "latestOnly": "Solo última versión",
+    "asset": "Activo"
+  },
+  "requests": {
+    "new": "Nueva solicitud",
+    "edit": "Editar solicitud",
+    "empty": "No hay solicitudes de inspección",
+    "columns": {
+      "id": "Solicitud",
+      "asset": "Activo",
+      "urgency": "Urgencia",
+      "targetDate": "Fecha objetivo",
+      "status": "Estado",
+      "requestedAt": "Solicitada",
+      "reason": "Motivo"
+    },
+    "form": {
+      "asset": "Activo a inspeccionar",
+      "assetPlaceholder": "Selecciona un activo",
+      "placement": "Colocación asociada",
+      "placementPlaceholder": "Sin colocación",
+      "urgency": "Urgencia",
+      "targetDate": "Fecha objetivo",
+      "reason": "Motivo de la inspección",
+      "reasonPlaceholder": "Ej: renovación anual, activo nuevo, requerimiento de la aseguradora",
+      "status": "Estado",
+      "submit": "Crear solicitud",
+      "save": "Guardar cambios",
+      "assetRequired": "Selecciona un activo"
+    },
+    "cancel": {
+      "action": "Cancelar solicitud",
+      "title": "Cancelar solicitud de inspección",
+      "description": "La solicitud queda marcada como cancelada. Los informes ya creados no se eliminan.",
+      "confirm": "Sí, cancelar",
+      "done": "Solicitud cancelada",
+      "completed": "Una solicitud completada no se puede cancelar"
+    },
+    "createReport": "Crear informe",
+    "toast": {
+      "created": "Solicitud creada",
+      "updated": "Solicitud actualizada"
+    }
+  },
+  "reports": {
+    "new": "Nuevo informe",
+    "empty": "No hay informes de inspección",
+    "columns": {
+      "folio": "Folio",
+      "asset": "Activo",
+      "version": "Versión",
+      "inspector": "Inspector",
+      "visitDate": "Visita",
+      "reportDate": "Informe",
+      "score": "Puntaje global",
+      "status": "Estado"
+    },
+    "form": {
+      "asset": "Activo",
+      "request": "Solicitud asociada",
+      "requestPlaceholder": "Sin solicitud",
+      "inspector": "Inspector",
+      "inspectorPlaceholder": "Sin asignar",
+      "visitDate": "Fecha de visita",
+      "folio": "Folio",
+      "folioPlaceholder": "Ej: 2026000341022",
+      "submit": "Crear informe"
+    },
+    "toast": {
+      "created": "Informe creado"
+    }
+  },
+  "detail": {
+    "eyebrow": "Informe de inspección",
+    "version": "Versión {{n}}",
+    "notFound": "No encontramos este informe",
+    "backToList": "Volver a inspecciones",
+    "asset": "Activo",
+    "inspector": "Inspector",
+    "visitDate": "Fecha de visita",
+    "reportDate": "Fecha de informe",
+    "request": "Solicitud de origen",
+    "folio": "Folio",
+    "unassigned": "Sin asignar",
+    "findings": "Resumen de hallazgos",
+    "findingsEmpty": "Sin resumen de hallazgos",
+    "findingsPlaceholder": "Describe los hallazgos principales de la visita",
+    "saveFindings": "Guardar resumen",
+    "frozen": "Informe {{status}}: es de solo lectura. Crea una nueva versión para modificarlo.",
+    "newVersion": "Nueva versión",
+    "newVersionTitle": "Crear una nueva versión",
+    "newVersionDescription": "El informe original queda intacto y auditable. La copia parte en borrador.",
+    "copyChecklist": "Copiar checklist",
+    "copyScores": "Copiar puntajes",
+    "copyBoundaries": "Copiar colindancias",
+    "newVersionSubmit": "Crear versión",
+    "versionCreated": "Versión {{n}} creada",
+    "assign": "Asignar inspector",
+    "assignSubmit": "Asignar",
+    "assigned": "Inspector asignado",
+    "unassign": "Quitar asignación",
+    "statusActions": "Cambiar estado",
+    "moveTo": "Mover a {{status}}",
+    "statusChanged": "Estado actualizado",
+    "needsReport": "Sube el informe firmado antes de emitirlo",
+    "noTransitions": "No hay transiciones disponibles desde este estado"
+  },
+  "scores": {
+    "title": "Puntajes",
+    "edit": "Editar puntajes",
+    "overall": "Global",
+    "technical": "Factores técnicos",
+    "commercial": "Factor comercial",
+    "location": "Módulo ubicación",
+    "lossEstimate": "Estimación de pérdida",
+    "pml": "PML",
+    "eml": "EML",
+    "classification": "Clasificación de riesgo",
+    "classificationPlaceholder": "Ej: Riesgo de calidad media-alta",
+    "empty": "Este informe aún no tiene puntajes",
+    "outOf": "de 100",
+    "saved": "Puntajes actualizados",
+    "range": "Los puntajes van de 0 a 100"
+  },
+  "checklist": {
+    "title": "Checklist técnico",
+    "version": "Plantilla v{{n}}",
+    "empty": "Este informe no tiene checklist",
+    "unsupported": "El checklist tiene un formato que aún no sabemos representar. Se muestra tal cual quedó guardado.",
+    "summary": {
+      "ok": "Conformes",
+      "observation": "Observaciones",
+      "critical": "Críticos",
+      "not_applicable": "No aplica"
+    },
+    "item": "Ítem",
+    "result": "Resultado",
+    "note": "Nota",
+    "notePlaceholder": "Observación del inspector",
+    "itemPlaceholder": "Descripción del punto verificado",
+    "addItem": "Agregar ítem",
+    "addSection": "Agregar sección",
+    "sectionName": "Nombre de la sección",
+    "newSection": "Sección nueva",
+    "removeItem": "Quitar ítem",
+    "save": "Guardar checklist",
+    "saved": "Checklist guardado",
+    "discard": "Descartar cambios",
+    "dirty": "Tienes cambios sin guardar"
+  },
+  "result": {
+    "ok": "Conforme",
+    "observation": "Observación",
+    "critical": "Crítico",
+    "not_applicable": "No aplica",
+    "unknown": "Sin resultado"
+  },
+  "boundaries": {
+    "title": "Colindancias",
+    "empty": "Sin colindancias registradas",
+    "orientation": "Orientación",
+    "description": "Colindancia",
+    "distance": "Distancia",
+    "aggravating": "Agravante",
+    "isAggravating": "Agrava el riesgo",
+    "add": "Agregar colindancia",
+    "addTitle": "Nueva colindancia",
+    "editTitle": "Editar colindancia",
+    "orientationPlaceholder": "Norte, Sur, Este…",
+    "descriptionPlaceholder": "Qué hay al lado",
+    "distancePlaceholder": "Ej: 15 m",
+    "aggravatingPlaceholder": "Ej: Agravante leve",
+    "created": "Colindancia agregada",
+    "updated": "Colindancia actualizada",
+    "deleted": "Colindancia eliminada",
+    "deleteTitle": "Eliminar colindancia",
+    "deleteDescription": "Esta acción no se puede deshacer."
+  },
+  "evidence": {
+    "title": "Evidencia fotográfica",
+    "empty": "Aún no hay evidencia cargada",
+    "upload": "Subir evidencia",
+    "uploading": "Subiendo…",
+    "uploaded": "Evidencia cargada",
+    "files": "Otros adjuntos",
+    "open": "Abrir",
+    "delete": "Eliminar archivo",
+    "deleted": "Archivo eliminado",
+    "deleteTitle": "Eliminar archivo",
+    "deleteDescription": "El archivo se elimina del expediente y del almacenamiento.",
+    "count_other": "{{count}} archivos",
+    "count_one": "{{count}} archivo"
+  },
+  "report": {
+    "title": "Informe firmado",
+    "empty": "Aún no se ha cargado el informe",
+    "upload": "Subir informe",
+    "replace": "Reemplazar informe",
+    "download": "Descargar",
+    "uploaded": "Informe cargado",
+    "hint": "PDF del informe técnico. Es obligatorio para emitir."
+  },
+  "status": {
+    "request": {
+      "pending": "Pendiente",
+      "scheduled": "Agendada",
+      "in_progress": "En terreno",
+      "completed": "Completada",
+      "cancelled": "Cancelada"
+    },
+    "report": {
+      "draft": "Borrador",
+      "in_review": "En revisión",
+      "issued": "Emitido",
+      "archived": "Archivado"
+    }
+  },
+  "urgency": {
+    "low": "Baja",
+    "normal": "Normal",
+    "high": "Alta",
+    "urgent": "Urgente"
+  },
+  "guard": {
+    "noPermission": "No tienes permisos para esta acción",
+    "readOnly": "El informe es de solo lectura",
+    "needsUsers": "Necesitas permisos de usuarios para elegir un inspector",
+    "soon": "Pronto"
+  },
+  "error": {
+    "load": "No pudimos cargar las inspecciones",
+    "save": "No pudimos guardar los cambios"
+  }
+}

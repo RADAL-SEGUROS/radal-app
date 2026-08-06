@@ -3,13 +3,16 @@ import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   BarChart3,
+  Briefcase,
   Building2,
   ClipboardCheck,
   FileText,
-  LayoutDashboard,
+  LayoutGrid,
   Receipt,
   RefreshCw,
-  ScrollText,
+  Send,
+  Settings,
+  Shield,
   ShieldAlert,
   Users,
   Workflow,
@@ -18,11 +21,11 @@ import {
 import { useTheme } from "@/providers/ThemeProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  can,
+  useIsBrokerAdmin,
+  usePermissions,
+  type PermissionModule,
+} from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -30,65 +33,105 @@ interface NavItem {
   labelKey: string;
   icon: LucideIcon;
   end?: boolean;
+  /** RBAC module gating this entry; hidden unless the user has `View` on it. */
+  module: PermissionModule;
 }
 
+/**
+ * Only routes that exist are listed here. A nav entry whose page has not been
+ * built yet lives in `disabledItems` and renders greyed with a "pronto" chip —
+ * never a link that bounces the user back to the dashboard.
+ *
+ * Entries are additionally filtered by the server's permission matrix: a
+ * `broker_inspector` has `Clients:View = no`, so that link must not render at
+ * all — following it would only produce a 403.
+ */
 const gestionItems: NavItem[] = [
-  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard, end: true },
-  { to: "/clientes", labelKey: "nav.clientes", icon: Users },
-  { to: "/polizas", labelKey: "nav.polizas", icon: ScrollText },
-  { to: "/renovaciones", labelKey: "nav.renovaciones", icon: RefreshCw },
-  { to: "/cotizaciones", labelKey: "nav.cotizaciones", icon: FileText },
-  { to: "/siniestros", labelKey: "nav.siniestros", icon: ShieldAlert },
-  { to: "/inspecciones", labelKey: "nav.inspecciones", icon: ClipboardCheck },
+  { to: "/", labelKey: "nav.dashboard", icon: LayoutGrid, end: true, module: "Dashboard" },
+  { to: "/clients", labelKey: "nav.clients", icon: Users, module: "Clients" },
+  { to: "/placements", labelKey: "nav.placements", icon: Briefcase, module: "Placements" },
+  { to: "/quotes", labelKey: "nav.quotes", icon: FileText, module: "Quotes" },
+  { to: "/proposals", labelKey: "nav.proposals", icon: Send, module: "Proposals" },
+  { to: "/inspections", labelKey: "nav.inspections", icon: ClipboardCheck, module: "Inspections" },
+  { to: "/insurers", labelKey: "nav.insurers", icon: Building2, module: "Insurers" },
+  { to: "/offerings", labelKey: "nav.offerings", icon: Shield, module: "Offerings" },
 ];
 
 const disabledItems: { labelKey: string; icon: LucideIcon }[] = [
+  { labelKey: "nav.policies", icon: Shield },
+  { labelKey: "nav.claims", icon: ShieldAlert },
+  { labelKey: "nav.renewals", icon: RefreshCw },
   { labelKey: "nav.pipeline", icon: Workflow },
-  { labelKey: "nav.facturacion", icon: Receipt },
-  { labelKey: "nav.reportes", icon: BarChart3 },
+  { labelKey: "nav.billing", icon: Receipt },
+  { labelKey: "nav.reports", icon: BarChart3 },
 ];
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="px-3 pb-1 pt-4 font-mono text-mono-sm uppercase tracking-wider text-text-muted">
+    <div
+      className={cn(
+        "px-3 pb-2.5 text-[10.5px] font-semibold uppercase tracking-[0.11em] text-text-muted",
+        className,
+      )}
+    >
       {children}
     </div>
+  );
+}
+
+function initials(name?: string) {
+  if (!name) return "R";
+  return (
+    name
+      .replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ ]/g, "")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join("") || "R"
   );
 }
 
 export function Sidebar() {
   const { t } = useTranslation("common");
   const { theme } = useTheme();
-  const { user, corredora } = useAuth();
+  const { user, organization } = useAuth();
+  const { isAdmin } = useIsBrokerAdmin();
+  const { data: perms, isLoading: permsLoading } = usePermissions();
 
-  const logo = theme === "dark" ? "radal-mark-white" : "radal-mark-ink";
+  // While the matrix is in flight show nothing rather than a nav that pops
+  // items away a moment later. Dashboard always stays as an anchor.
+  const visibleItems = permsLoading
+    ? gestionItems.filter((i) => i.module === "Dashboard")
+    : gestionItems.filter((i) => can(perms, i.module, "View"));
+
+  const logo = theme === "dark" ? "radal-mark-white" : "radal-mark-teal";
+  const tenant =
+    organization?.trade_name ?? organization?.legal_name ?? t("app.name");
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-line bg-bg-surface">
+    <aside className="sticky top-0 flex h-screen w-[266px] shrink-0 flex-col self-start border-r border-line bg-bg-sidebar px-4 pb-[18px] pt-[22px] transition-colors duration-300">
       {/* Brand */}
-      <div className="flex h-16 items-center gap-2 px-4">
-        <img
-          src={`/brand/${logo}.svg`}
-          alt="Radal"
-          className="h-7 w-7"
-        />
-        <div className="flex flex-col leading-tight">
-          <span className="wordmark font-display text-h3 text-text-primary">
-            Radal.
-          </span>
-          {corredora?.nombre ? (
-            <span className="text-caption text-text-muted">
-              {corredora.nombre}
-            </span>
-          ) : null}
-        </div>
+      <div className="flex items-center gap-[11px] px-2">
+        <img src={`/brand/${logo}.svg`} alt="Radal" className="h-7 w-7" />
+        <span className="wordmark font-display text-[21px] font-medium tracking-[-0.02em] text-text-primary">
+          Radal.
+        </span>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 pb-4">
-        <SectionLabel>{t("nav.sections.gestion")}</SectionLabel>
-        <ul className="space-y-0.5">
-          {gestionItems.map((item) => {
+      {/* Tenant pill */}
+      <div className="mx-2 mb-5 mt-4 flex items-center gap-[9px] rounded-[10px] border border-line bg-[color-mix(in_srgb,var(--teal)_7%,transparent)] px-[11px] py-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-teal shadow-[0_0_0_3px_color-mix(in_srgb,var(--teal)_22%,transparent)]" />
+        <span className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+          {tenant}
+        </span>
+      </div>
+
+      {/* Nav — Gestión */}
+      <nav className="flex-1 overflow-y-auto">
+        <SectionLabel>{t("nav.sections.management")}</SectionLabel>
+        <ul className="flex flex-col gap-0.5">
+          {visibleItems.map((item) => {
             const Icon = item.icon;
             return (
               <li key={item.to}>
@@ -97,68 +140,85 @@ export function Sidebar() {
                   end={item.end}
                   className={({ isActive }) =>
                     cn(
-                      "relative flex items-center gap-3 rounded-md px-3 py-2 text-label transition-colors",
+                      "flex items-center gap-[11px] rounded-[10px] px-3 py-[9px] text-label transition-colors duration-150",
                       isActive
-                        ? "bg-teal-soft font-medium text-teal-deep"
-                        : "text-text-secondary hover:bg-bg-recessed",
+                        ? "bg-[color-mix(in_srgb,var(--teal)_14%,transparent)] font-semibold text-teal-deep"
+                        : "font-medium text-text-tertiary hover:bg-[color-mix(in_srgb,var(--ink)_5%,transparent)] hover:text-text-primary",
                     )
                   }
                 >
-                  {({ isActive }) => (
-                    <>
-                      {isActive ? (
-                        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-teal" />
-                      ) : null}
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{t(item.labelKey)}</span>
-                    </>
-                  )}
+                  <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={1.75} />
+                  <span className="truncate">{t(item.labelKey)}</span>
                 </NavLink>
               </li>
             );
           })}
         </ul>
 
-        <SectionLabel>{t("nav.sections.comercialOperaciones")}</SectionLabel>
-        <TooltipProvider delayDuration={200}>
-          <ul className="space-y-0.5">
-            {disabledItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.labelKey}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div
-                        aria-disabled
-                        className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-label text-text-muted opacity-45"
-                      >
-                        <Icon className="h-4 w-4 shrink-0" />
-                        <span className="truncate">{t(item.labelKey)}</span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">
-                      {t("nav.proximamente")}
-                    </TooltipContent>
-                  </Tooltip>
-                </li>
-              );
-            })}
-          </ul>
-        </TooltipProvider>
+        {/* Nav — Comercial y operaciones (disabled) */}
+        <SectionLabel className="mt-6">
+          {t("nav.sections.commercialOperations")}
+        </SectionLabel>
+        <ul className="flex flex-col gap-0.5">
+          {disabledItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <li key={item.labelKey}>
+                <div
+                  aria-disabled
+                  className="flex cursor-not-allowed items-center gap-[11px] rounded-[10px] px-3 py-[9px] text-label font-medium text-text-muted opacity-70"
+                >
+                  <Icon className="h-[19px] w-[19px] shrink-0" strokeWidth={1.75} />
+                  <span className="truncate">{t(item.labelKey)}</span>
+                  <span className="ml-auto rounded-[5px] border border-line px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-text-muted">
+                    {t("nav.soon")}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* Nav — Administración (admin_corredora only) */}
+        {isAdmin ? (
+          <>
+            <SectionLabel className="mt-6">
+              {t("nav.sections.administration")}
+            </SectionLabel>
+            <ul className="flex flex-col gap-0.5">
+              <li>
+                <NavLink
+                  to="/settings"
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center gap-[11px] rounded-[10px] px-3 py-[9px] text-label transition-colors duration-150",
+                      isActive
+                        ? "bg-[color-mix(in_srgb,var(--teal)_14%,transparent)] font-semibold text-teal-deep"
+                        : "font-medium text-text-tertiary hover:bg-[color-mix(in_srgb,var(--ink)_5%,transparent)] hover:text-text-primary",
+                    )
+                  }
+                >
+                  <Settings className="h-[19px] w-[19px] shrink-0" strokeWidth={1.75} />
+                  <span className="truncate">{t("nav.settings")}</span>
+                </NavLink>
+              </li>
+            </ul>
+          </>
+        ) : null}
       </nav>
 
-      {/* Bottom: collaborator */}
+      {/* Bottom: user card */}
       {user ? (
-        <div className="flex items-center gap-3 border-t border-line px-4 py-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-soft">
-            <Building2 className="h-4 w-4 text-teal-deep" />
+        <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-line bg-bg-surface p-[9px]">
+          <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br from-teal to-blue font-display text-[13px] font-medium text-white">
+            {initials(user.full_name)}
           </div>
-          <div className="min-w-0 leading-tight">
-            <p className="truncate text-label text-text-primary">
-              {user.nombre}
+          <div className="min-w-0 leading-[1.3]">
+            <p className="truncate text-[13px] font-semibold text-text-primary">
+              {user.full_name}
             </p>
-            <p className="truncate text-caption text-text-muted">
-              {user.cargo}
+            <p className="truncate text-[11.5px] text-text-muted">
+              {user.job_title ?? user.role}
             </p>
           </div>
         </div>

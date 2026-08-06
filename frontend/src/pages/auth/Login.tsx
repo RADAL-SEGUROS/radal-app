@@ -50,10 +50,27 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="flex min-h-screen w-full bg-bg-app">
       {/* Brand panel (dark Ink) */}
-      <div className="relative hidden w-1/2 flex-col justify-between bg-ink p-12 lg:flex">
-        <div className="flex items-center gap-3">
+      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-[#0B1418] p-12 lg:flex">
+        {/* soft teal glow */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full opacity-30 blur-3xl"
+          style={{
+            background:
+              "radial-gradient(circle, var(--teal) 0%, transparent 70%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full opacity-20 blur-3xl"
+          style={{
+            background:
+              "radial-gradient(circle, var(--blue) 0%, transparent 70%)",
+          }}
+        />
+        <div className="relative flex items-center gap-3">
           <img
             src="/brand/radal-mark-white.svg"
             alt="Radal"
@@ -63,18 +80,18 @@ export default function Login() {
             Radal.
           </span>
         </div>
-        <div className="max-w-md">
-          <h2 className="font-display text-display text-white">
+        <div className="relative max-w-md">
+          <h2 className="font-display text-display leading-tight text-white">
             {t("auth:brand.title", "Conecta la industria del seguro")}
           </h2>
-          <p className="mt-3 text-body text-white/70">
+          <p className="mt-4 text-body text-white/70">
             {t(
               "auth:brand.subtitle",
               "Plataforma operativa para corredoras de seguros.",
             )}
           </p>
         </div>
-        <p className="font-mono text-mono-sm text-white/40">
+        <p className="relative font-mono text-mono-sm text-white/40">
           {t("common:app.tagline")}
         </p>
       </div>
@@ -102,7 +119,7 @@ export default function Login() {
             {t("auth:login.title", "Iniciar sesión")}
           </h1>
           <p className="mt-1 text-body text-text-muted">
-            {t("auth:login.subtitle", "Ingresa a tu cuenta de corredora")}
+            {t("auth:login.subtitle", "Ingresa a tu cuenta")}
           </p>
 
           <form

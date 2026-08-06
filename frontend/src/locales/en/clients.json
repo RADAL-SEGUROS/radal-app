@@ -1,0 +1,189 @@
+{
+  "title": "Clients",
+  "subtitle": "Your book of business: the canonical insured plus your private CRM record.",
+  "empty": "No clients match the current filter.",
+  "notFound": "We could not find this client.",
+  "actions": {
+    "new": "New client",
+    "viewPlacements": "View placements"
+  },
+  "kpi": {
+    "total": "Total clients",
+    "active": "Active",
+    "withPlacements": "With an active placement",
+    "unassigned": "Without account manager",
+    "assets": "Assets",
+    "placements": "Placements",
+    "activePlacements": "Active placements",
+    "policies": "Policies"
+  },
+  "filters": {
+    "searchPlaceholder": "Search by name, RUT or contact…",
+    "allStatuses": "All statuses",
+    "allManagers": "All account managers"
+  },
+  "columns": {
+    "client": "Client",
+    "status": "Status",
+    "sector": "Sector",
+    "accountManager": "Account manager",
+    "assets": "Assets",
+    "placements": "Placements",
+    "since": "Client since"
+  },
+  "pagination": {
+    "total_one": "{{count}} client",
+    "total_other": "{{count}} clients"
+  },
+  "status": {
+    "prospect": "Prospect",
+    "onboarding": "Onboarding",
+    "active": "Active",
+    "archived": "Archived"
+  },
+  "personType": {
+    "natural": "Individual",
+    "legal": "Legal entity"
+  },
+  "fields": {
+    "rut": "RUT",
+    "legalName": "Legal name",
+    "tradeName": "Trade name",
+    "personType": "Person type",
+    "taxActivity": "Tax activity",
+    "insuredEmail": "Insured email",
+    "insuredPhone": "Insured phone",
+    "address": "Address",
+    "commune": "Commune",
+    "region": "Region",
+    "status": "Status",
+    "accountManager": "Account manager",
+    "unassigned": "Unassigned",
+    "sector": "Sector",
+    "source": "Source",
+    "since": "Client since",
+    "contactName": "Contact",
+    "contactEmail": "Contact email",
+    "contactPhone": "Contact phone",
+    "internalNotes": "Internal notes"
+  },
+  "form": {
+    "createTitle": "New client",
+    "createSubtitle": "Identified by RUT: if the insured already exists on the platform it is linked, otherwise it is created.",
+    "editTitle": "Edit client",
+    "editSubtitle": "Only your private CRM record is editable. The canonical insured is shared across brokers.",
+    "sections": {
+      "insured": "Insured",
+      "crm": "CRM record"
+    },
+    "errors": {
+      "required": "Required field",
+      "email": "Invalid email",
+      "rut": "Invalid RUT (check digit does not match)"
+    }
+  },
+  "toast": {
+    "created": "Client created"
+  },
+  "detail": {
+    "insured": "Insured",
+    "crm": "CRM record",
+    "overview": "Overview"
+  },
+  "tabs": {
+    "assets": "Assets",
+    "placements": "Placements",
+    "documents": "Documents",
+    "activity": "Activity"
+  },
+  "placements": {
+    "empty": "This client has no placements yet.",
+    "new": "New placement"
+  },
+  "assets": {
+    "new": "New asset",
+    "empty": "This client has no assets registered yet.",
+    "created": "Asset created",
+    "count_one": "{{count}} asset",
+    "count_other": "{{count}} assets",
+    "placementsCount_one": "{{count}} active placement",
+    "placementsCount_other": "{{count}} active placements",
+    "createTitle": "New asset",
+    "createSubtitle": "The ten underwriting attributes are columns; the type-specific detail is filled in later.",
+    "newPlacement": "New placement on this asset",
+    "viewPlacements": "View placements for this asset",
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "archived": "Archived"
+    },
+    "types": {
+      "industrial_plant": "Industrial plant",
+      "distribution_centre": "Distribution centre",
+      "office": "Office",
+      "warehouse": "Warehouse",
+      "clinic": "Clinic",
+      "retail": "Retail",
+      "fleet": "Fleet"
+    },
+    "fields": {
+      "name": "Name",
+      "type": "Asset type",
+      "status": "Status",
+      "address": "Address",
+      "commune": "Commune",
+      "region": "Region",
+      "builtArea": "Built area (m²)",
+      "landArea": "Land area (m²)",
+      "constructionYear": "Construction year",
+      "floors": "Floors",
+      "structure": "Structure",
+      "activity": "Activity",
+      "fireStation": "Fire station distance (km)",
+      "seismicZone": "Seismic zone",
+      "placements": "Active / total placements"
+    }
+  },
+  "documents": {
+    "upload": "Upload document",
+    "uploaded": "Document uploaded",
+    "empty": "No documents yet.",
+    "category": "Category",
+    "downloadError": "We could not generate the download link",
+    "categories": {
+      "cmf_certificate": "CMF certificate",
+      "appointment": "Appointment letter",
+      "logo": "Logo",
+      "asset_sheet": "Asset sheet",
+      "asset_photo": "Photo",
+      "valuation": "Valuation",
+      "insured_amounts": "Insured amounts",
+      "evidence": "Evidence",
+      "inspection_report": "Inspection report",
+      "technical_brief": "Technical brief",
+      "claims_history": "Claims history",
+      "proposal": "Proposal",
+      "power_of_attorney": "Power of attorney",
+      "other": "Other"
+    }
+  },
+  "activity": {
+    "derivedNote": "Timeline derived from the existing records. The full audit trail (activity table) is not exposed by the API yet.",
+    "empty": "No activity recorded.",
+    "clientCreated": "Client created",
+    "assetCreated": "Asset registered",
+    "placementCreated": "Placement opened",
+    "placementUpdated": "Placement updated",
+    "documentUploaded": "Document uploaded"
+  },
+  "delete": {
+    "title": "Delete client",
+    "description": "You are about to remove “{{name}}” from your book. The canonical insured stays on the platform."
+  },
+  "permissions": {
+    "noCreate": "Your role cannot create here",
+    "noEdit": "Your role cannot edit here",
+    "noDelete": "Your role cannot delete here",
+    "noUpload": "Your role cannot upload documents"
+  }
+}

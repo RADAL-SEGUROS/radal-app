@@ -1,0 +1,189 @@
+{
+  "title": "Clientes",
+  "subtitle": "Tu cartera: el asegurado canónico más tu ficha comercial privada.",
+  "empty": "No hay clientes que coincidan con el filtro.",
+  "notFound": "No encontramos este cliente.",
+  "actions": {
+    "new": "Nuevo cliente",
+    "viewPlacements": "Ver colocaciones"
+  },
+  "kpi": {
+    "total": "Clientes totales",
+    "active": "Activos",
+    "withPlacements": "Con colocación activa",
+    "unassigned": "Sin ejecutivo",
+    "assets": "Activos",
+    "placements": "Colocaciones",
+    "activePlacements": "Colocaciones activas",
+    "policies": "Pólizas"
+  },
+  "filters": {
+    "searchPlaceholder": "Buscar por nombre, RUT o contacto…",
+    "allStatuses": "Todos los estados",
+    "allManagers": "Todos los ejecutivos"
+  },
+  "columns": {
+    "client": "Cliente",
+    "status": "Estado",
+    "sector": "Sector",
+    "accountManager": "Ejecutivo",
+    "assets": "Activos",
+    "placements": "Colocaciones",
+    "since": "Cliente desde"
+  },
+  "pagination": {
+    "total_one": "{{count}} cliente",
+    "total_other": "{{count}} clientes"
+  },
+  "status": {
+    "prospect": "Prospecto",
+    "onboarding": "Onboarding",
+    "active": "Activo",
+    "archived": "Archivado"
+  },
+  "personType": {
+    "natural": "Persona natural",
+    "legal": "Persona jurídica"
+  },
+  "fields": {
+    "rut": "RUT",
+    "legalName": "Razón social",
+    "tradeName": "Nombre de fantasía",
+    "personType": "Tipo de persona",
+    "taxActivity": "Giro",
+    "insuredEmail": "Email del asegurado",
+    "insuredPhone": "Teléfono del asegurado",
+    "address": "Dirección",
+    "commune": "Comuna",
+    "region": "Región",
+    "status": "Estado",
+    "accountManager": "Ejecutivo a cargo",
+    "unassigned": "Sin asignar",
+    "sector": "Sector",
+    "source": "Origen",
+    "since": "Cliente desde",
+    "contactName": "Contacto",
+    "contactEmail": "Email de contacto",
+    "contactPhone": "Teléfono de contacto",
+    "internalNotes": "Notas internas"
+  },
+  "form": {
+    "createTitle": "Nuevo cliente",
+    "createSubtitle": "Se identifica por RUT: si el asegurado ya existe en la plataforma, se vincula; si no, se crea.",
+    "editTitle": "Editar cliente",
+    "editSubtitle": "Solo se edita tu ficha comercial privada. El asegurado canónico es compartido entre corredoras.",
+    "sections": {
+      "insured": "Asegurado",
+      "crm": "Ficha comercial"
+    },
+    "errors": {
+      "required": "Campo obligatorio",
+      "email": "Email inválido",
+      "rut": "RUT inválido (no pasa el dígito verificador)"
+    }
+  },
+  "toast": {
+    "created": "Cliente creado"
+  },
+  "detail": {
+    "insured": "Asegurado",
+    "crm": "Ficha comercial",
+    "overview": "Resumen"
+  },
+  "tabs": {
+    "assets": "Activos",
+    "placements": "Colocaciones",
+    "documents": "Documentos",
+    "activity": "Actividad"
+  },
+  "placements": {
+    "empty": "Este cliente aún no tiene colocaciones.",
+    "new": "Nueva colocación"
+  },
+  "assets": {
+    "new": "Nuevo activo",
+    "empty": "Este cliente aún no tiene activos registrados.",
+    "created": "Activo creado",
+    "count_one": "{{count}} activo",
+    "count_other": "{{count}} activos",
+    "placementsCount_one": "{{count}} colocación activa",
+    "placementsCount_other": "{{count}} colocaciones activas",
+    "createTitle": "Nuevo activo",
+    "createSubtitle": "Los diez atributos de suscripción son columnas; el detalle específico por tipo se completa después.",
+    "newPlacement": "Nueva colocación sobre este activo",
+    "viewPlacements": "Ver colocaciones del activo",
+    "status": {
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "archived": "Archivado"
+    },
+    "types": {
+      "industrial_plant": "Planta industrial",
+      "distribution_centre": "Centro de distribución",
+      "office": "Oficina",
+      "warehouse": "Bodega",
+      "clinic": "Clínica",
+      "retail": "Retail",
+      "fleet": "Flota"
+    },
+    "fields": {
+      "name": "Nombre",
+      "type": "Tipo de activo",
+      "status": "Estado",
+      "address": "Dirección",
+      "commune": "Comuna",
+      "region": "Región",
+      "builtArea": "Superficie construida (m²)",
+      "landArea": "Superficie terreno (m²)",
+      "constructionYear": "Año de construcción",
+      "floors": "Pisos",
+      "structure": "Estructura",
+      "activity": "Actividad",
+      "fireStation": "Distancia a bomberos (km)",
+      "seismicZone": "Zona sísmica",
+      "placements": "Colocaciones activas / totales"
+    }
+  },
+  "documents": {
+    "upload": "Subir documento",
+    "uploaded": "Documento subido",
+    "empty": "Aún no hay documentos.",
+    "category": "Categoría",
+    "downloadError": "No pudimos generar el enlace de descarga",
+    "categories": {
+      "cmf_certificate": "Certificado CMF",
+      "appointment": "Carta de nombramiento",
+      "logo": "Logo",
+      "asset_sheet": "Ficha de activo",
+      "asset_photo": "Fotografía",
+      "valuation": "Tasación",
+      "insured_amounts": "Montos asegurados",
+      "evidence": "Respaldo",
+      "inspection_report": "Informe de inspección",
+      "technical_brief": "Brief técnico",
+      "claims_history": "Historial de siniestros",
+      "proposal": "Propuesta",
+      "power_of_attorney": "Poder",
+      "other": "Otro"
+    }
+  },
+  "activity": {
+    "derivedNote": "Línea de tiempo derivada de los registros existentes. El registro de auditoría completo (tabla activity) aún no se expone en la API.",
+    "empty": "Sin actividad registrada.",
+    "clientCreated": "Cliente creado",
+    "assetCreated": "Activo registrado",
+    "placementCreated": "Colocación abierta",
+    "placementUpdated": "Colocación actualizada",
+    "documentUploaded": "Documento subido"
+  },
+  "delete": {
+    "title": "Eliminar cliente",
+    "description": "Vas a eliminar «{{name}}» de tu cartera. El asegurado canónico se mantiene en la plataforma."
+  },
+  "permissions": {
+    "noCreate": "Tu rol no permite crear aquí",
+    "noEdit": "Tu rol no permite editar aquí",
+    "noDelete": "Tu rol no permite eliminar aquí",
+    "noUpload": "Tu rol no permite subir documentos"
+  }
+}

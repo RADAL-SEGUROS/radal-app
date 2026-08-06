@@ -4,33 +4,47 @@ import { initReactI18next } from "react-i18next";
 import esCommon from "@/locales/es/common.json";
 import esAuth from "@/locales/es/auth.json";
 import esDashboard from "@/locales/es/dashboard.json";
-import esClientes from "@/locales/es/clientes.json";
-import esPolizas from "@/locales/es/polizas.json";
-import esRenovaciones from "@/locales/es/renovaciones.json";
-import esCotizaciones from "@/locales/es/cotizaciones.json";
-import esSiniestros from "@/locales/es/siniestros.json";
-import esInspecciones from "@/locales/es/inspecciones.json";
+import esClients from "@/locales/es/clients.json";
+import esPlacements from "@/locales/es/placements.json";
+import esInspections from "@/locales/es/inspections.json";
+import esSettings from "@/locales/es/settings.json";
+import esQuotes from "@/locales/es/quotes.json";
+import esProposals from "@/locales/es/proposals.json";
+import esInsurers from "@/locales/es/insurers.json";
+import esOfferings from "@/locales/es/offerings.json";
 
 import enCommon from "@/locales/en/common.json";
 import enAuth from "@/locales/en/auth.json";
 import enDashboard from "@/locales/en/dashboard.json";
-import enClientes from "@/locales/en/clientes.json";
-import enPolizas from "@/locales/en/polizas.json";
-import enRenovaciones from "@/locales/en/renovaciones.json";
-import enCotizaciones from "@/locales/en/cotizaciones.json";
-import enSiniestros from "@/locales/en/siniestros.json";
-import enInspecciones from "@/locales/en/inspecciones.json";
+import enClients from "@/locales/en/clients.json";
+import enPlacements from "@/locales/en/placements.json";
+import enInspections from "@/locales/en/inspections.json";
+import enSettings from "@/locales/en/settings.json";
+import enQuotes from "@/locales/en/quotes.json";
+import enProposals from "@/locales/en/proposals.json";
+import enInsurers from "@/locales/en/insurers.json";
+import enOfferings from "@/locales/en/offerings.json";
 
+/**
+ * Namespaces registered with i18next. Domain namespaces are added back here by
+ * the module passes, one per module (clients, assets, placements, quotes,
+ * proposals, inspections, insurers, offerings, documents, settings).
+ *
+ * Rule: `es` is complete and authoritative; `en` mirrors the same keys.
+ * No hardcoded UI copy in components — everything goes through t().
+ */
 export const NAMESPACES = [
   "common",
   "auth",
   "dashboard",
-  "clientes",
-  "polizas",
-  "renovaciones",
-  "cotizaciones",
-  "siniestros",
-  "inspecciones",
+  "clients",
+  "placements",
+  "inspections",
+  "settings",
+  "quotes",
+  "proposals",
+  "insurers",
+  "offerings",
 ] as const;
 
 export type Namespace = (typeof NAMESPACES)[number];
@@ -48,23 +62,27 @@ const resources = {
     common: esCommon,
     auth: esAuth,
     dashboard: esDashboard,
-    clientes: esClientes,
-    polizas: esPolizas,
-    renovaciones: esRenovaciones,
-    cotizaciones: esCotizaciones,
-    siniestros: esSiniestros,
-    inspecciones: esInspecciones,
+    clients: esClients,
+    placements: esPlacements,
+    inspections: esInspections,
+    settings: esSettings,
+    quotes: esQuotes,
+    proposals: esProposals,
+    insurers: esInsurers,
+    offerings: esOfferings,
   },
   en: {
     common: enCommon,
     auth: enAuth,
     dashboard: enDashboard,
-    clientes: enClientes,
-    polizas: enPolizas,
-    renovaciones: enRenovaciones,
-    cotizaciones: enCotizaciones,
-    siniestros: enSiniestros,
-    inspecciones: enInspecciones,
+    clients: enClients,
+    placements: enPlacements,
+    inspections: enInspections,
+    settings: enSettings,
+    quotes: enQuotes,
+    proposals: enProposals,
+    insurers: enInsurers,
+    offerings: enOfferings,
   },
 } as const;
 

@@ -5,20 +5,27 @@
   },
   "nav": {
     "sections": {
-      "gestion": "Gestión",
-      "comercialOperaciones": "Comercial y operaciones"
+      "management": "Gestión",
+      "commercialOperations": "Comercial y operaciones",
+      "administration": "Administración"
     },
     "dashboard": "Dashboard",
-    "clientes": "Clientes",
-    "polizas": "Pólizas",
-    "renovaciones": "Renovaciones",
-    "cotizaciones": "Cotizaciones",
-    "siniestros": "Siniestros",
-    "inspecciones": "Inspecciones",
+    "clients": "Clientes",
+    "placements": "Colocaciones",
+    "quotes": "Cotizaciones",
+    "proposals": "Propuestas",
+    "inspections": "Inspecciones",
+    "insurers": "Aseguradoras",
+    "offerings": "Ofertas",
+    "settings": "Configuración",
+    "policies": "Pólizas",
+    "claims": "Siniestros",
+    "renewals": "Renovaciones",
     "pipeline": "Pipeline",
-    "facturacion": "Facturación",
-    "reportes": "Reportes",
-    "proximamente": "Próximamente"
+    "billing": "Facturación",
+    "reports": "Reportes",
+    "comingSoon": "Próximamente",
+    "soon": "Pronto"
   },
   "actions": {
     "save": "Guardar",
@@ -54,10 +61,19 @@
     "placeholder": "Buscar clientes, pólizas, activos…",
     "empty": "Sin resultados",
     "categories": {
-      "clientes": "Clientes",
-      "polizas": "Pólizas",
-      "activos": "Activos"
+      "clients": "Clientes",
+      "assets": "Bienes",
+      "quotes": "Cotizaciones",
+      "proposals": "Propuestas"
     }
+  },
+  "th": {
+    "cliente": "Cliente",
+    "estado": "Estado",
+    "prima": "Prima",
+    "dias": "Días",
+    "sector": "Sector",
+    "id": "ID"
   },
   "table": {
     "empty": "No hay registros",
@@ -103,12 +119,6 @@
     "toggle": "Cambiar idioma",
     "es": "Español",
     "en": "English"
-  },
-  "devView": {
-    "label": "Vista",
-    "radal": "Radal",
-    "aseguradora": "Aseguradora",
-    "asegurado": "Asegurado"
   },
   "user": {
     "menu": "Menú de usuario",

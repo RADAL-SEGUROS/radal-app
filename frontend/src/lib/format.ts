@@ -75,6 +75,15 @@ export function weekday(value: string | Date = new Date()): string {
   return format(d, "EEEE", { locale: dateLocale() });
 }
 
+/** Capitalized "weekday, d month" e.g. "Miércoles, 8 de julio" / "Wednesday, July 8". */
+export function weekdayLongDate(value: string | Date = new Date()): string {
+  const d = toDate(value) ?? new Date();
+  const isEs = !i18n.language?.startsWith("en");
+  const pattern = isEs ? "EEEE, d 'de' MMMM" : "EEEE, MMMM d";
+  const s = format(d, pattern, { locale: dateLocale() });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 /** Time-of-day period for greeting. */
 export function greetingPeriod(now: Date = new Date()): "manana" | "tarde" | "noche" {
   const h = now.getHours();

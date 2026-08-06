@@ -1,19 +1,22 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
-import { DevViewSwitcher } from "./DevViewSwitcher";
 
 export function AppShell() {
+  const location = useLocation();
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-bg-app">
+    <div className="flex min-h-screen w-full bg-bg-app text-text-primary">
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <main className="flex h-screen min-w-0 flex-1 flex-col overflow-y-auto">
         <Topbar />
-        <main className="flex-1 overflow-y-auto p-6">
+        {/* key on pathname so entrance motion replays on route change */}
+        <div
+          key={location.pathname}
+          className="mx-auto flex w-full max-w-[1380px] flex-col gap-[22px] px-7 pb-14 pt-[26px]"
+        >
           <Outlet />
-        </main>
-      </div>
-      <DevViewSwitcher />
+        </div>
+      </main>
     </div>
   );
 }

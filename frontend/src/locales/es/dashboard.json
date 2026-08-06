@@ -1,52 +1,44 @@
 {
+  "subtitle": "Tu día de trabajo en una pantalla.",
   "greeting": {
-    "manana": "Buenos días",
-    "tarde": "Buenas tardes",
-    "noche": "Buenas noches",
-    "line": "{{saludo}}, {{nombre}}",
-    "subtitle": "Hoy es {{dia}}"
+    "withName": "{{greeting}}, {{name}}"
   },
-  "kpis": {
-    "polizasVigentes": "Pólizas vigentes",
-    "clientesActivos": "Clientes activos",
-    "renovacionesActivas": "Renovaciones activas",
-    "pipelinePonderado": "Pipeline ponderado",
-    "pipelineHint": "Suma de primas estimadas"
+  "actions": {
+    "newClient": "Nuevo cliente",
+    "newPlacement": "Nueva colocación"
   },
-  "quickActions": {
-    "title": "Acciones rápidas",
-    "nuevoCliente": "Nuevo cliente",
-    "nuevaPoliza": "Nueva póliza",
-    "reportarSiniestro": "Reportar siniestro",
-    "solicitarInspeccion": "Solicitar inspección"
+  "kpi": {
+    "clients": "Clientes",
+    "clientsHint_one": "{{count}} con colocación activa",
+    "clientsHint_other": "{{count}} con colocación activa",
+    "openPlacements": "Colocaciones abiertas",
+    "openPlacementsHint_one": "{{count}} en mercado",
+    "openPlacementsHint_other": "{{count}} en mercado",
+    "expiring": "Por vencer 60D",
+    "expiringHint": "Vigencias que terminan pronto",
+    "assets": "Activos asegurables",
+    "assetsHint_one": "{{count}} sin colocación",
+    "assetsHint_other": "{{count}} sin colocación"
   },
-  "requiereAtencion": {
+  "attention": {
     "title": "Requiere atención",
-    "empty": "No tienes pendientes por ahora",
-    "tipos": {
-      "renovacion": "Renovación",
-      "cotizacion": "Cotización",
-      "siniestro": "Siniestro",
-      "inspeccion": "Inspección"
-    }
+    "empty": "Nada urgente por ahora."
   },
-  "principalesClientes": {
+  "pipeline": {
+    "title": "Pipeline por estado",
+    "empty": "Aún no hay colocaciones."
+  },
+  "topClients": {
     "title": "Principales clientes",
-    "empty": "Sin clientes registrados",
-    "polizas_one": "{{count}} póliza",
-    "polizas_other": "{{count}} pólizas"
+    "placements": "activas",
+    "noSector": "Sin sector",
+    "empty": "Aún no hay clientes con actividad."
   },
-  "actividadReciente": {
+  "recent": {
     "title": "Actividad reciente",
-    "empty": "Sin actividad reciente",
-    "verMas": "Ver más",
-    "verMenos": "Ver menos"
-  },
-  "proximasRenovaciones": {
-    "title": "Próximas renovaciones",
-    "empty": "Sin renovaciones próximas",
-    "vence": "Vence {{fecha}}",
-    "diasRestantes_one": "{{count}} día",
-    "diasRestantes_other": "{{count}} días"
+    "empty": "Sin movimientos recientes.",
+    "showMore_one": "Ver {{count}} movimiento más",
+    "showMore_other": "Ver {{count}} movimientos más",
+    "derivedNote": "Derivado de la última actualización de colocaciones y clientes: el registro de auditoría completo aún no se expone en la API."
   }
 }

@@ -1,0 +1,162 @@
+{
+  "title": "Cotizaciones",
+  "subtitle": "Solicitudes de cotización enviadas al mercado asegurador",
+  "kpi": {
+    "total": "Cotizaciones",
+    "draft": "En borrador",
+    "inMarket": "En mercado",
+    "proposals": "Propuestas recibidas"
+  },
+  "filters": {
+    "search": "Buscar por objeto asegurado…",
+    "status": "Estado",
+    "allStatuses": "Todos los estados",
+    "showing": "Mostrando {{shown}} de {{total}}"
+  },
+  "status": {
+    "draft": "Borrador",
+    "sent": "Enviada",
+    "receiving": "Recibiendo",
+    "closed": "Cerrada",
+    "cancelled": "Anulada"
+  },
+  "proposalStatus": {
+    "draft": "Borrador",
+    "submitted": "Presentada",
+    "accepted": "Aceptada",
+    "rejected": "Rechazada",
+    "withdrawn": "Retirada",
+    "expired": "Vencida"
+  },
+  "offeringStatus": {
+    "draft": "Borrador",
+    "sent": "Enviada",
+    "viewed": "Vista",
+    "accepted": "Aceptada",
+    "expired": "Vencida"
+  },
+  "origin": {
+    "native": "Nativa",
+    "external": "Externa"
+  },
+  "priority": {
+    "low": "Baja",
+    "normal": "Normal",
+    "high": "Alta",
+    "urgent": "Urgente"
+  },
+  "table": {
+    "id": "ID",
+    "object": "Objeto asegurado",
+    "noObject": "Sin objeto declarado",
+    "declared": "Valor declarado",
+    "itemsCount_one": "{{count}} ítem",
+    "itemsCount_other": "{{count}} ítems",
+    "proposals": "Propuestas",
+    "priority": "Prioridad",
+    "status": "Estado",
+    "due": "Vencimiento"
+  },
+  "due": {
+    "overdue": "Vencida",
+    "inDays_one": "{{count}} día",
+    "inDays_other": "{{count}} días"
+  },
+  "empty": {
+    "title": "Todavía no hay cotizaciones",
+    "hint": "Una cotización nace de un placement: elige el activo, el ramo y el periodo, y define los ítems asegurados."
+  },
+  "create": {
+    "action": "Nueva cotización",
+    "noPermission": "Tu rol no permite crear cotizaciones",
+    "title": "Nueva solicitud de cotización",
+    "description": "Se crea sobre un placement existente (activo + ramo + periodo).",
+    "placement": "Placement",
+    "placementPlaceholder": "Selecciona el placement",
+    "noPlacements": "No hay placements abiertos. Crea uno antes de cotizar.",
+    "pickPlacement": "Selecciona un placement",
+    "insuredObject": "Objeto asegurado",
+    "insuredObjectPlaceholder": "Ej.: Planta industrial Quilicura",
+    "declaredValue": "Valor declarado (UF)",
+    "declaredHint": "Puedes dejarlo en blanco: se ajusta con la suma de los ítems.",
+    "desiredStart": "Inicio deseado",
+    "priority": "Prioridad",
+    "requestedCoverages": "Coberturas solicitadas",
+    "requestedCoveragesPlaceholder": "Ej.: Incendio, sismo, RC general",
+    "created": "Cotización creada"
+  },
+  "summary": {
+    "declared": "Valor declarado",
+    "lineItemsTotal": "Suma de ítems",
+    "proposals": "Propuestas",
+    "desiredStart": "Inicio deseado",
+    "due": "Vence",
+    "sentAt": "Enviada el",
+    "requestedCoverages": "Coberturas solicitadas"
+  },
+  "lineItems": {
+    "title": "Ítems asegurados",
+    "description": "El valor declarado debe ser igual a la suma de los ítems (±0,01 UF).",
+    "add": "Agregar ítem",
+    "discard": "Descartar cambios",
+    "save": "Guardar ítems",
+    "saved": "Ítems guardados",
+    "name": "Ítem",
+    "namePlaceholder": "Ej.: Edificación",
+    "value": "Valor (UF)",
+    "detail": "Detalle",
+    "detailPlaceholder": "Opcional",
+    "empty": "Sin ítems declarados",
+    "sum": "Suma de ítems",
+    "declared": "Valor declarado",
+    "delta": "Diferencia",
+    "mismatch": "No cuadra",
+    "willSync": "Se ajustará el valor declarado",
+    "balanced": "Cuadra",
+    "syncDeclared": "Ajustar el valor declarado a la suma",
+    "noPermission": "Tu rol no permite editar esta cotización",
+    "incomplete": "Completa el nombre y el valor de cada ítem",
+    "mismatchBlocks": "La suma no coincide con el valor declarado: activa el ajuste automático o corrige los montos",
+    "noChanges": "No hay cambios por guardar"
+  },
+  "send": {
+    "action": "Registrar envío",
+    "notSendable": "Solo una cotización en borrador o ya enviada puede registrarse como enviada",
+    "title": "Enviar a aseguradoras",
+    "description": "Radal registra a quién enviaste la solicitud; el envío del correo o del portal lo haces tú.",
+    "searchInsurers": "Buscar aseguradora…",
+    "noInsurers": "No hay aseguradoras que coincidan",
+    "dueAt": "Plazo de respuesta",
+    "manualNote": "Al registrar el envío, el placement pasa a estado “cotizando”.",
+    "pickInsurer": "Selecciona al menos una aseguradora",
+    "confirm": "Registrar envío",
+    "recorded": "Envío registrado"
+  },
+  "detail": {
+    "title": "Cotización",
+    "notFound": "No encontramos esta cotización",
+    "backToQuote": "Volver a la cotización",
+    "uploadProposal": "Cargar propuesta",
+    "compare": "Comparar propuestas",
+    "noProposalsYet": "Aún no hay propuestas para comparar",
+    "createOffering": "Crear oferta",
+    "offeringNeedsProposal": "Necesitas al menos una propuesta para armar la oferta",
+    "offeringNoPermission": "Tu rol no permite crear ofertas",
+    "offeringCreated": "Oferta creada",
+    "proposalsTitle": "Propuestas recibidas",
+    "proposalsDescription": "Cada propuesta se estandariza para poder compararlas entre sí.",
+    "noProposalsTitle": "Sin propuestas todavía",
+    "noProposalsHint": "Carga el documento que envió la aseguradora y la IA lo transforma al formato estándar.",
+    "proposalInsurer": "Aseguradora",
+    "proposalTotal": "Prima total",
+    "proposalRate": "Tasa integral",
+    "proposalStatus": "Estado",
+    "proposalConfirmed": "Revisión",
+    "confirmed": "Confirmada",
+    "unconfirmed": "Sin confirmar",
+    "offeringsTitle": "Ofertas al cliente",
+    "offeringsDescription": "El paquete compartible que recibe el asegurado.",
+    "noOfferings": "Todavía no armaste una oferta para esta cotización.",
+    "offeringNotSent": "Sin enviar"
+  }
+}

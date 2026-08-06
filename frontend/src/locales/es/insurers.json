@@ -1,0 +1,109 @@
+{
+  "title": "Aseguradoras",
+  "subtitle": "Catálogo único: socios nativos de Radal y compañías externas",
+  "origin": {
+    "native": "Nativa",
+    "external": "Externa"
+  },
+  "status": {
+    "active": "Activa",
+    "inactive": "Inactiva",
+    "deregistered": "Dada de baja"
+  },
+  "filters": {
+    "search": "Buscar por nombre, RUT o código CMF…",
+    "all": "Todas",
+    "showing": "Mostrando {{shown}} de {{total}}"
+  },
+  "recommendations": {
+    "title": "Socios recomendados",
+    "subtitle": "Partners nativos con acuerdo comercial vigente",
+    "hasLineContact": "Contacto por ramo",
+    "reasons": {
+      "native_partner": "Socio nativo de Radal",
+      "native_partner_with_contact": "Socio nativo con contacto asignado",
+      "native_partner_with_line_contact": "Socio nativo con contacto para este ramo"
+    }
+  },
+  "empty": {
+    "title": "No hay aseguradoras que coincidan",
+    "hint": "Ajusta la búsqueda o registra la compañía externa que te envió una propuesta."
+  },
+  "card": {
+    "externalHint": "Compañía externa: se registró al cargar una propuesta"
+  },
+  "create": {
+    "action": "Registrar aseguradora",
+    "noPermission": "Tu rol no permite registrar aseguradoras",
+    "title": "Registrar aseguradora externa",
+    "description": "La identidad es RUT + código CMF. Nunca se identifica por el nombre.",
+    "externalOnly": "Las corredoras registran compañías externas; los socios nativos los habilita el equipo de Radal.",
+    "required": "RUT, código CMF y razón social son obligatorios",
+    "created": "Aseguradora registrada"
+  },
+  "fields": {
+    "rut": "RUT",
+    "cmfCode": "Código CMF",
+    "legalName": "Razón social",
+    "tradeName": "Nombre de fantasía",
+    "paymentUrl": "Portal de pago",
+    "cmfStatus": "Situación CMF",
+    "ownership": "Origen del registro",
+    "createdAt": "Registrada el"
+  },
+  "profile": {
+    "title": "Perfil de socio nativo",
+    "description": "Condiciones comerciales del acuerdo con Radal.",
+    "priority": "Prioridad",
+    "sla": "SLA",
+    "onboardedAt": "Onboarding",
+    "agreement": "Acuerdo comercial",
+    "notes": "Notas"
+  },
+  "contacts": {
+    "title": "Contactos",
+    "description": "Orden de resolución: (corredora + ramo) → (corredora) → (ramo) → global.",
+    "effective": "Contacto efectivo",
+    "add": "Agregar contacto",
+    "addTitle": "Nuevo contacto",
+    "editTitle": "Editar contacto",
+    "dialogDescription": "Los contactos que creas quedan asociados a tu corredora.",
+    "empty": "Esta aseguradora todavía no tiene contactos cargados.",
+    "name": "Nombre",
+    "contact": "Contacto",
+    "role": "Cargo",
+    "scope": "Alcance",
+    "scopes": {
+      "broker": "De tu corredora",
+      "global": "Global de Radal"
+    },
+    "matchLevel": {
+      "broker_line": "Corredora + ramo",
+      "broker": "Corredora",
+      "line": "Ramo",
+      "global": "Global"
+    },
+    "primary": "Principal",
+    "isPrimary": "Marcar como contacto principal",
+    "email": "Email",
+    "phone": "Teléfono",
+    "readOnly": "Es un contacto global de Radal: solo el equipo de la plataforma puede editarlo",
+    "nameRequired": "El nombre es obligatorio",
+    "scopeNote": "Este contacto quedará visible solo para tu corredora.",
+    "created": "Contacto creado",
+    "updated": "Contacto actualizado",
+    "deleted": "Contacto eliminado"
+  },
+  "detail": {
+    "title": "Aseguradora",
+    "notFound": "No encontramos esta aseguradora",
+    "paymentPortal": "Portal de pago",
+    "noPaymentUrl": "Esta compañía no tiene portal de pago registrado",
+    "readOnly": "Compañía global de Radal: tu corredora no puede editarla",
+    "brokerOwned": "Registrada por tu corredora",
+    "platformOwned": "Registrada por Radal",
+    "editTitle": "Editar aseguradora",
+    "editDescription": "Puedes corregir nombres y el portal de pago.",
+    "identityImmutable": "El RUT y el código CMF definen la identidad y no se editan desde aquí."
+  }
+}

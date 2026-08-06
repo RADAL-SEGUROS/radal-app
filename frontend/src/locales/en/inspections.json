@@ -1,0 +1,254 @@
+{
+  "title": "Inspections",
+  "subtitle": "Inspection requests and technical risk reports",
+  "tabs": {
+    "requests": "Requests",
+    "reports": "Reports"
+  },
+  "kpi": {
+    "pendingRequests": "Pending requests",
+    "pendingRequestsHint": "No inspector on site yet",
+    "inProgress": "On site",
+    "inProgressHint": "Inspections under way",
+    "issued": "Issued reports",
+    "issuedHint": "Closed and signed reports",
+    "avgScore": "Average overall score",
+    "avgScoreHint": "Across reports with a score"
+  },
+  "filters": {
+    "status": "Status",
+    "all": "All",
+    "latestOnly": "Latest version only",
+    "asset": "Asset"
+  },
+  "requests": {
+    "new": "New request",
+    "edit": "Edit request",
+    "empty": "No inspection requests yet",
+    "columns": {
+      "id": "Request",
+      "asset": "Asset",
+      "urgency": "Urgency",
+      "targetDate": "Target date",
+      "status": "Status",
+      "requestedAt": "Requested",
+      "reason": "Reason"
+    },
+    "form": {
+      "asset": "Asset to inspect",
+      "assetPlaceholder": "Pick an asset",
+      "placement": "Related placement",
+      "placementPlaceholder": "No placement",
+      "urgency": "Urgency",
+      "targetDate": "Target date",
+      "reason": "Reason for the inspection",
+      "reasonPlaceholder": "e.g. annual renewal, new asset, insurer requirement",
+      "status": "Status",
+      "submit": "Create request",
+      "save": "Save changes",
+      "assetRequired": "Pick an asset"
+    },
+    "cancel": {
+      "action": "Cancel request",
+      "title": "Cancel inspection request",
+      "description": "The request is marked as cancelled. Reports already created are kept.",
+      "confirm": "Yes, cancel it",
+      "done": "Request cancelled",
+      "completed": "A completed request cannot be cancelled"
+    },
+    "createReport": "Create report",
+    "toast": {
+      "created": "Request created",
+      "updated": "Request updated"
+    }
+  },
+  "reports": {
+    "new": "New report",
+    "empty": "No inspection reports yet",
+    "columns": {
+      "folio": "Folio",
+      "asset": "Asset",
+      "version": "Version",
+      "inspector": "Inspector",
+      "visitDate": "Visit",
+      "reportDate": "Report",
+      "score": "Overall score",
+      "status": "Status"
+    },
+    "form": {
+      "asset": "Asset",
+      "request": "Related request",
+      "requestPlaceholder": "No request",
+      "inspector": "Inspector",
+      "inspectorPlaceholder": "Unassigned",
+      "visitDate": "Visit date",
+      "folio": "Folio",
+      "folioPlaceholder": "e.g. 2026000341022",
+      "submit": "Create report"
+    },
+    "toast": {
+      "created": "Report created"
+    }
+  },
+  "detail": {
+    "eyebrow": "Inspection report",
+    "version": "Version {{n}}",
+    "notFound": "We could not find this report",
+    "backToList": "Back to inspections",
+    "asset": "Asset",
+    "inspector": "Inspector",
+    "visitDate": "Visit date",
+    "reportDate": "Report date",
+    "request": "Source request",
+    "folio": "Folio",
+    "unassigned": "Unassigned",
+    "findings": "Findings summary",
+    "findingsEmpty": "No findings summary",
+    "findingsPlaceholder": "Describe the main findings of the visit",
+    "saveFindings": "Save summary",
+    "frozen": "This report is {{status}} and read-only. Create a new version to amend it.",
+    "newVersion": "New version",
+    "newVersionTitle": "Create a new version",
+    "newVersionDescription": "The original report stays intact and auditable. The copy starts as a draft.",
+    "copyChecklist": "Copy checklist",
+    "copyScores": "Copy scores",
+    "copyBoundaries": "Copy boundaries",
+    "newVersionSubmit": "Create version",
+    "versionCreated": "Version {{n}} created",
+    "assign": "Assign inspector",
+    "assignSubmit": "Assign",
+    "assigned": "Inspector assigned",
+    "unassign": "Clear assignment",
+    "statusActions": "Change status",
+    "moveTo": "Move to {{status}}",
+    "statusChanged": "Status updated",
+    "needsReport": "Upload the signed report before issuing it",
+    "noTransitions": "No transitions available from this status"
+  },
+  "scores": {
+    "title": "Scores",
+    "edit": "Edit scores",
+    "overall": "Overall",
+    "technical": "Technical factors",
+    "commercial": "Commercial factor",
+    "location": "Location module",
+    "lossEstimate": "Loss estimate",
+    "pml": "PML",
+    "eml": "EML",
+    "classification": "Risk classification",
+    "classificationPlaceholder": "e.g. Medium-high quality risk",
+    "empty": "This report has no scores yet",
+    "outOf": "of 100",
+    "saved": "Scores updated",
+    "range": "Scores range from 0 to 100"
+  },
+  "checklist": {
+    "title": "Technical checklist",
+    "version": "Template v{{n}}",
+    "empty": "This report has no checklist",
+    "unsupported": "This checklist uses a shape we cannot render yet. It is shown exactly as stored.",
+    "summary": {
+      "ok": "Compliant",
+      "observation": "Observations",
+      "critical": "Critical",
+      "not_applicable": "Not applicable"
+    },
+    "item": "Item",
+    "result": "Result",
+    "note": "Note",
+    "notePlaceholder": "Inspector's remark",
+    "itemPlaceholder": "Description of the checked point",
+    "addItem": "Add item",
+    "addSection": "Add section",
+    "sectionName": "Section name",
+    "newSection": "New section",
+    "removeItem": "Remove item",
+    "save": "Save checklist",
+    "saved": "Checklist saved",
+    "discard": "Discard changes",
+    "dirty": "You have unsaved changes"
+  },
+  "result": {
+    "ok": "Compliant",
+    "observation": "Observation",
+    "critical": "Critical",
+    "not_applicable": "Not applicable",
+    "unknown": "No result"
+  },
+  "boundaries": {
+    "title": "Boundaries",
+    "empty": "No boundaries recorded",
+    "orientation": "Orientation",
+    "description": "Boundary",
+    "distance": "Distance",
+    "aggravating": "Aggravating factor",
+    "isAggravating": "Aggravates the risk",
+    "add": "Add boundary",
+    "addTitle": "New boundary",
+    "editTitle": "Edit boundary",
+    "orientationPlaceholder": "North, South, East…",
+    "descriptionPlaceholder": "What sits next door",
+    "distancePlaceholder": "e.g. 15 m",
+    "aggravatingPlaceholder": "e.g. Minor aggravation",
+    "created": "Boundary added",
+    "updated": "Boundary updated",
+    "deleted": "Boundary deleted",
+    "deleteTitle": "Delete boundary",
+    "deleteDescription": "This cannot be undone."
+  },
+  "evidence": {
+    "title": "Photo evidence",
+    "empty": "No evidence uploaded yet",
+    "upload": "Upload evidence",
+    "uploading": "Uploading…",
+    "uploaded": "Evidence uploaded",
+    "files": "Other attachments",
+    "open": "Open",
+    "delete": "Delete file",
+    "deleted": "File deleted",
+    "deleteTitle": "Delete file",
+    "deleteDescription": "The file is removed from the record and from storage.",
+    "count_other": "{{count}} files",
+    "count_one": "{{count}} file"
+  },
+  "report": {
+    "title": "Signed report",
+    "empty": "The report has not been uploaded yet",
+    "upload": "Upload report",
+    "replace": "Replace report",
+    "download": "Download",
+    "uploaded": "Report uploaded",
+    "hint": "PDF of the technical report. Required before issuing."
+  },
+  "status": {
+    "request": {
+      "pending": "Pending",
+      "scheduled": "Scheduled",
+      "in_progress": "On site",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "report": {
+      "draft": "Draft",
+      "in_review": "In review",
+      "issued": "Issued",
+      "archived": "Archived"
+    }
+  },
+  "urgency": {
+    "low": "Low",
+    "normal": "Normal",
+    "high": "High",
+    "urgent": "Urgent"
+  },
+  "guard": {
+    "noPermission": "You do not have permission for this action",
+    "readOnly": "This report is read-only",
+    "needsUsers": "You need user permissions to pick an inspector",
+    "soon": "Soon"
+  },
+  "error": {
+    "load": "We could not load the inspections",
+    "save": "We could not save your changes"
+  }
+}

@@ -1,98 +1,97 @@
 # Radal
 
-Operational web app for an insurance broker (*corredora de seguros*). Multi-tenant,
-JWT-authenticated, with modules for clientes, pólizas, renovaciones, cotizaciones,
-siniestros e inspecciones, plus a single-screen dashboard.
+**Radal is the platform** (software provider) for insurance distribution in Chile.
+The **broker is the tenant**; the app is their proposal-centric workspace.
 
-- **Backend** — FastAPI + SQLAlchemy 2.x + SQLite, managed with [`uv`]. API base path `/api/v1`.
-- **Frontend** — React + TypeScript + Vite + Tailwind, i18n (es/en), TanStack Query.
-- **Contract** — the authoritative request/response shapes live in [`docs/api-contract.md`](docs/api-contract.md).
+- **Backend** — FastAPI + SQLAlchemy 2.x (SQLite locally, MySQL on RDS), managed with [`uv`]. API base `/api/v1`.
+- **Frontend** — React + TypeScript + Vite + Tailwind, TanStack Query, framer-motion, i18n.
+- **AI** — DeepInfra (OpenAI-compatible) for proposal extraction and chat agents.
 
-## Prerequisites
+> **Code is English; the UI is Spanish.** Every table, column, model and comment is in
+> English. Spanish appears only as i18n locale *values* (es is default, en mirrors it).
 
-- Python 3.11+ and [`uv`](https://github.com/astral-sh/uv)
-- Node.js 18+ and npm
+## Architecture
+
+Canonical specs — read these before changing the model:
+
+| Doc | What it covers |
+|---|---|
+| [`docs/v2-architecture.md`](docs/v2-architecture.md) | Actors, full data model + ER diagram, rules, AI, S3 layout, scope |
+| [`docs/v2-data-modeling-decisions.md`](docs/v2-data-modeling-decisions.md) | Why each field is a column vs JSON vs child table (evidence-based) |
+| [`docs/deployment.md`](docs/deployment.md) | AWS: Lambda + CloudFront + RDS + ECR, and the 4 OAC constraints |
+
+**Core shape:** `broker` (tenant) → `client` → `asset` → `placement` → `quote_request` →
+**`proposal`** → `offering`. The canonical, cross-broker entities are `insured` (keyed by RUT)
+and `insurer` (keyed by RUT + CMF code).
+
+**Key rules**
+- A **proposal requires a source document** and an insurer with `rut` + `cmf_code`.
+- Money follows the Chilean market: `net = taxable + exempt`, `vat = 0.19 × taxable`
+  (**not** on net — earthquake cover is VAT-exempt), `total = net + vat`. All UF.
+- Insurers are **native** (Radal commercial partners, recommended, rich contacts) or
+  **external** (auto-created from an uploaded proposal — a commercial signal).
+- **The broker is never blocked.** Confidentiality comes from tenant scoping, not gates.
+- **No dead buttons** — a control is wired to a working endpoint, or visibly disabled.
 
 ## Quickstart
 
-Run the two servers in separate terminals.
-
-### 1. Backend (port 8000)
+### Backend (port 8000)
 
 ```bash
 cd backend
-uv venv .venv
-source .venv/bin/activate
+uv venv .venv && source .venv/bin/activate
 uv pip install -r requirements.txt
-cp .env.example .env            # already provided with sane defaults
-python -m app.db.seed           # drops + recreates tables, loads the RADAL demo dataset
-uvicorn app.main:app --reload --port 8000
+cp .env.example .env          # then set AI_API_KEY
+python -m app.db.import_fixtures --reset --profile radal   # real demo data + S3 upload
+AWS_PROFILE=radal uvicorn app.main:app --reload --port 8000
 ```
 
-Verify it's up:
+The importer uploads the 66 fixture files to `radal-dev-185011028331` and writes the matching
+document rows. Add `--no-upload` to skip S3 entirely (DB rows only) when you have no AWS access.
 
-```bash
-curl http://localhost:8000/api/v1/health     # -> {"status":"ok","service":"radal-backend"}
-```
+With `MEDIA_BACKEND=s3` the download endpoint returns a 15-minute presigned URL, so the
+backend process needs AWS credentials (`AWS_PROFILE=radal`). Set `MEDIA_BACKEND=local` to
+serve from disk instead.
 
-Interactive API docs: <http://localhost:8000/docs>.
+For an empty database with just an admin user: `python -m app.db.seed_dev`.
 
-### 2. Frontend (port 4000)
+### Frontend (port 5173)
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env            # sets VITE_API_URL=http://localhost:8000/api/v1
+cp .env.example .env          # VITE_API_URL=http://localhost:8000/api/v1
 npm run dev
 ```
 
-Open <http://localhost:4000> and log in with the demo credentials below.
+### Demo login
 
-## Demo credentials
+All fixture users share the password **`radal1234`**. Three broker tenants are seeded;
+sign in as any `broker_admin` — e.g. `usuario1@ossacovarrubias.cl`.
 
-The seed loads one tenant (**RADAL SEGUROS**). All demo users share the password
-**`radal1234`**.
-
-| Email                     | Rol                  | Notes                    |
-| ------------------------- | -------------------- | ------------------------ |
-| `jose@radalseguros.cl`    | ejecutivo_corredora  | Default demo login       |
-| `admin@radalseguros.cl`   | admin_corredora      | Full read/write + config |
-| `carla@radalseguros.cl`   | inspector            | Owns inspecciones        |
-| `ben@nirvana-ai.com`      | admin_corredora      | Owner                    |
-
-## Auth notes
-
-- `POST /api/v1/auth/login` takes a **JSON** body: `{"email": "...", "password": "..."}`.
-- A separate OAuth2 form endpoint exists at `/api/v1/auth/login/token` (`username` = email)
-  for tooling / Swagger's "Authorize" button.
-- Every request is tenant-scoped to the authenticated user's `corredora_id` (from the JWT).
-
-## Production-style build
+## Tests
 
 ```bash
-# Frontend
-cd frontend && npm run build      # tsc -b && vite build  -> dist/
-
-# Backend (no reload)
-cd backend && uvicorn app.main:app --port 8000
+cd backend && source .venv/bin/activate && python -m pytest tests/ -q
 ```
 
-## Project layout
+159 tests cover RUT mod-11, the money invariants, quote line-item sums, proposal
+requirements, insurer dedup by code (never by name), proposal acceptance, **tenant
+isolation** and RBAC.
 
-```
-backend/    FastAPI app (app/), Pydantic schemas, SQLAlchemy models, seed script, SQLite db
-frontend/   Vite React app (src/pages per module, src/lib/api.ts, i18n locales)
-docs/       api-contract.md (authoritative) + data-model.md and supporting docs
-```
+Frontend: `npx tsc --noEmit && npm run build`.
 
-## Troubleshooting
+## Fixture data
 
-- **Seed crashes on password hashing** — passlib 1.7.4 cannot drive bcrypt 5.x. The
-  requirement is pinned to `bcrypt>=4.0,<4.1`; if you hit
-  `ValueError: password cannot be longer than 72 bytes`, run
-  `uv pip install "bcrypt>=4.0,<4.1"` and re-seed.
-- **Frontend shows Spanish for an English user / missing labels** — ensure both
-  `src/locales/es/*.json` and `src/locales/en/*.json` namespaces are present; all nine
-  namespaces are registered in `src/i18n/index.ts`.
-</content>
-</invoke>
+Imported from the team's package (3 broker tenants, 3 insureds, 3 assets, 3 quotes,
+9 proposals, 3 inspections, 66 documents, the official 25-company CMF insurer catalog and
+the 44-line CMF taxonomy). The importer seeds **7 native / 18 external** insurers, arranged
+so that one quote has **2 of its 3 proposals from non-native insurers** — exercising the
+external-insurer tracking path.
+
+## Deployment
+
+Unchanged from v1 and still live: Lambda (backend + frontend containers, Lambda Web Adapter)
+behind CloudFront, RDS MySQL, ECR, CI via GitHub Actions → `update-function-code`.
+See [`docs/deployment.md`](docs/deployment.md) — **do not regress the four CloudFront→Lambda
+OAC constraints** documented there.

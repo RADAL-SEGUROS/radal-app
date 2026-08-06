@@ -3,23 +3,29 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 font-mono text-mono-sm font-medium transition-colors focus:outline-none",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-caption font-semibold leading-none transition-colors focus:outline-none",
   {
     variants: {
       variant: {
-        // Neutral / gris
-        neutral: "border-transparent bg-bg-recessed text-text-secondary",
-        muted: "border-transparent bg-bg-recessed text-text-muted",
+        // Neutral / gris — muted fill, tertiary text
+        neutral:
+          "border-[color-mix(in_srgb,var(--muted)_30%,transparent)] bg-[color-mix(in_srgb,var(--muted)_15%,transparent)] text-text-tertiary",
+        muted:
+          "border-[color-mix(in_srgb,var(--muted)_30%,transparent)] bg-[color-mix(in_srgb,var(--muted)_15%,transparent)] text-text-muted",
         // Brand / active (teal)
-        brand: "border-transparent bg-teal-soft text-teal-deep",
-        // Success / óptima (verde)
-        success: "border-transparent bg-lime/20 text-ink dark:text-lime",
+        brand:
+          "border-[color-mix(in_srgb,var(--teal)_30%,transparent)] bg-[color-mix(in_srgb,var(--teal)_15%,transparent)] text-teal-deep",
+        // Success / óptima (verde/lime)
+        success:
+          "border-[color-mix(in_srgb,var(--lime)_30%,transparent)] bg-[color-mix(in_srgb,var(--lime)_15%,transparent)] text-lime-deep",
         // Warn / ámbar
-        warn: "border-transparent bg-signal-warn/15 text-signal-warn",
+        warn: "border-[color-mix(in_srgb,var(--amber)_30%,transparent)] bg-[color-mix(in_srgb,var(--amber)_15%,transparent)] text-amber-deep",
         // Danger / rojo
-        danger: "border-transparent bg-signal-danger/15 text-signal-danger",
+        danger:
+          "border-[color-mix(in_srgb,var(--red)_30%,transparent)] bg-[color-mix(in_srgb,var(--red)_15%,transparent)] text-red-deep",
         // Action / azul
-        action: "border-transparent bg-blue/15 text-blue",
+        action:
+          "border-[color-mix(in_srgb,var(--blue)_30%,transparent)] bg-[color-mix(in_srgb,var(--blue)_15%,transparent)] text-blue-deep",
         outline: "border-line text-text-secondary",
       },
     },

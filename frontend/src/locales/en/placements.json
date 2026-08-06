@@ -1,0 +1,167 @@
+{
+  "title": "Placements",
+  "subtitle": "The operating folder: one asset × one insurance line × one period.",
+  "empty": "No placements match the current filter.",
+  "notFound": "We could not find this placement.",
+  "actions": {
+    "new": "New placement"
+  },
+  "kpi": {
+    "open": "Open",
+    "inMarket": "In market",
+    "awaitingInspection": "Awaiting inspection",
+    "expiring": "Expiring in 60D"
+  },
+  "filters": {
+    "searchPlaceholder": "Search by asset, client or period…",
+    "allStatuses": "All statuses",
+    "allClients": "All clients",
+    "allLines": "All insurance lines",
+    "openOnly": "Open only",
+    "assetFilter": "Clear asset filter"
+  },
+  "columns": {
+    "client": "Client / asset",
+    "line": "Insurance line",
+    "period": "Period",
+    "status": "Status",
+    "daysToEnd": "Expires in",
+    "market": "Market",
+    "quotesShort_one": "{{count}} quote",
+    "quotesShort_other": "{{count}} quotes",
+    "proposalsShort_one": "{{count}} prop.",
+    "proposalsShort_other": "{{count}} props."
+  },
+  "pagination": {
+    "total_one": "{{count}} placement",
+    "total_other": "{{count}} placements"
+  },
+  "status": {
+    "draft": "Draft",
+    "inspection": "Inspection",
+    "pre_underwriting": "Pre-underwriting",
+    "quoting": "Quoting",
+    "negotiating": "Negotiating",
+    "awarded": "Awarded",
+    "active": "Active",
+    "closed": "Closed"
+  },
+  "quoteStatus": {
+    "draft": "Draft",
+    "sent": "Sent",
+    "receiving": "Receiving",
+    "closed": "Closed",
+    "cancelled": "Cancelled"
+  },
+  "proposalStatus": {
+    "draft": "Draft",
+    "submitted": "Submitted",
+    "accepted": "Accepted",
+    "rejected": "Rejected",
+    "withdrawn": "Withdrawn",
+    "expired": "Expired"
+  },
+  "inspectionStatus": {
+    "pending": "Pending",
+    "scheduled": "Scheduled",
+    "in_progress": "In progress",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "expiry": {
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "overdue_one": "overdue by {{count}} day",
+    "overdue_other": "overdue by {{count}} days"
+  },
+  "fields": {
+    "client": "Client",
+    "asset": "Asset",
+    "assetPlaceholder": "Pick an asset",
+    "insuranceLine": "Insurance line",
+    "linePlaceholder": "Pick an insurance line",
+    "period": "Period",
+    "periodStart": "Period start",
+    "periodEnd": "Period end",
+    "notes": "Notes"
+  },
+  "form": {
+    "createTitle": "New placement",
+    "createSubtitle": "The client is derived from the asset: a placement is one asset, one line and one period.",
+    "editTitle": "Edit placement",
+    "editSubtitle": "Status is not edited here: it only moves through the state machine.",
+    "noAssets": "This client has no active assets yet. Create an asset from the client page first.",
+    "noLines": "We cannot offer a line picker yet: the API does not expose the insurance-line catalogue, so we only know the lines your existing placements already use.",
+    "errors": {
+      "required": "Required field"
+    }
+  },
+  "pipeline": {
+    "title": "Status pipeline",
+    "moveTo": "Move to {{status}}",
+    "notAllowed": "Not available from “{{status}}”",
+    "terminal": "Terminal state"
+  },
+  "transition": {
+    "title": "Change status",
+    "description": "The placement will move to “{{status}}”. It is written to the audit trail.",
+    "note": "Note (optional)"
+  },
+  "toast": {
+    "created": "Placement created",
+    "transitioned": "Status updated to {{status}}"
+  },
+  "detail": {
+    "folder": "Folder",
+    "market": "Market",
+    "quoteRequests": "Quote requests",
+    "proposals": "Proposals",
+    "inspections": "Inspections",
+    "policies": "Policies",
+    "notes": "Notes",
+    "noNotes": "No notes.",
+    "updatedAt": "Updated {{at}}"
+  },
+  "tabs": {
+    "quotes": "Quotes",
+    "proposals": "Proposals",
+    "inspections": "Inspections",
+    "documents": "Documents"
+  },
+  "quotes": {
+    "empty": "No quote requests yet.",
+    "new": "New quote request",
+    "untitled": "No insured object",
+    "declaredValue": "Declared value",
+    "proposalsCount_one": "{{count}} proposal",
+    "proposalsCount_other": "{{count}} proposals",
+    "readOnly": "Read-only view from the placement.",
+    "moduleSoon": "The quotes module is coming soon"
+  },
+  "proposals": {
+    "empty": "No proposals received yet.",
+    "totalPremium": "Total premium",
+    "confirmed": "Confirmed",
+    "unconfirmed": "Unconfirmed",
+    "readOnly": "Read-only view: the proposal comparator ships with its own module.",
+    "origin": {
+      "native": "Native",
+      "external": "External"
+    }
+  },
+  "inspections": {
+    "empty": "No inspection requests yet.",
+    "untitled": "No reason given",
+    "noDate": "No target date",
+    "readOnly": "Read-only view: the inspections module is coming soon."
+  },
+  "delete": {
+    "title": "Delete placement",
+    "description": "This operating folder will be deleted. Only possible when it has no quotes, proposals or policies attached."
+  },
+  "permissions": {
+    "noCreate": "Your role cannot create placements",
+    "noEdit": "Your role cannot edit placements",
+    "noDelete": "Your role cannot delete placements"
+  }
+}

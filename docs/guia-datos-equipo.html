@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radal · Guía de corrección de datos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter+Tight:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--paper:#EDF1EE;--bone:#FFFFFC;--ink:#0B1418;--ink-3:#37474F;--muted:#5E6C72;--line:#D7DFD9;
+--teal:#14B8A6;--teal-deep:#0C7C70;--blue:#2563EB;--blue-deep:#1A47B8;--lime:#84CC16;--lime-deep:#4F7C0E;
+--amber:#F59E0B;--amber-deep:#A76A0C;--red:#E5484D;--red-deep:#C1352F;--shadow-sm:0 1px 2px rgba(11,20,24,.05)}
+body{background:var(--paper);color:var(--ink);font-family:'Inter Tight',system-ui,sans-serif;line-height:1.6;
+-webkit-font-smoothing:antialiased;padding-bottom:70px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif;font-weight:500;letter-spacing:-.02em;line-height:1.15}
+h1{font-size:36px}h2{font-size:25px}h3{font-size:17.5px}h4{font-size:15px}
+code,.mono{font-family:'IBM Plex Mono',monospace}
+p{margin:9px 0}
+header{background:var(--ink);color:#ECF1EE;padding:40px 0 34px;margin-bottom:30px}
+header .wrap{display:flex;gap:18px;flex-wrap:wrap}
+.logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--teal),var(--blue));
+display:grid;place-items:center;font-family:'Space Grotesk';font-weight:600;color:#fff;font-size:20px;flex-shrink:0}
+header h1{color:#fff}header p{color:#A6B4B9;max-width:660px}
+.pill{display:inline-block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;
+padding:4px 10px;border-radius:999px;background:rgba(20,184,166,.18);color:#5EEAD4;margin-bottom:9px}
+section{margin:40px 0}
+.sec-head{display:flex;align-items:center;margin-bottom:12px;gap:10px}
+.sec-num{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--ink);
+color:#fff;font-family:'Space Grotesk';font-size:15px;font-weight:600;flex-shrink:0}
+.card{background:var(--bone);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow-sm);margin:14px 0}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;background:var(--bone);
+border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th{background:var(--ink);color:#fff;text-align:left;padding:10px 12px;font-weight:600;font-size:11.5px;
+letter-spacing:.05em;text-transform:uppercase}
+td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+tbody tr:nth-child(even){background:rgba(11,20,24,.02)}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.t-ok{background:#E9F5CE;color:var(--lime-deep);border:1px solid #CBE39A}
+.t-bad{background:#FADCDC;color:var(--red-deep);border:1px solid #F2B9B9}
+.t-warn{background:#FDECCF;color:var(--amber-deep);border:1px solid #F5D79B}
+.t-info{background:#E1EBFD;color:var(--blue-deep);border:1px solid #B9CEF8}
+.callout{border-left:4px solid;border-radius:0 12px 12px 0;padding:15px 17px;margin:14px 0;background:var(--bone)}
+.ok{border-color:var(--lime);background:#F6FBEC}.warn{border-color:var(--amber);background:#FEF7EA}
+.bad{border-color:var(--red);background:#FDF0F0}.info{border-color:var(--blue);background:#EFF4FE}
+.callout h3,.callout h4{margin-bottom:5px}
+/* FILE BLOCK */
+.file{background:var(--bone);border:1px solid var(--line);border-radius:14px;margin:18px 0;overflow:hidden;box-shadow:var(--shadow-sm)}
+.file-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.file-name{font-family:'IBM Plex Mono';font-size:14px;font-weight:600}
+.file-body{padding:16px}
+.why{background:#F4F7F5;border-radius:9px;padding:11px 13px;margin:10px 0;font-size:14px}
+.why b{color:var(--ink)}
+/* DIFF */
+.diff{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+@media(max-width:860px){.diff{grid-template-columns:1fr}}
+.pane{border-radius:10px;overflow:hidden;border:1px solid}
+.pane.wrong{border-color:#F2B9B9}.pane.right{border-color:#CBE39A}
+.pane-h{font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:7px 12px}
+.wrong .pane-h{background:#FADCDC;color:var(--red-deep)}
+.right .pane-h{background:#E9F5CE;color:var(--lime-deep)}
+pre{font-family:'IBM Plex Mono';font-size:12.5px;line-height:1.62;padding:12px;overflow-x:auto;background:#fff;white-space:pre}
+.wrong pre{background:#FEF7F7}.right pre{background:#F8FCF1}
+.hl-bad{background:#FADCDC;border-radius:3px;padding:0 3px;font-weight:600}
+.hl-good{background:#DCF0B8;border-radius:3px;padding:0 3px;font-weight:600}
+ul,ol{margin:7px 0 7px 21px}li{margin:4px 0}
+.chk{list-style:none;margin-left:0}
+.chk li{padding-left:27px;position:relative;margin:7px 0}
+.chk li:before{content:"☐";position:absolute;left:0;font-size:17px;color:var(--teal-deep)}
+.muted{color:var(--muted)}
+hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+/* scenarios */
+.scn{background:var(--bone);border:1px solid var(--line);border-radius:15px;padding:18px;margin:14px 0;box-shadow:var(--shadow-sm)}
+.scn-title{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.scn-id{font-family:'Space Grotesk';font-weight:600;font-size:14px;width:32px;height:32px;border-radius:9px;
+display:grid;place-items:center;color:#fff;flex-shrink:0}
+.flow{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:13px 0 6px}
+.node{border:1.5px solid var(--line);border-radius:11px;padding:9px 13px;background:#fff;min-width:124px}
+.node .lbl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.node .val{font-weight:600;font-size:14px;margin-top:1px}
+.node.new{border-color:var(--lime);background:#F9FCF3}
+.node.exists{border-color:var(--amber);background:#FEFAF2}
+.arrow{color:var(--muted);font-size:19px}
+.outcome{display:inline-block;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:9px;margin-top:5px}
+.o-creado{background:#E9F5CE;color:var(--lime-deep)}.o-codigo{background:#FDECCF;color:var(--amber-deep)}
+.footer{text-align:center;color:var(--muted);font-size:13px;margin-top:40px}
+@media print{header{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}
+.file,table,.scn,.callout{break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+ <div class="logo">R</div>
+ <div>
+  <div class="pill">Guía de corrección · entrega 2</div>
+  <h1>Qué hay que corregir en los datos</h1>
+  <p>Archivo por archivo: qué está mal, <strong>por qué</strong> importa, y cómo debe quedar.
+     Al final, qué falta producir.</p>
+ </div>
+</div></header>
+
+<div class="wrap">
+
+<!-- 0 -->
+<section>
+ <div class="sec-head"><span class="sec-num">0</span><h2>Resumen</h2></div>
+ <div class="callout ok">
+  <h3>El paquete está bien construido — no hay que rehacerlo</h3>
+  <p>Verificamos con scripts: <strong>32/32 RUT válidos</strong> (módulo 11), <strong>0 referencias rotas</strong>,
+  catálogo CMF correcto (25 aseguradoras, 44 códigos de ramo) y documentos con formatos reales del mercado
+  (POL 1.2013.0161, Art. 542 Cód. Comercio, NFPA/DS 594, SISGEN). <strong>Buen trabajo.</strong></p>
+ </div>
+ <div class="callout bad">
+  <h3>Pero hay 3 problemas que impiden usarlo</h3>
+  <ol>
+   <li><b>Identidad equivocada:</b> todo dice <em>Ossa Covarrubias</em>, no <em>Radal</em>.</li>
+   <li><b>Valores que no existen</b> en nuestro sistema (estados y subroles).</li>
+   <li><b>Falta la mitad del escenario:</b> hay 1 sola corredora, 1 asegurado y 1 aseguradora. Con eso no se
+       puede probar lo más importante: qué pasa cuando una entidad <strong>ya existe</strong>.</li>
+  </ol>
+ </div>
+</section>
+
+<hr>
+
+<!-- 1 · ARCHIVO POR ARCHIVO -->
+<section>
+ <div class="sec-head"><span class="sec-num">1</span><h2>Archivo por archivo: qué corregir</h2></div>
+
+ <table>
+  <thead><tr><th style="width:230px">Archivo</th><th style="width:110px">Estado</th><th>Qué pasa</th></tr></thead>
+  <tbody>
+   <tr><td class="mono">seeds/corredora.json</td><td><span class="tag t-bad">Corregir</span></td><td>Es otra corredora, no Radal.</td></tr>
+   <tr><td class="mono">seeds/usuario.json</td><td><span class="tag t-bad">Corregir</span></td><td>Nombres genéricos y subroles inexistentes.</td></tr>
+   <tr><td class="mono">seeds/proceso_ramo.json</td><td><span class="tag t-warn">Ajustar</span></td><td><code>estado</code> con valor no permitido.</td></tr>
+   <tr><td class="mono">seeds/inspeccion.json</td><td><span class="tag t-warn">Ajustar</span></td><td><code>estado</code> con valor no permitido.</td></tr>
+   <tr><td class="mono">seeds/solicitud_inspeccion.json</td><td><span class="tag t-warn">Ajustar</span></td><td><code>estado</code> con valor no permitido.</td></tr>
+   <tr><td class="mono">s3/documentos/**/*.pdf (11)</td><td><span class="tag t-bad">Regenerar</span></td><td>Los PDF dicen la corredora equivocada.</td></tr>
+   <tr><td class="mono">s3/media/corredora/…/logo.webp</td><td><span class="tag t-bad">Reemplazar</span></td><td>Logo de otra empresa.</td></tr>
+   <tr><td class="mono">seeds/oferta.json</td><td><span class="tag t-ok">No tocar</span></td><td>La estructura de prima/deducible está <strong>mejor que la nuestra</strong>. Nos adaptamos nosotros.</td></tr>
+   <tr><td class="mono">seeds/documento.json</td><td><span class="tag t-ok">No tocar</span></td><td>Los campos <code>subido_por</code> y <code>fase</code> están perfectos.</td></tr>
+   <tr><td class="mono">codigo_acceso.json</td><td><span class="tag t-info">No lo generen</span></td><td>Lo genera la app. Ver sección 3.</td></tr>
+  </tbody>
+ </table>
+
+ <!-- corredora -->
+ <div class="file">
+  <div class="file-head"><span class="tag t-bad">1</span><span class="file-name">seeds/corredora.json</span>
+   <span class="muted" style="font-size:13px">— identidad equivocada</span></div>
+  <div class="file-body">
+   <div class="diff">
+    <div class="pane wrong"><div class="pane-h">✗ Como está hoy</div><pre>{
+ "id": "cor-001",
+ "razon_social": <span class="hl-bad">"Ossa Covarrubias y Compañía Limitada"</span>,
+ "nombre_fantasia": <span class="hl-bad">"Ossa Covarrubias Ltda."</span>,
+ "rut": <span class="hl-bad">"78.069.390-8"</span>,
+ "codigo_cmf": <span class="hl-bad">"6168"</span>,
+ "direccion": <span class="hl-bad">"Sancho de la Hoz 3431, Vitacura"</span>,
+ "telefono": <span class="hl-bad">"+56 2 2953 5700"</span>,
+ "email": <span class="hl-bad">"contacto@ossacovarrubias.cl"</span>
+}</pre></div>
+    <div class="pane right"><div class="pane-h">✓ Como debe quedar</div><pre>{
+ "id": "cor-001",
+ "razon_social": <span class="hl-good">"Radal Seguros SpA"</span>,
+ "nombre_fantasia": <span class="hl-good">"Radal"</span>,
+ "rut": <span class="hl-good">"78.418.927-9"</span>,
+ "codigo_cmf": <span class="hl-good">"&lt;PEDIR A RADAL&gt;"</span>,
+ "direccion": <span class="hl-good">"Antonio Bellet 193, Of. 1210,
+              Providencia"</span>,
+ "telefono": <span class="hl-good">"+56 9 9979 2277"</span>,
+ "email": <span class="hl-good">"jtdiaz@radalseguros.cl"</span>
+}</pre></div>
+   </div>
+   <div class="why"><b>¿Por qué?</b> La app <strong>extrae datos automáticamente de los PDF con IA</strong>.
+   Si el documento dice una empresa y la base de datos dice otra, no existe una respuesta correcta para
+   “¿cuál es la corredora de este expediente?”. Las pruebas de extracción quedarían inservibles y los errores
+   parecerían fallas del modelo cuando en realidad son fallas de los datos.</div>
+   <div class="callout warn" style="margin:10px 0 0">
+    <b>Bloqueante:</b> falta el <strong>código CMF real de Radal</strong> y la
+    <strong>fecha del documento de nombramiento</strong>. Son datos públicos del registro CMF —
+    hay que conseguirlos antes de regenerar los certificados.
+   </div>
+  </div>
+ </div>
+
+ <!-- usuarios -->
+ <div class="file">
+  <div class="file-head"><span class="tag t-bad">2</span><span class="file-name">seeds/usuario.json</span>
+   <span class="muted" style="font-size:13px">— nombres genéricos + subroles que no existen</span></div>
+  <div class="file-body">
+   <div class="diff">
+    <div class="pane wrong"><div class="pane-h">✗ Como está hoy</div><pre>{
+ "id": "usr-001",
+ "nombre": <span class="hl-bad">"Usuario 1"</span>,
+ "email": <span class="hl-bad">"usuario1@ossacovarrubias.cl"</span>,
+ "cargo": "Administrador de la corredora",
+ "subrol": <span class="hl-bad">"admin"</span>
+}</pre></div>
+    <div class="pane right"><div class="pane-h">✓ Como debe quedar</div><pre>{
+ "id": "usr-001",
+ "nombre": <span class="hl-good">"José Tomás Díaz"</span>,
+ "email": <span class="hl-good">"jtdiaz@radalseguros.cl"</span>,
+ "cargo": "Administrador de la corredora",
+ "subrol": <span class="hl-good">"admin_corredora"</span>
+}</pre></div>
+   </div>
+   <h4 style="margin-top:14px">Subroles válidos — usar <u>exactamente</u> estos nombres</h4>
+   <table>
+    <thead><tr><th>Lo que pusieron</th><th>Lo que debe decir</th><th>Existe</th></tr></thead>
+    <tbody>
+     <tr><td class="mono">admin</td><td class="mono">admin_corredora</td><td><span class="tag t-bad">✗ no existe</span></td></tr>
+     <tr><td class="mono">corredor</td><td class="mono">ejecutivo_corredora</td><td><span class="tag t-bad">✗ no existe</span></td></tr>
+     <tr><td class="mono">suscripcion</td><td class="mono">especialista_tecnico</td><td><span class="tag t-bad">✗ no existe</span></td></tr>
+     <tr><td class="mono">operaciones</td><td class="mono">ejecutivo_corredora</td><td><span class="tag t-bad">✗ no existe</span></td></tr>
+     <tr><td class="mono">inspector</td><td class="mono">inspector</td><td><span class="tag t-ok">✓ correcto</span></td></tr>
+    </tbody>
+   </table>
+   <p class="muted">Para asegurado: <code>admin_asegurado</code>, <code>ejecutivo_asegurado</code>.
+   Para aseguradora: <code>admin_aseguradora</code>, <code>suscriptor</code>, <code>ejecutivo_aseguradora</code>.</p>
+   <div class="why"><b>¿Por qué?</b> Los permisos del sistema (quién ve qué, quién puede subir o enviar) están
+   amarrados a estos nombres. Un subrol que no existe = ese usuario <strong>no puede entrar a la app</strong>.</div>
+  </div>
+ </div>
+
+ <!-- estados -->
+ <div class="file">
+  <div class="file-head"><span class="tag t-warn">3</span><span class="file-name">Estados no permitidos (3 archivos)</span></div>
+  <div class="file-body">
+   <table>
+    <thead><tr><th>Archivo</th><th>Valor actual</th><th>Valores permitidos</th><th>Usar</th></tr></thead>
+    <tbody>
+     <tr><td class="mono">proceso_ramo.json</td><td><span class="tag t-bad">adjudicado</span></td>
+      <td class="mono" style="font-size:12px">creado · en_inspeccion · en_presuscripcion · en_cotizacion · en_negociacion · asegurado · en_siniestro · cerrado</td>
+      <td class="mono"><b>asegurado</b></td></tr>
+     <tr><td class="mono">inspeccion.json</td><td><span class="tag t-bad">emitida</span></td>
+      <td class="mono" style="font-size:12px">solicitada · asignada · en_progreso · enviada · observada · validada · cerrada</td>
+      <td class="mono"><b>enviada</b></td></tr>
+     <tr><td class="mono">solicitud_inspeccion.json</td><td><span class="tag t-bad">completada</span></td>
+      <td class="mono" style="font-size:12px">solicitada · asignada</td>
+      <td class="mono"><b>asignada</b></td></tr>
+    </tbody>
+   </table>
+   <div class="why"><b>¿Por qué?</b> Son listas cerradas en la base de datos. Un valor fuera de la lista
+   <strong>hace fallar la carga completa del archivo</strong> — no se guarda nada.</div>
+  </div>
+ </div>
+
+ <!-- PDFs -->
+ <div class="file">
+  <div class="file-head"><span class="tag t-bad">4</span><span class="file-name">Los 11 PDF de s3/documentos/</span></div>
+  <div class="file-body">
+   <div class="diff">
+    <div class="pane wrong"><div class="pane-h">✗ Encabezado actual del informe</div><pre><span class="hl-bad">Ossa Covarrubias Ltda.</span> — Ingeniería de Riesgos
+· Reg. CMF <span class="hl-bad">6168</span>
+Folio 2026000341022</pre></div>
+    <div class="pane right"><div class="pane-h">✓ Debe decir</div><pre><span class="hl-good">Radal Seguros SpA</span> — Ingeniería de Riesgos
+· Reg. CMF <span class="hl-good">&lt;código real de Radal&gt;</span>
+Folio 2026000341022</pre></div>
+   </div>
+   <p><b>Aplica a:</b> <span class="mono">certificado-cmf.pdf</span>, <span class="mono">nombramiento.pdf</span>,
+   <span class="mono">ficha.pdf</span>, <span class="mono">valorizacion-1.pdf</span>,
+   <span class="mono">informe.pdf</span>, <span class="mono">bases-tecnicas.pdf</span>,
+   <span class="mono">propuesta.pdf</span> (×3), <span class="mono">poder-representante.pdf</span>.</p>
+   <div class="callout ok" style="margin-top:10px">
+    <b>Esto NO es rehacer los documentos.</b> Ya tienen el generador (los PDF están hechos con ReportLab):
+    basta cambiar la identidad de la corredora y volver a correrlo. Mantengan el pie
+    <em>“DATA DE PRUEBA”</em> y el mismo contenido técnico.
+   </div>
+   <div class="why"><b>Mantener lo que ya hicieron bien:</b> el RUT del asegurado aparece dentro del texto de
+   8 de los 11 PDF. <strong>Eso hay que conservarlo</strong> — es lo que nos permite probar la extracción
+   automática y validar “el RUT del documento coincide con el del expediente”.</div>
+  </div>
+ </div>
+
+ <!-- lo que NO hay que tocar -->
+ <div class="callout ok">
+  <h3>✓ Lo que NO hay que tocar</h3>
+  <p><b><span class="mono">oferta.json</span></b> — la prima desglosada
+  (<span class="mono">afecta / exenta / neta / iva / total</span>) y el deducible por riesgo
+  (<span class="mono">incendio / sismo / otros</span>) están <strong>mejor modelados que nuestra base de datos</strong>.
+  Tenían razón: así funcionan las pólizas en Chile. <strong>Nosotros adaptamos el sistema</strong>, ustedes no cambien nada.</p>
+  <p style="margin-top:8px"><b><span class="mono">documento.json</span></b> — los campos
+  <span class="mono">subido_por</span> y <span class="mono">fase</span> están excelentes. Mantener la convención.</p>
+ </div>
+</section>
+
+<hr>
+
+<!-- 2 · LO QUE FALTA -->
+<section>
+ <div class="sec-head"><span class="sec-num">2</span><h2>Lo que falta: hay 1 de cada cosa, necesitamos 2</h2></div>
+ <p>Con una sola corredora, un solo asegurado y una sola aseguradora, solo se prueba el camino feliz.
+ <strong>Lo más riesgoso del sistema es qué pasa cuando la entidad ya existe</strong> — y hoy eso no se puede probar.</p>
+
+ <table>
+  <thead><tr><th>Entidad</th><th style="width:70px">Hoy</th><th style="width:90px">Necesario</th><th>Qué agregar</th></tr></thead>
+  <tbody>
+   <tr><td>Corredora</td><td class="mono">1</td><td class="mono">2</td><td><b>Corredora 2</b> (cualquiera, RUT válido) + sus usuarios y logo</td></tr>
+   <tr><td>Asegurado (perfil)</td><td class="mono">1</td><td class="mono">2</td><td><b>AS2</b>, un asegurado distinto</td></tr>
+   <tr><td>Aseguradora (perfil)</td><td class="mono">1</td><td class="mono">2</td><td><b>A2</b> como perfil, no solo catálogo (ej. Chubb o Mapfre)</td></tr>
+   <tr><td>Activo / tramo</td><td class="mono">1</td><td class="mono">2</td><td>Un 2° activo de AS1 en un ramo <b>que NO requiera inspección</b> (Transporte o Flota)</td></tr>
+   <tr><td>Usuarios asegurado</td><td class="mono">0</td><td class="mono">2</td><td><span class="mono">admin_asegurado</span> + <span class="mono">ejecutivo_asegurado</span></td></tr>
+   <tr><td>Usuarios aseguradora</td><td class="mono">0</td><td class="mono">2</td><td><span class="mono">admin_aseguradora</span> + <span class="mono">suscriptor</span></td></tr>
+  </tbody>
+ </table>
+
+ <h3 style="margin-top:22px">Los 3 flujos que hay que armar</h3>
+
+ <div class="scn">
+  <div class="scn-title"><div class="scn-id" style="background:var(--lime-deep)">W1</div>
+   <div><h3>Primer cierre — todo nuevo</h3></div></div>
+  <div class="flow">
+   <div class="node"><div class="lbl">Corredora 1</div><div class="val">Radal</div></div><span class="arrow">→</span>
+   <div class="node new"><div class="lbl">Aseguradora A1</div><div class="val">nueva ✦</div></div><span class="arrow">+</span>
+   <div class="node new"><div class="lbl">Asegurado AS1</div><div class="val">nuevo ✦</div></div>
+  </div>
+  <span class="outcome o-creado">Resultado: <span class="mono">creado</span> — Radal crea los perfiles y <b>genera el código de acceso</b> de cada uno</span>
+  <p style="margin-top:10px"><span class="tag t-ok">YA LO TIENEN</span> <span class="muted">Solo re-identificar a Radal.</span></p>
+ </div>
+
+ <div class="scn">
+  <div class="scn-title"><div class="scn-id" style="background:var(--amber-deep)">W2</div>
+   <div><h3>Otra corredora, <em>el mismo</em> asegurado</h3></div></div>
+  <div class="flow">
+   <div class="node"><div class="lbl">Corredora 2</div><div class="val">otra</div></div><span class="arrow">→</span>
+   <div class="node new"><div class="lbl">Aseguradora A2</div><div class="val">nueva ✦</div></div><span class="arrow">+</span>
+   <div class="node exists"><div class="lbl">Asegurado AS1</div><div class="val">⚠ MISMO RUT</div></div>
+  </div>
+  <span class="outcome o-codigo">Resultado: <span class="mono">requiere_codigo</span> — debe pedirle el código a AS1</span>
+  <p style="margin-top:10px"><span class="tag t-bad">FALTA</span> <span class="muted">Usar <b>el mismo RUT</b> <span class="mono">76.854.321-6</span> a propósito.</span></p>
+ </div>
+
+ <div class="scn">
+  <div class="scn-title"><div class="scn-id" style="background:var(--red-deep)">W3</div>
+   <div><h3>Vuelve Radal, con una aseguradora que ya existe</h3></div></div>
+  <div class="flow">
+   <div class="node"><div class="lbl">Corredora 1</div><div class="val">Radal</div></div><span class="arrow">→</span>
+   <div class="node exists"><div class="lbl">Aseguradora A2</div><div class="val">⚠ YA EXISTE</div></div><span class="arrow">+</span>
+   <div class="node exists"><div class="lbl">Asegurado AS1</div><div class="val">⚠ ya vinculado</div></div>
+  </div>
+  <span class="outcome o-codigo">Resultado: <span class="mono">requiere_codigo</span> para A2 · AS1 no se duplica</span>
+  <p style="margin-top:10px"><span class="tag t-bad">FALTA</span></p>
+ </div>
+
+ <div class="callout warn">
+  <h3>⚠ Lo que esto nos permite probar (y hoy no podemos)</h3>
+  <p>Con W1 + W2, el <strong>mismo asegurado queda vinculado a dos corredoras</strong>. Ahí verificamos que
+  <strong>la Corredora 2 NO vea las pólizas, cotizaciones ni documentos que Radal tiene de ese asegurado</strong>.
+  Es confidencialidad entre corredoras competidoras: si eso falla, el producto no se puede vender.</p>
+ </div>
+</section>
+
+<hr>
+
+<!-- 3 · CODIGO DE ACCESO -->
+<section>
+ <div class="sec-head"><span class="sec-num">3</span><h2>El código de acceso — <span style="font-size:.7em;color:var(--muted)">NO lo generen ustedes</span></h2></div>
+
+ <div class="callout info">
+  <h3>¿Qué es?</h3>
+  <p>Es lo que evita que una corredora agregue a un asegurado o aseguradora <strong>que ya está en la plataforma</strong>
+  sin permiso. Funciona así:</p>
+  <ol>
+   <li>La corredora valida el <strong>RUT</strong> (persona) o el <strong>RUT + código CMF</strong> (aseguradora).</li>
+   <li><b>Si NO existe</b> → crea el perfil y <strong>la app genera un código</strong>. La corredora se lo entrega
+       a esa empresa/persona, que lo guarda.</li>
+   <li><b>Si YA existe</b> → la app le dice: <em>“contacte a la empresa y pídale su código de acceso”</em>.
+       Sin ese código no puede vincularse.</li>
+  </ol>
+ </div>
+
+ <div class="callout bad">
+  <h3>Por eso NO nos manden <span class="mono">codigo_acceso.json</span></h3>
+  <p>Esos códigos son <strong>aleatorios y se guardan encriptados</strong> — los genera el servidor, igual que
+  una contraseña. Nadie los puede escribir a mano.</p>
+ </div>
+
+ <div class="card">
+  <h3>Lo que sí necesitamos: que nos cuenten el escenario</h3>
+  <p class="muted" style="margin-bottom:10px">En texto, en el <span class="mono">README.md</span>. Ejemplo:</p>
+  <pre style="background:#F4F7F5;border-radius:9px;border:1px solid var(--line)">"AS1 (RUT 76.854.321-6) fue creado por Radal el 2026-07-13.
+ La Corredora 2 intentó agregarlo el 2026-07-18 → el sistema
+ respondió que ya existía. AS1 le entregó su código y la
+ Corredora 2 lo canjeó el 2026-07-19, para el ramo Incendio/Sismo."</pre>
+  <p style="margin-top:10px">Con eso <strong>la app ejecuta el flujo real</strong> y los códigos se generan solos.
+  Los casos de código <em>vencido</em> y <em>anulado</em> los probamos nosotros.</p>
+ </div>
+</section>
+
+<hr>
+
+<!-- 4 · CHECKLIST -->
+<section>
+ <div class="sec-head"><span class="sec-num">4</span><h2>Checklist de entrega</h2></div>
+ <div class="card">
+  <h4 style="margin-bottom:8px">Corregir lo existente</h4>
+  <ul class="chk">
+   <li><span class="mono">seeds/corredora.json</span> → identidad de <b>Radal Seguros SpA</b>.</li>
+   <li><span class="mono">seeds/usuario.json</span> → nombres reales + subroles válidos.</li>
+   <li>3 estados no permitidos → <span class="mono">asegurado</span>, <span class="mono">enviada</span>, <span class="mono">asignada</span>.</li>
+   <li>Los 11 PDF regenerados con la identidad de Radal (mismo contenido técnico).</li>
+   <li>Logo de Radal en <span class="mono">s3/media/corredora/</span>.</li>
+   <li><b>Conseguir:</b> código CMF real de Radal + fecha del documento de nombramiento.</li>
+  </ul>
+  <h4 style="margin:16px 0 8px">Agregar lo que falta</h4>
+  <ul class="chk">
+   <li><b>Corredora 2</b> completa (perfil + 2 usuarios + logo).</li>
+   <li><b>Aseguradora A2</b> como perfil canónico.</li>
+   <li><b>Asegurado AS2</b> completo.</li>
+   <li><b>Flujo W2</b>: Corredora 2 + A2 + AS1 (mismo RUT a propósito).</li>
+   <li><b>Flujo W3</b>: Radal + A2 + AS1.</li>
+   <li>2° activo/ramo de AS1 <b>sin</b> inspección (Transporte o Flota).</li>
+   <li>2 usuarios de asegurado y 2 de aseguradora.</li>
+   <li>1 documento subido por usuario <b>asegurado</b> (solo en Siniestros) y 1 por <b>aseguradora</b> (solo en Ofertas).</li>
+   <li>El escenario de vinculación descrito en el <span class="mono">README.md</span>.</li>
+   <li><b>La matriz de roles llena</b>, exportada como <span class="mono">.xlsx</span> o <span class="mono">.csv</span>
+       <span class="muted">(las 3 veces anteriores llegó en blanco).</span></li>
+  </ul>
+ </div>
+ <div class="callout ok">
+  <b>Formato:</b> el mismo de la entrega anterior — funcionó bien. Carpeta <span class="mono">seeds/</span> con
+  un JSON por tabla, carpeta <span class="mono">s3/</span> con las rutas, y el <span class="mono">manifest.json</span>.
+ </div>
+</section>
+
+<div class="footer">
+ Radal · Guía de corrección de datos · Entrega 2<br>
+ Ante cualquier duda, preguntar <strong>antes</strong> de generar.
+</div>
+
+</div>
+</body>
+</html>

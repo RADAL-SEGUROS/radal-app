@@ -3,63 +3,111 @@
 @tailwind utilities;
 
 :root {
-  /* Neutrals */
-  --ink: #0b1418;
-  --ink-2: #16242b;
-  --ink-3: #324049;
-  --paper: #eef2ef;
-  --paper-2: #e2e8e4;
-  --bone: #fffffb;
-  --line: #cfd8d2;
+  /* ── Neutrals (refined reference set) ── */
+  --paper: #edf1ee;
+  --paper-2: #e4e9e5;
+  --bone: #fffffc;
+  --sidebar: #fbfcfa;
 
-  /* Accents */
+  --ink: #0b1418;
+  --ink-2: #1b2a31;
+  --ink-3: #37474f;
+  --muted: #5e6c72;
+  --line: #d7dfd9;
+
+  /* ── Accents ── */
   --teal: #14b8a6;
-  --teal-deep: #0e7c70;
+  --teal-deep: #0c7c70;
   --teal-soft: #b8ebe5;
   --blue: #2563eb;
   --blue-deep: #1a47b8;
   --lime: #84cc16;
+  --lime-deep: #4f7c0e;
+  --amber: #f59e0b;
+  --amber-deep: #a76a0c;
+  --red: #e5484d;
+  --red-deep: #c1352f;
 
-  /* Semantic signals */
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(11, 20, 24, 0.05);
+  --shadow: 0 2px 4px rgba(11, 20, 24, 0.04),
+    0 14px 34px -16px rgba(11, 20, 24, 0.16);
+
+  /* ── Semantic signals (derive, don't hardcode) ── */
   --signal-success: var(--lime);
   --signal-action: var(--blue);
   --signal-brand: var(--teal);
-  --signal-warn: #d97706;
-  --signal-danger: #dc2626;
-  --signal-muted: var(--ink-3);
+  --signal-warn: var(--amber);
+  --signal-warn-deep: var(--amber-deep);
+  --signal-danger: var(--red);
+  --signal-danger-deep: var(--red-deep);
+  --signal-muted: var(--muted);
 
-  /* Surface / text roles (light default) */
+  /* ── Surface / text roles (light default) ── */
   --bg-app: var(--paper);
   --bg-surface: var(--bone);
   --bg-recessed: var(--paper-2);
+  --bg-sidebar: var(--sidebar);
   --text-primary: var(--ink);
   --text-secondary: var(--ink-2);
-  --text-muted: var(--ink-3);
+  --text-tertiary: var(--ink-3);
+  --text-muted: var(--muted);
   --border: var(--line);
   --focus-ring: var(--teal);
 
-  /* Fonts */
+  /* ── Fonts ── */
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-ui: "Inter Tight", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  --radius-card: 12px;
-  --shadow-card: 0 1px 2px rgba(11, 20, 24, 0.06);
+  --radius-card: 16px;
+  --shadow-card: var(--shadow-sm);
+
+  color-scheme: light;
 }
 
-/* Dark theme override — Ink surfaces, white/teal logo */
+/* ── Dark theme ── */
 :root[data-theme="dark"],
 .dark {
-  --bg-app: var(--ink);
-  --bg-surface: var(--ink-2);
-  --bg-recessed: var(--ink-2);
-  --text-primary: #fffffb;
-  --text-secondary: #c7d2cd;
-  --text-muted: #7c8b92;
-  --border: var(--ink-3);
-  --teal-soft: var(--teal-deep);
+  --paper: #091116;
+  --paper-2: #0d1a20;
+  --bone: #132229;
+  --sidebar: #0b171d;
+
+  --ink: #ecf1ee;
+  --ink-2: #cfdad5;
+  --ink-3: #a6b4b9;
+  --muted: #7c8d93;
+  --line: #22343c;
+
+  --teal: #2dd4bf;
+  --teal-deep: #67e8d6;
+  --teal-soft: #0f3330;
+  --blue: #5b8df0;
+  --blue-deep: #93b4f7;
+  --lime: #a3e635;
+  --lime-deep: #bbea6b;
+  --amber: #f5b547;
+  --amber-deep: #f8cc82;
+  --red: #f0716c;
+  --red-deep: #f6a19d;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 18px 40px -18px rgba(0, 0, 0, 0.65);
+
+  --bg-app: var(--paper);
+  --bg-surface: var(--bone);
+  --bg-recessed: var(--paper-2);
+  --bg-sidebar: var(--sidebar);
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-tertiary: var(--ink-3);
+  --text-muted: var(--muted);
+  --border: var(--line);
   --focus-ring: var(--teal);
-  --shadow-card: none;
+  --shadow-card: var(--shadow-sm);
+
+  color-scheme: dark;
 }
 
 * {
@@ -78,6 +126,7 @@ body {
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 h1,
@@ -99,4 +148,34 @@ code,
 .tabular,
 .font-mono {
   font-family: var(--font-mono);
+}
+
+/* ── Scrollbars (reference styling) ── */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+a {
+  color: var(--blue);
+}
+a:hover {
+  color: var(--blue-deep);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+  }
 }

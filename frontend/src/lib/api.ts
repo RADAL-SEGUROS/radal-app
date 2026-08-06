@@ -34,10 +34,48 @@ export const api = axios.create({
 });
 
 // Attach JWT bearer to every request.
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+// SHA-256 (hex) of a string via Web Crypto (available on HTTPS + localhost).
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// Attach JWT bearer + the x-amz-content-sha256 body hash to every request.
+// CloudFront OAC does NOT sign POST/PUT bodies to a Lambda function URL, so the
+// client must send the body's SHA-256 in x-amz-content-sha256 for the OAC SigV4
+// signature to validate at the origin. Harmless for local (direct-to-backend) dev.
+api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   const token = getAccessToken();
   if (token) {
+    // Authorization for local/direct dev; X-Radal-Token for the CloudFront path
+    // (OAC overwrites Authorization with its SigV4 signature).
     config.headers.set("Authorization", `Bearer ${token}`);
+    config.headers.set("X-Radal-Token", token);
+  }
+  // Binary/multipart bodies (file uploads) are serialised by the browser with a
+  // boundary we do not control, so their exact bytes cannot be hashed here.
+  // SigV4's documented escape hatch is the literal "UNSIGNED-PAYLOAD".
+  const data = config.data;
+  const isOpaqueBody =
+    typeof FormData !== "undefined" && data instanceof FormData
+      ? true
+      : (typeof Blob !== "undefined" && data instanceof Blob) ||
+        data instanceof ArrayBuffer ||
+        ArrayBuffer.isView(data as ArrayBufferView);
+
+  if (isOpaqueBody) {
+    config.headers.set("x-amz-content-sha256", "UNSIGNED-PAYLOAD");
+  } else if (crypto?.subtle) {
+    let body = "";
+    if (data !== undefined && data !== null) {
+      body = typeof data === "string" ? data : JSON.stringify(data);
+      // ensure the bytes we hash are exactly what gets sent
+      config.data = body;
+    }
+    config.headers.set("x-amz-content-sha256", await sha256Hex(body));
   }
   return config;
 });

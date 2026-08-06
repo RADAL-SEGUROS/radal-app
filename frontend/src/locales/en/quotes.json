@@ -1,0 +1,162 @@
+{
+  "title": "Quote requests",
+  "subtitle": "Requests sent out to the insurance market",
+  "kpi": {
+    "total": "Quote requests",
+    "draft": "In draft",
+    "inMarket": "In market",
+    "proposals": "Proposals received"
+  },
+  "filters": {
+    "search": "Search by insured object…",
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "showing": "Showing {{shown}} of {{total}}"
+  },
+  "status": {
+    "draft": "Draft",
+    "sent": "Sent",
+    "receiving": "Receiving",
+    "closed": "Closed",
+    "cancelled": "Cancelled"
+  },
+  "proposalStatus": {
+    "draft": "Draft",
+    "submitted": "Submitted",
+    "accepted": "Accepted",
+    "rejected": "Rejected",
+    "withdrawn": "Withdrawn",
+    "expired": "Expired"
+  },
+  "offeringStatus": {
+    "draft": "Draft",
+    "sent": "Sent",
+    "viewed": "Viewed",
+    "accepted": "Accepted",
+    "expired": "Expired"
+  },
+  "origin": {
+    "native": "Native",
+    "external": "External"
+  },
+  "priority": {
+    "low": "Low",
+    "normal": "Normal",
+    "high": "High",
+    "urgent": "Urgent"
+  },
+  "table": {
+    "id": "ID",
+    "object": "Insured object",
+    "noObject": "No object declared",
+    "declared": "Declared value",
+    "itemsCount_one": "{{count}} item",
+    "itemsCount_other": "{{count}} items",
+    "proposals": "Proposals",
+    "priority": "Priority",
+    "status": "Status",
+    "due": "Due"
+  },
+  "due": {
+    "overdue": "Overdue",
+    "inDays_one": "{{count}} day",
+    "inDays_other": "{{count}} days"
+  },
+  "empty": {
+    "title": "No quote requests yet",
+    "hint": "A quote request comes from a placement: pick the asset, the line and the period, then declare the insured items."
+  },
+  "create": {
+    "action": "New quote request",
+    "noPermission": "Your role cannot create quote requests",
+    "title": "New quote request",
+    "description": "Created on an existing placement (asset + insurance line + period).",
+    "placement": "Placement",
+    "placementPlaceholder": "Select the placement",
+    "noPlacements": "No open placements. Create one before quoting.",
+    "pickPlacement": "Select a placement",
+    "insuredObject": "Insured object",
+    "insuredObjectPlaceholder": "e.g. Quilicura industrial plant",
+    "declaredValue": "Declared value (UF)",
+    "declaredHint": "You can leave it blank: it is synced with the sum of the line items.",
+    "desiredStart": "Desired start",
+    "priority": "Priority",
+    "requestedCoverages": "Requested coverages",
+    "requestedCoveragesPlaceholder": "e.g. Fire, earthquake, general liability",
+    "created": "Quote request created"
+  },
+  "summary": {
+    "declared": "Declared value",
+    "lineItemsTotal": "Line items total",
+    "proposals": "Proposals",
+    "desiredStart": "Desired start",
+    "due": "Due",
+    "sentAt": "Sent on",
+    "requestedCoverages": "Requested coverages"
+  },
+  "lineItems": {
+    "title": "Insured line items",
+    "description": "The declared value must equal the sum of the line items (±0.01 UF).",
+    "add": "Add item",
+    "discard": "Discard changes",
+    "save": "Save items",
+    "saved": "Line items saved",
+    "name": "Item",
+    "namePlaceholder": "e.g. Building",
+    "value": "Value (UF)",
+    "detail": "Detail",
+    "detailPlaceholder": "Optional",
+    "empty": "No line items declared",
+    "sum": "Items total",
+    "declared": "Declared value",
+    "delta": "Difference",
+    "mismatch": "Does not match",
+    "willSync": "The declared value will be synced",
+    "balanced": "Balanced",
+    "syncDeclared": "Sync the declared value with the sum",
+    "noPermission": "Your role cannot edit this quote request",
+    "incomplete": "Fill in the name and value of every item",
+    "mismatchBlocks": "The sum does not match the declared value: turn on syncing or fix the amounts",
+    "noChanges": "Nothing to save"
+  },
+  "send": {
+    "action": "Record send",
+    "notSendable": "Only a draft or already-sent quote request can be recorded as sent",
+    "title": "Send to insurers",
+    "description": "Radal records who you sent the request to; you send the email or portal message yourself.",
+    "searchInsurers": "Search insurer…",
+    "noInsurers": "No insurers match",
+    "dueAt": "Response deadline",
+    "manualNote": "Recording the send moves the placement to “quoting”.",
+    "pickInsurer": "Select at least one insurer",
+    "confirm": "Record send",
+    "recorded": "Send recorded"
+  },
+  "detail": {
+    "title": "Quote request",
+    "notFound": "We could not find this quote request",
+    "backToQuote": "Back to the quote request",
+    "uploadProposal": "Upload proposal",
+    "compare": "Compare proposals",
+    "noProposalsYet": "There are no proposals to compare yet",
+    "createOffering": "Build offering",
+    "offeringNeedsProposal": "You need at least one proposal to build the offering",
+    "offeringNoPermission": "Your role cannot create offerings",
+    "offeringCreated": "Offering created",
+    "proposalsTitle": "Proposals received",
+    "proposalsDescription": "Each proposal is standardised so they can be compared against each other.",
+    "noProposalsTitle": "No proposals yet",
+    "noProposalsHint": "Upload the document the insurer sent and the AI turns it into the standard shape.",
+    "proposalInsurer": "Insurer",
+    "proposalTotal": "Total premium",
+    "proposalRate": "Comprehensive rate",
+    "proposalStatus": "Status",
+    "proposalConfirmed": "Review",
+    "confirmed": "Confirmed",
+    "unconfirmed": "Unconfirmed",
+    "offeringsTitle": "Client offerings",
+    "offeringsDescription": "The shareable package the insured receives.",
+    "noOfferings": "You have not built an offering for this quote request yet.",
+    "offeringNotSent": "Not sent"
+  }
+}

@@ -31,9 +31,11 @@ created later. Only corredora screens are implemented in this pass.
 
 ```
 radal-app/
-  backend/      FastAPI + SQLAlchemy 2.x + SQLite (uv-managed venv)
-  frontend/     Vite + React + TypeScript + Tailwind + shadcn-style components
+  backend/      FastAPI + SQLAlchemy 2.x — SQLite locally, MySQL on AWS RDS (uv-managed venv)
+  frontend/     Vite + React + TypeScript + Tailwind + shadcn-style components + framer-motion
+  deploy/       docker-compose + deploy scripts for the EC2 dev box
   docs/         Canonical markdown specs (source of truth)
+  .github/      CI/CD (dev-deploy.yml -> ECR -> SSM -> EC2)
   CLAUDE.md     This file
 ```
 
@@ -44,6 +46,7 @@ radal-app/
   it EXACTLY (snake_case, Spanish nouns). Includes a mermaid ER diagram.
 - `docs/api-contract.md` — **authoritative** REST contract. Backend AND frontend build strictly to it.
 - `docs/design-system.md` — "Aqua Spectrum" brand tokens, fonts, color rules.
+- `docs/deployment.md` — **AWS infra + CI/CD** (EC2 dev box + RDS MySQL + S3 + ECR, deploy via SSM).
 
 ## How to run
 
@@ -61,7 +64,12 @@ uvicorn app.main:app --reload --port 8000
 - SQLite file: `backend/radal.db`. Schema via SQLAlchemy `create_all` (no alembic this pass).
 - Config from `backend/.env` (see `backend/.env.example`).
 - API base path: `/api/v1`. Auth: JWT Bearer (access + refresh).
-- Seed data (RADAL SEGUROS demo) runs on first boot or via a seed script — makes KPIs look real.
+- Seed: `python -m app.db.seed` (drops+creates+inserts the RADAL demo — makes KPIs look real).
+- **Engine portability**: `DATABASE_URL` switches SQLite (`sqlite:///./radal.db`) ↔ MySQL
+  (`mysql+pymysql://…` on RDS). MySQL requires bounded `VARCHAR` — a `@compiles(String,"mysql")`
+  hook in `app/models/base_class.py` defaults length-less strings to `VARCHAR(255)`; long free text
+  uses `Text`. Avoid engine-specific SQL (no `NULLS LAST`; use `col.is_(None)` ordering). Keep
+  `GROUP BY` `ONLY_FULL_GROUP_BY`-safe. Demo login: `jose@radalseguros.cl` / `radal1234`.
 
 ### Frontend (npm)
 
@@ -89,10 +97,13 @@ npm run dev        # Vite dev server (proxies /api -> backend :8000)
   `ns ∈ [common, auth, dashboard, clientes, polizas, renovaciones, cotizaciones, siniestros, inspecciones]`.
 - `es` must be **complete**; `en` **mirrors the same keys** (translated).
 
-## Dev-only view-switcher rule (NON-NEGOTIABLE)
+## Access is role-based — no view-switcher (NON-NEGOTIABLE)
 
-- A floating view-switcher (Radal / Aseguradora / Asegurado) exists to preview the three profiles.
-- It MUST be hidden unless `import.meta.env.DEV`. **Never render it in production.**
+- There is **NO** view-switcher. The old dev-only Radal/Aseguradora/Asegurado toggle was **removed** —
+  this is a real app, not a design proposal. Do not re-introduce any client-side role/view switching.
+- The user's role + cargo come solely from the authenticated profile
+  (`AuthProvider` → `/auth/me` → `usuario.rol` / `usuario.cargo`), shown in the sidebar user card.
+- Only the **corredora** view is built. A super-admin (all views) comes later.
 
 ## Coding conventions
 
@@ -126,6 +137,40 @@ npm run dev        # Vite dev server (proxies /api -> backend :8000)
 - **Comercial y operaciones**: Pipeline, Facturación, Reportes — OUT OF MVP: render disabled/greyed.
 - Bottom: collaborator name + cargo. Top-right user chip. Theme toggle + language toggle.
 
+## UI look & motion
+
+- Visual target = the "Aqua Spectrum" reference: soft **16px** cards on `--bone` with layered shadow +
+  hover-lift, refined light/dark token ramp (teal primary/active, **blue** primary actions, lime success,
+  amber/red signals), Space Grotesk headings + KPI numbers, Inter Tight body, IBM Plex Mono for IDs.
+- Motion via **framer-motion**: staggered `fadeUp` section entrance, KPI count-up, `dropIn` search
+  dropdown, animated activity accordion, hover micro-interactions. All respect `prefers-reduced-motion`.
+  Shared helpers in `src/components/common/motion.tsx`.
+
+## AWS / deployment (dev)
+
+Full detail in `docs/deployment.md`. Shape (nirvana-style): **Lambda (container images) + CloudFront +
+RDS MySQL + ECR**, deployed by `.github/workflows/dev-deploy.yml` (push to `dev`, **Blacksmith** runners) →
+build+push images → ECR → `aws lambda update-function-code` → CloudFront invalidation.
+
+- **Account** `185011028331`, **region** `us-east-1`. Use the **`radal`** AWS CLI profile locally
+  (`--profile radal`) — **never** overwrite `[default]`.
+- **CloudFront** `E2MGVTSWQDFPY3` → `https://d2tup8vfejxx98.cloudfront.net`: default behavior →
+  `radal-frontend-dev` Lambda (Express serves the Vite SPA), `/api/*` → `radal-backend-dev` Lambda (FastAPI,
+  VPC-attached to the private RDS `radal-dev-db`). Both are ECR container images running the **Lambda Web
+  Adapter** (`aws-lambda-adapter:0.7.0`); frontend server is `frontend/server.cjs`.
+- **Function URL auth**: this account blocks public (`NONE`) Function URLs, so URLs use **`AWS_IAM`** and
+  CloudFront signs to them via **OAC** (`E3BGCO4XOX79HP`) + the managed AllViewerExceptHostHeader policy.
+  Don't switch them to `NONE`. Lambda-compatible images require `docker buildx --provenance=false`.
+  **OAC gotchas (see docs/deployment.md, don't regress)**: Lambdas need both `lambda:InvokeFunctionUrl`
+  + `lambda:InvokeFunction`; POST bodies need `x-amz-content-sha256` (frontend axios); the JWT rides in
+  **`X-Radal-Token`** (OAC steals `Authorization`); LWA + Function URL invoke mode must both be `buffered`.
+- CI auth uses the scoped IAM user **`radal-github-actions`** (NOT admin keys). GitHub secrets:
+  `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `ECR_REGISTRY`, `BACKEND_LAMBDA`,
+  `FRONTEND_LAMBDA`, `CLOUDFRONT_DISTRIBUTION_ID`. Values in `~/radal-cicd-secrets.txt`.
+- ECR **lifecycle policy keeps only the last 5 images** per repo. RDS is the main idle cost — stop it when unused.
+- Route 53 / custom domain: TODO (running on `*.cloudfront.net`); migrate GoDaddy → Route 53 + ACM (us-east-1) later.
+- Real secrets (`*.pem`, DB creds) live in S3 / local only — **never** commit them.
+
 ## .gitignore must include
 
-`.venv`, `__pycache__`, `*.db`, `node_modules`, `dist`, `.env`, `.DS_Store`.
+`.venv`, `__pycache__`, `*.db`, `node_modules`, `dist`, `.env`, `.DS_Store`, `deploy/backend.env`, `*.pem`.

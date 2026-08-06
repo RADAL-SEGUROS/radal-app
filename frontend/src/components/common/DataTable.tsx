@@ -51,7 +51,12 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div className={cn("rounded-card border border-line bg-bg-surface", className)}>
+    <div
+      className={cn(
+        "overflow-hidden rounded-card border border-line bg-bg-surface shadow-card",
+        className,
+      )}
+    >
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

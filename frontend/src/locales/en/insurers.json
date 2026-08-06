@@ -1,0 +1,109 @@
+{
+  "title": "Insurers",
+  "subtitle": "One catalogue: Radal's native partners and external companies",
+  "origin": {
+    "native": "Native",
+    "external": "External"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "deregistered": "Deregistered"
+  },
+  "filters": {
+    "search": "Search by name, RUT or CMF code…",
+    "all": "All",
+    "showing": "Showing {{shown}} of {{total}}"
+  },
+  "recommendations": {
+    "title": "Recommended partners",
+    "subtitle": "Native partners with a live commercial agreement",
+    "hasLineContact": "Contact for this line",
+    "reasons": {
+      "native_partner": "Radal native partner",
+      "native_partner_with_contact": "Native partner with an assigned contact",
+      "native_partner_with_line_contact": "Native partner with a contact for this line"
+    }
+  },
+  "empty": {
+    "title": "No insurers match",
+    "hint": "Adjust the search, or register the external company that sent you a proposal."
+  },
+  "card": {
+    "externalHint": "External company: registered when a proposal was uploaded"
+  },
+  "create": {
+    "action": "Register insurer",
+    "noPermission": "Your role cannot register insurers",
+    "title": "Register an external insurer",
+    "description": "Identity is RUT + CMF code. A company is never identified by its name.",
+    "externalOnly": "Brokers register external companies; native partners are enabled by the Radal team.",
+    "required": "RUT, CMF code and legal name are required",
+    "created": "Insurer registered"
+  },
+  "fields": {
+    "rut": "RUT",
+    "cmfCode": "CMF code",
+    "legalName": "Legal name",
+    "tradeName": "Trade name",
+    "paymentUrl": "Payment portal",
+    "cmfStatus": "CMF status",
+    "ownership": "Registered by",
+    "createdAt": "Registered on"
+  },
+  "profile": {
+    "title": "Native partner profile",
+    "description": "Commercial terms of the agreement with Radal.",
+    "priority": "Priority",
+    "sla": "SLA",
+    "onboardedAt": "Onboarded",
+    "agreement": "Commercial agreement",
+    "notes": "Notes"
+  },
+  "contacts": {
+    "title": "Contacts",
+    "description": "Resolution order: (broker + line) → (broker) → (line) → global.",
+    "effective": "Effective contact",
+    "add": "Add contact",
+    "addTitle": "New contact",
+    "editTitle": "Edit contact",
+    "dialogDescription": "Contacts you create belong to your brokerage.",
+    "empty": "This insurer has no contacts on file yet.",
+    "name": "Name",
+    "contact": "Contact",
+    "role": "Role",
+    "scope": "Scope",
+    "scopes": {
+      "broker": "Your brokerage",
+      "global": "Radal global"
+    },
+    "matchLevel": {
+      "broker_line": "Broker + line",
+      "broker": "Broker",
+      "line": "Line",
+      "global": "Global"
+    },
+    "primary": "Primary",
+    "isPrimary": "Mark as primary contact",
+    "email": "Email",
+    "phone": "Phone",
+    "readOnly": "This is a Radal global contact: only the platform team can edit it",
+    "nameRequired": "The name is required",
+    "scopeNote": "This contact will be visible to your brokerage only.",
+    "created": "Contact created",
+    "updated": "Contact updated",
+    "deleted": "Contact deleted"
+  },
+  "detail": {
+    "title": "Insurer",
+    "notFound": "We could not find this insurer",
+    "paymentPortal": "Payment portal",
+    "noPaymentUrl": "This company has no payment portal on file",
+    "readOnly": "Radal global company: your brokerage cannot edit it",
+    "brokerOwned": "Registered by your brokerage",
+    "platformOwned": "Registered by Radal",
+    "editTitle": "Edit insurer",
+    "editDescription": "You may correct the names and the payment portal.",
+    "identityImmutable": "RUT and CMF code define the identity and are not edited here."
+  }
+}

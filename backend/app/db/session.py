@@ -28,7 +28,13 @@ DATABASE_URL = _normalized_sqlite_url(settings.DATABASE_URL)
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args, future=True)
+engine = create_engine(
+    DATABASE_URL,
+    connect_args=connect_args,
+    # pool_pre_ping avoids stale MySQL/RDS connections after idle timeouts.
+    pool_pre_ping=not DATABASE_URL.startswith("sqlite"),
+    future=True,
+)
 
 SessionLocal = sessionmaker(
     bind=engine, autocommit=False, autoflush=False, class_=Session, future=True

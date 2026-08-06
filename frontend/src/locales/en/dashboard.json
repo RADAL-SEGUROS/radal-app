@@ -1,52 +1,44 @@
 {
+  "subtitle": "Your working day on one screen.",
   "greeting": {
-    "manana": "Good morning",
-    "tarde": "Good afternoon",
-    "noche": "Good evening",
-    "line": "{{saludo}}, {{nombre}}",
-    "subtitle": "Today is {{dia}}"
+    "withName": "{{greeting}}, {{name}}"
   },
-  "kpis": {
-    "polizasVigentes": "Active policies",
-    "clientesActivos": "Active clients",
-    "renovacionesActivas": "Active renewals",
-    "pipelinePonderado": "Weighted pipeline",
-    "pipelineHint": "Sum of estimated premiums"
+  "actions": {
+    "newClient": "New client",
+    "newPlacement": "New placement"
   },
-  "quickActions": {
-    "title": "Quick actions",
-    "nuevoCliente": "New client",
-    "nuevaPoliza": "New policy",
-    "reportarSiniestro": "Report claim",
-    "solicitarInspeccion": "Request inspection"
+  "kpi": {
+    "clients": "Clients",
+    "clientsHint_one": "{{count}} with an active placement",
+    "clientsHint_other": "{{count}} with an active placement",
+    "openPlacements": "Open placements",
+    "openPlacementsHint_one": "{{count}} in market",
+    "openPlacementsHint_other": "{{count}} in market",
+    "expiring": "Expiring in 60D",
+    "expiringHint": "Policy periods ending soon",
+    "assets": "Insurable assets",
+    "assetsHint_one": "{{count}} without a placement",
+    "assetsHint_other": "{{count}} without a placement"
   },
-  "requiereAtencion": {
+  "attention": {
     "title": "Needs attention",
-    "empty": "No pending items right now",
-    "tipos": {
-      "renovacion": "Renewal",
-      "cotizacion": "Quote",
-      "siniestro": "Claim",
-      "inspeccion": "Inspection"
-    }
+    "empty": "Nothing urgent right now."
   },
-  "principalesClientes": {
+  "pipeline": {
+    "title": "Pipeline by status",
+    "empty": "No placements yet."
+  },
+  "topClients": {
     "title": "Top clients",
-    "empty": "No clients registered",
-    "polizas_one": "{{count}} policy",
-    "polizas_other": "{{count}} policies"
+    "placements": "active",
+    "noSector": "No sector",
+    "empty": "No clients with activity yet."
   },
-  "actividadReciente": {
+  "recent": {
     "title": "Recent activity",
-    "empty": "No recent activity",
-    "verMas": "Show more",
-    "verMenos": "Show less"
-  },
-  "proximasRenovaciones": {
-    "title": "Upcoming renewals",
-    "empty": "No upcoming renewals",
-    "vence": "Due {{fecha}}",
-    "diasRestantes_one": "{{count}} day",
-    "diasRestantes_other": "{{count}} days"
+    "empty": "No recent movements.",
+    "showMore_one": "Show {{count}} more movement",
+    "showMore_other": "Show {{count}} more movements",
+    "derivedNote": "Derived from the latest update on placements and clients: the full audit trail is not exposed by the API yet."
   }
 }

@@ -1,0 +1,167 @@
+{
+  "title": "Colocaciones",
+  "subtitle": "La carpeta operativa: un activo × un ramo × un período.",
+  "empty": "No hay colocaciones que coincidan con el filtro.",
+  "notFound": "No encontramos esta colocación.",
+  "actions": {
+    "new": "Nueva colocación"
+  },
+  "kpi": {
+    "open": "Abiertas",
+    "inMarket": "En mercado",
+    "awaitingInspection": "Esperando inspección",
+    "expiring": "Por vencer 60D"
+  },
+  "filters": {
+    "searchPlaceholder": "Buscar por activo, cliente o período…",
+    "allStatuses": "Todos los estados",
+    "allClients": "Todos los clientes",
+    "allLines": "Todos los ramos",
+    "openOnly": "Solo abiertas",
+    "assetFilter": "Quitar filtro de activo"
+  },
+  "columns": {
+    "client": "Cliente / activo",
+    "line": "Ramo",
+    "period": "Período",
+    "status": "Estado",
+    "daysToEnd": "Vence en",
+    "market": "Mercado",
+    "quotesShort_one": "{{count}} cot.",
+    "quotesShort_other": "{{count}} cot.",
+    "proposalsShort_one": "{{count}} prop.",
+    "proposalsShort_other": "{{count}} prop."
+  },
+  "pagination": {
+    "total_one": "{{count}} colocación",
+    "total_other": "{{count}} colocaciones"
+  },
+  "status": {
+    "draft": "Borrador",
+    "inspection": "Inspección",
+    "pre_underwriting": "Pre-suscripción",
+    "quoting": "Cotizando",
+    "negotiating": "Negociando",
+    "awarded": "Adjudicada",
+    "active": "Vigente",
+    "closed": "Cerrada"
+  },
+  "quoteStatus": {
+    "draft": "Borrador",
+    "sent": "Enviada",
+    "receiving": "Recibiendo",
+    "closed": "Cerrada",
+    "cancelled": "Anulada"
+  },
+  "proposalStatus": {
+    "draft": "Borrador",
+    "submitted": "Presentada",
+    "accepted": "Aceptada",
+    "rejected": "Rechazada",
+    "withdrawn": "Retirada",
+    "expired": "Vencida"
+  },
+  "inspectionStatus": {
+    "pending": "Pendiente",
+    "scheduled": "Agendada",
+    "in_progress": "En terreno",
+    "completed": "Completada",
+    "cancelled": "Anulada"
+  },
+  "expiry": {
+    "days_one": "{{count}} día",
+    "days_other": "{{count}} días",
+    "overdue_one": "vencida hace {{count}} día",
+    "overdue_other": "vencida hace {{count}} días"
+  },
+  "fields": {
+    "client": "Cliente",
+    "asset": "Activo",
+    "assetPlaceholder": "Selecciona un activo",
+    "insuranceLine": "Ramo",
+    "linePlaceholder": "Selecciona un ramo",
+    "period": "Período",
+    "periodStart": "Inicio de vigencia",
+    "periodEnd": "Término de vigencia",
+    "notes": "Notas"
+  },
+  "form": {
+    "createTitle": "Nueva colocación",
+    "createSubtitle": "El cliente se deriva del activo: una colocación es un activo, un ramo y un período.",
+    "editTitle": "Editar colocación",
+    "editSubtitle": "El estado no se edita aquí: avanza solo por el flujo de estados.",
+    "noAssets": "Este cliente aún no tiene activos activos. Crea primero un activo desde la ficha del cliente.",
+    "noLines": "Todavía no podemos ofrecerte un selector de ramos: la API aún no expone el catálogo de ramos y solo conocemos los que ya usan tus colocaciones.",
+    "errors": {
+      "required": "Campo obligatorio"
+    }
+  },
+  "pipeline": {
+    "title": "Flujo de estados",
+    "moveTo": "Pasar a {{status}}",
+    "notAllowed": "No disponible desde «{{status}}»",
+    "terminal": "Estado final"
+  },
+  "transition": {
+    "title": "Cambiar estado",
+    "description": "La colocación pasará a «{{status}}». Queda registrado en la auditoría.",
+    "note": "Nota (opcional)"
+  },
+  "toast": {
+    "created": "Colocación creada",
+    "transitioned": "Estado actualizado a {{status}}"
+  },
+  "detail": {
+    "folder": "Carpeta",
+    "market": "Mercado",
+    "quoteRequests": "Solicitudes de cotización",
+    "proposals": "Propuestas",
+    "inspections": "Inspecciones",
+    "policies": "Pólizas",
+    "notes": "Notas",
+    "noNotes": "Sin notas.",
+    "updatedAt": "Actualizada el {{at}}"
+  },
+  "tabs": {
+    "quotes": "Cotizaciones",
+    "proposals": "Propuestas",
+    "inspections": "Inspecciones",
+    "documents": "Documentos"
+  },
+  "quotes": {
+    "empty": "Aún no hay solicitudes de cotización.",
+    "new": "Nueva cotización",
+    "untitled": "Sin objeto asegurado",
+    "declaredValue": "Valor declarado",
+    "proposalsCount_one": "{{count}} propuesta",
+    "proposalsCount_other": "{{count}} propuestas",
+    "readOnly": "Vista de solo lectura desde la colocación.",
+    "moduleSoon": "El módulo de cotizaciones llega pronto"
+  },
+  "proposals": {
+    "empty": "Aún no hay propuestas recibidas.",
+    "totalPremium": "Prima total",
+    "confirmed": "Confirmada",
+    "unconfirmed": "Sin confirmar",
+    "readOnly": "Vista de solo lectura: el comparador de propuestas llega con su propio módulo.",
+    "origin": {
+      "native": "Nativa",
+      "external": "Externa"
+    }
+  },
+  "inspections": {
+    "empty": "Aún no hay solicitudes de inspección.",
+    "untitled": "Sin motivo indicado",
+    "noDate": "Sin fecha objetivo",
+    "readOnly": "Vista de solo lectura: el módulo de inspecciones llega pronto."
+  },
+  "delete": {
+    "title": "Eliminar colocación",
+    "description": "Se eliminará esta carpeta operativa. Solo es posible si no tiene cotizaciones, propuestas ni pólizas asociadas."
+  },
+  "permissions": {
+    "noCreate": "Tu rol no permite crear colocaciones",
+    "noEdit": "Tu rol no permite editar colocaciones",
+    "noDelete": "Tu rol no permite eliminar colocaciones"
+  }
+}

@@ -4,18 +4,31 @@ import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 
 import Login from "@/pages/auth/Login";
 import DashboardPage from "@/pages/dashboard";
-import ClientesPage from "@/pages/clientes";
-import ClienteDetail from "@/pages/clientes/Detail";
-import PolizasPage from "@/pages/polizas";
-import PolizaDetail from "@/pages/polizas/Detail";
-import RenovacionesPage from "@/pages/renovaciones";
-import RenovacionDetail from "@/pages/renovaciones/Detail";
-import CotizacionesPage from "@/pages/cotizaciones";
-import SiniestrosPage from "@/pages/siniestros";
-import SiniestroDetail from "@/pages/siniestros/Detail";
-import InspeccionesPage from "@/pages/inspecciones";
-import InspeccionDetail from "@/pages/inspecciones/Detail";
+import ClientsPage from "@/pages/clients";
+import ClientDetailPage from "@/pages/clients/detail";
+import PlacementsPage from "@/pages/placements";
+import PlacementDetailPage from "@/pages/placements/detail";
+import InspectionsPage from "@/pages/inspections";
+import InspectionDetailPage from "@/pages/inspections/detail";
+import SettingsPage from "@/pages/settings";
+import QuotesPage from "@/pages/quotes";
+import QuoteDetailPage from "@/pages/quotes/detail";
+import ProposalComparisonPage from "@/pages/proposals/compare";
+import ProposalsPage from "@/pages/proposals";
+import ProposalUploadPage from "@/pages/proposals/upload";
+import ProposalDetailPage from "@/pages/proposals/detail";
+import InsurersPage from "@/pages/insurers";
+import InsurerDetailPage from "@/pages/insurers/detail";
+import OfferingsPage from "@/pages/offerings";
+import OfferingDetailPage from "@/pages/offerings/detail";
 
+/**
+ * v2 router.
+ *
+ * A route exists here only once a real endpoint is behind the page it renders.
+ * Modules still to land are NOT routed and are shown greyed with a "pronto"
+ * chip in the sidebar, rather than as links that resolve to an empty screen.
+ */
 export default function App() {
   return (
     <Routes>
@@ -26,17 +39,25 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
-          <Route path="clientes" element={<ClientesPage />} />
-          <Route path="clientes/:id" element={<ClienteDetail />} />
-          <Route path="polizas" element={<PolizasPage />} />
-          <Route path="polizas/:id" element={<PolizaDetail />} />
-          <Route path="renovaciones" element={<RenovacionesPage />} />
-          <Route path="renovaciones/:id" element={<RenovacionDetail />} />
-          <Route path="cotizaciones" element={<CotizacionesPage />} />
-          <Route path="siniestros" element={<SiniestrosPage />} />
-          <Route path="siniestros/:id" element={<SiniestroDetail />} />
-          <Route path="inspecciones" element={<InspeccionesPage />} />
-          <Route path="inspecciones/:id" element={<InspeccionDetail />} />
+          <Route path="clients" element={<ClientsPage />} />
+          <Route path="clients/:id" element={<ClientDetailPage />} />
+          <Route path="placements" element={<PlacementsPage />} />
+          <Route path="placements/:id" element={<PlacementDetailPage />} />
+          <Route path="inspections" element={<InspectionsPage />} />
+          <Route path="inspections/:id" element={<InspectionDetailPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+
+          {/* Deal flow: quote request -> proposals -> comparison -> offering */}
+          <Route path="quotes" element={<QuotesPage />} />
+          <Route path="quotes/:quoteId" element={<QuoteDetailPage />} />
+          <Route path="quotes/:quoteId/comparison" element={<ProposalComparisonPage />} />
+          <Route path="proposals" element={<ProposalsPage />} />
+          <Route path="proposals/upload" element={<ProposalUploadPage />} />
+          <Route path="proposals/:proposalId" element={<ProposalDetailPage />} />
+          <Route path="insurers" element={<InsurersPage />} />
+          <Route path="insurers/:insurerId" element={<InsurerDetailPage />} />
+          <Route path="offerings" element={<OfferingsPage />} />
+          <Route path="offerings/:offeringId" element={<OfferingDetailPage />} />
         </Route>
       </Route>
 

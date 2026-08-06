@@ -14,8 +14,13 @@ dist/
 .env.*
 !.env.example
 
+# Deploy secrets (real env + keys live in S3, never in git)
+deploy/backend.env
+*.pem
+
 # Editor / OS
 .DS_Store
 .idea/
 .vscode/
 *.log
+*.tsbuildinfo
