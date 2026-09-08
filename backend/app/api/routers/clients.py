@@ -233,6 +233,9 @@ def list_clients(
     _user: User = Depends(require_permission("Clients", "View")),
     q: str | None = Query(None, description="Search legal/trade name or RUT"),
     status_filter: list[ClientStatus] | None = Query(None, alias="status"),
+    account_group_id: int | None = Query(
+        None, description="Only clients attached to this broker-private group"
+    ),
     account_manager_id: int | None = None,
     sector: str | None = None,
     source: str | None = None,
@@ -260,6 +263,10 @@ def list_clients(
         )
     if status_filter:
         stmt = stmt.where(Client.status.in_(status_filter))
+    if account_group_id is not None:
+        # The group is broker-private; the ``broker_id`` filter above already
+        # scopes it, so a foreign group id simply yields an empty page.
+        stmt = stmt.where(Client.account_group_id == account_group_id)
     if account_manager_id is not None:
         stmt = stmt.where(Client.account_manager_id == account_manager_id)
     if sector:

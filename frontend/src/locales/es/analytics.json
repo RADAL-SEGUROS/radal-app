@@ -1,0 +1,138 @@
+{
+  "eyebrow": "Portafolio",
+  "title": "Analítica",
+  "subtitle": "El estado de toda la cartera: indicadores, distribución y las listas consolidadas",
+  "noModules": "Tu rol no tiene acceso a ninguno de los módulos de esta página.",
+  "count_one": "{{count}} resultado",
+  "count_many": "{{count}} resultados",
+  "count_other": "{{count}} resultados",
+  "kpis": {
+    "openAccounts": "Cuentas abiertas",
+    "openAccountsHint": "de {{count}} en total",
+    "inMarket": "En mercado",
+    "inMarketHint": "enviadas o recibiendo cotizaciones",
+    "renewals": "Renovaciones",
+    "renewalsHint": "en revisión de renovación",
+    "overdueCollections": "Cobranzas vencidas",
+    "overdueCollectionsHint": "requieren gestión de cobranza",
+    "quotesInProgress": "Cotizaciones en curso",
+    "quotesOverdueHint_one": "{{count}} vencida",
+    "quotesOverdueHint_many": "{{count}} vencidas",
+    "quotesOverdueHint_other": "{{count}} vencidas",
+    "quotesSentHint_one": "{{count}} enviada en los últimos 30 días",
+    "quotesSentHint_many": "{{count}} enviadas en los últimos 30 días",
+    "quotesSentHint_other": "{{count}} enviadas en los últimos 30 días",
+    "proposedPremium": "Prima propuesta",
+    "proposedPremiumHint_one": "{{count}} propuesta confirmada",
+    "proposedPremiumHint_many": "{{count}} propuestas confirmadas",
+    "proposedPremiumHint_other": "{{count}} propuestas confirmadas",
+    "activePolicies": "Pólizas vigentes",
+    "policiesExpiringHint_one": "{{count}} vence dentro de 60 días",
+    "policiesExpiringHint_many": "{{count}} vencen dentro de 60 días",
+    "policiesExpiringHint_other": "{{count}} vencen dentro de 60 días",
+    "policiesTotalHint": "de {{count}} en total"
+  },
+  "charts": {
+    "empty": "Sin datos todavía",
+    "byStage": {
+      "title": "Expedientes por etapa",
+      "subtitle": "Las etapas con más cuentas abiertas",
+      "unit": "expedientes"
+    },
+    "byInsurer": {
+      "title": "Propuestas por compañía",
+      "subtitle": "Quién responde tus cotizaciones",
+      "unit": "propuestas",
+      "others": "Otras compañías",
+      "centerLabel": "propuestas"
+    }
+  },
+  "tabs": {
+    "accounts": "Cuentas",
+    "quotes": "Cotizaciones",
+    "proposals": "Propuestas",
+    "policies": "Pólizas",
+    "postsale": "Post-venta",
+    "documents": "Documentos"
+  },
+  "filters": {
+    "all": "Todas",
+    "clear": "Limpiar filtros",
+    "stage": "Etapa",
+    "status": "Estado",
+    "line": "Ramo",
+    "insurer": "Compañía",
+    "entityType": "Entidad",
+    "category": "Categoría"
+  },
+  "views": {
+    "table": "Tabla",
+    "board": "Tablero"
+  },
+  "columns": {
+    "group": "Grupo / cuenta",
+    "line": "Ramo",
+    "period": "Vigencia",
+    "stage": "Etapa",
+    "status": "Estado",
+    "reference": "Referencia",
+    "object": "Materia asegurada",
+    "declared": "Valor declarado",
+    "sentAt": "Enviada",
+    "dueAt": "Plazo",
+    "proposalsCount": "Propuestas",
+    "insurer": "Compañía",
+    "quote": "Cotización",
+    "totalPremium": "Prima total",
+    "rate": "Tasa",
+    "confirmed": "Confirmación",
+    "policyNumber": "N° de póliza",
+    "client": "Cliente",
+    "kind": "Tipo",
+    "delta": "Δ prima",
+    "effectiveAt": "Vigencia del endoso",
+    "plan": "Plan",
+    "paymentMode": "Modalidad",
+    "installments": "Cuotas",
+    "ledgerTotal": "Total plan",
+    "claimNumber": "N° de siniestro",
+    "eventDate": "Fecha del evento",
+    "paid": "Pagado",
+    "ruling": "Cobertura",
+    "name": "Documento",
+    "category": "Categoría",
+    "entityType": "Entidad",
+    "size": "Tamaño",
+    "uploadedAt": "Subido"
+  },
+  "postsale": {
+    "endorsements": "Endosos",
+    "collections": "Cobranzas",
+    "claims": "Siniestros"
+  },
+  "documents": {
+    "download": "Descargar"
+  },
+  "board": {
+    "empty": "Sin cuentas en esta fase",
+    "postsaleFooter_one": "{{count}} caso de post-venta abierto en la cartera",
+    "postsaleFooter_many": "{{count}} casos de post-venta abiertos en la cartera",
+    "postsaleFooter_other": "{{count}} casos de post-venta abiertos en la cartera"
+  },
+  "empty": {
+    "accounts": "Todavía no hay cuentas",
+    "quotes": "Todavía no hay cotizaciones",
+    "proposals": "Todavía no hay propuestas",
+    "policies": "Todavía no hay pólizas",
+    "postsale": "Todavía no hay casos de post-venta",
+    "documents": "Todavía no hay documentos"
+  },
+  "emptyHint": {
+    "accounts": "Crea un grupo y agrega su primera cuenta para verla aquí.",
+    "quotes": "Las cotizaciones enviadas al mercado aparecerán en esta lista.",
+    "proposals": "Sube la cotización de una compañía para registrar su propuesta.",
+    "policies": "Las pólizas emitidas desde una propuesta aceptada aparecerán aquí.",
+    "postsale": "Los endosos, cobranzas y siniestros de tus pólizas aparecerán aquí.",
+    "documents": "Los archivos que subas a expedientes y entidades aparecerán aquí."
+  }
+}

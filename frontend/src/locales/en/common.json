@@ -7,9 +7,26 @@
     "sections": {
       "management": "Management",
       "commercialOperations": "Commercial & operations",
-      "administration": "Administration"
+      "administration": "Administration",
+      "commercial": "Commercial",
+      "aiAssistants": "AI assistants",
+      "pinned": "Shortcuts"
     },
     "dashboard": "Dashboard",
+    "groups": "Groups",
+    "newGroup": "New group",
+    "allGroups": "See all groups",
+    "more": "More",
+    "portfolio": "Portfolio",
+    "reader": "Document reader",
+    "comparator": "Comparator",
+    "insurersAppetite": "Insurers and appetite",
+    "finance": "Finance",
+    "leads": "Leads",
+    "cases": "Case files",
+    "agent": "Agent",
+    "endorsements": "Endorsements",
+    "collections": "Collections",
     "clients": "Clients",
     "placements": "Placements",
     "quotes": "Quotes",
@@ -25,7 +42,17 @@
     "billing": "Billing",
     "reports": "Reports",
     "comingSoon": "Coming soon",
-    "soon": "Soon"
+    "soon": "Soon",
+    "analytics": "Analytics",
+    "backToGroups": "Back to groups"
+  },
+  "sidebar": {
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "resize": "Resize sidebar",
+    "overview": "Overview",
+    "periods": "Periods",
+    "historic": "Historic"
   },
   "actions": {
     "save": "Save",
@@ -61,6 +88,7 @@
     "placeholder": "Search clients, policies, assets…",
     "empty": "No results",
     "categories": {
+      "groups": "Groups",
       "clients": "Clients",
       "assets": "Assets",
       "quotes": "Quotes",
@@ -81,7 +109,10 @@
     "error": "Could not load data",
     "rowsPerPage": "Rows per page",
     "of": "of",
-    "page": "Page"
+    "page": "Page",
+    "range": "{{from}}–{{to}} of {{total}}",
+    "prev": "Previous page",
+    "next": "Next page"
   },
   "estados": {
     "activo": "Active",

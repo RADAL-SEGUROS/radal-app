@@ -4,6 +4,9 @@ __pycache__/
 *.py[cod]
 *.db
 
+# Local media root (MEDIA_BACKEND=local mirrors document bytes here)
+backend/media/
+
 # Node / frontend
 node_modules/
 dist/

@@ -146,6 +146,15 @@ class QuoteRequestRead(BaseModel):
     placement: PlacementRef | None = None
 
 
+class QuoteRequestSummary(BaseModel):
+    """The quotes board: totals, the status split and the two clocks."""
+
+    total: int
+    by_status: dict[str, int]
+    sent_last_30d: int
+    overdue: int
+
+
 class QuoteRequestPage(BaseModel):
     items: list[QuoteRequestRead]
     total: int
@@ -210,6 +219,7 @@ __all__ = [
     "QuoteRequestUpdate",
     "QuoteRequestSend",
     "QuoteRequestRead",
+    "QuoteRequestSummary",
     "QuoteRequestPage",
     "PlacementRef",
     "line_items_total",

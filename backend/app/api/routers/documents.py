@@ -38,10 +38,11 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_broker_id, get_db
+from app.core.case_scope import case_view_scope, scope_case_query
 from app.core.config import settings
 from app.core.permissions import require_permission
 from app.models import (
@@ -63,12 +64,22 @@ from app.models import (
     QuoteRequest,
     User,
 )
-from app.models.enums import EntityType
+from app.models.case_file import CaseFile
+from app.models.collection import CollectionPlan
+from app.models.endorsement import Endorsement
+from app.models.enums import CaseSection, EntityType
+from app.models.sales_lead import SalesLead
+from app.models.warranty import Warranty
 from app.schemas.document import (
     DocumentDownload,
     DocumentListResponse,
     DocumentRead,
     DocumentUpdate,
+)
+from app.schemas.extraction.registry import (
+    UnknownCategory,
+    category_for_code,
+    spec_for,
 )
 from app.services import media
 
@@ -129,6 +140,12 @@ _ENTITY_RULES: dict[EntityType, _EntityRule] = {
     EntityType.POLICY: _EntityRule(Policy),
     EntityType.CLAIM: _EntityRule(Claim),
     EntityType.OFFERING: _EntityRule(Offering),
+    # --- Case files (v2 expedientes) ---------------------------------------
+    EntityType.CASE_FILE: _EntityRule(CaseFile),
+    EntityType.SALES_LEAD: _EntityRule(SalesLead),
+    EntityType.ENDORSEMENT: _EntityRule(Endorsement),
+    EntityType.COLLECTION_PLAN: _EntityRule(CollectionPlan),
+    EntityType.WARRANTY: _EntityRule(Warranty),
 }
 
 
@@ -330,7 +347,9 @@ def _download_url(doc: Document) -> tuple[str, int | None]:
                 detail=f"Could not sign the download URL: {exc}",
             ) from exc
         return url, DOWNLOAD_URL_TTL_SECONDS
-    return f"{settings.MEDIA_PUBLIC_BASE_URL.rstrip('/')}/{doc.s3_key}", None
+    # Local dev: nothing serves MEDIA_LOCAL_DIR statically, so point at the
+    # broker-scoped content route, which streams the same bytes back.
+    return f"{settings.API_V1_PREFIX}/documents/{doc.id}/content", None
 
 
 def store_generated_document(
@@ -425,12 +444,29 @@ def upload_document(
     entity_id: int = Form(..., gt=0),
     category: DocumentCategory = Form(DocumentCategory.OTHER),
     phase: str | None = Form(default=None),
+    case_file_id: int | None = Form(default=None),
+    section: CaseSection | None = Form(default=None),
+    document_code: str | None = Form(default=None),
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     current_user: User = Depends(require_permission("Documents", "Upload")),
 ) -> Document:
-    """Upload a file, store it under the official S3 route, register the row."""
+    """Upload a file, store it under the official S3 route, register the row.
+
+    ``case_file_id`` / ``section`` / ``document_code`` file the document inside an
+    expediente; the case is proved to belong to the same broker first.
+    """
     resolve_entity(db, entity_type, entity_id, broker_id)
+    _validate_case_file(db, case_file_id, broker_id, current_user)
+    if entity_type is EntityType.CASE_FILE and case_file_id is None:
+        case_file_id = entity_id
+
+    category, derived_section, document_code = _classify(
+        category, section, document_code
+    )
+    # A section only means something inside an expediente; outside one the column
+    # stays NULL so the plain document list is unchanged.
+    section = derived_section if case_file_id is not None else section
 
     raw = file.file.read()
     if not raw:
@@ -458,8 +494,8 @@ def upload_document(
         try:
             stored = media.process_and_store_avatar(
                 raw,
-                entidad_tipo=entity_type.value,
-                entidad_id=entity_id,
+                entity_type=entity_type.value,
+                entity_id=entity_id,
                 content_type=mime_type,
             )
         except media.MediaError as exc:
@@ -494,6 +530,9 @@ def upload_document(
         checksum=hashlib.sha256(raw).hexdigest(),
         category=category,
         phase=phase,
+        case_file_id=case_file_id,
+        section=section,
+        document_code=document_code,
         uploaded_by_id=current_user.id,
     )
     db.add(doc)
@@ -502,11 +541,76 @@ def upload_document(
     return doc
 
 
+def _classify(
+    category: DocumentCategory,
+    section: CaseSection | None,
+    document_code: str | None,
+) -> tuple[DocumentCategory, CaseSection | None, str | None]:
+    """Fill the blanks in ``(category, section, document_code)`` from the registry.
+
+    Upload auto-detection, spec §3.1: the client sends what it knows and the
+    category registry supplies the rest. A code alone (``document_code="00A"``)
+    resolves the category; a category alone supplies the section and the
+    canonical code. Anything the caller stated explicitly always wins.
+    """
+    code = (document_code or "").strip().upper() or None
+
+    if category is DocumentCategory.OTHER and code:
+        detected = category_for_code(code, section)
+        if detected is not None:
+            category = detected
+
+    try:
+        spec = spec_for(category)
+    except UnknownCategory:
+        # Legacy categories (cmf_certificate, logo, evidence, …) carry no section.
+        return category, section, code
+
+    if section is None:
+        section = spec.section
+    if code is None:
+        code = spec.code
+    return category, section, code
+
+
+def _visible_case_ids(db: Session, broker_id: int, user: "User | None"):
+    """SELECT of the case ids this caller may see (spec v3 §6).
+
+    Shares ``CASE_VIEW_SCOPE`` with ``case_files._visible()``, so a role whose
+    ``CaseFiles.View`` grant is ``partial`` cannot file into — or list the
+    documents of — a case its own list would hide.
+    """
+    stmt = select(CaseFile.id).where(CaseFile.broker_id == broker_id)
+    return scope_case_query(stmt, broker_id=broker_id, user=user)
+
+
+def _validate_case_file(
+    db: Session,
+    case_file_id: int | None,
+    broker_id: int,
+    user: "User | None" = None,
+) -> None:
+    """A document may only be filed inside an expediente the caller can see."""
+    if case_file_id is None:
+        return
+    found = db.scalar(
+        _visible_case_ids(db, broker_id, user).where(CaseFile.id == case_file_id)
+    )
+    if found is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"case_file {case_file_id} not found",
+        )
+
+
 @router.get("", response_model=DocumentListResponse)
 def list_documents(
     entity_type: EntityType | None = Query(default=None),
     entity_id: int | None = Query(default=None, gt=0),
-    category: DocumentCategory | None = Query(default=None),
+    category: list[DocumentCategory] | None = Query(default=None),
+    section: list[CaseSection] | None = Query(default=None),
+    case_file_id: int | None = Query(default=None, gt=0),
+    document_code: str | None = Query(default=None, max_length=8),
     phase: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -514,7 +618,12 @@ def list_documents(
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Documents", "View")),
 ) -> DocumentListResponse:
-    """List the broker's documents, optionally narrowed to one entity."""
+    """List the broker's documents, optionally narrowed to one entity or case file.
+
+    ``category`` and ``section`` accept repeats (``?category=a&category=b``), which
+    is what the expediente's section accordion needs to fetch one sub-expediente
+    at a time.
+    """
     if entity_id is not None and entity_type is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -526,8 +635,24 @@ def list_documents(
         filters.append(Document.entity_type == entity_type)
     if entity_id is not None:
         filters.append(Document.entity_id == entity_id)
-    if category is not None:
-        filters.append(Document.category == category)
+    if category:
+        filters.append(Document.category.in_(category))
+    if section:
+        filters.append(Document.section.in_(section))
+    if case_file_id is not None:
+        filters.append(Document.case_file_id == case_file_id)
+    if _case_narrowing_applies(_user):
+        # A narrowed CaseFiles.View must not leak an invisible case's documents
+        # — with or without an explicit ``case_file_id`` filter. Documents that
+        # belong to no expediente are untouched by the narrowing.
+        filters.append(
+            or_(
+                Document.case_file_id.is_(None),
+                Document.case_file_id.in_(_visible_case_ids(db, broker_id, _user)),
+            )
+        )
+    if document_code is not None:
+        filters.append(Document.document_code == document_code)
     if phase is not None:
         filters.append(Document.phase == phase)
 
@@ -553,6 +678,46 @@ def _get_owned_document(db: Session, document_id: int, broker_id: int) -> Docume
     return doc
 
 
+def _case_narrowing_applies(user: "User | None") -> bool:
+    """True when this caller's ``CaseFiles.View`` grant is a NARROWED one.
+
+    Cheap and role-only: it never touches the database, so the un-narrowed
+    majority (admin, executive, technician) pays nothing for the guard.
+    """
+    from app.core.permissions import resolve_role  # noqa: PLC0415  (import cycle)
+
+    if user is None:
+        return False
+    return case_view_scope(resolve_role(user)) is not None
+
+
+def _get_visible_document(
+    db: Session, document_id: int, broker_id: int, user: "User | None" = None
+) -> Document:
+    """``_get_owned_document`` plus the case-file narrowing (spec v3 §6).
+
+    A document filed inside an expediente the caller cannot see is a **404** —
+    without this a process profile could read, download or stream exactly the
+    case material its own listing hides, which is the same hole
+    ``get_case_or_404(user)`` closes on the case itself.
+
+    Documents with no ``case_file_id`` (client sheets, asset photos, policy
+    PDFs) stay reachable: they belong to no expediente, so the ``Documents``
+    grant is the only gate on them.
+    """
+    doc = _get_owned_document(db, document_id, broker_id)
+    if doc.case_file_id is None or not _case_narrowing_applies(user):
+        return doc
+    found = db.scalar(
+        _visible_case_ids(db, broker_id, user).where(CaseFile.id == doc.case_file_id)
+    )
+    if found is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+    return doc
+
+
 @router.get("/{document_id}", response_model=DocumentRead)
 def get_document(
     document_id: int,
@@ -560,7 +725,7 @@ def get_document(
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Documents", "View")),
 ) -> Document:
-    return _get_owned_document(db, document_id, broker_id)
+    return _get_visible_document(db, document_id, broker_id, _user)
 
 
 @router.get("/{document_id}/download", response_model=DocumentDownload)
@@ -570,8 +735,47 @@ def download_document(
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Documents", "View")),
 ) -> DocumentDownload:
-    """Return a short-lived signed URL (S3) or the static URL (local dev)."""
-    return build_download_payload(_get_owned_document(db, document_id, broker_id))
+    """Return a short-lived signed URL (S3) or the local content route (dev)."""
+    return build_download_payload(
+        _get_visible_document(db, document_id, broker_id, _user)
+    )
+
+
+@router.get("/{document_id}/content")
+def document_content(
+    document_id: int,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    _user: User = Depends(require_permission("Documents", "View")),
+) -> Response:
+    """Stream the stored bytes back through the API.
+
+    On S3 the client follows the presigned URL directly and never comes here.
+    On the local backend there is no object store to sign against, so this is
+    the route ``build_download_payload`` points at — still broker-scoped, so a
+    dev download can never cross tenants the way a bare static mount would.
+    """
+    doc = _get_visible_document(db, document_id, broker_id, _user)
+    if (settings.MEDIA_BACKEND or "local").lower() == "s3":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Use the presigned URL from /download on the S3 backend",
+        )
+    path = os.path.join(settings.MEDIA_LOCAL_DIR, doc.s3_key)
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Stored file for document {doc.id} is missing",
+        ) from exc
+    filename = (doc.original_name or f"document-{doc.id}").replace('"', "")
+    return Response(
+        content=data,
+        media_type=doc.mime_type or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.patch("/{document_id}", response_model=DocumentRead)
@@ -583,9 +787,18 @@ def update_document(
     _user: User = Depends(require_permission("Documents", "Edit")),
 ) -> Document:
     """Patch metadata only. The key and the bytes are immutable by design."""
-    doc = _get_owned_document(db, document_id, broker_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    doc = _get_visible_document(db, document_id, broker_id, _user)
+    changes = payload.model_dump(exclude_unset=True)
+    if "case_file_id" in changes:
+        _validate_case_file(db, changes["case_file_id"], broker_id, _user)
+    for field, value in changes.items():
         setattr(doc, field, value)
+    # Re-categorising a case document re-files it: the section follows the new
+    # category unless the caller placed it in one explicitly.
+    if "category" in changes and "section" not in changes and doc.case_file_id:
+        # The old code belonged to the old category — only an explicit one survives.
+        stated_code = changes.get("document_code")
+        _, doc.section, doc.document_code = _classify(doc.category, None, stated_code)
     db.commit()
     db.refresh(doc)
     return doc
@@ -608,7 +821,7 @@ def delete_document(
     _user: User = Depends(require_permission("Documents", "Delete")),
 ) -> Response:
     """Delete the row and the stored bytes, unless an entity still references it."""
-    doc = _get_owned_document(db, document_id, broker_id)
+    doc = _get_visible_document(db, document_id, broker_id, _user)
 
     for model, column, label in _DOCUMENT_REFERENCES:
         referrer = db.scalar(

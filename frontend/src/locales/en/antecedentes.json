@@ -1,0 +1,102 @@
+{
+  "process": {
+    "title": "Process records",
+    "description": "Radal consolidates everything the insured submitted for this account into a structured expediente that you validate and complete before registering.",
+    "cta": "Process records",
+    "processing": "Consolidating…",
+    "reprocess": "Process again",
+    "noPermission": "You do not have permission to process records.",
+    "noSchema": "This line has no records schema yet. Create it in Settings → Schemas by line.",
+    "loadingSchema": "Checking the line schema…",
+    "error": "We could not process the records."
+  },
+  "review": {
+    "title": "Review and complete",
+    "description": "Review what the AI proposed, fix what is missing, and register the expediente. Nothing is saved until you confirm.",
+    "confirm": "Register expediente",
+    "confirming": "Registering…",
+    "noPermission": "You do not have permission to register the expediente.",
+    "edited": "edited",
+    "required": "required",
+    "overrides": "{{count}} changes",
+    "missingRequired": "Required fields are missing; they are marked below.",
+    "addRow": "Add row",
+    "removeRow": "Remove row",
+    "emptyTable": "No rows yet.",
+    "unset": "Unset",
+    "yes": "Yes",
+    "no": "No",
+    "warningsTitle": "Extraction warnings",
+    "noFields": "This schema has no fields.",
+    "sectionMissing": "{{count}} missing",
+    "missingSummary": "{{count}} required fields missing"
+  },
+  "view": {
+    "title": "Records expediente",
+    "subtitle": "Everything the insured submitted, consolidated and validated.",
+    "downloadPdf": "Download PDF",
+    "generatingPdf": "Generating…",
+    "noPdfPermission": "You do not have permission to download the expediente.",
+    "notRegisteredPdf": "Register the expediente before downloading the PDF.",
+    "empty": "No expediente yet",
+    "emptyHint": "Use \"Process records\" in the Records tab to consolidate the account's documents.",
+    "inReview": "In review — not registered",
+    "inReviewHint": "This expediente was processed but is not registered yet. Complete and register it in the Records tab.",
+    "registeredAt": "Registered on {{date}}",
+    "confidence": "AI confidence",
+    "falta": "missing",
+    "error": "We could not load the expediente."
+  },
+  "status": {
+    "draft": "Draft",
+    "processing": "Processing",
+    "review": "In review",
+    "registered": "Registered"
+  },
+  "sections": {
+    "identity": "Insured identity",
+    "cover": "Cover",
+    "property": "Insured property",
+    "general": "General records"
+  },
+  "fields": {
+    "razon_social": "Legal name",
+    "rut": "Tax ID",
+    "giro": "Business activity"
+  },
+  "basesTecnicas": {
+    "title": "Bases Técnicas",
+    "subtitle": "The completed records, ready to send to the insurers.",
+    "line": "Line",
+    "lineUnassigned": "No line assigned",
+    "download": "Download Bases Técnicas",
+    "generating": "Generating…",
+    "noPermission": "You do not have permission to download the Bases Técnicas.",
+    "incomplete": "Required fields are missing: {{fields}}",
+    "notRegistered": "Register the expediente before downloading the Bases Técnicas.",
+    "empty": "No Bases Técnicas yet",
+    "emptyHint": "Process the records in the Records tab to consolidate the account's documents.",
+    "processHint": "Process the records in the Records tab to complete the Bases Técnicas."
+  },
+  "requisitos": {
+    "title": "Line requirements",
+    "description": "What this line requests. Missing mandatory fields are flagged.",
+    "missing": "Missing",
+    "count": "{{done}}/{{total}} complete",
+    "empty": "This line defines no mandatory fields."
+  },
+  "assign": {
+    "change": "Change line",
+    "title": "Assign line",
+    "description": "Pick one of your lines for this ramo, or adopt a recommended template.",
+    "brokerLines": "Your lines for this ramo",
+    "templates": "Recommended templates",
+    "current": "Assigned",
+    "assign": "Assign",
+    "adopt": "Adopt",
+    "noOptions": "You have no lines for this ramo. Adopt a template or create one in Settings → Lines.",
+    "assigned": "Line assigned",
+    "error": "We could not assign the line.",
+    "noPermission": "You do not have permission to change the line."
+  }
+}

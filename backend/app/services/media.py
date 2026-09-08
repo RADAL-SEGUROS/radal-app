@@ -54,11 +54,11 @@ class StoredMedia:
     url: str
 
 
-def build_key(entidad_tipo: str, entidad_id: int | str) -> str:
+def build_key(entity_type: str, entity_id: int | str) -> str:
     """Deterministic-prefix, random-suffix media key (avoids cache collisions)."""
-    slug = str(entidad_id)
+    slug = str(entity_id)
     token = uuid.uuid4().hex[:12]
-    return f"{entidad_tipo}/{slug}/avatar-{token}.webp"
+    return f"{entity_type}/{slug}/avatar-{token}.webp"
 
 
 def _to_webp_square(raw: bytes) -> bytes:
@@ -128,17 +128,17 @@ def _store_s3(key: str, data: bytes) -> str:
 def process_and_store_avatar(
     raw: bytes,
     *,
-    entidad_tipo: str,
-    entidad_id: int | str,
+    entity_type: str,
+    entity_id: int | str,
     content_type: str | None = None,
 ) -> StoredMedia:
     """Validate, convert to WEBP 512x512, store, and return ``(key, url)``.
 
     Args:
         raw: the uploaded file bytes.
-        entidad_tipo: logical owner ("corredora" | "usuario" | "asegurado" |
-            "aseguradora"), used only for the storage key prefix.
-        entidad_id: owner id, used in the storage key.
+        entity_type: logical owner ("broker" | "user" | "insured" |
+            "insurer"), used only for the storage key prefix.
+        entity_id: owner id, used in the storage key.
         content_type: optional declared MIME (a soft check; Pillow is the real
             gate).
     """
@@ -155,7 +155,7 @@ def process_and_store_avatar(
         raise MediaError(f"Tipo de archivo no soportado: {content_type}")
 
     webp = _to_webp_square(raw)
-    key = build_key(entidad_tipo, entidad_id)
+    key = build_key(entity_type, entity_id)
 
     backend = (settings.MEDIA_BACKEND or "local").lower()
     if backend == "s3":

@@ -1,0 +1,71 @@
+{
+  "title": "Carpetas del expediente",
+  "subtitle": "PDF maestro + ZIP, generados desde los documentos ya confirmados del caso.",
+  "noPermission": "Necesitas el permiso Gestionar sobre expedientes para generar carpetas.",
+  "kinds": {
+    "submission": {
+      "title": "Carpeta de cotización",
+      "description": "Corredor → compañías: portada, resumen del negocio e índice de documentos, más el ZIP de la raíz y el subexpediente 1."
+    },
+    "comparison": {
+      "title": "Carpeta comparativa",
+      "description": "Corredor → asegurado: el comparativo económico y de coberturas, con la oferta recomendada. Solo PDF."
+    },
+    "proposal": {
+      "title": "Carpeta de propuesta",
+      "description": "Corredor → compañía ganadora: la propuesta de emisión confirmada más los anexos que lista."
+    }
+  },
+  "actions": {
+    "generate": "Generar",
+    "regenerate": "Regenerar"
+  },
+  "statuses": {
+    "draft": "Borrador",
+    "generating": "Generando",
+    "generated": "Generada",
+    "sent": "Enviada",
+    "failed": "Falló"
+  },
+  "fields": {
+    "status": "Estado",
+    "generatedAt": "Generada el",
+    "recipients": "Destinatarios"
+  },
+  "empty": {
+    "title": "Todavía no se ha generado",
+    "hint": "Al regenerar se reemplaza la versión anterior; no se acumulan archivos."
+  },
+  "download": {
+    "pdf": "PDF maestro",
+    "zip": "ZIP",
+    "missing": {
+      "pdf": "Esta carpeta no tiene PDF.",
+      "zip": "Esta carpeta no incluye ZIP."
+    }
+  },
+  "summary": {
+    "confirmed": "Resumen confirmado",
+    "unconfirmed": "Resumen sin confirmar"
+  },
+  "send": {
+    "label": "Enviar carpeta a compañías",
+    "soonReason": "El envío por correo llega pronto; por ahora descarga y adjunta."
+  },
+  "recipients": {
+    "title": "Destinatarios resueltos",
+    "description": "Compañías nativas del ramo, con el contacto que resuelve la precedencia.",
+    "empty": "Sin destinatarios resueltos",
+    "emptyHint": "Configura contactos de compañía para este ramo en Aseguradoras.",
+    "noPermission": "No tienes permiso para ver aseguradoras.",
+    "noContact": "Sin correo de contacto",
+    "native": "Nativa",
+    "external": "Externa",
+    "levels": {
+      "broker_line": "Corredor + ramo",
+      "broker": "Corredor",
+      "line": "Ramo",
+      "global": "Global"
+    }
+  }
+}

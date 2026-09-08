@@ -82,6 +82,78 @@ export const qk = {
     ...scope("users"),
     roles: ["users", "roles"] as const,
   },
+
+  // --- Groups & accounts (spec v3) ------------------------------------------
+  /**
+   * The main rail. One flat key: every group mutation invalidates the whole
+   * navigator, because a rename, an archive or a new account all change it.
+   */
+  navigator: {
+    all: ["navigator"] as const,
+  },
+  accountGroups: {
+    ...scope("account-groups"),
+    /** `GET /account-groups/{id}/tree` — the contextual rail. */
+    tree: (id: number) => ["account-groups", "detail", String(id), "tree"] as const,
+    /** Cursor-paged, so the cursor is part of the key. */
+    timeline: (id: number, params?: QueryParams) =>
+      ["account-groups", "detail", String(id), "timeline", params ?? {}] as const,
+    archives: (id: number) => ["account-groups", "detail", String(id), "archives"] as const,
+  },
+
+  // --- Case files (expedientes) ---------------------------------------------
+  caseFiles: {
+    ...scope("case-files"),
+    transitions: (id: number) => ["case-files", "detail", String(id), "transitions"] as const,
+    timeline: (id: number) => ["case-files", "detail", String(id), "timeline"] as const,
+    documents: (id: number, params?: QueryParams) =>
+      ["case-files", "detail", String(id), "documents", params ?? {}] as const,
+    packs: (id: number) => ["case-files", "detail", String(id), "packs"] as const,
+    recipients: (id: number) => ["case-files", "detail", String(id), "recipients"] as const,
+    /** `GET /case-files/{id}/history` — the origin chain + the prior vigencia. */
+    history: (id: number) => ["case-files", "detail", String(id), "history"] as const,
+  },
+  leads: scope("leads"),
+  notes: {
+    ...scope("notes"),
+    forEntity: (entityType: string, entityId: number, params?: QueryParams) =>
+      ["notes", "list", entityType, String(entityId), params ?? {}] as const,
+  },
+  activities: scope("activities"),
+  packs: scope("packs"),
+
+  // --- Post-sale. Published HERE so the postsale pass never invents a key ----
+  policies: {
+    ...scope("policies"),
+    mirrorDiff: (id: number) => ["policies", "detail", String(id), "mirror-diff"] as const,
+    warranties: (id: number) => ["policies", "detail", String(id), "warranties"] as const,
+    caseFiles: (id: number) => ["policies", "detail", String(id), "case-files"] as const,
+  },
+  endorsements: {
+    ...scope("endorsements"),
+    /** The N members of one prórroga, shared `batch_key` (spec v3 rule 3). */
+    batch: (batchKey: string) => ["endorsements", "batch", batchKey] as const,
+  },
+  collections: {
+    ...scope("collections"),
+    installments: (id: number) =>
+      ["collections", "detail", String(id), "installments"] as const,
+    status: (id: number) => ["collections", "detail", String(id), "status"] as const,
+  },
+  claims: {
+    ...scope("claims"),
+    items: (id: number) => ["claims", "detail", String(id), "items"] as const,
+  },
+  warranties: scope("warranties"),
+
+  // --- AI registry ----------------------------------------------------------
+  aiCategories: scope("ai-categories"),
+
+  // --- v6 antecedentes expediente + per-ramo record schemas ------------------
+  /** The registered/in-progress expediente, keyed by account `case_file_id`. */
+  expedientes: scope("antecedentes-expedientes"),
+  /** Per-ramo antecedentes schemas; `detail(insuranceLineId)` = resolution. */
+  ramoSchemas: scope("ramo-schemas"),
 } as const;
 
 /** Drop `undefined` / `null` / `""` so they never reach the query string. */

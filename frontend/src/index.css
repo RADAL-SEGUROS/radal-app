@@ -2,48 +2,87 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Radal Signal token sheet — the single source the whole app reads through
+   Tailwind's variable seam (`bg-bone`, `border-line`, `text-ink-3`, …).
+   Values are binding per `docs/v5-signal-ui-spec.md`. Var NAMES never change;
+   only values do — legacy aliases below keep ~40 older files compiling.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  /* ── Neutrals (refined reference set) ── */
-  --paper: #edf1ee;
-  --paper-2: #e4e9e5;
-  --bone: #fffffc;
-  --sidebar: #fbfcfa;
+  /* Layout constant — the sticky topbar's exact height. Anything else that
+     sticks must offset by it, or it pins UNDER the bar. */
+  --topbar-h: 63px;
 
-  --ink: #0b1418;
-  --ink-2: #1b2a31;
-  --ink-3: #37474f;
-  --muted: #5e6c72;
-  --line: #d7dfd9;
+  /* ── Signal neutrals ── */
+  --paper: #fafaf9; /* app ground */
+  --paper-2: #f4f4f2; /* recessed: wells, zebra, segmented track */
+  --bone: #ffffff; /* panels/cards */
+  --sidebar: #fafaf9; /* the rail sits on the GROUND, not on panel */
+  --line: #e8e8e5; /* THE hairline — structure everywhere */
+  --line-strong: #d9d9d5; /* hover borders, emphasized rules */
 
-  /* ── Accents ── */
-  --teal: #14b8a6;
-  --teal-deep: #0c7c70;
-  --teal-soft: #b8ebe5;
-  --blue: #2563eb;
-  --blue-deep: #1a47b8;
-  --lime: #84cc16;
-  --lime-deep: #4f7c0e;
-  --amber: #f59e0b;
-  --amber-deep: #a76a0c;
-  --red: #e5484d;
-  --red-deep: #c1352f;
+  --ink: #17191a; /* primary text */
+  --ink-2: #41464a; /* secondary text */
+  --ink-3: #6b7075; /* tertiary text, table headers */
+  --muted: #9ba0a5; /* muted text, placeholders, inert icons */
 
-  /* ── Shadows ── */
-  --shadow-sm: 0 1px 2px rgba(11, 20, 24, 0.05);
-  --shadow: 0 2px 4px rgba(11, 20, 24, 0.04),
-    0 14px 34px -16px rgba(11, 20, 24, 0.16);
+  /* ── Brand: pine, the single accent hue ── */
+  --brand: #0e7c70;
+  --brand-deep: #0b655b; /* pine hover / high-contrast pine text */
+  --brand-soft: rgba(14, 124, 112, 0.08); /* active-nav fill, brand chips */
 
-  /* ── Semantic signals (derive, don't hardcode) ── */
-  --signal-success: var(--lime);
-  --signal-action: var(--blue);
-  --signal-brand: var(--teal);
-  --signal-warn: var(--amber);
-  --signal-warn-deep: var(--amber-deep);
-  --signal-danger: var(--red);
-  --signal-danger-deep: var(--red-deep);
+  /* ── CTA: accent primary — never ink ── */
+  --cta: var(--brand);
+  --cta-hover: var(--brand-deep);
+  --cta-tx: #ffffff;
+
+  /* ── Status ── */
+  --pos: #16a34a;
+  --pos-text: #15803d; /* text on a pos tint */
+  --pos-soft: rgba(22, 163, 74, 0.1);
+  --warn: #d97706;
+  --warn-text: #b45309;
+  --warn-soft: rgba(217, 119, 6, 0.1);
+  --neg: #dc2626;
+  --neg-text: #b91c1c;
+  --neg-soft: rgba(220, 38, 38, 0.08);
+
+  /* ── Legacy accent names → aliases (do NOT delete; ~40 files read them) ── */
+  --teal: var(--brand);
+  --teal-deep: var(--brand-deep);
+  --teal-soft: var(--brand-soft);
+  --blue: var(--brand); /* blue is retired; action = brand */
+  --blue-deep: var(--brand-deep);
+  --lime: var(--pos);
+  --lime-deep: var(--pos-text);
+  --amber: var(--warn);
+  --amber-deep: var(--warn-text);
+  --red: var(--neg);
+  --red-deep: var(--neg-text);
+
+  /* ── Elevation: shadows only whisper depth — hairline borders do structure ── */
+  --elev: 0 1px 2px rgba(16, 17, 17, 0.04);
+  --elev-hover: 0 2px 6px rgba(16, 17, 17, 0.06);
+  --elev-overlay: 0 8px 24px -6px rgba(16, 17, 17, 0.14),
+    0 2px 8px rgba(16, 17, 17, 0.06);
+
+  /* Legacy shadow names → aliases */
+  --shadow-sm: var(--elev);
+  --shadow: var(--elev-hover);
+  --shadow-card: var(--elev);
+
+  /* ── Semantic signals ── */
+  --signal-success: var(--pos);
+  --signal-action: var(--brand); /* action = brand now */
+  --signal-brand: var(--brand);
+  --signal-warn: var(--warn);
+  --signal-warn-deep: var(--warn-text);
+  --signal-danger: var(--neg);
+  --signal-danger-deep: var(--neg-text);
   --signal-muted: var(--muted);
 
-  /* ── Surface / text roles (light default) ── */
+  /* ── Surface / text roles (the seam Tailwind reads) ── */
   --bg-app: var(--paper);
   --bg-surface: var(--bone);
   --bg-recessed: var(--paper-2);
@@ -53,59 +92,63 @@
   --text-tertiary: var(--ink-3);
   --text-muted: var(--muted);
   --border: var(--line);
-  --focus-ring: var(--teal);
+  --focus-ring: var(--brand);
 
   /* ── Fonts ── */
-  --font-display: "Space Grotesk", system-ui, sans-serif;
-  --font-ui: "Inter Tight", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-ui: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-ui);
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace; /* genuine code only */
+  --font-wordmark: "Space Grotesk", system-ui, sans-serif; /* ONLY "Radal." */
 
-  --radius-card: 16px;
-  --shadow-card: var(--shadow-sm);
+  /* ── Concentric radii ── */
+  --r-ctl: 8px; /* buttons, inputs, nav rows, segmented items */
+  --r-seg: 9px; /* segmented control track */
+  --r-well: 10px; /* inner wells */
+  --r-card: 12px;
+  --radius-card: var(--r-card);
 
   color-scheme: light;
 }
 
-/* ── Dark theme ── */
+/* ── Signal dark: same family inverted onto ink surfaces. Light is primary;
+      this exists so the toggle never breaks. Role tokens need no restating —
+      they point at the primitives below. ── */
 :root[data-theme="dark"],
 .dark {
-  --paper: #091116;
-  --paper-2: #0d1a20;
-  --bone: #132229;
-  --sidebar: #0b171d;
+  --paper: #0e0f10;
+  --paper-2: #17181a;
+  --bone: #141517;
+  --sidebar: #0e0f10;
+  --line: #26282b;
+  --line-strong: #333538;
 
-  --ink: #ecf1ee;
-  --ink-2: #cfdad5;
-  --ink-3: #a6b4b9;
-  --muted: #7c8d93;
-  --line: #22343c;
+  --ink: #f2f3f4;
+  --ink-2: #c3c6c9;
+  --ink-3: #8f949a;
+  --muted: #63686e;
 
-  --teal: #2dd4bf;
-  --teal-deep: #67e8d6;
-  --teal-soft: #0f3330;
-  --blue: #5b8df0;
-  --blue-deep: #93b4f7;
-  --lime: #a3e635;
-  --lime-deep: #bbea6b;
-  --amber: #f5b547;
-  --amber-deep: #f8cc82;
-  --red: #f0716c;
-  --red-deep: #f6a19d;
+  --brand: #1fa08f; /* pine lifted along its own hue */
+  --brand-deep: #3cb8a6; /* hover/text pine on dark is LIGHTER */
+  --brand-soft: rgba(31, 160, 143, 0.14);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 18px 40px -18px rgba(0, 0, 0, 0.65);
+  --cta: #1fa08f;
+  --cta-hover: #3cb8a6;
+  --cta-tx: #ffffff;
 
-  --bg-app: var(--paper);
-  --bg-surface: var(--bone);
-  --bg-recessed: var(--paper-2);
-  --bg-sidebar: var(--sidebar);
-  --text-primary: var(--ink);
-  --text-secondary: var(--ink-2);
-  --text-tertiary: var(--ink-3);
-  --text-muted: var(--muted);
-  --border: var(--line);
-  --focus-ring: var(--teal);
-  --shadow-card: var(--shadow-sm);
+  --pos: #34c77b;
+  --pos-text: #5bd694;
+  --pos-soft: rgba(52, 199, 123, 0.14);
+  --warn: #e5a54c;
+  --warn-text: #eebb75;
+  --warn-soft: rgba(229, 165, 76, 0.14);
+  --neg: #ef6f67;
+  --neg-text: #f4938d;
+  --neg-soft: rgba(239, 111, 103, 0.14);
+
+  --elev: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --elev-hover: 0 2px 6px rgba(0, 0, 0, 0.45);
+  --elev-overlay: 0 12px 32px -8px rgba(0, 0, 0, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.4);
 
   color-scheme: dark;
 }
@@ -124,16 +167,18 @@ body {
   background: var(--bg-app);
   color: var(--text-primary);
   font-family: var(--font-ui);
+  font-feature-settings: "cv11";
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  transition: background 0.3s ease, color 0.3s ease;
+  /* No background/color transition here: theme switching uses the
+     suppress-and-snap recipe in ThemeProvider instead of a page-wide smear. */
 }
 
 h1,
 h2,
 h3,
-h4,
-.wordmark {
+h4 {
   font-family: var(--font-display);
 }
 
@@ -143,14 +188,42 @@ h4,
 .font-ui {
   font-family: var(--font-ui);
 }
+/* Genuine code content only — mono is retired from UI chrome. */
 .mono,
 code,
-.tabular,
 .font-mono {
   font-family: var(--font-mono);
 }
 
-/* ── Scrollbars (reference styling) ── */
+/* The "Radal." lockup is the ONLY place Space Grotesk survives. Declared
+   after the font utilities so it wins on spans that also carry them. */
+.wordmark {
+  font-family: var(--font-wordmark);
+}
+
+/* Numbers, RUTs and IDs: Inter with lining tabular figures — never mono. */
+.tabular {
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+.cell-num {
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-primary);
+}
+
+/* ── Global behaviours ── */
+::selection {
+  background: color-mix(in srgb, var(--brand) 28%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* ── Scrollbars ── */
 ::-webkit-scrollbar {
   width: 11px;
   height: 11px;
@@ -166,10 +239,10 @@ code,
 }
 
 a {
-  color: var(--blue);
+  color: var(--brand);
 }
 a:hover {
-  color: var(--blue-deep);
+  color: var(--brand-deep);
 }
 
 @media (prefers-reduced-motion: reduce) {

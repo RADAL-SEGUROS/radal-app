@@ -23,12 +23,42 @@ function getInitialTheme(): Theme {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = React.useState<Theme>(getInitialTheme);
+  const firstRun = React.useRef(true);
 
   React.useEffect(() => {
     const root = document.documentElement;
+
+    /* A theme flip changes color, background, border and shadow on nearly
+       every element at once — every transition on those properties fires
+       together and the switch smears instead of snapping. Suppress ALL
+       transitions, flip, force a reflow so styles land while they are off,
+       then restore on the next frame (better-ui: suppress transitions on
+       theme switch). Skipped on first mount — nothing changes there. */
+    const suppress = !firstRun.current;
+    firstRun.current = false;
+    let style: HTMLStyleElement | null = null;
+    if (suppress) {
+      style = document.createElement("style");
+      style.appendChild(
+        document.createTextNode(
+          "*,*::before,*::after{transition:none !important}",
+        ),
+      );
+      document.head.appendChild(style);
+    }
+
     root.classList.toggle("dark", theme === "dark");
     root.setAttribute("data-theme", theme);
     localStorage.setItem(THEME_KEY, theme);
+
+    if (style) {
+      // Recalculate styles while transitions are disabled, then re-enable.
+      void root.offsetHeight;
+      const el = style;
+      requestAnimationFrame(() => {
+        el.remove();
+      });
+    }
   }, [theme]);
 
   const setTheme = React.useCallback((t: Theme) => setThemeState(t), []);

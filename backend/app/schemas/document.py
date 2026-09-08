@@ -11,7 +11,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.document import DocumentCategory
-from app.models.enums import EntityType
+from app.models.enums import CaseSection, EntityType
 
 # --- Entity types a document may be attached to ------------------------------
 # Mirrors the S3 route documents/{entity_type}/{entity_id}/... The full
@@ -35,6 +35,10 @@ class DocumentUpdate(BaseModel):
     category: DocumentCategory | None = None
     phase: str | None = Field(default=None, max_length=120)
     original_name: str | None = Field(default=None, min_length=1, max_length=255)
+    # Case-file filing. The router proves the case belongs to the same broker.
+    case_file_id: int | None = Field(default=None, gt=0)
+    section: CaseSection | None = None
+    document_code: str | None = Field(default=None, max_length=8)
 
 
 class DocumentRead(BaseModel):
@@ -52,6 +56,9 @@ class DocumentRead(BaseModel):
     checksum: str | None = None
     category: DocumentCategory
     phase: str | None = None
+    case_file_id: int | None = None
+    section: CaseSection | None = None
+    document_code: str | None = None
     uploaded_by_id: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

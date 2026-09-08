@@ -149,7 +149,7 @@ export default function InspectionDetailPage() {
         eyebrow={
           <Link
             to="/inspections"
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-teal-deep"
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-brand-deep"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> {t("detail.eyebrow")}
           </Link>
@@ -186,7 +186,7 @@ export default function InspectionDetailPage() {
 
       {frozen ? (
         <FadeUp>
-          <div className="rounded-card border border-line bg-[color-mix(in_srgb,var(--amber)_10%,transparent)] px-4 py-3 text-body text-amber-deep">
+          <div className="rounded-card border border-warn-line bg-warn-soft px-4 py-3 text-body text-warn-text">
             {t("detail.frozen", { status: t(`status.report.${inspection.status}`) })}
           </div>
         </FadeUp>
@@ -269,9 +269,9 @@ export default function InspectionDetailPage() {
               rows={6}
               placeholder={t("detail.findingsPlaceholder")}
               className={cn(
-                "w-full resize-y rounded-[10px] border border-line bg-bg-surface px-3.5 py-2.5 text-body text-text-primary",
+                "w-full resize-y rounded-lg border border-line bg-bone px-3.5 py-2.5 text-body text-ink",
                 "placeholder:text-text-muted",
-                "focus-visible:border-teal focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--teal)_18%,transparent)]",
+                "focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring",
               )}
             />
           ) : inspection.findings_summary ? (

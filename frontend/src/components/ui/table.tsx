@@ -1,6 +1,12 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Signal table: transparent header with normal-case 12px Inter labels (mono
+ * and uppercase are retired), hairline row rules, quiet recessed hover.
+ * The bordered card wrapper (`rounded-card border border-line bg-bone`)
+ * belongs to the consumer (DataTable / page), so tables can also sit inline.
+ */
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
@@ -45,10 +51,7 @@ const TableFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tfoot
     ref={ref}
-    className={cn(
-      "border-t border-line bg-bg-recessed/50 font-medium",
-      className,
-    )}
+    className={cn("border-t border-line font-medium", className)}
     {...props}
   />
 ));
@@ -61,7 +64,7 @@ const TableRow = React.forwardRef<
   <tr
     ref={ref}
     className={cn(
-      "border-b border-line transition-colors hover:bg-[color-mix(in_srgb,var(--ink)_3%,transparent)] data-[state=selected]:bg-[color-mix(in_srgb,var(--ink)_3%,transparent)]",
+      "border-b border-line transition-[background-color] duration-150 hover:bg-paper-2 data-[state=selected]:bg-paper-2",
       className,
     )}
     {...props}
@@ -76,7 +79,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-9 px-[18px] text-left align-middle text-mono-sm font-semibold uppercase tracking-wider text-text-muted [&:has([role=checkbox])]:pr-0",
+      "h-9 px-[18px] text-left align-middle text-[12px] font-medium normal-case text-ink-3 [&:has([role=checkbox])]:pr-0",
       className,
     )}
     {...props}
@@ -105,7 +108,7 @@ const TableCaption = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <caption
     ref={ref}
-    className={cn("mt-4 text-caption text-text-muted", className)}
+    className={cn("mt-4 text-caption text-ink-3", className)}
     {...props}
   />
 ));

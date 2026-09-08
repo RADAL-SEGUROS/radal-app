@@ -10,17 +10,26 @@ from app.models.base_class import Base  # noqa: F401
 # Importing the models package registers every table on Base.metadata.
 import app.models  # noqa: F401,E402
 from app.models import (  # noqa: F401,E402
+    AccountClient,
+    AccountGroup,
     Activity,
     AgentMessage,
     AgentThread,
     Asset,
     Broker,
+    CaseFile,
+    CaseFileStageEvent,
+    CasePack,
     Claim,
+    ClaimItem,
     Client,
     CmfLine,
     CoinsuranceShare,
+    CollectionInstallment,
+    CollectionPlan,
     CoverageItem,
     Document,
+    Endorsement,
     Extraction,
     Inspection,
     InspectionBoundary,
@@ -41,7 +50,9 @@ from app.models import (  # noqa: F401,E402
     ProposalCoverage,
     QuoteLineItem,
     QuoteRequest,
+    SalesLead,
     User,
+    Warranty,
 )
 
 __all__ = ["Base"]

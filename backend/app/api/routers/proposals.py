@@ -37,9 +37,11 @@ from app.schemas.proposal import (
     ProposalCoverageUpdate,
     ProposalCreate,
     ProposalDecisionResult,
+    ProposalInsurerCount,
     ProposalPage,
     ProposalRead,
     ProposalReject,
+    ProposalSummary,
     ProposalUpdate,
     reconcile_money,
 )
@@ -271,6 +273,85 @@ def _get_coverage(db: Session, proposal: Proposal, coverage_id: int) -> Proposal
 
 # --- CRUD --------------------------------------------------------------------
 
+# NOTE: registered before ``/{proposal_id}`` so the literal path wins the match.
+@router.get("/summary", response_model=ProposalSummary)
+def get_proposals_summary(
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    _user: User = Depends(require_permission("Proposals", "View")),
+) -> ProposalSummary:
+    """The proposals board: status split, top insurers, and the money in play.
+
+    The money aggregates (``total_premium_uf``, ``avg_rate_permille``) exclude
+    ``_CLOSED_STATUSES`` — a rejected, withdrawn or expired offer is out of the
+    running, exactly as the comparator treats it.
+    """
+    rows = db.execute(
+        select(Proposal.status, func.count(Proposal.id))
+        .where(Proposal.broker_id == broker_id)
+        .group_by(Proposal.status)
+    ).all()
+    by_status = {str(key): int(value) for key, value in rows}
+
+    insurer_rows = db.execute(
+        select(Proposal.insurer_id, Insurer.legal_name, func.count(Proposal.id))
+        .join(Insurer, Insurer.id == Proposal.insurer_id)
+        .where(Proposal.broker_id == broker_id)
+        .group_by(Proposal.insurer_id, Insurer.legal_name)
+        .order_by(func.count(Proposal.id).desc(), Proposal.insurer_id)
+        .limit(10)
+    ).all()
+
+    confirmed_count = int(
+        db.scalar(
+            select(func.count(Proposal.id)).where(
+                Proposal.broker_id == broker_id, Proposal.is_confirmed.is_(True)
+            )
+        )
+        or 0
+    )
+
+    in_the_running = Proposal.status.not_in(_CLOSED_STATUSES)
+    premium_sum = db.scalar(
+        select(func.sum(Proposal.total_premium_uf)).where(
+            Proposal.broker_id == broker_id,
+            in_the_running,
+            Proposal.total_premium_uf.is_not(None),
+        )
+    )
+    rate_avg = db.scalar(
+        select(func.avg(Proposal.comprehensive_rate_permille)).where(
+            Proposal.broker_id == broker_id,
+            in_the_running,
+            Proposal.comprehensive_rate_permille.is_not(None),
+        )
+    )
+
+    return ProposalSummary(
+        total=sum(by_status.values()),
+        by_status={s.value: by_status.get(s.value, 0) for s in ProposalStatus},
+        by_insurer=[
+            ProposalInsurerCount(
+                insurer_id=int(insurer_id), insurer_name=name, count=int(count)
+            )
+            for insurer_id, name, count in insurer_rows
+        ],
+        confirmed_count=confirmed_count,
+        # SQLite hands aggregates back as floats; round-trip through str() keeps
+        # the Decimal exact and quantized to the column's 4 decimals.
+        total_premium_uf=(
+            Decimal(str(premium_sum)).quantize(Decimal("0.0001"))
+            if premium_sum is not None
+            else Decimal("0")
+        ),
+        avg_rate_permille=(
+            Decimal(str(rate_avg)).quantize(Decimal("0.0001"))
+            if rate_avg is not None
+            else None
+        ),
+    )
+
+
 @router.get("", response_model=ProposalPage)
 def list_proposals(
     db: Session = Depends(get_db),
@@ -278,6 +359,9 @@ def list_proposals(
     _user: User = Depends(require_permission("Proposals", "View")),
     quote_request_id: int | None = None,
     placement_id: int | None = None,
+    case_file_id: int | None = Query(
+        default=None, description="Only proposals filed under this expediente"
+    ),
     insurer_id: int | None = None,
     proposal_status: ProposalStatus | None = Query(default=None, alias="status"),
     origin: ProposalOrigin | None = None,
@@ -289,6 +373,10 @@ def list_proposals(
     filters = [Proposal.broker_id == broker_id]
     if quote_request_id is not None:
         filters.append(Proposal.quote_request_id == quote_request_id)
+    if case_file_id is not None:
+        # ``broker_id`` is already in ``filters``; a foreign case file just
+        # yields an empty page rather than confirming that it exists.
+        filters.append(Proposal.case_file_id == case_file_id)
     if insurer_id is not None:
         filters.append(Proposal.insurer_id == insurer_id)
     if proposal_status is not None:

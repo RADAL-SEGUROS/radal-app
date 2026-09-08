@@ -1,37 +1,18 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
-import esCommon from "@/locales/es/common.json";
-import esAuth from "@/locales/es/auth.json";
-import esDashboard from "@/locales/es/dashboard.json";
-import esClients from "@/locales/es/clients.json";
-import esPlacements from "@/locales/es/placements.json";
-import esInspections from "@/locales/es/inspections.json";
-import esSettings from "@/locales/es/settings.json";
-import esQuotes from "@/locales/es/quotes.json";
-import esProposals from "@/locales/es/proposals.json";
-import esInsurers from "@/locales/es/insurers.json";
-import esOfferings from "@/locales/es/offerings.json";
-
-import enCommon from "@/locales/en/common.json";
-import enAuth from "@/locales/en/auth.json";
-import enDashboard from "@/locales/en/dashboard.json";
-import enClients from "@/locales/en/clients.json";
-import enPlacements from "@/locales/en/placements.json";
-import enInspections from "@/locales/en/inspections.json";
-import enSettings from "@/locales/en/settings.json";
-import enQuotes from "@/locales/en/quotes.json";
-import enProposals from "@/locales/en/proposals.json";
-import enInsurers from "@/locales/en/insurers.json";
-import enOfferings from "@/locales/en/offerings.json";
-
 /**
- * Namespaces registered with i18next. Domain namespaces are added back here by
- * the module passes, one per module (clients, assets, placements, quotes,
- * proposals, inspections, insurers, offerings, documents, settings).
+ * Namespaces registered with i18next.
  *
  * Rule: `es` is complete and authoritative; `en` mirrors the same keys.
  * No hardcoded UI copy in components — everything goes through t().
+ *
+ * The bundles are collected with `import.meta.glob` instead of one static
+ * import per file. Two reasons, both practical:
+ *   - a namespace owned by another pass (`postsale`) registers itself the
+ *     moment its JSON lands, without this file — which that pass may not edit —
+ *     needing a change;
+ *   - a missing file is a missing namespace, not a broken build.
  */
 export const NAMESPACES = [
   "common",
@@ -45,6 +26,17 @@ export const NAMESPACES = [
   "proposals",
   "insurers",
   "offerings",
+  "cases",
+  "leads",
+  "documents",
+  "packs",
+  "postsale",
+  // v3 groups & accounts: the group / vigencia / ramo tree and its flows.
+  "accounts",
+  // v4/v5: the /analytics dashboard + consolidated entity tables.
+  "analytics",
+  // v6: the antecedentes expediente (process → review → register → view/PDF).
+  "antecedentes",
 ] as const;
 
 export type Namespace = (typeof NAMESPACES)[number];
@@ -57,34 +49,28 @@ function getInitialLang(): "es" | "en" {
   return stored === "en" ? "en" : "es";
 }
 
+type Bundle = Record<string, unknown>;
+
+const esModules = import.meta.glob<{ default: Bundle }>("../locales/es/*.json", {
+  eager: true,
+});
+const enModules = import.meta.glob<{ default: Bundle }>("../locales/en/*.json", {
+  eager: true,
+});
+
+function collect(modules: Record<string, { default: Bundle }>): Record<string, Bundle> {
+  const out: Record<string, Bundle> = {};
+  for (const [path, mod] of Object.entries(modules)) {
+    const name = path.split("/").pop()?.replace(/\.json$/, "");
+    if (name) out[name] = mod.default;
+  }
+  return out;
+}
+
 const resources = {
-  es: {
-    common: esCommon,
-    auth: esAuth,
-    dashboard: esDashboard,
-    clients: esClients,
-    placements: esPlacements,
-    inspections: esInspections,
-    settings: esSettings,
-    quotes: esQuotes,
-    proposals: esProposals,
-    insurers: esInsurers,
-    offerings: esOfferings,
-  },
-  en: {
-    common: enCommon,
-    auth: enAuth,
-    dashboard: enDashboard,
-    clients: enClients,
-    placements: enPlacements,
-    inspections: enInspections,
-    settings: enSettings,
-    quotes: enQuotes,
-    proposals: enProposals,
-    insurers: enInsurers,
-    offerings: enOfferings,
-  },
-} as const;
+  es: collect(esModules),
+  en: collect(enModules),
+};
 
 i18n.use(initReactI18next).init({
   resources,

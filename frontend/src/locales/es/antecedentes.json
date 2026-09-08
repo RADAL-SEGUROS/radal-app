@@ -1,0 +1,102 @@
+{
+  "process": {
+    "title": "Procesar antecedentes",
+    "description": "Radal consolida todo lo que el asegurado entregó para esta cuenta en un expediente estructurado, que tú validas y completas antes de registrar.",
+    "cta": "Procesar antecedentes",
+    "processing": "Consolidando…",
+    "reprocess": "Volver a procesar",
+    "noPermission": "No tienes permiso para procesar antecedentes.",
+    "noSchema": "Este ramo aún no tiene un esquema de antecedentes. Créalo en Configuración → Esquemas por ramo.",
+    "loadingSchema": "Verificando el esquema del ramo…",
+    "error": "No pudimos procesar los antecedentes."
+  },
+  "review": {
+    "title": "Revisar y completar",
+    "description": "Revisa lo que la IA propuso, corrige lo que falte y registra el expediente. Nada se guarda hasta que confirmes.",
+    "confirm": "Registrar expediente",
+    "confirming": "Registrando…",
+    "noPermission": "No tienes permiso para registrar el expediente.",
+    "edited": "editado",
+    "required": "obligatorio",
+    "overrides": "{{count}} cambios",
+    "missingRequired": "Faltan campos obligatorios; se marcan abajo.",
+    "addRow": "Agregar fila",
+    "removeRow": "Quitar fila",
+    "emptyTable": "Sin filas todavía.",
+    "unset": "Sin definir",
+    "yes": "Sí",
+    "no": "No",
+    "warningsTitle": "Advertencias de la lectura",
+    "noFields": "Este esquema no tiene campos.",
+    "sectionMissing": "faltan {{count}}",
+    "missingSummary": "Faltan {{count}} campos obligatorios"
+  },
+  "view": {
+    "title": "Expediente de antecedentes",
+    "subtitle": "Todo lo que el asegurado entregó, consolidado y validado.",
+    "downloadPdf": "Descargar PDF",
+    "generatingPdf": "Generando…",
+    "noPdfPermission": "No tienes permiso para descargar el expediente.",
+    "notRegisteredPdf": "Registra el expediente antes de descargar el PDF.",
+    "empty": "Todavía no hay expediente",
+    "emptyHint": "Usa \"Procesar antecedentes\" en la pestaña Antecedentes para consolidar los documentos de la cuenta.",
+    "inReview": "En revisión — sin registrar",
+    "inReviewHint": "Este expediente fue procesado pero aún no se registra. Complétalo y regístralo en la pestaña Antecedentes.",
+    "registeredAt": "Registrado el {{date}}",
+    "confidence": "Confianza IA",
+    "falta": "falta",
+    "error": "No pudimos cargar el expediente."
+  },
+  "status": {
+    "draft": "Borrador",
+    "processing": "Procesando",
+    "review": "En revisión",
+    "registered": "Registrado"
+  },
+  "sections": {
+    "identity": "Identificación del asegurado",
+    "cover": "Cobertura",
+    "property": "Bienes asegurados",
+    "general": "Antecedentes generales"
+  },
+  "fields": {
+    "razon_social": "Razón social",
+    "rut": "RUT",
+    "giro": "Giro"
+  },
+  "basesTecnicas": {
+    "title": "Bases Técnicas",
+    "subtitle": "Los antecedentes completos, listos para enviar a las compañías.",
+    "line": "Línea",
+    "lineUnassigned": "Sin línea asignada",
+    "download": "Descargar Bases Técnicas",
+    "generating": "Generando…",
+    "noPermission": "No tienes permiso para descargar las Bases Técnicas.",
+    "incomplete": "Faltan campos obligatorios: {{fields}}",
+    "notRegistered": "Registra el expediente antes de descargar las Bases Técnicas.",
+    "empty": "Todavía no hay Bases Técnicas",
+    "emptyHint": "Procesa los antecedentes en la pestaña Antecedentes para consolidar los documentos de la cuenta.",
+    "processHint": "Procesa los antecedentes en la pestaña Antecedentes para completar las Bases Técnicas."
+  },
+  "requisitos": {
+    "title": "Requisitos de la línea",
+    "description": "Lo que esta línea solicita. Los campos obligatorios que faltan se marcan.",
+    "missing": "Falta",
+    "count": "{{done}}/{{total}} completos",
+    "empty": "Esta línea no define campos obligatorios."
+  },
+  "assign": {
+    "change": "Cambiar línea",
+    "title": "Asignar línea",
+    "description": "Elige una de tus líneas para este ramo o adopta una plantilla recomendada.",
+    "brokerLines": "Tus líneas para este ramo",
+    "templates": "Plantillas recomendadas",
+    "current": "Asignada",
+    "assign": "Asignar",
+    "adopt": "Adoptar",
+    "noOptions": "No tienes líneas para este ramo. Adopta una plantilla o créala en Configuración → Líneas.",
+    "assigned": "Línea asignada",
+    "error": "No pudimos asignar la línea.",
+    "noPermission": "No tienes permiso para cambiar la línea."
+  }
+}

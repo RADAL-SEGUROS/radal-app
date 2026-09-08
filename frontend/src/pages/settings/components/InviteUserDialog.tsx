@@ -133,8 +133,8 @@ export function InviteUserDialog({
                 {t("invite.tempDescription", { name: invited.user.full_name })}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex items-center gap-2 rounded-[10px] border border-line bg-bg-recessed px-3.5 py-3">
-              <code className="flex-1 truncate font-mono text-mono text-text-primary">
+            <div className="flex items-center gap-2 rounded-lg border border-line bg-bg-recessed px-3.5 py-3">
+              <code className="flex-1 truncate font-mono text-[13px] text-text-primary">
                 {invited.temporary_password}
               </code>
               <Button variant="secondary" size="sm" onClick={copy}>

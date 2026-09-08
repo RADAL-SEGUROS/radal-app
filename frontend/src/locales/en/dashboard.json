@@ -1,5 +1,17 @@
 {
   "subtitle": "Your working day on one screen.",
+  "agent": {
+    "title": "Radal agent",
+    "subtitle": "Questions about your case files, proposals and policies.",
+    "newThread": "New conversation",
+    "noThreads": "No conversations yet.",
+    "pickThread": "Pick or create a conversation",
+    "empty": "Ask the first question",
+    "placeholder": "Type your question…",
+    "send": "Send",
+    "fallback": "Answer delivered without streaming (CloudFront buffers the body into one chunk).",
+    "thinking": "Thinking…"
+  },
   "greeting": {
     "withName": "{{greeting}}, {{name}}"
   },

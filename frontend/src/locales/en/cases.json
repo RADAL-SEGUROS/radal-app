@@ -1,0 +1,213 @@
+{
+  "list": {
+    "title": "Case files",
+    "subtitle": "The whole folder for each deal: intake, quotations, proposal, policy and post-sale.",
+    "empty": "No case files match these filters"
+  },
+  "kpi": {
+    "total": "Case files",
+    "open": "Open",
+    "overdue": "Overdue",
+    "accounts": "New accounts",
+    "documents": "Documents",
+    "proposals": "Proposals",
+    "packs": "Generated packs",
+    "notes": "Notes"
+  },
+  "filters": {
+    "all": "All",
+    "searchPlaceholder": "Reference, title or insured…"
+  },
+  "table": {
+    "reference": "Reference",
+    "title": "Case file",
+    "kind": "Kind",
+    "stage": "Stage",
+    "status": "Status",
+    "line": "Line",
+    "documents": "Docs",
+    "due": "Due"
+  },
+  "kinds": {
+    "account": "Account",
+    "endorsement": "Endorsement",
+    "collection": "Collection",
+    "claim": "Claim",
+    "renewal": "Renewal"
+  },
+  "statuses": {
+    "open": "Open",
+    "on_hold": "On hold",
+    "won": "Won",
+    "lost": "Lost",
+    "cancelled": "Cancelled",
+    "closed": "Closed"
+  },
+  "stages": {
+    "lead": "Lead",
+    "intake": "Intake",
+    "pre_underwriting": "Pre-underwriting",
+    "technical_basis": "Technical basis",
+    "market_submission": "Market submission",
+    "quotes_received": "Quotes received",
+    "comparison": "Comparison",
+    "insured_decision": "Insured decision",
+    "proposal_issued": "Proposal issued",
+    "ratified": "Ratified",
+    "policy_issued": "Policy issued",
+    "mirror_validation": "Mirror validation",
+    "active": "Active",
+    "renewal_review": "Renewal review",
+    "endorsement_requested": "Endorsement requested",
+    "endorsement_proposed": "Endorsement proposed",
+    "endorsement_issued": "Endorsement issued",
+    "endorsement_applied": "Endorsement applied",
+    "collection_scheduled": "Payment plan",
+    "collection_in_progress": "Collection in progress",
+    "collection_overdue": "Collection overdue",
+    "collection_settled": "Collection settled",
+    "collection_suspended": "Cover suspended",
+    "claim_reported": "Claim reported",
+    "claim_adjusting": "Adjusting",
+    "claim_preliminary": "Preliminary report",
+    "claim_final": "Final report",
+    "claim_settled": "Claim settled",
+    "closed": "Closed"
+  },
+  "journey": {
+    "noPermission": "You do not have permission to move this case file.",
+    "blocked": "The server does not allow this move yet.",
+    "notReachable": "Not reachable from the current stage.",
+    "phases": {
+      "antecedentes": "Background",
+      "mercado": "Market",
+      "comparacion": "Comparison",
+      "propuesta": "Proposal",
+      "poliza": "Policy",
+      "vigente": "Active",
+      "renovacion": "Renewal",
+      "endoso": "Endorsement",
+      "cobranza": "Collection",
+      "siniestro": "Claim"
+    },
+    "whatNext": "What's next",
+    "advanceTo": "Advance to {{stage}}",
+    "otherStages": "Other stages",
+    "closedChip": "Closed",
+    "progress": "{{done}}/{{total}}",
+    "next": {
+      "lead": "record the commercial opportunity",
+      "intake": "gather the insured's background documents",
+      "pre_underwriting": "review the risk and request the inspection if needed",
+      "technical_basis": "draft the technical brief (01)",
+      "market_submission": "send the folder to the market",
+      "quotes_received": "register the insurers' quotations",
+      "comparison": "build the comparison from the confirmed proposals",
+      "insured_decision": "present the comparison and await the insured's decision",
+      "proposal_issued": "issue the proposal to the awarded insurer",
+      "ratified": "await the insurer's ratification of terms",
+      "policy_issued": "register the issued policy (08)",
+      "mirror_validation": "validate the mirror policy against the proposal",
+      "active": "set the account as active",
+      "renewal_review": "review the renewal's background",
+      "endorsement_requested": "record the endorsement request",
+      "endorsement_proposed": "send the endorsement proposal to the insurer",
+      "endorsement_issued": "attach the endorsement issued by the insurer",
+      "endorsement_applied": "apply the endorsement deltas to the policy",
+      "collection_scheduled": "schedule the payment plan",
+      "collection_in_progress": "start collecting the instalments",
+      "collection_overdue": "manage the overdue instalments",
+      "collection_settled": "settle the plan with every instalment paid",
+      "collection_suspended": "record the cover suspension (Art. 528)",
+      "claim_reported": "report the claim to the insurer",
+      "claim_adjusting": "follow the adjustment with the loss adjuster",
+      "claim_preliminary": "register the adjuster's preliminary report",
+      "claim_final": "attach the adjuster's final report",
+      "claim_settled": "record the settlement and the payment",
+      "closed": "close the case file"
+    }
+  },
+  "tabs": {
+    "summary": "Summary",
+    "documents": "Documents",
+    "quotes": "Quotations",
+    "proposal": "Proposal",
+    "postsale": "Post-sale",
+    "notes": "Notes",
+    "timeline": "Timeline",
+    "packs": "Packs"
+  },
+  "summary": {
+    "title": "Case summary",
+    "description": "AI suggests; you edit and confirm. Nothing writes itself.",
+    "suggest": "Suggest with AI",
+    "confirm": "Confirm summary",
+    "unconfirmed": "Unconfirmed suggestion",
+    "placeholder": "Write or generate the case summary…",
+    "noPermission": "You do not have permission to edit this case file.",
+    "factsTitle": "Case facts"
+  },
+  "facts": {
+    "sequence": "Sequence",
+    "opened": "Opened",
+    "closed": "Closed",
+    "placementStatus": "Placement status",
+    "policyNumber": "Policy",
+    "period": "Period"
+  },
+  "documents": {
+    "title": "Case documents",
+    "description": "Grouped by sub-file, with their source code.",
+    "empty": "No documents filed",
+    "emptyHint": "Upload the intake documents from the client or the placement and they will appear here."
+  },
+  "quotes": {
+    "requestsTitle": "Quote requests",
+    "proposalsTitle": "Quotations received",
+    "noRequests": "No quote requests",
+    "noProposals": "No quotations received",
+    "noPlacement": "This case file has no placement",
+    "noPlacementHint": "Post-sale case files hang off the policy, not off a placement.",
+    "due": "Due",
+    "open": "Open",
+    "compare": "Compare"
+  },
+  "proposal": {
+    "title": "Accepted proposal",
+    "description": "The winning quotation and the packs that go with it.",
+    "none": "No quotation accepted yet",
+    "noneHint": "Accept a quotation in the comparator to reach proposal issued."
+  },
+  "postsale": {
+    "policyTitle": "Policy",
+    "openPolicy": "Open policy",
+    "noPolicy": "No policy issued",
+    "noPolicyHint": "The policy shows up here once document 08 is received.",
+    "subFunnelTitle": "Post-sale sub-funnel",
+    "subFunnelHint": "Endorsements, collections and claims, with their sequence and dates.",
+    "noChildren": "No post-sale case files",
+    "versionsTitle": "Previous versions"
+  },
+  "notes": {
+    "new": "New note",
+    "add": "Add note",
+    "placeholder": "What happened, what was agreed, what is missing…",
+    "internal": "Internal",
+    "shared": "Shared",
+    "followUp": "Follow-up",
+    "followUpOn": "Follow-up: {{date}}",
+    "empty": "No notes",
+    "emptyHint": "Internal notes are never shown to the insured or the insurer.",
+    "unknownAuthor": "Unknown author",
+    "noPermission": "You do not have permission to comment."
+  },
+  "timeline": {
+    "empty": "No recorded activity",
+    "emptyHint": "Stage moves and notes will appear here.",
+    "kinds": {
+      "stage": "Stage",
+      "activity": "Activity",
+      "note": "Note"
+    }
+  }
+}

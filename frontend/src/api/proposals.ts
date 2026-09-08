@@ -22,6 +22,7 @@ import type {
   ProposalCreate,
   ProposalDecisionResult,
   ProposalStatus,
+  ProposalSummary,
   ProposalUpdate,
 } from "@/api/types";
 
@@ -30,6 +31,8 @@ export interface ProposalListParams {
   placement_id?: number;
   insurer_id?: number;
   status?: ProposalStatus;
+  /** Groups & accounts (spec v3 §4.3) — the account folder. */
+  case_file_id?: number;
   limit?: number;
   offset?: number;
 }
@@ -42,6 +45,20 @@ export function useProposals(params: ProposalListParams = {}, enabled = true) {
       const { data } = await api.get<OffsetPage<Proposal>>("/proposals", {
         params: clean(params),
       });
+      return data;
+    },
+  });
+}
+
+/** `GET /proposals/summary` — broker-scoped counts + money for the analytics
+ *  dashboard. Gate on `Proposals.View` via `enabled`; the server 403s without
+ *  it. Decimal fields are `DecimalString` — parse with `num()`. */
+export function useProposalsSummary(enabled = true) {
+  return useQuery({
+    queryKey: qk.proposals.summary(),
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get<ProposalSummary>("/proposals/summary");
       return data;
     },
   });

@@ -20,6 +20,7 @@ import type {
   QuoteRequestSend,
   QuoteRequestStatus,
   QuoteRequestUpdate,
+  QuoteSummary,
 } from "@/api/types";
 
 export interface QuoteListParams {
@@ -27,6 +28,8 @@ export interface QuoteListParams {
   client_id?: number;
   status?: QuoteRequestStatus;
   search?: string;
+  /** Groups & accounts (spec v3 §4.3) — the account folder. */
+  case_file_id?: number;
   limit?: number;
   offset?: number;
 }
@@ -39,6 +42,19 @@ export function useQuotes(params: QuoteListParams = {}, enabled = true) {
       const { data } = await api.get<OffsetPage<QuoteRequest>>("/quotes", {
         params: clean(params),
       });
+      return data;
+    },
+  });
+}
+
+/** `GET /quotes/summary` — broker-scoped counts for the analytics dashboard.
+ *  Gate on `Quotes.View` via `enabled`; the server 403s without it. */
+export function useQuotesSummary(enabled = true) {
+  return useQuery({
+    queryKey: qk.quotes.summary(),
+    enabled,
+    queryFn: async () => {
+      const { data } = await api.get<QuoteSummary>("/quotes/summary");
       return data;
     },
   });

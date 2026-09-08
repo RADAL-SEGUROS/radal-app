@@ -143,7 +143,7 @@ export function NewVersionDialog({
             >
               <input
                 type="checkbox"
-                className="h-4 w-4 accent-[var(--teal)]"
+                className="h-4 w-4 accent-brand"
                 checked={checked}
                 onChange={(e) => setChecked(e.target.checked)}
               />

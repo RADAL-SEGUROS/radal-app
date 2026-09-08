@@ -201,7 +201,7 @@ export function ChecklistCard({
       {!parsed.recognized ? (
         <div className="flex flex-col gap-3">
           <p className="text-body text-text-muted">{t("checklist.unsupported")}</p>
-          <pre className="max-h-80 overflow-auto rounded-lg border border-line bg-bg-recessed p-4 font-mono text-mono-sm text-text-secondary">
+          <pre className="max-h-80 overflow-auto rounded-lg border border-line bg-bg-recessed p-4 font-mono text-[12px] leading-relaxed text-text-secondary">
             {JSON.stringify(inspection.checklist, null, 2)}
           </pre>
         </div>
@@ -215,7 +215,7 @@ export function ChecklistCard({
             {sections.map((section) => (
               <FadeUp key={section.uid}>
                 <div className="overflow-hidden rounded-lg border border-line">
-                  <div className="flex items-center justify-between gap-3 bg-[color-mix(in_srgb,var(--bg-recessed)_60%,transparent)] px-4 py-2.5">
+                  <div className="flex items-center justify-between gap-3 bg-paper-2 px-4 py-2.5">
                     {editing ? (
                       <Input
                         value={section.name}
@@ -258,7 +258,7 @@ export function ChecklistCard({
                         key={item.uid}
                         className={cn(
                           "flex flex-col gap-2 px-4 py-3 transition-colors sm:flex-row sm:items-start sm:gap-4",
-                          !editing && "hover:bg-[color-mix(in_srgb,var(--teal)_4%,transparent)]",
+                          !editing && "hover:bg-paper-2",
                         )}
                       >
                         {editing ? (
@@ -355,7 +355,7 @@ export function ChecklistCard({
               <Button variant="secondary" size="sm" onClick={addSection}>
                 <Plus /> {t("checklist.addSection")}
               </Button>
-              <span className="text-caption text-amber-deep">{t("checklist.dirty")}</span>
+              <span className="text-caption text-warn-text">{t("checklist.dirty")}</span>
             </div>
           ) : null}
         </div>

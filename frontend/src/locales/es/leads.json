@@ -1,0 +1,67 @@
+{
+  "title": "Leads",
+  "subtitle": "Oportunidades sin RUT todavía: un dato, un contacto y una fecha de seguimiento.",
+  "noCreatePermission": "No tienes permiso para crear leads.",
+  "noEditPermission": "No tienes permiso para editar leads.",
+  "kpi": {
+    "total": "Leads",
+    "qualified": "Calificados",
+    "dueThisWeek": "Seguimiento esta semana",
+    "overdue": "Seguimiento vencido"
+  },
+  "statuses": {
+    "new": "Nuevo",
+    "contacted": "Contactado",
+    "qualified": "Calificado",
+    "converted": "Convertido",
+    "lost": "Perdido"
+  },
+  "board": {
+    "empty": "Sin leads",
+    "noContact": "Sin contacto registrado",
+    "dragHint": "Mueve un lead con el botón de la tarjeta; el arrastre llega pronto."
+  },
+  "actions": {
+    "new": "Nuevo lead",
+    "moveTo": "Pasar a {{status}}"
+  },
+  "fields": {
+    "name": "Nombre comercial",
+    "rutOptional": "RUT (opcional)",
+    "noRut": "Sin RUT",
+    "source": "Origen",
+    "contactName": "Contacto",
+    "contactEmail": "Email",
+    "contactPhone": "Teléfono",
+    "estimatedPremium": "Prima estimada (UF)",
+    "followUp": "Seguimiento",
+    "lostReason": "Motivo de pérdida",
+    "notes": "Notas"
+  },
+  "dialog": {
+    "newTitle": "Nuevo lead",
+    "newDescription": "El RUT es opcional: un lead existe antes de conocer la identidad."
+  },
+  "detail": {
+    "factsTitle": "Datos del lead",
+    "statusTitle": "Estado",
+    "statusHint": "El estado se mueve directo; la conversión es la única transacción compuesta.",
+    "notesTitle": "Notas y seguimiento"
+  },
+  "convert": {
+    "action": "Convertir en expediente",
+    "title": "Convertir lead en expediente",
+    "description": "Crea asegurado, cliente, bien, colocación y expediente en una sola transacción.",
+    "rut": "RUT del asegurado",
+    "rutHint": "Se valida módulo 11 y se normaliza a CUERPO-DV.",
+    "legalName": "Razón social",
+    "caseTitle": "Título del expediente",
+    "assetName": "Nombre del bien",
+    "periodStart": "Inicio de vigencia",
+    "periodEnd": "Término de vigencia",
+    "already": "Este lead ya fue convertido.",
+    "noPermission": "Necesitas permiso de edición de leads y de creación de expedientes.",
+    "openCase": "Ver expediente",
+    "periodRequired": "La vigencia es obligatoria: define la carpeta de la cuenta."
+  }
+}

@@ -19,6 +19,7 @@ from app.models.base_class import Base, TimestampMixin
 from app.models.enums import StrEnum, sql_enum
 
 if TYPE_CHECKING:
+    from app.models.account_group import AccountGroup
     from app.models.asset import Asset
     from app.models.broker import Broker
     from app.models.insured import Insured
@@ -50,6 +51,11 @@ class Client(Base, TimestampMixin):
     insured_id: Mapped[int] = mapped_column(
         ForeignKey("insured.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    # A broker x RUT belongs to AT MOST ONE broker-private group (v3). SET
+    # NULL: archiving/deleting the group detaches the client, never cascades.
+    account_group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("account_group.id", ondelete="SET NULL"), index=True
+    )
 
     status: Mapped[ClientStatus] = mapped_column(
         sql_enum(ClientStatus), default=ClientStatus.PROSPECT, nullable=False
@@ -74,6 +80,9 @@ class Client(Base, TimestampMixin):
     # --- Relationships ------------------------------------------------------
     broker: Mapped["Broker"] = relationship(back_populates="clients")
     insured: Mapped["Insured"] = relationship(back_populates="clients")
+    account_group: Mapped["AccountGroup | None"] = relationship(
+        back_populates="clients", foreign_keys=[account_group_id]
+    )
     account_manager: Mapped["User | None"] = relationship(foreign_keys=[account_manager_id])
     assets: Mapped[list["Asset"]] = relationship(
         back_populates="client", cascade="all, delete-orphan"

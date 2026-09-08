@@ -27,6 +27,7 @@ from app.api.routers.clients import (
     record_activity,
 )
 from app.models.asset import Asset
+from app.models.case_file import CaseFile
 from app.models.client import Client
 from app.models.document import Document
 from app.models.enums import EntityType
@@ -161,6 +162,107 @@ def _validate_brief_document(db: Session, document_id: int | None, broker_id: in
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="brief_document_id does not belong to this broker",
         )
+
+
+#: The period columns the folder owns. Editing any of them touches the vigencia.
+_PERIOD_FIELDS = ("period", "period_start", "period_end")
+
+
+def _wrapping_account(db: Session, placement: Placement) -> CaseFile | None:
+    """The account folder this placement belongs to, if any.
+
+    ``placement.case_file_id`` is the authority (spec v3 §2.5); the legacy
+    ``case_file.placement_id`` back-pointer is honoured too, because the
+    importer writes it first.
+    """
+    from app.services.case_files import ACCOUNT_KINDS
+
+    clauses = [CaseFile.placement_id == placement.id]
+    if placement.case_file_id is not None:
+        clauses.append(CaseFile.id == placement.case_file_id)
+    return db.scalars(
+        select(CaseFile)
+        .where(
+            CaseFile.broker_id == placement.broker_id,
+            CaseFile.kind.in_(ACCOUNT_KINDS),
+            or_(*clauses),
+        )
+        .order_by(CaseFile.id.asc())
+        .limit(1)
+    ).first()
+
+
+def _guard_period_edit(db: Session, placement: Placement, changes: dict) -> CaseFile | None:
+    """Rule 1: a vigencia date change creates a NEW folder, never an edit.
+
+    While the wrapping account has no stage event beyond ``intake`` the period
+    is still a draft and the edit is allowed — and it SYNCS to the folder, so
+    the two never disagree. Afterwards the only door is
+    ``POST /case-files/{id}/reperiod``.
+    """
+    touched = [field for field in _PERIOD_FIELDS if field in changes]
+    if not touched:
+        return None
+    case = _wrapping_account(db, placement)
+    if case is None:
+        return None
+
+    from app.services.case_files import is_period_locked
+
+    if is_period_locked(db, case):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "period_locked",
+                "case_file_id": case.id,
+                "detail": (
+                    "The validity period is a folder; use "
+                    "POST /case-files/{id}/reperiod"
+                ),
+            },
+        )
+    return case
+
+
+def _sync_period_to_folder(db: Session, case: CaseFile | None, placement: Placement) -> None:
+    """Carry an allowed period edit up to the folder it belongs to.
+
+    Rule 5 still applies on the way up: ``period_start``/``period_end`` are two
+    of the five columns of the folder uniqueness key, so this — the one period
+    mutation the spec deliberately leaves open — is also the one path that could
+    slide a folder onto a sibling's key. Refuse with the same ``folder_exists``
+    error the create / renew / reperiod doors raise.
+    """
+    if case is None:
+        return
+    from app.services.case_files import find_open_folder, period_label_for
+
+    clash = find_open_folder(
+        db,
+        broker_id=case.broker_id,
+        account_group_id=case.account_group_id,
+        insurance_line_id=case.insurance_line_id,
+        period_start=placement.period_start,
+        period_end=placement.period_end,
+        exclude_id=case.id,
+    )
+    if clash is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "folder_exists",
+                "case_file_id": clash.id,
+                "reference": clash.reference,
+                "detail": (
+                    "An open folder for this group, line and vigencia already "
+                    f"exists (case file {clash.id})"
+                ),
+            },
+        )
+
+    case.period_start = placement.period_start
+    case.period_end = placement.period_end
+    case.period_label = period_label_for(placement.period_start, placement.period_end)
 
 
 def _placement_counts(db: Session, placement_ids: list[int]) -> dict[int, dict[str, int]]:
@@ -311,6 +413,7 @@ def list_placements(
     client_id: int | None = None,
     asset_id: int | None = None,
     insurance_line_id: int | None = None,
+    account_group_id: int | None = Query(None, gt=0),
     status_filter: list[PlacementStatus] | None = Query(None, alias="status"),
     period: str | None = None,
     open_only: bool = Query(False, description="Exclude closed placements"),
@@ -329,6 +432,26 @@ def list_placements(
         stmt = stmt.where(Placement.asset_id == asset_id)
     if insurance_line_id is not None:
         stmt = stmt.where(Placement.insurance_line_id == insurance_line_id)
+    if account_group_id is not None:
+        # A placement belongs to a group through its folder, or — for the ones
+        # that have no folder yet (an honest empty state, spec §3.2) — through
+        # its client.
+        stmt = stmt.where(
+            or_(
+                Placement.case_file_id.in_(
+                    select(CaseFile.id).where(
+                        CaseFile.broker_id == broker_id,
+                        CaseFile.account_group_id == account_group_id,
+                    )
+                ),
+                Placement.client_id.in_(
+                    select(Client.id).where(
+                        Client.broker_id == broker_id,
+                        Client.account_group_id == account_group_id,
+                    )
+                ),
+            )
+        )
     if status_filter:
         stmt = stmt.where(Placement.status.in_(status_filter))
     if open_only:
@@ -541,8 +664,13 @@ def update_placement(
             detail="period_end must not be earlier than period_start",
         )
 
+    folder = _guard_period_edit(db, placement, changes)
+
     for field, value in changes.items():
         setattr(placement, field, value)
+
+    if any(field in changes for field in _PERIOD_FIELDS):
+        _sync_period_to_folder(db, folder, placement)
 
     record_activity(
         db,

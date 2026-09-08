@@ -63,7 +63,7 @@ function Field({
     <div className={cn("flex flex-col gap-1.5", className)}>
       <Label className="text-caption text-text-muted">{label}</Label>
       {children}
-      {error ? <p className="text-caption text-red-deep">{error}</p> : null}
+      {error ? <p className="text-caption text-neg-text">{error}</p> : null}
     </div>
   );
 }
@@ -74,7 +74,7 @@ function text(value: string | undefined): string | null {
 }
 
 const textareaClass =
-  "w-full rounded-[10px] border border-line bg-bg-surface px-3.5 py-2 text-body text-text-primary outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-teal focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--teal)_18%,transparent)]";
+  "w-full rounded-lg border border-line bg-bone px-3.5 py-2 text-body text-ink outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand-ring";
 
 // --- Create ------------------------------------------------------------------
 

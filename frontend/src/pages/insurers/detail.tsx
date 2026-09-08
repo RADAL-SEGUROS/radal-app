@@ -185,7 +185,7 @@ export default function InsurerDetailPage() {
           <Section
             title={
               <span className="flex items-center gap-2">
-                <Star className="h-4 w-4 text-teal" />
+                <Star className="h-4 w-4 text-brand" />
                 {t("profile.title")}
               </span>
             }
@@ -246,11 +246,11 @@ function ResolvedContactCard({ insurerId }: { insurerId: number }) {
     <FadeUp delay={0.1}>
       <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
         <div className="flex items-center gap-3">
-          <span className="rounded-[11px] bg-[color-mix(in_srgb,var(--teal)_13%,transparent)] p-2.5 text-teal-deep">
+          <span className="rounded-lg bg-brand-soft p-2.5 text-brand-deep">
             <UserRound className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-caption uppercase tracking-[0.08em] text-text-muted">
+            <p className="text-caption font-medium text-ink-3">
               {t("contacts.effective")}
             </p>
             <p className="text-body font-medium text-text-primary">{contact.name}</p>
@@ -494,7 +494,7 @@ function ContactsPanel({ insurer }: { insurer: Insurer }) {
                 type="checkbox"
                 checked={form.is_primary}
                 onChange={(e) => setForm((f) => ({ ...f, is_primary: e.target.checked }))}
-                className="h-4 w-4 accent-[var(--teal)]"
+                className="h-4 w-4 accent-brand"
               />
               {t("contacts.isPrimary")}
             </label>

@@ -26,9 +26,11 @@ export default function Login() {
   const location = useLocation();
   const [error, setError] = React.useState<string | null>(null);
 
+  // The app starts at groups (spec §5.4); "/" only ever redirects there, so a
+  // login with no `from` must land on /groups directly and never on /leads.
   const from =
     (location.state as { from?: { pathname: string } } | null)?.from
-      ?.pathname ?? "/";
+      ?.pathname ?? "/groups";
 
   const {
     register,
@@ -52,23 +54,19 @@ export default function Login() {
   return (
     <div className="flex min-h-screen w-full bg-bg-app">
       {/* Brand panel (dark Ink) */}
-      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-[#0B1418] p-12 lg:flex">
-        {/* soft teal glow */}
+      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-[#0e0f10] p-12 lg:flex">
+        {/* single soft brand glow — one accent per surface */}
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full opacity-30 blur-3xl"
+          className="pointer-events-none absolute -right-24 -top-24 h-[28rem] w-[28rem] rounded-full opacity-25 blur-3xl"
           style={{
             background:
-              "radial-gradient(circle, var(--teal) 0%, transparent 70%)",
+              "radial-gradient(circle, var(--brand) 0%, transparent 70%)",
           }}
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full opacity-20 blur-3xl"
-          style={{
-            background:
-              "radial-gradient(circle, var(--blue) 0%, transparent 70%)",
-          }}
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/10"
         />
         <div className="relative flex items-center gap-3">
           <img
@@ -76,12 +74,12 @@ export default function Login() {
             alt="Radal"
             className="h-9 w-9"
           />
-          <span className="wordmark font-display text-h2 text-white">
+          <span className="wordmark text-h2 text-white">
             Radal.
           </span>
         </div>
         <div className="relative max-w-md">
-          <h2 className="font-display text-display leading-tight text-white">
+          <h2 className="text-display tracking-tight text-white">
             {t("auth:brand.title", "Conecta la industria del seguro")}
           </h2>
           <p className="mt-4 text-body text-white/70">
@@ -91,7 +89,7 @@ export default function Login() {
             )}
           </p>
         </div>
-        <p className="relative font-mono text-mono-sm text-white/40">
+        <p className="relative text-caption text-white/40">
           {t("common:app.tagline")}
         </p>
       </div>
@@ -110,12 +108,12 @@ export default function Login() {
               alt="Radal"
               className="h-8 w-8"
             />
-            <span className="wordmark font-display text-h2 text-text-primary">
+            <span className="wordmark text-h2 text-text-primary">
               Radal.
             </span>
           </div>
 
-          <h1 className="font-display text-h1 text-text-primary">
+          <h1 className="text-h1 tracking-tight text-text-primary">
             {t("auth:login.title", "Iniciar sesión")}
           </h1>
           <p className="mt-1 text-body text-text-muted">
@@ -156,7 +154,9 @@ export default function Login() {
             </div>
 
             {error ? (
-              <p className="text-caption text-signal-danger">{error}</p>
+              <p className="rounded-sm bg-neg-soft px-3 py-2 text-caption text-neg-text">
+                {error}
+              </p>
             ) : null}
 
             <Button
@@ -173,11 +173,11 @@ export default function Login() {
           </form>
 
           {import.meta.env.DEV ? (
-            <div className="mt-6 rounded-md border border-line bg-bg-recessed/50 p-3">
-              <p className="font-mono text-mono-sm uppercase tracking-wide text-text-muted">
+            <div className="mt-6 rounded-md border border-line bg-paper-2 p-3">
+              <p className="text-caption font-medium text-ink-3">
                 {t("auth:demo.title", "Credenciales demo")}
               </p>
-              <p className="mt-1 font-mono text-caption text-text-secondary">
+              <p className="mt-1 font-mono text-[12px] text-text-secondary">
                 jose@radalseguros.cl · radal1234
               </p>
             </div>

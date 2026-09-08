@@ -23,19 +23,23 @@ export function PageHeader({
     <FadeUp
       delay={0}
       className={cn(
-        "flex flex-col gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between",
+        // Wrap rather than overflow: `sm` is too eager for a header that carries
+        // a long title AND actions — at tablet widths the two collide and the
+        // buttons get pushed past the viewport edge. `min-w-0` on the row keeps
+        // it shrinkable inside a flex parent.
+        "flex min-w-0 flex-col gap-3 pb-1 md:flex-row md:flex-wrap md:items-end md:justify-between",
         className,
       )}
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         {eyebrow ? (
-          <div className="mb-1.5 font-mono text-mono-sm uppercase tracking-wide text-text-muted">
+          <div className="mb-1.5 text-caption font-medium text-ink-3">
             {eyebrow}
           </div>
         ) : null}
-        <h1 className="font-display text-h1 text-text-primary">{title}</h1>
+        <h1 className="text-balance text-h1 tracking-tight text-ink">{title}</h1>
         {subtitle ? (
-          <p className="mt-1.5 text-body text-text-muted">{subtitle}</p>
+          <p className="mt-1.5 text-pretty text-body text-ink-3">{subtitle}</p>
         ) : null}
       </div>
       {actions ? (

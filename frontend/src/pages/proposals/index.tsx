@@ -109,7 +109,7 @@ export default function ProposalsListPage() {
           <Link
             to={`/quotes/${row.original.quote_request_id}`}
             onClick={(e) => e.stopPropagation()}
-            className="font-mono text-mono-sm"
+            className="text-caption tabular-nums"
           >
             COT-{String(row.original.quote_request_id).padStart(4, "0")}
           </Link>

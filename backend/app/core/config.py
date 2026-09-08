@@ -45,8 +45,13 @@ class Settings(BaseSettings):
     # agent. Accessed through the official `openai` SDK pointed at AI_BASE_URL.
     AI_BASE_URL: str = "https://api.deepinfra.com/v1/openai"
     AI_API_KEY: str = ""
-    AI_MODEL: str = "meta-llama/Llama-3.3-70B-Instruct"
+    AI_MODEL: str = "zai-org/GLM-5.3-Flash"
     AI_TIMEOUT_SECONDS: int = 120
+    # GLM-5.3-Flash is a REASONING model: it spends the output budget on a
+    # hidden reasoning pass first and leaves `message.content` empty when the
+    # budget is too small. The extraction / consolidation calls therefore need a
+    # generous ceiling — far above the 4000 that the chat agent gets by default.
+    AI_EXTRACTION_MAX_TOKENS: int = 12000
 
     # --- Storage (S3) ---
     # One bucket holds both `media/` (logos, avatars) and `documents/` (files).
@@ -63,6 +68,12 @@ class Settings(BaseSettings):
     # --- Documents ---
     DOCUMENT_S3_PREFIX: str = "documents/"
     DOCUMENT_MAX_UPLOAD_MB: int = 25
+
+    # --- Expediente packs (submission / comparison / proposal) ---
+    # The ZIP is assembled in memory and the generation is synchronous, so the
+    # size is bounded: over this the endpoint returns 413 and the UI tells the
+    # user to download the sections one by one.
+    PACK_MAX_MB: int = 64
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -82,8 +93,10 @@ class Settings(BaseSettings):
         "ACCESS_TOKEN_EXPIRE_MINUTES",
         "REFRESH_TOKEN_EXPIRE_DAYS",
         "AI_TIMEOUT_SECONDS",
+        "AI_EXTRACTION_MAX_TOKENS",
         "MEDIA_MAX_UPLOAD_MB",
         "DOCUMENT_MAX_UPLOAD_MB",
+        "PACK_MAX_MB",
         mode="before",
     )
     @classmethod

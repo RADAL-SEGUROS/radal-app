@@ -97,7 +97,7 @@ export default function ClientsPage() {
             <p className="truncate text-label font-medium text-text-primary">
               {row.original.insured.trade_name || row.original.insured.legal_name}
             </p>
-            <p className="truncate font-mono text-mono-sm text-text-muted">
+            <p className="truncate text-caption tabular-nums text-text-muted">
               {formatRut(row.original.insured.rut)}
             </p>
           </div>
@@ -139,7 +139,7 @@ export default function ClientsPage() {
         header: t("clients:columns.assets") as string,
         accessorFn: (row) => row.assets_count,
         cell: ({ row }) => (
-          <span className="font-mono text-mono tabular-nums text-text-secondary">
+          <span className="text-body tabular-nums text-text-secondary">
             {row.original.assets_count}
           </span>
         ),
@@ -149,7 +149,7 @@ export default function ClientsPage() {
         header: t("clients:columns.placements") as string,
         accessorFn: (row) => row.active_placements_count,
         cell: ({ row }) => (
-          <span className="font-mono text-mono tabular-nums text-text-secondary">
+          <span className="text-body tabular-nums text-text-secondary">
             {row.original.active_placements_count}
             <span className="text-text-muted"> / {row.original.placements_count}</span>
           </span>
@@ -304,7 +304,7 @@ export default function ClientsPage() {
           >
             {t("common:actions.previous")}
           </Button>
-          <span className="font-mono text-mono-sm tabular-nums">
+          <span className="text-caption tabular-nums">
             {page} / {Math.max(1, totalPages)}
           </span>
           <Button

@@ -1,176 +1,57 @@
-# Radal — Corredora App (CLAUDE.md)
+# Radal — context for Claude sessions
 
-> Read this file FIRST. It is the practical guide for any Claude session working in this repo.
-> The authoritative deep specs live in `docs/`. When in doubt, `docs/` wins over memory.
+**Radal is the platform** — the software provider for insurance distribution in Chile — and the
+**broker (`corredora`) is the tenant**. Radal is never itself a broker. The product exists because
+the placement cycle lives in email, WhatsApp and spreadsheets today; Radal makes the **expediente**
+the folder the broker works in and normalises every insurer offer into one comparable shape. The
+shape of the domain is `account_group → case_file(kind=account) → placement → quote_request →
+proposal → policy`, with post-sale work (endoso, cobranza, siniestro, renovación) hanging off the
+policy as versioned child case files. **This file is orientation only — at most three paragraphs.
+The full technical specification is `docs/technical-reference.md`** (setup, data model, every
+endpoint, the RBAC matrix, the AI registry, the frontend map, the changelog and the traps); put new
+detail there, not here. Reference paths are written plain on purpose: **never `@`-prefix them**, or
+they are pasted into every session and cost ~170k tokens before a word is exchanged.
 
-## What this is
+**The non-negotiables — do not simplify these away.** (1) Every identifier is **English**; Spanish
+belongs only in `locales/*/**.json` values and inside LLM prompts, because the source documents are
+Spanish. (2) Every workspace table carries `broker_id` and every query filters it; `insured`,
+`insurer` and `cmf_line` are canonical and reached only through the broker's own rows; another
+tenant's row is a **404, never a 403**. (3) **No dead buttons** — a control is wired or visibly
+disabled with a "pronto" chip and the server's reason; the nav is filtered by `GET /auth/permissions`,
+never by hardcoded role checks. (4) i18n is English keys, Spanish values, `es` complete and `en`
+mirroring; beware dynamic keys, which compile and then render raw on screen. (5) Money:
+`net = taxable + exempt`, `vat = 0.19 × taxable` (**not** on net — earthquake cover is VAT-exempt),
+`total = net + vat`; UF everywhere, and deductible bases differ by peril. (6) **AI is suggest →
+human confirm → commit** — nothing auto-writes, and every attempt persists an `extraction` row.
+(7) RUT is validated mod-11 and stored `BODY-DV`; insurers dedup by **RUT + CMF code, never by
+name**; a broker is never blocked creating a client. (8) The `document` table is the **only** place
+an S3 key lives. (9) `tests/conftest.py` blanks `AI_API_KEY` and points `AI_BASE_URL` at an
+unroutable port **before** any `app.*` import — delete those two lines and the suite makes live
+calls and hangs. (10) There is **no Alembic**: `create_all` never ALTERs, so any new column must go
+through `backend/scripts/migrate_case_files.py` before the branch is pushed.
 
-**Radal** is connective SaaS for the insurance industry. This repository is the **corredora**
-(insurance broker) operational web app. It is **multi-tenant**: any corredora can onboard.
-The first seeded tenant is **RADAL SEGUROS**.
-
-- Domain + UI copy language: **Spanish (Chile)**.
-- Money: **UF** (Unidad de Fomento), stored as numeric.
-- Greenfield build. No legacy to preserve.
-
-## The three profiles
-
-Radal is designed for three user profiles (`usuario.rol` enum). Build role-based access **now**,
-but only implement corredora screens this pass.
-
-| Profile | Roles | When provisioned |
-|---|---|---|
-| **corredora** (broker) | `admin_corredora`, `ejecutivo_corredora`, `inspector` | Now — the ONLY users at first |
-| **asegurado** (insured client) | `admin_asegurado`, `ejecutivo_asegurado` | AFTER a deal closes |
-| **aseguradora** (insurer) | `admin_aseguradora`, `ejecutivo_aseguradora` | When an aseguradora is invited |
-
-**The corredora is always the OWNER of every expediente.** asegurado/aseguradora users only get
-created later. Only corredora screens are implemented in this pass.
-
-## Monorepo layout
-
-```
-radal-app/
-  backend/      FastAPI + SQLAlchemy 2.x — SQLite locally, MySQL on AWS RDS (uv-managed venv)
-  frontend/     Vite + React + TypeScript + Tailwind + shadcn-style components + framer-motion
-  deploy/       docker-compose + deploy scripts for the EC2 dev box
-  docs/         Canonical markdown specs (source of truth)
-  .github/      CI/CD (dev-deploy.yml -> ECR -> SSM -> EC2)
-  CLAUDE.md     This file
-```
-
-## Where the specs live (source of truth)
-
-- `docs/architecture.md` — the expediente backbone, ownership, "subir vs enviar", "dynamic by ramo".
-- `docs/data-model.md` — **authoritative** logical + physical model. Backend tables/columns must match
-  it EXACTLY (snake_case, Spanish nouns). Includes a mermaid ER diagram.
-- `docs/api-contract.md` — **authoritative** REST contract. Backend AND frontend build strictly to it.
-- `docs/design-system.md` — "Aqua Spectrum" brand tokens, fonts, color rules.
-- `docs/deployment.md` — **AWS infra + CI/CD** (EC2 dev box + RDS MySQL + S3 + ECR, deploy via SSM).
-
-## How to run
-
-### Backend (uv venv + uvicorn)
-
-```bash
-cd backend
-uv venv .venv
-source .venv/bin/activate
-uv pip install -r requirements.txt        # or: uv pip install -e .
-cp .env.example .env                        # first time only
-uvicorn app.main:app --reload --port 8000
-```
-
-- SQLite file: `backend/radal.db`. Schema via SQLAlchemy `create_all` (no alembic this pass).
-- Config from `backend/.env` (see `backend/.env.example`).
-- API base path: `/api/v1`. Auth: JWT Bearer (access + refresh).
-- Seed: `python -m app.db.seed` (drops+creates+inserts the RADAL demo — makes KPIs look real).
-- **Engine portability**: `DATABASE_URL` switches SQLite (`sqlite:///./radal.db`) ↔ MySQL
-  (`mysql+pymysql://…` on RDS). MySQL requires bounded `VARCHAR` — a `@compiles(String,"mysql")`
-  hook in `app/models/base_class.py` defaults length-less strings to `VARCHAR(255)`; long free text
-  uses `Text`. Avoid engine-specific SQL (no `NULLS LAST`; use `col.is_(None)` ordering). Keep
-  `GROUP BY` `ONLY_FULL_GROUP_BY`-safe. Demo login: `jose@radalseguros.cl` / `radal1234`.
-
-### Frontend (npm)
-
-```bash
-cd frontend
-npm install
-npm run dev        # Vite dev server (proxies /api -> backend :8000)
-```
-
-- Path alias `@/` -> `src`.
-- Component style: shadcn conventions (cva variants, `cn()` merge).
-
-## Multi-tenant rule (NON-NEGOTIABLE)
-
-- Every domain table carries **`corredora_id`** (FK -> `corredora.id`).
-- Every query is **scoped by tenant**. The tenant comes from the authenticated user's `corredora_id`
-  (JWT claim). Never trust a `corredora_id` from the request body for scoping.
-- Uniqueness (e.g. `numero_poliza`, ramo names) is per-tenant, not global.
-
-## i18n rule (NON-NEGOTIABLE)
-
-- `react-i18next` + `i18next`. Default locale **`es`**, secondary **`en`**.
-- **ALL** UI strings go through `t()`. No hardcoded copy in components.
-- Namespaced per module: `frontend/src/locales/{es,en}/<ns>.json` where
-  `ns ∈ [common, auth, dashboard, clientes, polizas, renovaciones, cotizaciones, siniestros, inspecciones]`.
-- `es` must be **complete**; `en` **mirrors the same keys** (translated).
-
-## Access is role-based — no view-switcher (NON-NEGOTIABLE)
-
-- There is **NO** view-switcher. The old dev-only Radal/Aseguradora/Asegurado toggle was **removed** —
-  this is a real app, not a design proposal. Do not re-introduce any client-side role/view switching.
-- The user's role + cargo come solely from the authenticated profile
-  (`AuthProvider` → `/auth/me` → `usuario.rol` / `usuario.cargo`), shown in the sidebar user card.
-- Only the **corredora** view is built. A super-admin (all views) comes later.
-
-## Coding conventions
-
-- **DB**: lowercase `snake_case`, Spanish domain nouns (`cliente`, `poliza`, `prima`).
-- **Money**: UF as numeric. **Percentages**: 0-100.
-- **Timestamps**: `created_at` / `updated_at`, UTC.
-- **REST**: English-plural paths mirroring Spanish tables, under `/api/v1`. JSON everywhere.
-  Resources: `/clientes /polizas /renovaciones /cotizaciones /siniestros /inspecciones`
-  `+ /dashboard + /search + /auth + /aseguradoras + /ramos`.
-- **Frontend routes**: `/login`, `/` (dashboard), `/clientes`, `/clientes/:id`, `/polizas`,
-  `/polizas/:id`, `/renovaciones`, `/renovaciones/:id`, `/cotizaciones`, `/siniestros`,
-  `/siniestros/:id`, `/inspecciones`, `/inspecciones/:id`.
-- **Frontend stack**: react-router-dom v6, @tanstack/react-query, axios, react-hook-form + zod,
-  tailwind + cva + clsx + tailwind-merge, lucide-react, @radix-ui primitives, recharts, date-fns, sonner.
-- **Backend stack**: fastapi, uvicorn[standard], sqlalchemy 2.x, pydantic v2, pydantic-settings,
-  python-jose[cryptography], passlib[bcrypt], python-multipart, email-validator.
-
-## Business rules cheat-sheet
-
-- **Coverage analyzer** (polizas/renovaciones by `cobertura_pct`): `<95%` infracobertura,
-  `95–105%` óptima (green), `>105%` sobrecobertura.
-- **Días restantes** — Renovaciones: ámbar if `<=60` days else gris; "Por vencer 30D" KPI in red.
-  Cotizaciones: rojo if `<=4` days else ámbar; "Por vencer L7D" = `<7` days.
-- **Dashboard is no-scroll** (everything above the fold): global search, time-of-day greeting,
-  4 KPI cards, quick actions, "Requiere atención" (top 3), principales clientes, actividad reciente
-  (last 2, accordion -> last 10), próximas renovaciones (2–5).
-
-## Sidebar nav
-
-- **Gestión**: Dashboard, Clientes, Pólizas, Renovaciones, Cotizaciones, Siniestros, Inspecciones.
-- **Comercial y operaciones**: Pipeline, Facturación, Reportes — OUT OF MVP: render disabled/greyed.
-- Bottom: collaborator name + cargo. Top-right user chip. Theme toggle + language toggle.
-
-## UI look & motion
-
-- Visual target = the "Aqua Spectrum" reference: soft **16px** cards on `--bone` with layered shadow +
-  hover-lift, refined light/dark token ramp (teal primary/active, **blue** primary actions, lime success,
-  amber/red signals), Space Grotesk headings + KPI numbers, Inter Tight body, IBM Plex Mono for IDs.
-- Motion via **framer-motion**: staggered `fadeUp` section entrance, KPI count-up, `dropIn` search
-  dropdown, animated activity accordion, hover micro-interactions. All respect `prefers-reduced-motion`.
-  Shared helpers in `src/components/common/motion.tsx`.
-
-## AWS / deployment (dev)
-
-Full detail in `docs/deployment.md`. Shape (nirvana-style): **Lambda (container images) + CloudFront +
-RDS MySQL + ECR**, deployed by `.github/workflows/dev-deploy.yml` (push to `dev`, **Blacksmith** runners) →
-build+push images → ECR → `aws lambda update-function-code` → CloudFront invalidation.
-
-- **Account** `185011028331`, **region** `us-east-1`. Use the **`radal`** AWS CLI profile locally
-  (`--profile radal`) — **never** overwrite `[default]`.
-- **CloudFront** `E2MGVTSWQDFPY3` → `https://d2tup8vfejxx98.cloudfront.net`: default behavior →
-  `radal-frontend-dev` Lambda (Express serves the Vite SPA), `/api/*` → `radal-backend-dev` Lambda (FastAPI,
-  VPC-attached to the private RDS `radal-dev-db`). Both are ECR container images running the **Lambda Web
-  Adapter** (`aws-lambda-adapter:0.7.0`); frontend server is `frontend/server.cjs`.
-- **Function URL auth**: this account blocks public (`NONE`) Function URLs, so URLs use **`AWS_IAM`** and
-  CloudFront signs to them via **OAC** (`E3BGCO4XOX79HP`) + the managed AllViewerExceptHostHeader policy.
-  Don't switch them to `NONE`. Lambda-compatible images require `docker buildx --provenance=false`.
-  **OAC gotchas (see docs/deployment.md, don't regress)**: Lambdas need both `lambda:InvokeFunctionUrl`
-  + `lambda:InvokeFunction`; POST bodies need `x-amz-content-sha256` (frontend axios); the JWT rides in
-  **`X-Radal-Token`** (OAC steals `Authorization`); LWA + Function URL invoke mode must both be `buffered`.
-- CI auth uses the scoped IAM user **`radal-github-actions`** (NOT admin keys). GitHub secrets:
-  `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `ECR_REGISTRY`, `BACKEND_LAMBDA`,
-  `FRONTEND_LAMBDA`, `CLOUDFRONT_DISTRIBUTION_ID`. Values in `~/radal-cicd-secrets.txt`.
-- ECR **lifecycle policy keeps only the last 5 images** per repo. RDS is the main idle cost — stop it when unused.
-- Route 53 / custom domain: TODO (running on `*.cloudfront.net`); migrate GoDaddy → Route 53 + ACM (us-east-1) later.
-- Real secrets (`*.pem`, DB creds) live in S3 / local only — **never** commit them.
-
-## .gitignore must include
-
-`.venv`, `__pycache__`, `*.db`, `node_modules`, `dist`, `.env`, `.DS_Store`, `deploy/backend.env`, `*.pem`.
+**Where the work stands (verified 2026-09-06).** Three passes have landed on `dev` since the v2
+rebuild (`ed8b8a1`), all of them **still uncommitted — 189 changed/untracked files**: *v2 case
+files* (the expediente, the 29-stage journey machine, the 41-category extraction registry, packs,
+the whole post-sale half), *v3 groups & accounts* (`account_group` above the expediente,
+`case_file(kind=account)` as the Account = one line × one vigencia × N RUTs, the navigator tree,
+`reperiod`/`renew`/`endorsements/batch`), and *v4* (the single tool-using **agent** with typed
+READ/WRITE tools and `agent_action` confirm-cards, plus the **Porcelana** UI restyle, the single
+context-switching sidebar, the Journey visualization and `/analytics`), and *v5 Signal*
+(2026-09-06/07: **Porcelana's execution is deprecated too** — the binding spec is
+`docs/v5-signal-ui-spec.md`: Inter, pine-accent primaries, hairline borders, de-mono'd
+badges/tables; resizable/collapsible sidebar with the group tree REMOVED from the rail (tree
+components deleted — the central account view owns stage navigation); Journey hero mounted on the
+account page; group-has-no-RUT relabels (Contratante/Empresas); `/analytics` routed at last, with
+an `analytics` i18n namespace, dashboard KPIs + recharts, paginated entity tabs, and new
+tenant-scoped `GET /quotes|proposals|policies/summary` backend aggregates). Verified state: **531
+backend tests passing in ~101 s**, `tsc` and `npm run build` clean. Read the spec you need rather
+than re-deriving it — `docs/v2-architecture.md`, `docs/v2-case-files-spec.md` and its companion
+`docs/v2-case-files-as-built.md`, `docs/v2-data-modeling-decisions.md`,
+`docs/v3-groups-accounts-spec.md`, `docs/v4-agent-spec.md`, `docs/v4-porcelana-ui-spec.md`,
+`docs/deployment.md`, `docs/usuarios-de-prueba.md` — and delegate to the sub-prompts in
+`.claude/agents/` (`radal-data-model`, `radal-backend`, `radal-ai`, `radal-frontend`,
+`radal-infra`). **Three standing traps:** the dev RDS migration has **not** been run and CI fires on
+push to `dev`; nothing was ever uploaded to S3, so run the backend with `MEDIA_BACKEND=local` or
+every document 404s; and **Aqua Spectrum is deprecated** — `docs/design-system.md` is historical,
+Porcelana is the direction.

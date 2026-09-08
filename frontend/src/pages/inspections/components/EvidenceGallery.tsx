@@ -244,7 +244,7 @@ export function EvidenceGallery({
 
           {files.length > 0 ? (
             <div>
-              <h3 className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-text-muted">
+              <h3 className="mb-2 text-caption font-medium text-ink-3">
                 {t("evidence.files")}
               </h3>
               <ul className="flex flex-col gap-2">

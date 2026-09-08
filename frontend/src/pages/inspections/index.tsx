@@ -129,7 +129,7 @@ export default function InspectionsPage() {
         accessorKey: "id",
         header: t("requests.columns.id"),
         cell: ({ row }) => (
-          <span className="font-mono text-mono text-text-tertiary">#{row.original.id}</span>
+          <span className="text-caption tabular-nums text-text-tertiary">#{row.original.id}</span>
         ),
       },
       {
@@ -227,7 +227,7 @@ export default function InspectionsPage() {
         accessorKey: "folio",
         header: t("reports.columns.folio"),
         cell: ({ row }) => (
-          <span className="font-mono text-mono text-text-tertiary">
+          <span className="text-caption tabular-nums text-text-tertiary">
             {row.original.folio ?? `#${row.original.id}`}
           </span>
         ),
@@ -357,7 +357,7 @@ export default function InspectionsPage() {
       <FadeUp>
         <Tabs defaultValue="requests">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <TabsList>
+            <TabsList variant="underline" className="flex-1">
               <TabsTrigger value="requests">{t("tabs.requests")}</TabsTrigger>
               <TabsTrigger value="reports">{t("tabs.reports")}</TabsTrigger>
             </TabsList>

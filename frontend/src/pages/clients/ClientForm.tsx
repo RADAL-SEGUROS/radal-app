@@ -62,14 +62,14 @@ function Field({
     <div className={cn("flex flex-col gap-1.5", className)}>
       <Label className="text-caption text-text-muted">{label}</Label>
       {children}
-      {error ? <p className="text-caption text-red-deep">{error}</p> : null}
+      {error ? <p className="text-caption text-neg-text">{error}</p> : null}
     </div>
   );
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-1 text-caption font-semibold uppercase tracking-[0.09em] text-text-muted">
+    <p className="mt-1 text-caption font-medium text-ink-3">
       {children}
     </p>
   );
@@ -333,7 +333,7 @@ export function CreateClientDialog({
             <Field label={t("clients:fields.internalNotes")} className="sm:col-span-2">
               <textarea
                 rows={3}
-                className="w-full rounded-[10px] border border-line bg-bg-surface px-3.5 py-2 text-body text-text-primary outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-text-muted focus-visible:border-teal focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--teal)_18%,transparent)]"
+                className="w-full rounded-lg border border-line bg-bone px-3.5 py-2 text-body text-ink outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-text-muted focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand-ring"
                 {...form.register("internal_notes")}
               />
             </Field>
@@ -515,7 +515,7 @@ export function EditClientDialog({
           <Field label={t("clients:fields.internalNotes")} className="sm:col-span-2">
             <textarea
               rows={3}
-              className="w-full rounded-[10px] border border-line bg-bg-surface px-3.5 py-2 text-body text-text-primary outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-teal focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--teal)_18%,transparent)]"
+              className="w-full rounded-lg border border-line bg-bone px-3.5 py-2 text-body text-ink outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand-ring"
               {...form.register("internal_notes")}
             />
           </Field>

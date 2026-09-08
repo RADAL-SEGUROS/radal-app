@@ -261,6 +261,30 @@ class ProposalPage(BaseModel):
     offset: int
 
 
+class ProposalInsurerCount(BaseModel):
+    """One insurer's slice of the proposal flow (the by-insurer leaderboard)."""
+
+    insurer_id: int
+    insurer_name: str
+    count: int
+
+
+class ProposalSummary(BaseModel):
+    """The proposals board: status split, insurer mix, and the money in play.
+
+    ``total_premium_uf`` and ``avg_rate_permille`` aggregate only proposals
+    still in the running (draft / submitted / accepted) — a declined, withdrawn
+    or expired offer is not money on the table.
+    """
+
+    total: int
+    by_status: dict[str, int]
+    by_insurer: list[ProposalInsurerCount]
+    confirmed_count: int
+    total_premium_uf: Decimal
+    avg_rate_permille: Decimal | None = None
+
+
 class ProposalDecisionResult(BaseModel):
     """Outcome of accept/reject — the whole cascade, in one payload."""
 
@@ -515,6 +539,8 @@ __all__ = [
     "ProposalReject",
     "ProposalRead",
     "ProposalPage",
+    "ProposalInsurerCount",
+    "ProposalSummary",
     "ProposalDecisionResult",
     "InsurerRef",
     "ProposalComparison",

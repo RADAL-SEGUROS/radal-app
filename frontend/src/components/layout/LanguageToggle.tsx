@@ -31,13 +31,13 @@ export function LanguageToggle() {
       <DropdownMenuContent align="end">
         <DropdownMenuItem
           onClick={() => change("es")}
-          className={current === "es" ? "font-semibold text-teal" : ""}
+          className={current === "es" ? "font-semibold text-brand-deep" : ""}
         >
           {t("language.es")}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => change("en")}
-          className={current === "en" ? "font-semibold text-teal" : ""}
+          className={current === "en" ? "font-semibold text-brand-deep" : ""}
         >
           {t("language.en")}
         </DropdownMenuItem>

@@ -1,0 +1,415 @@
+{
+  "nav": {
+    "groups": "Groups",
+    "newGroup": "New group",
+    "allGroups": "See all groups",
+    "more": "More",
+    "commercial": "Commercial",
+    "portfolio": "Portfolio",
+    "aiAssistants": "AI assistants",
+    "reader": "Document reader",
+    "comparator": "Comparator",
+    "insurersAppetite": "Insurers and appetite",
+    "finance": "Finance",
+    "reports": "Reporting",
+    "emptyGroups": "No groups",
+    "emptyGroupsHint": "Create the first group to start organising the book.",
+    "openAccounts": "{{count}} open",
+    "periodsMore": "See all validity periods",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "error": "We could not load the groups"
+  },
+  "ai": {
+    "reader": {
+      "subtitle": "The AI reads a document and proposes the fields; nothing is saved until a person confirms.",
+      "disclaimer": "Suggests, never writes",
+      "pick": "Pick a document",
+      "pickHint": "Only documents whose category has an extraction schema are listed.",
+      "search": "Search by name, code or category",
+      "category": "Category",
+      "allCategories": "All categories",
+      "analyze": "Analyse with AI",
+      "analyzing": "Reading…",
+      "selected": "Document read:",
+      "clear": "Pick another document",
+      "showing": "{{shown}} of {{total}}",
+      "truncated": "Only the first {{limit}} documents are listed; filter by category to see the rest.",
+      "empty": "No analysable documents",
+      "emptyHint": "Upload a document to a case file and come back to read it with AI.",
+      "noPermission": "You do not have permission to view documents.",
+      "noAnalyzePermission": "You do not have permission to analyse documents.",
+      "table": {
+        "document": "Document",
+        "category": "Category",
+        "code": "Code",
+        "uploaded": "Uploaded"
+      }
+    },
+    "comparator": {
+      "subtitle": "Quote requests with two or more proposals received, ready to compare side by side.",
+      "open": "Compare",
+      "search": "Search quote request",
+      "showing": "{{shown}} of {{total}}",
+      "truncated": "Only the first {{limit}} quote requests are checked; use the search box to narrow it down.",
+      "proposalsCount_one": "{{count}} proposal",
+      "proposalsCount_other": "{{count}} proposals",
+      "empty": "Nothing to compare yet",
+      "emptyHint": "At least two proposals against the same quote request are needed.",
+      "waiting_one": "There is {{count}} quote request waiting for a second proposal.",
+      "waiting_other": "There are {{count}} quote requests waiting for a second proposal.",
+      "waitingHint": "Waiting for a second proposal",
+      "noPermission": "You do not have permission to view the comparator.",
+      "kpi": {
+        "comparable": "Ready to compare",
+        "proposals": "Proposals in play",
+        "waiting": "With a single proposal"
+      },
+      "table": {
+        "quote": "Quote request",
+        "object": "Insured object",
+        "declared": "Declared value",
+        "proposals": "Proposals",
+        "status": "Status"
+      }
+    }
+  },
+  "tree": {
+    "line": "Insurance line",
+    "records": "Records",
+    "quotes": "Quote requests",
+    "proposals": "Proposals",
+    "policies": "Policies",
+    "endorsement": "Endorsement",
+    "collection": "Collection",
+    "claims": "Claims",
+    "download": "Download case folder",
+    "historic": "Historic",
+    "locked": "Validity period locked",
+    "newAccount": "New account",
+    "goToPeriod": "Go to {{label}}",
+    "accounts": "{{count}} accounts",
+    "accounts_one": "{{count}} account",
+    "accounts_other": "{{count}} accounts",
+    "policyLabel": "P{{n}} · {{number}}",
+    "extendedUntil": "Extended until {{date}}",
+    "error": "We could not load the group tree",
+    "readOnly": "Historic validity period: read only",
+    "batch": "Period extension",
+    "batchHint": "One prórroga batch across several policies: it is drawn once."
+  },
+  "folders": {
+    "amounts": "Insured amounts",
+    "loss_history": "Loss history",
+    "report": "Report",
+    "questionnaire": "Questionnaire",
+    "slip": "Terms and conditions slip"
+  },
+  "origin": {
+    "new": "New",
+    "renewal": "Renewal",
+    "period_change": "Validity period change"
+  },
+  "originHint": {
+    "new": "Account opened for the first time in this validity period.",
+    "renewal": "Renewal of the previous validity period.",
+    "period_change": "Folder opened because the validity dates changed."
+  },
+  "renewal": {
+    "title": "Renewal",
+    "linkTo": "→ {{label}}",
+    "start": "Start renewal",
+    "open": "Open the renewal",
+    "reason": {
+      "account_not_active": "The account is not active yet.",
+      "already_renewed": "This validity period has already been renewed.",
+      "period_open": "The validity period is still open; it is not time to renew yet."
+    }
+  },
+  "renew": {
+    "title": "Renew account",
+    "subtitle": "Opens the next validity period's folder with this account's placements and RUTs.",
+    "source": "Source validity period",
+    "periodStart": "New validity period start",
+    "periodEnd": "New validity period end",
+    "periodLabel": "Validity period label",
+    "periodLabelHint": "Derived from the dates; you can adjust it.",
+    "copySections": "Copy records",
+    "copySectionsHint": "New documents are created: the previous period's originals are left untouched.",
+    "clients": "RUTs of the new account",
+    "clientsHint": "By default the same RUTs as the previous period are copied.",
+    "submit": "Create the renewal",
+    "success": "Renewal created: {{reference}}",
+    "error": "We could not create the renewal",
+    "noPrior": "No previous validity period",
+    "noPriorHint": "This account has no prior history to show.",
+    "sections": {
+      "root_prospect": "Prospect request",
+      "submission": "Submission to insurers",
+      "insurer_quotes": "Insurer quotations",
+      "broker_proposal": "Proposal",
+      "policy_file": "Policy"
+    }
+  },
+  "reperiod": {
+    "title": "Change the validity period",
+    "subtitle": "Changing the dates opens a new folder and closes this one. It is not an edit.",
+    "warning": "The current folder will be closed with reason “validity period change” and its records copied to the new one.",
+    "periodStart": "New validity period start",
+    "periodEnd": "New validity period end",
+    "reason": "Reason for the change",
+    "reasonPlaceholder": "Why the dates change",
+    "submit": "Open the new folder",
+    "success": "New folder created: {{reference}}",
+    "error": "We could not change the validity period",
+    "sourceClosed": "Source folder closed",
+    "notLockedHint": "This folder still allows editing the dates from its placement; a period change opens a new folder either way.",
+    "unchanged": "The dates are unchanged: change at least one to open the new folder.",
+    "reasonRequired": "The reason is recorded in the log: state why the dates change."
+  },
+  "extend": {
+    "title": "Policy extension",
+    "subtitle": "Pick the group's policies to extend. One endorsement is created per policy.",
+    "selectPolicies": "Policies to extend",
+    "selectHint": "None are pre-selected: an extension is always chosen by hand.",
+    "selectedCount": "{{count}} policies selected",
+    "selectedCount_one": "{{count}} policy selected",
+    "selectedCount_other": "{{count}} policies selected",
+    "none": "Select at least one policy",
+    "newEndDate": "New policy end date",
+    "effectiveAt": "Effective from",
+    "document": "Issued endorsement",
+    "note": "Note",
+    "submit": "Create the extension",
+    "issue": "Record the issuance",
+    "batchKey": "Batch",
+    "success": "Extension created over {{count}} policies",
+    "issued": "Extension issued: the policies now carry the new end date.",
+    "error": "We could not create the extension",
+    "scopeHint": "An extension moves the policy end date, never the account's validity period.",
+    "noPermission": "You do not have permission to create endorsements.",
+    "datesHint": "The effect starts where the earliest-expiring selected policy ends today.",
+    "datesInvalid": "The new end date must be later than the current one.",
+    "pendingIssue": "The endorsements are created. Nothing is applied until the issue is recorded.",
+    "pending": "Awaiting issue",
+    "noIssuePermission": "You do not have permission to issue endorsements."
+  },
+  "history": {
+    "title": "Prior history",
+    "originChain": "Origin chain",
+    "prior": "Previous validity period",
+    "records": "Previous records",
+    "policies": "Previous policies",
+    "claims": "Claims in the period",
+    "lossRatio": "Loss ratio",
+    "empty": "No prior history",
+    "error": "We could not load the history"
+  },
+  "group": {
+    "title": "Groups",
+    "subtitle": "The commercial folder holding an account's companies, validity periods and lines.",
+    "one": "Group",
+    "fields": {
+      "name": "Name",
+      "nameHint": "The name the broker uses for the account; it need not be the legal name.",
+      "slug": "Slug",
+      "status": "Status",
+      "notes": "Notes",
+      "clients": "Companies",
+      "primaryClient": "Contracting party",
+      "accounts": "Accounts",
+      "openAccounts": "Open accounts",
+      "latestPeriod": "Latest validity period",
+      "updatedAt": "Updated"
+    },
+    "status": {
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "actions": {
+      "new": "New group",
+      "edit": "Edit group",
+      "archive": "Archive group",
+      "restore": "Reactivate group",
+      "addClient": "Add company",
+      "removeClient": "Remove from group",
+      "downloadArchive": "Download case folder",
+      "newAccount": "New account",
+      "open": "Open the group",
+      "viewInGroup": "See in the group"
+    },
+    "create": {
+      "title": "Create a group",
+      "nameLabel": "Group name",
+      "clients": "Companies to include",
+      "submit": "Create the group",
+      "success": "Group created",
+      "error": "We could not create the group",
+      "clientsHint": "A company belongs to at most one group; those already in another group are not listed here."
+    },
+    "detach": {
+      "confirm": "Remove this company from the group?",
+      "success": "Company removed from the group"
+    },
+    "search": "Search groups",
+    "notFound": "We could not find this group",
+    "searchClients": "Search a company by legal name or RUT",
+    "noClients": "No companies available to add",
+    "filters": {
+      "allStatuses": "All statuses"
+    },
+    "noCreatePermission": "You do not have permission to create groups.",
+    "noEditPermission": "You do not have permission to edit this group."
+  },
+  "account": {
+    "one": "Account",
+    "title": "{{line}} · {{period}}",
+    "tabs": {
+      "records": "Records",
+      "antecedentes": "Bases Técnicas",
+      "quotes": "Quote requests",
+      "proposals": "Proposals",
+      "policies": "Policies",
+      "renewal": "Renewal",
+      "notes": "Notes",
+      "timeline": "Activity log"
+    },
+    "meta": "{{accounts}} · {{policies}}",
+    "period": "Validity period",
+    "contratante": "Policyholder",
+    "members": "Insured RUTs",
+    "addClient": "Add a RUT to the account",
+    "removeClient": "Remove a RUT from the account",
+    "create": {
+      "title": "New account",
+      "subtitle": "An account is one line within one validity period. Pick the dates and the lines.",
+      "periodStart": "Validity period start",
+      "periodEnd": "Validity period end",
+      "lines": "Insurance lines",
+      "linesHint": "One folder is created per line.",
+      "clients": "Account RUTs",
+      "submit": "Create the accounts",
+      "success": "{{count}} accounts created",
+      "error": "We could not create the account",
+      "results": "Accounts created",
+      "datesInvalid": "The period end must be later than the period start.",
+      "noExtraMembers": "This group holds only this RUT.",
+      "noLines": "The broker has no active insurance lines yet.",
+      "linesRequired": "Pick at least one insurance line.",
+      "willCreate_one": "{{count}} folder will be created, one per line.",
+      "willCreate_other": "{{count}} folders will be created, one per line."
+    },
+    "noCreatePermission": "You do not have permission to create accounts.",
+    "openCase": "Open the full case file",
+    "records": {
+      "allFiles": "All files",
+      "totalFiles": "Files",
+      "folderHint": "Includes: {{categories}}",
+      "upload": "Upload document",
+      "uploading": "Uploading…",
+      "noUploadPermission": "You do not have permission to upload documents."
+    },
+    "quotes": {
+      "empty": "This account has no quote requests yet.",
+      "noPermission": "You do not have permission to view quote requests."
+    },
+    "proposals": {
+      "ai": "AI read",
+      "confirmed": "Confirmed",
+      "yes": "Yes",
+      "no": "No",
+      "empty": "This account has no proposals yet.",
+      "noPermission": "You do not have permission to view proposals."
+    }
+  },
+  "period": {
+    "title": "Validity period {{label}}",
+    "subtitle": "One card per line in this validity period.",
+    "current": "Current validity period",
+    "historic": "Historic validity period",
+    "notFound": "This period does not exist in the group."
+  },
+  "overview": {
+    "title": "Group overview",
+    "subtitle": "Everything that happened in the group, newest first.",
+    "olderPeriods": "Previous validity periods",
+    "loadMore": "Load more",
+    "periods": "Periods",
+    "policies_one": "{{count}} policy",
+    "policies_other": "{{count}} policies",
+    "companies_one": "{{count}} company",
+    "companies_other": "{{count}} companies",
+    "otherEntries": "No period assigned",
+    "filters": {
+      "allStatuses": "All statuses",
+      "open": "Open",
+      "closed": "Closed",
+      "allLines": "All insurance lines",
+      "insurer": "Insurer",
+      "owner": "Account manager",
+      "soon": "This filter is not available yet."
+    }
+  },
+  "archive": {
+    "title": "Download case folder",
+    "wholeGroup": "The whole group",
+    "currentPeriod": "This validity period only",
+    "preparing": "Preparing the case folder…",
+    "ready": "Case folder ready to download",
+    "error": "We could not generate the case folder",
+    "scope": "Only the documents you are allowed to see are included.",
+    "forbidden": "You do not have permission to download the case folder.",
+    "onlyPeriod": "Only validity period {{label}}"
+  },
+  "timeline": {
+    "title": "Group activity log",
+    "kinds": {
+      "stage": "Stage",
+      "activity": "Activity",
+      "note": "Note",
+      "policy": "Policy",
+      "endorsement": "Endorsement",
+      "claim": "Claim",
+      "collection": "Collection"
+    },
+    "empty": "No movements yet",
+    "error": "We could not load the activity log",
+    "notes": {
+      "internal": "Internal note",
+      "shared": "Note"
+    }
+  },
+  "errors": {
+    "period_locked": "The validity period is a folder: to change the dates, open a new one.",
+    "folder_exists": "An open folder already exists for this line and validity period.",
+    "client_not_in_group": "That RUT does not belong to the account's group.",
+    "policies_span_groups": "The selected policies belong to different groups.",
+    "client_in_other_group": "That RUT already belongs to another group.",
+    "renewal_not_allowed": "This account cannot be renewed yet.",
+    "group_has_open_cases": "The RUT has open folders in the group.",
+    "generic": "Something went wrong"
+  },
+  "empty": {
+    "groups": "No groups yet",
+    "groupsHint": "A group organises the companies, validity periods and lines of one commercial account.",
+    "accounts": "This group has no accounts yet",
+    "accountsHint": "Create the first account by choosing the validity period and the lines.",
+    "policies": "This validity period has no issued policies yet.",
+    "records": "This records folder is empty.",
+    "recordsHint": "Upload the matching document to complete it.",
+    "timeline": "No movements in the group",
+    "periods": "No validity periods recorded",
+    "history": "No previous validity period",
+    "clients": "The group has no companies attached",
+    "lines": "This validity period has no lines yet"
+  },
+  "policy": {
+    "current": "This policy",
+    "subFunnel": "Group post-sale",
+    "subFunnelHint": "The policies of this validity period and what hangs off each one.",
+    "notInTree": "This policy is not in the group tree",
+    "notInTreeHint": "It may belong to another group or not be attached to an account.",
+    "noChildren": "No records",
+    "noChildPermission": "You do not have permission to view this detail."
+  }
+}

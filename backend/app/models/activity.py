@@ -6,10 +6,10 @@ broker-private commentary that must never reach an insured or insurer user.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base_class import Base, TimestampMixin, utcnow
@@ -64,6 +64,7 @@ class Note(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_note_entity", "entity_type", "entity_id"),
         Index("ix_note_broker_internal", "broker_id", "is_internal"),
+        Index("ix_note_broker_followup", "broker_id", "follow_up_on"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -79,6 +80,8 @@ class Note(Base, TimestampMixin):
     # Broker-private when true. Never surfaced to insured/insurer users.
     is_internal: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     phase: Mapped[str | None] = mapped_column(String(120))
+    # The team asked for notes WITH a follow-up date; this is that single date.
+    follow_up_on: Mapped[date | None] = mapped_column(Date)
 
     broker: Mapped["Broker"] = relationship(back_populates="notes")
     author: Mapped["User | None"] = relationship(foreign_keys=[author_id])

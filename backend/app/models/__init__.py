@@ -10,11 +10,31 @@ and ``cmf_line`` are canonical (cross-broker) and deliberately have none.
 """
 from app.models.base_class import Base, TimestampMixin, utcnow
 from app.models.enums import (
+    CaseFileKind,
+    CaseFileStatus,
+    CaseOrigin,
+    CaseSection,
+    CaseStage,
+    ClaimItemKind,
+    ClaimRuling,
+    CollectionPlanStatus,
     CoverageKind,
+    DocumentDirection,
+    EndorsementKind,
+    EndorsementStatus,
     EntityType,
+    InstallmentStatus,
+    LeadStatus,
+    PackKind,
+    PackStatus,
+    PaymentMode,
     PersonType,
     Priority,
+    ProposalOutcome,
+    RecordExpedienteStatus,
     UserType,
+    WarrantySource,
+    WarrantyStatus,
     sql_enum,
 )
 
@@ -30,6 +50,7 @@ from app.models.insurer import (
 )
 
 # --- Broker workspace --------------------------------------------------------
+from app.models.account_group import AccountGroup, AccountGroupStatus
 from app.models.client import Client, ClientStatus
 from app.models.asset import Asset, AssetStatus
 from app.models.insurance_line import (
@@ -55,6 +76,7 @@ from app.models.inspection import (
 )
 from app.models.policy import (
     Claim,
+    ClaimItem,
     ClaimStatus,
     CoinsuranceShare,
     CoverageItem,
@@ -65,6 +87,16 @@ from app.models.policy import (
 from app.models.offering import Offering, OfferingChannel, OfferingStatus
 from app.models.document import Document, DocumentCategory
 from app.models.activity import Activity, Note
+
+# --- Case files (expedientes) + post-sale -------------------------------------
+from app.models.case_file import CaseFile, CaseFileStageEvent, CasePack
+from app.models.line_record_schema import LineRecordSchema
+from app.models.record_expediente import RecordExpediente
+from app.models.account_client import AccountClient, AccountClientRole
+from app.models.sales_lead import SalesLead
+from app.models.endorsement import Endorsement
+from app.models.collection import CollectionInstallment, CollectionPlan
+from app.models.warranty import Warranty
 
 # --- Access & AI -------------------------------------------------------------
 from app.models.access import (
@@ -94,6 +126,26 @@ __all__ = [
     "UserType",
     "PersonType",
     "Priority",
+    "CaseSection",
+    "CaseFileKind",
+    "CaseStage",
+    "CaseFileStatus",
+    "CaseOrigin",
+    "LeadStatus",
+    "PackKind",
+    "PackStatus",
+    "RecordExpedienteStatus",
+    "EndorsementKind",
+    "EndorsementStatus",
+    "PaymentMode",
+    "CollectionPlanStatus",
+    "InstallmentStatus",
+    "WarrantySource",
+    "WarrantyStatus",
+    "ClaimItemKind",
+    "ClaimRuling",
+    "ProposalOutcome",
+    "DocumentDirection",
     # identity & orgs
     "Broker",
     "BrokerStatus",
@@ -104,6 +156,8 @@ __all__ = [
     "NativeInsurerProfile",
     "InsurerContact",
     # workspace
+    "AccountGroup",
+    "AccountGroupStatus",
     "Client",
     "ClientStatus",
     "Asset",
@@ -133,6 +187,20 @@ __all__ = [
     "CoverageItem",
     "Claim",
     "ClaimStatus",
+    "ClaimItem",
+    # case files + post-sale
+    "CaseFile",
+    "CaseFileStageEvent",
+    "CasePack",
+    "LineRecordSchema",
+    "RecordExpediente",
+    "AccountClient",
+    "AccountClientRole",
+    "SalesLead",
+    "Endorsement",
+    "CollectionPlan",
+    "CollectionInstallment",
+    "Warranty",
     "Offering",
     "OfferingChannel",
     "OfferingStatus",

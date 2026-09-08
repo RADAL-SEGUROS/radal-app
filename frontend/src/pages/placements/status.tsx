@@ -27,14 +27,14 @@ const STATUS_VARIANT: Record<PlacementStatus, BadgeVariant> = {
 
 /** Dot color used by the pipeline stepper and the compact list rows. */
 export const STATUS_DOT: Record<PlacementStatus, string> = {
-  draft: "bg-[var(--text-muted)]",
-  inspection: "bg-amber",
-  pre_underwriting: "bg-blue",
-  quoting: "bg-blue",
-  negotiating: "bg-amber",
-  awarded: "bg-teal",
-  active: "bg-lime",
-  closed: "bg-[var(--text-muted)]",
+  draft: "bg-muted-foreground",
+  inspection: "bg-warn",
+  pre_underwriting: "bg-brand",
+  quoting: "bg-brand",
+  negotiating: "bg-warn",
+  awarded: "bg-brand",
+  active: "bg-pos",
+  closed: "bg-muted-foreground",
 };
 
 export function PlacementStatusBadge({
@@ -63,9 +63,8 @@ export function expiryTone(days: number | null | undefined): ExpiryTone {
 }
 
 const TONE_CLASS: Record<ExpiryTone, string> = {
-  red: "text-red-deep bg-[color-mix(in_srgb,var(--red)_13%,transparent)] border-[color-mix(in_srgb,var(--red)_28%,transparent)]",
-  amber:
-    "text-amber-deep bg-[color-mix(in_srgb,var(--amber)_13%,transparent)] border-[color-mix(in_srgb,var(--amber)_28%,transparent)]",
+  red: "text-neg-text bg-neg-soft border-neg-line",
+  amber: "text-warn-text bg-warn-soft border-warn-line",
   grey: "text-text-muted bg-bg-recessed border-line",
 };
 
@@ -78,7 +77,7 @@ export function DaysChip({ days }: { days: number | null | undefined }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-mono-sm tabular-nums",
+        "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-caption font-medium tabular-nums",
         TONE_CLASS[expiryTone(days)],
       )}
     >

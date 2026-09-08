@@ -140,7 +140,7 @@ export function ActivityPanel({ client }: { client: Client }) {
             return (
               <FadeUp key={event.key} className="flex gap-3">
                 <div className="flex flex-col items-center">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line bg-bg-surface text-teal-deep">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line bg-bg-surface text-brand-deep">
                     <Icon className="h-4 w-4" strokeWidth={1.75} />
                   </span>
                   {index < events.length - 1 ? (
@@ -156,7 +156,7 @@ export function ActivityPanel({ client }: { client: Client }) {
                       {event.detail}
                     </p>
                   ) : null}
-                  <p className="mt-0.5 font-mono text-mono-sm text-text-muted">
+                  <p className="mt-0.5 text-caption tabular-nums text-text-muted">
                     {formatDateTime(event.at)}
                   </p>
                 </div>

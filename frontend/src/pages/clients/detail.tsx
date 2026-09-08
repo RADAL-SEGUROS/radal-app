@@ -112,7 +112,7 @@ function ClientPlacements({ clientId }: { clientId: number }) {
         <FadeUp key={placement.id}>
           <Link to={`/placements/${placement.id}`} className="block">
             <Card interactive className="flex flex-wrap items-center gap-3 p-4">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[color-mix(in_srgb,var(--blue)_12%,transparent)] text-blue-deep">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-deep">
                 <Briefcase className="h-[18px] w-[18px]" strokeWidth={1.75} />
               </span>
               <div className="min-w-0 flex-1">
@@ -192,7 +192,7 @@ export default function ClientDetailPage() {
     <div className="flex flex-col gap-[22px]">
       <PageHeader
         eyebrow={
-          <Link to="/clients" className="inline-flex items-center gap-1.5 hover:text-teal-deep">
+          <Link to="/clients" className="inline-flex items-center gap-1.5 hover:text-brand-deep">
             <ArrowLeft className="h-3.5 w-3.5" />
             {t("clients:title")}
           </Link>
@@ -204,7 +204,7 @@ export default function ClientDetailPage() {
           </span>
         }
         subtitle={
-          <span className="font-mono text-mono">{formatRut(insured.rut)}</span>
+          <span className="tabular-nums">{formatRut(insured.rut)}</span>
         }
         actions={
           <>
@@ -247,7 +247,7 @@ export default function ClientDetailPage() {
       <Stagger className="grid gap-[18px] lg:grid-cols-3">
         <FadeUp className="lg:col-span-1">
           <Card className="h-full p-5">
-            <p className="mb-3 text-caption font-semibold uppercase tracking-[0.09em] text-text-muted">
+            <p className="mb-3 text-caption font-medium text-ink-3">
               {t("clients:detail.insured")}
             </p>
             <InfoRow
@@ -284,7 +284,7 @@ export default function ClientDetailPage() {
 
         <FadeUp className="lg:col-span-1">
           <Card className="h-full p-5">
-            <p className="mb-3 text-caption font-semibold uppercase tracking-[0.09em] text-text-muted">
+            <p className="mb-3 text-caption font-medium text-ink-3">
               {t("clients:detail.crm")}
             </p>
             <InfoRow
@@ -316,7 +316,7 @@ export default function ClientDetailPage() {
 
         <FadeUp className="lg:col-span-1">
           <Card className="flex h-full flex-col p-5">
-            <p className="mb-3 text-caption font-semibold uppercase tracking-[0.09em] text-text-muted">
+            <p className="mb-3 text-caption font-medium text-ink-3">
               {t("clients:detail.overview")}
             </p>
             <div className="grid flex-1 grid-cols-2 gap-4">
@@ -332,7 +332,7 @@ export default function ClientDetailPage() {
               <Stat label={t("clients:kpi.policies")} value={client.policies_count} />
             </div>
             {client.internal_notes ? (
-              <p className="mt-4 rounded-[10px] bg-bg-recessed p-3 text-caption text-text-secondary">
+              <p className="mt-4 rounded-lg bg-bg-recessed p-3 text-caption text-text-secondary">
                 {client.internal_notes}
               </p>
             ) : null}
@@ -342,7 +342,7 @@ export default function ClientDetailPage() {
 
       <FadeUp>
         <Tabs defaultValue="assets">
-          <TabsList className="h-auto flex-wrap">
+          <TabsList variant="underline" className="flex-wrap">
             <TabsTrigger value="assets">
               <Building2 className="mr-1.5 h-4 w-4" />
               {t("clients:tabs.assets")}

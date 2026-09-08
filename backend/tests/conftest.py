@@ -26,6 +26,14 @@ _TMP_DB = Path(tempfile.mkdtemp(prefix="radal-tests-")) / "test.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DB}"
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("S3_BUCKET", "radal-test-bucket")
+# Hermetic AI: a developer's backend/.env may carry a real AI_API_KEY, and a
+# best-effort summarize (packs) would then call the live provider from inside
+# the test suite — slow at best, a socket that never returns at worst. Blank
+# the key (assignment, not setdefault: it must shadow .env) and point the base
+# URL at an unroutable port so even a test that fakes a key fails fast instead
+# of reaching DeepInfra. Tests that exercise AI paths fake the chat model.
+os.environ["AI_API_KEY"] = ""
+os.environ["AI_BASE_URL"] = "http://127.0.0.1:9/no-provider-in-tests"
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
@@ -107,6 +115,10 @@ class Tenant:
     placement: Placement
     quote: QuoteRequest
     document: Document
+    # Added with the case-file pass: the two roles whose grants differ on the
+    # new modules (technician approves, inspector only sees inspected cases).
+    technician: User | None = None
+    inspector: User | None = None
 
     @property
     def broker_id(self) -> int:
@@ -303,3 +315,107 @@ def headers_b(client: TestClient, world: World) -> dict[str, str]:
 def headers_a_exec(client: TestClient, world: World) -> dict[str, str]:
     """Broker A executive — a low-privilege role (no Users.Manage)."""
     return auth_headers(client, world.a.executive.email)
+
+
+def ensure_role_user(db: Session, tenant: Tenant, role: str, label: str) -> User:
+    """Create (once) an extra broker user with ``role`` inside ``tenant``.
+
+    Deliberately NOT part of the default world: the isolation suite asserts the
+    exact user roster of a tenant, and this pass must stay additive.
+    """
+    existing = getattr(tenant, label, None)
+    if existing is not None:
+        return existing
+    tag = tenant.broker.trade_name or str(tenant.broker_id)
+    user = User(
+        broker_id=tenant.broker_id,
+        email=f"{label}@{tag.lower()}.cl",
+        hashed_password=_password_hash(),
+        full_name=f"{label.title()} {tag}",
+        user_type=UserType.BROKER,
+        role=role,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    setattr(tenant, label, user)
+    return user
+
+
+@pytest.fixture()
+def headers_a_tech(client: TestClient, db: Session, world: World) -> dict[str, str]:
+    """Broker A technician — owns the technical side, approves endorsements."""
+    user = ensure_role_user(db, world.a, "broker_technician", "technician")
+    return auth_headers(client, user.email)
+
+
+@pytest.fixture()
+def headers_a_inspector(client: TestClient, db: Session, world: World) -> dict[str, str]:
+    """Broker A inspector — the narrowest broker role (partial CaseFiles.View)."""
+    user = ensure_role_user(db, world.a, "broker_inspector", "inspector")
+    return auth_headers(client, user.email)
+
+
+# --- Case-file helpers (additive; used by the post-sale + pack suites) --------
+
+def make_case_file(db: Session, tenant: Tenant, **overrides):
+    """An account case wrapping the tenant's placement, at ``intake`` by default."""
+    from app.models.case_file import CaseFile
+    from app.models.enums import CaseFileKind, CaseFileStatus, CaseStage
+
+    fields = {
+        "broker_id": tenant.broker_id,
+        "client_id": tenant.client.id,
+        "placement_id": tenant.placement.id,
+        "insurance_line_id": tenant.line.id,
+        "kind": CaseFileKind.ACCOUNT,
+        "stage": CaseStage.INTAKE,
+        "status": CaseFileStatus.OPEN,
+        "reference": f"EXP-TEST-{tenant.broker_id}-{overrides.pop('n', 1)}",
+        "title": f"Expediente {tenant.broker.trade_name}",
+        "sequence_no": 1,
+        "version": 1,
+    }
+    fields.update(overrides)
+    case = CaseFile(**fields)
+    db.add(case)
+    db.flush()
+    return case
+
+
+@pytest.fixture()
+def insurer_policy(db: Session, world: World):
+    """One active policy of broker A, money already reconciled."""
+    policy = make_policy(db, world.a, world.insurer)
+    db.commit()
+    db.refresh(policy)
+    return policy
+
+
+def make_policy(db: Session, tenant: Tenant, insurer, **overrides):
+    """A minimal active policy for the post-sale suites."""
+    from decimal import Decimal as _Decimal
+
+    from app.models.policy import Policy, PolicyStatus
+
+    fields = {
+        "broker_id": tenant.broker_id,
+        "client_id": tenant.client.id,
+        "placement_id": tenant.placement.id,
+        "insurer_id": insurer.id,
+        "insurance_line_id": tenant.line.id,
+        "policy_number": f"POL-{tenant.broker_id}-1",
+        "status": PolicyStatus.ACTIVE,
+        "insured_amount_uf": _Decimal("100000.0000"),
+        "taxable_premium_uf": _Decimal("100.0000"),
+        "exempt_premium_uf": _Decimal("20.0000"),
+        "net_premium_uf": _Decimal("120.0000"),
+        "vat_uf": _Decimal("19.0000"),
+        "total_premium_uf": _Decimal("139.0000"),
+    }
+    fields.update(overrides)
+    policy = Policy(**fields)
+    db.add(policy)
+    db.flush()
+    return policy

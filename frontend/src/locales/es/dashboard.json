@@ -1,5 +1,17 @@
 {
   "subtitle": "Tu día de trabajo en una pantalla.",
+  "agent": {
+    "title": "Agente Radal",
+    "subtitle": "Preguntas sobre tus expedientes, propuestas y pólizas.",
+    "newThread": "Nueva conversación",
+    "noThreads": "Sin conversaciones todavía.",
+    "pickThread": "Elige o crea una conversación",
+    "empty": "Haz la primera pregunta",
+    "placeholder": "Escribe tu pregunta…",
+    "send": "Enviar",
+    "fallback": "Respuesta entregada sin streaming (CloudFront entrega el cuerpo en un solo bloque).",
+    "thinking": "Pensando…"
+  },
   "greeting": {
     "withName": "{{greeting}}, {{name}}"
   },

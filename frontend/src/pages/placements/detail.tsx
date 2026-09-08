@@ -109,7 +109,7 @@ function Pipeline({
   return (
     <Card className="p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-caption font-semibold uppercase tracking-[0.09em] text-text-muted">
+        <p className="text-caption font-medium text-ink-3">
           {t("placements:pipeline.title")}
         </p>
         {isTerminal ? (
@@ -121,7 +121,7 @@ function Pipeline({
       <div className="relative mb-5">
         <div className="absolute left-0 right-0 top-[9px] h-[3px] rounded-full bg-bg-recessed" />
         <motion.div
-          className="absolute left-0 top-[9px] h-[3px] rounded-full bg-gradient-to-r from-teal to-blue"
+          className="absolute left-0 top-[9px] h-[3px] rounded-full bg-brand"
           initial={reduce ? false : { width: 0 }}
           animate={{ width: `${progress}%` }}
           transition={{ duration: 0.6, ease: [0.22, 0.72, 0.24, 1] }}
@@ -139,9 +139,9 @@ function Pipeline({
                   className={cn(
                     "grid h-[21px] w-[21px] place-items-center rounded-full border-2 transition-colors",
                     isCurrent
-                      ? "border-teal bg-teal text-white shadow-[0_0_0_4px_color-mix(in_srgb,var(--teal)_20%,transparent)]"
+                      ? "border-brand bg-brand text-white ring-4 ring-brand-ring"
                       : done
-                        ? "border-teal bg-teal/90 text-white"
+                        ? "border-brand bg-brand text-white"
                         : "border-line bg-bg-surface",
                   )}
                 >
@@ -244,7 +244,7 @@ function QuotesTab({ placementId }: { placementId: number }) {
                   </p>
                 </div>
                 {quote.due_at ? (
-                  <span className="font-mono text-mono-sm text-text-muted">
+                  <span className="text-caption tabular-nums text-text-muted">
                     {formatDateTime(quote.due_at)}
                   </span>
                 ) : null}
@@ -286,7 +286,7 @@ function ProposalsTab({ placementId }: { placementId: number }) {
                         proposal.insurer?.legal_name ??
                         `#${proposal.insurer_id}`}
                     </p>
-                    <p className="truncate font-mono text-mono-sm text-text-muted">
+                    <p className="truncate text-caption tabular-nums text-text-muted">
                       CMF {proposal.insurer?.cmf_code ?? "—"}
                     </p>
                   </div>
@@ -316,11 +316,11 @@ function ProposalsTab({ placementId }: { placementId: number }) {
                       {t(`placements:proposalStatus.${proposal.status}`)}
                     </Badge>
                     {proposal.is_confirmed ? (
-                      <p className="mt-1 text-caption text-lime-deep">
+                      <p className="mt-1 text-caption text-pos-text">
                         {t("placements:proposals.confirmed")}
                       </p>
                     ) : (
-                      <p className="mt-1 text-caption text-amber-deep">
+                      <p className="mt-1 text-caption text-warn-text">
                         {t("placements:proposals.unconfirmed")}
                       </p>
                     )}
@@ -354,7 +354,7 @@ function InspectionsTab({ placementId }: { placementId: number }) {
           {items.map((request) => (
             <FadeUp key={request.id}>
               <Card className="flex flex-wrap items-center gap-3 p-4">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[color-mix(in_srgb,var(--amber)_14%,transparent)] text-amber-deep">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-warn-soft text-warn-text">
                   <ClipboardCheck className="h-[18px] w-[18px]" strokeWidth={1.75} />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -436,7 +436,7 @@ export default function PlacementDetailPage() {
         eyebrow={
           <Link
             to="/placements"
-            className="inline-flex items-center gap-1.5 hover:text-teal-deep"
+            className="inline-flex items-center gap-1.5 hover:text-brand-deep"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             {t("placements:title")}
@@ -508,7 +508,7 @@ export default function PlacementDetailPage() {
       <Stagger className="grid gap-[18px] lg:grid-cols-3">
         <FadeUp>
           <Card className="h-full p-5">
-            <p className="mb-3 text-caption font-semibold uppercase tracking-[0.09em] text-text-muted">
+            <p className="mb-3 text-caption font-medium text-ink-3">
               {t("placements:detail.folder")}
             </p>
             <InfoRow
@@ -537,7 +537,7 @@ export default function PlacementDetailPage() {
 
         <FadeUp>
           <Card className="h-full p-5">
-            <p className="mb-3 text-caption font-semibold uppercase tracking-[0.09em] text-text-muted">
+            <p className="mb-3 text-caption font-medium text-ink-3">
               {t("placements:detail.market")}
             </p>
             <div className="grid grid-cols-2 gap-4">
@@ -579,7 +579,7 @@ export default function PlacementDetailPage() {
 
         <FadeUp>
           <Card className="h-full p-5">
-            <p className="mb-3 text-caption font-semibold uppercase tracking-[0.09em] text-text-muted">
+            <p className="mb-3 text-caption font-medium text-ink-3">
               {t("placements:detail.notes")}
             </p>
             <p className="whitespace-pre-line text-body text-text-secondary">
@@ -596,7 +596,7 @@ export default function PlacementDetailPage() {
 
       <FadeUp>
         <Tabs defaultValue="quotes">
-          <TabsList className="h-auto flex-wrap">
+          <TabsList variant="underline" className="flex-wrap">
             <TabsTrigger value="quotes">
               <FileSignature className="mr-1.5 h-4 w-4" />
               {t("placements:tabs.quotes")}

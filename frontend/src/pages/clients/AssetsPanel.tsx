@@ -174,7 +174,7 @@ function CreateAssetDialog({
       <Label className="text-caption text-text-muted">{label}</Label>
       {input}
       {error ? (
-        <p className="text-caption text-red-deep">{t("clients:form.errors.required")}</p>
+        <p className="text-caption text-neg-text">{t("clients:form.errors.required")}</p>
       ) : null}
     </div>
   );
@@ -352,7 +352,7 @@ export function AssetsPanel({ clientId }: { clientId: number }) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[color-mix(in_srgb,var(--teal)_12%,transparent)] text-teal-deep">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-deep">
                       <Building2 className="h-[18px] w-[18px]" strokeWidth={1.75} />
                     </span>
                     <div className="min-w-0">
@@ -383,7 +383,7 @@ export function AssetsPanel({ clientId }: { clientId: number }) {
                     })}
                   </span>
                   {num(asset.built_area_m2) !== null ? (
-                    <span className="font-mono text-mono-sm tabular-nums">
+                    <span className="text-caption tabular-nums">
                       {formatNumber(num(asset.built_area_m2))} m²
                     </span>
                   ) : null}

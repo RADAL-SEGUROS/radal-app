@@ -1,0 +1,213 @@
+{
+  "list": {
+    "title": "Expedientes",
+    "subtitle": "La carpeta completa de cada negocio: antecedentes, cotizaciones, propuesta, póliza y post-venta.",
+    "empty": "No hay expedientes con estos filtros"
+  },
+  "kpi": {
+    "total": "Expedientes",
+    "open": "Abiertos",
+    "overdue": "Vencidos",
+    "accounts": "Cuentas nuevas",
+    "documents": "Documentos",
+    "proposals": "Propuestas",
+    "packs": "Carpetas generadas",
+    "notes": "Notas"
+  },
+  "filters": {
+    "all": "Todos",
+    "searchPlaceholder": "Referencia, título o asegurado…"
+  },
+  "table": {
+    "reference": "Referencia",
+    "title": "Expediente",
+    "kind": "Tipo",
+    "stage": "Hito",
+    "status": "Estado",
+    "line": "Ramo",
+    "documents": "Docs",
+    "due": "Vence"
+  },
+  "kinds": {
+    "account": "Cuenta",
+    "endorsement": "Endoso",
+    "collection": "Cobranza",
+    "claim": "Siniestro",
+    "renewal": "Renovación"
+  },
+  "statuses": {
+    "open": "Abierto",
+    "on_hold": "En pausa",
+    "won": "Ganado",
+    "lost": "Perdido",
+    "cancelled": "Anulado",
+    "closed": "Cerrado"
+  },
+  "stages": {
+    "lead": "Lead",
+    "intake": "Antecedentes",
+    "pre_underwriting": "Pre-suscripción",
+    "technical_basis": "Bases técnicas",
+    "market_submission": "Envío al mercado",
+    "quotes_received": "Cotizaciones recibidas",
+    "comparison": "Comparación",
+    "insured_decision": "Decisión del asegurado",
+    "proposal_issued": "Propuesta emitida",
+    "ratified": "Ratificación",
+    "policy_issued": "Póliza emitida",
+    "mirror_validation": "Validación espejo",
+    "active": "Vigente",
+    "renewal_review": "Revisión de renovación",
+    "endorsement_requested": "Endoso solicitado",
+    "endorsement_proposed": "Endoso propuesto",
+    "endorsement_issued": "Endoso emitido",
+    "endorsement_applied": "Endoso aplicado",
+    "collection_scheduled": "Plan de pago",
+    "collection_in_progress": "Cobranza en curso",
+    "collection_overdue": "Cobranza morosa",
+    "collection_settled": "Cobranza saldada",
+    "collection_suspended": "Cobertura suspendida",
+    "claim_reported": "Siniestro denunciado",
+    "claim_adjusting": "En liquidación",
+    "claim_preliminary": "Pre-informe",
+    "claim_final": "Informe final",
+    "claim_settled": "Siniestro liquidado",
+    "closed": "Cerrado"
+  },
+  "journey": {
+    "noPermission": "No tienes permiso para mover el expediente.",
+    "blocked": "El servidor no permite este avance todavía.",
+    "notReachable": "No alcanzable desde el hito actual.",
+    "phases": {
+      "antecedentes": "Antecedentes",
+      "mercado": "Mercado",
+      "comparacion": "Comparación",
+      "propuesta": "Propuesta",
+      "poliza": "Póliza",
+      "vigente": "Vigente",
+      "renovacion": "Renovación",
+      "endoso": "Endoso",
+      "cobranza": "Cobranza",
+      "siniestro": "Siniestro"
+    },
+    "whatNext": "Qué sigue",
+    "advanceTo": "Avanzar a {{stage}}",
+    "otherStages": "Otras etapas",
+    "closedChip": "Cerrado",
+    "progress": "{{done}}/{{total}}",
+    "next": {
+      "lead": "registrar la oportunidad comercial",
+      "intake": "reunir los antecedentes del asegurado",
+      "pre_underwriting": "revisar el riesgo y pedir la inspección si corresponde",
+      "technical_basis": "redactar las bases técnicas (01)",
+      "market_submission": "enviar la carpeta al mercado",
+      "quotes_received": "registrar las cotizaciones de las compañías",
+      "comparison": "construir el comparativo con las propuestas confirmadas",
+      "insured_decision": "presentar el comparativo y esperar la decisión del asegurado",
+      "proposal_issued": "emitir la propuesta a la compañía adjudicada",
+      "ratified": "esperar la ratificación de términos de la compañía",
+      "policy_issued": "registrar la póliza emitida (08)",
+      "mirror_validation": "validar la póliza espejo contra la propuesta",
+      "active": "dejar la cuenta vigente",
+      "renewal_review": "revisar los antecedentes de la renovación",
+      "endorsement_requested": "registrar la solicitud de endoso",
+      "endorsement_proposed": "enviar la propuesta de endoso a la compañía",
+      "endorsement_issued": "adjuntar el endoso emitido por la compañía",
+      "endorsement_applied": "aplicar los deltas del endoso a la póliza",
+      "collection_scheduled": "programar el plan de pago",
+      "collection_in_progress": "iniciar el cobro de las cuotas",
+      "collection_overdue": "gestionar las cuotas en mora",
+      "collection_settled": "saldar el plan con todas las cuotas pagadas",
+      "collection_suspended": "registrar la suspensión de cobertura (Art. 528)",
+      "claim_reported": "denunciar el siniestro a la compañía",
+      "claim_adjusting": "seguir la liquidación con el ajustador",
+      "claim_preliminary": "registrar el pre-informe del ajustador",
+      "claim_final": "adjuntar el informe final del ajustador",
+      "claim_settled": "registrar la liquidación y el pago",
+      "closed": "cerrar el expediente"
+    }
+  },
+  "tabs": {
+    "summary": "Resumen",
+    "documents": "Documentos",
+    "quotes": "Cotizaciones",
+    "proposal": "Propuesta",
+    "postsale": "Post-venta",
+    "notes": "Notas",
+    "timeline": "Bitácora",
+    "packs": "Carpetas"
+  },
+  "summary": {
+    "title": "Resumen del expediente",
+    "description": "La IA propone; tú editas y confirmas. Nada se guarda solo.",
+    "suggest": "Sugerir con IA",
+    "confirm": "Confirmar resumen",
+    "unconfirmed": "Sugerencia sin confirmar",
+    "placeholder": "Escribe o genera el resumen del caso…",
+    "noPermission": "No tienes permiso para editar este expediente.",
+    "factsTitle": "Datos del expediente"
+  },
+  "facts": {
+    "sequence": "Secuencia",
+    "opened": "Apertura",
+    "closed": "Cierre",
+    "placementStatus": "Estado de la colocación",
+    "policyNumber": "Póliza",
+    "period": "Vigencia"
+  },
+  "documents": {
+    "title": "Documentos del expediente",
+    "description": "Agrupados por subexpediente, con su código de origen.",
+    "empty": "Sin documentos cargados",
+    "emptyHint": "Sube los antecedentes desde el cliente o la colocación para que aparezcan aquí."
+  },
+  "quotes": {
+    "requestsTitle": "Solicitudes de cotización",
+    "proposalsTitle": "Cotizaciones recibidas",
+    "noRequests": "Sin solicitudes de cotización",
+    "noProposals": "Sin cotizaciones recibidas",
+    "noPlacement": "Este expediente no tiene colocación asociada",
+    "noPlacementHint": "Los expedientes de post-venta cuelgan de la póliza, no de una colocación.",
+    "due": "Vence",
+    "open": "Abrir",
+    "compare": "Comparar"
+  },
+  "proposal": {
+    "title": "Propuesta aceptada",
+    "description": "La cotización ganadora y las carpetas que la acompañan.",
+    "none": "Todavía no hay una cotización aceptada",
+    "noneHint": "Acepta una cotización en el comparador para avanzar a propuesta emitida."
+  },
+  "postsale": {
+    "policyTitle": "Póliza",
+    "openPolicy": "Ver póliza",
+    "noPolicy": "Sin póliza emitida",
+    "noPolicyHint": "La póliza aparece aquí cuando se recibe el documento 08.",
+    "subFunnelTitle": "Sub-embudo de post-venta",
+    "subFunnelHint": "Endosos, cobranzas y siniestros, con su secuencia y fechas.",
+    "noChildren": "Sin expedientes de post-venta",
+    "versionsTitle": "Versiones anteriores"
+  },
+  "notes": {
+    "new": "Nueva nota",
+    "add": "Agregar nota",
+    "placeholder": "Qué pasó, qué se acordó, qué falta…",
+    "internal": "Interna",
+    "shared": "Compartida",
+    "followUp": "Seguimiento",
+    "followUpOn": "Seguimiento: {{date}}",
+    "empty": "Sin notas",
+    "emptyHint": "Las notas internas nunca se muestran al asegurado ni a la compañía.",
+    "unknownAuthor": "Autor desconocido",
+    "noPermission": "No tienes permiso para comentar."
+  },
+  "timeline": {
+    "empty": "Sin actividad registrada",
+    "emptyHint": "Los cambios de hito y las notas aparecerán aquí.",
+    "kinds": {
+      "stage": "Hito",
+      "activity": "Actividad",
+      "note": "Nota"
+    }
+  }
+}

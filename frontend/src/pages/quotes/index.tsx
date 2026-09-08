@@ -400,7 +400,7 @@ function CreateQuoteDialog({
               </SelectContent>
             </Select>
             {!placements.isLoading && options.length === 0 ? (
-              <p className="text-caption text-amber-deep">{t("create.noPlacements")}</p>
+              <p className="text-caption text-warn-text">{t("create.noPlacements")}</p>
             ) : null}
           </div>
 

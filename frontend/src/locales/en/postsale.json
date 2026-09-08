@@ -1,0 +1,595 @@
+{
+  "shared": {
+    "severity": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "noPermission": "Your role cannot perform this action.",
+    "loading": "Loading…",
+    "notFound": "We could not find this record.",
+    "saved": "Changes saved",
+    "uf": "UF",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "total": "Total",
+    "pending": "Pending",
+    "yes": "Yes",
+    "no": "No",
+    "soonEmail": "Email delivery is coming soon.",
+    "soonExport": "Export is coming soon.",
+    "soonRenewal": "Renewals are API-only in this release."
+  },
+
+  "policy": {
+    "title": "Policies",
+    "subtitle": "The live contract and everything that happens after issuance.",
+    "searchPlaceholder": "Policy number, insured or tax ID",
+    "empty": "No policies yet",
+    "emptyHint": "A policy comes from an accepted proposal and the carrier's issued document (08).",
+    "resultCount_one": "{{count}} policy",
+    "resultCount_other": "{{count}} policies",
+    "filters": {
+      "status": "Status",
+      "allStatuses": "All statuses"
+    },
+    "kpi": {
+      "total": "Policies",
+      "active": "In force",
+      "expiring": "Expiring",
+      "expiringHint": "Period ending within 60 days",
+      "gross": "Gross premium in force"
+    },
+    "columns": {
+      "number": "Policy",
+      "client": "Insured",
+      "insurer": "Insurer",
+      "period": "Period",
+      "insuredAmount": "Insured amount",
+      "gross": "Gross premium",
+      "status": "Status",
+      "postSale": "Post-sale"
+    },
+    "status": {
+      "draft": "Draft",
+      "active": "In force",
+      "expired": "Expired",
+      "cancelled": "Cancelled",
+      "renewed": "Renewed"
+    },
+    "detail": {
+      "heading": "Policy {{number}}",
+      "notFound": "We could not find this policy",
+      "identity": "Identification",
+      "period": "Period",
+      "money": "Premium",
+      "terms": "Contract terms",
+      "postSale": "Post-sale",
+      "endorsements": "Endorsements",
+      "collection": "Collection",
+      "claims": "Claims",
+      "noEndorsements": "No endorsements on this policy",
+      "noCollection": "No payment plan loaded",
+      "noClaims": "No claims reported",
+      "openCollection": "Open collection",
+      "openEndorsement": "Open endorsement",
+      "openClaim": "Open claim"
+    },
+    "fields": {
+      "policyNumber": "Policy number",
+      "insurer": "Insurer",
+      "client": "Insured",
+      "coverMode": "Cover mode",
+      "cmfCode": "CMF code (POL)",
+      "periodStart": "Period start",
+      "periodEnd": "Period end",
+      "issuedAt": "Issue date",
+      "insuredAmount": "Insured amount",
+      "insuredAmountSemantics": "Insured amount basis",
+      "aggregateLimit": "Aggregate limit",
+      "averageRate": "Average rate",
+      "indemnityLimit": "Indemnity limit",
+      "renewsPolicy": "Renews policy",
+      "sourceDocument": "Source document",
+      "caseFile": "Case file",
+      "deductibles": "Deductibles",
+      "notes": "Notes",
+      "daysToExpiry": "Days to expiry"
+    },
+    "money": {
+      "taxable": "Taxable premium",
+      "exempt": "Exempt premium",
+      "net": "Net premium",
+      "vat": "VAT",
+      "gross": "Gross premium",
+      "commission": "Commission",
+      "rule": "net = taxable + exempt · VAT = 19% of taxable (not of net) · gross = net + VAT",
+      "vatHint": "19% on the taxable premium. Earthquake cover is exempt.",
+      "mismatch": "The stored premium does not satisfy the arithmetic: check the source document.",
+      "checks": "Arithmetic checks out"
+    },
+    "noonHint": "Contractual period: the document sets it at 12:00 of the stated day.",
+    "actions": {
+      "openCase": "Open case file",
+      "newEndorsement": "New endorsement",
+      "newClaim": "Report a claim",
+      "renew": "Renew",
+      "exportPolicy": "Export policy"
+    }
+  },
+
+  "subFunnel": {
+    "title": "Post-sale case files",
+    "description": "Each case with its sequence, version and dates: the past-to-present tracker.",
+    "empty": "This policy has no post-sale cases yet",
+    "emptyHint": "Endorsements, collection, claims and renewal open as child case files of this policy.",
+    "columns": {
+      "case": "Case",
+      "kind": "Kind",
+      "stage": "Stage",
+      "status": "Status",
+      "opened": "Opened",
+      "closed": "Closed"
+    },
+    "sequence": "E{{n}}",
+    "version": "v{{n}}",
+    "supersedes": "Supersedes the previous version",
+    "current": "Current",
+    "kind": {
+      "account": "Account",
+      "endorsement": "Endorsement",
+      "collection": "Collection",
+      "claim": "Claim",
+      "renewal": "Renewal"
+    },
+    "openCase": "Open case file"
+  },
+
+  "mirror": {
+    "title": "Mirror validation",
+    "description": "The issued policy against the issuance proposal, field by field. Nothing self-corrects: each difference is resolved with an endorsement.",
+    "empty": "The policy matches the proposal",
+    "emptyHint": "No differences between what was proposed and what was issued.",
+    "missingSources": "Confirmed extractions are missing for the comparison: {{sources}}",
+    "columns": {
+      "field": "Field",
+      "expected": "Proposed",
+      "found": "Issued",
+      "severity": "Severity",
+      "action": "Action"
+    },
+    "createEndorsement": "Create endorsement",
+    "createAll": "Create endorsements for all",
+    "queued_one": "{{count}} draft endorsement",
+    "queued_other": "{{count}} draft endorsements",
+    "suggestedKind": "Suggested endorsement: {{kind}}",
+    "noSuggestion": "No suggested endorsement kind",
+    "noPermission": "You need permission to create endorsements."
+  },
+
+  "warranty": {
+    "title": "Warranties and recommendations",
+    "description": "The R-n / G-n / M-n code runs through inspection, policy, collection and claim. Its status decides coverage.",
+    "empty": "This policy has no warranties",
+    "emptyHint": "Warranties come from category-A inspection recommendations and from the engineering plan.",
+    "columns": {
+      "code": "Code",
+      "requirement": "Requirement",
+      "source": "Source",
+      "due": "Due",
+      "status": "Status",
+      "cost": "Cost"
+    },
+    "source": {
+      "inspection_recommendation": "Inspection recommendation",
+      "underwriting_warranty": "Underwriting warranty",
+      "engineering_measure": "Engineering measure"
+    },
+    "status": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "met_on_time": "Met on time",
+      "met_late": "Met late",
+      "met_after_claim": "Met after the claim",
+      "breached": "Breached",
+      "waived": "Waived"
+    },
+    "flags": {
+      "permanent": "Permanent",
+      "suspensive": "Suspensive"
+    },
+    "budget": "Budget",
+    "actualCost": "Actual cost",
+    "overrun": "Overrun {{pct}}",
+    "category": "Category {{letter}}",
+    "verification": "Verification",
+    "completedOn": "Met on {{date}}",
+    "overdue": "Overdue",
+    "markStatus": "Change status",
+    "compliance": "Compliance",
+    "noPermission": "You need permission to edit policies."
+  },
+
+  "endorsement": {
+    "title": "Endorsements",
+    "detail": {
+      "heading": "Endorsement {{number}}",
+      "untitled": "Endorsement E{{n}}",
+      "notFound": "We could not find this endorsement",
+      "identity": "Identification",
+      "motive": "Motive",
+      "effect": "Effect on the policy",
+      "premium": "Premium movement",
+      "documents": "Documents"
+    },
+    "fields": {
+      "number": "Endorsement folio",
+      "sequence": "Sequence",
+      "kind": "Kind",
+      "status": "Status",
+      "policy": "Policy",
+      "effectiveAt": "Effective from",
+      "endsAt": "Effective until",
+      "issuedAt": "Issue date",
+      "contractualBasis": "Contractual basis",
+      "prorataDays": "Endorsement days",
+      "unexpiredDays": "Unexpired days",
+      "insuredAmountDelta": "Insured amount change",
+      "proposalDocument": "Endorsement proposal",
+      "issuedDocument": "Issued endorsement",
+      "caseFile": "Case file",
+      "confirmed": "Confirmed"
+    },
+    "kind": {
+      "location_inclusion": "Location inclusion",
+      "location_exclusion": "Location exclusion",
+      "vehicle_inclusion": "Vehicle inclusion",
+      "vehicle_exclusion": "Vehicle exclusion",
+      "additional_insured": "Additional insured",
+      "activity_extension": "Activity extension",
+      "aggregate_reinstatement": "Aggregate reinstatement",
+      "roster_increase": "Roster increase",
+      "roster_adjustment": "Roster adjustment",
+      "pledge_update": "Pledge update",
+      "policyholder_change": "Policyholder change",
+      "sum_insured_increase": "Sum insured increase",
+      "sum_insured_decrease": "Sum insured decrease",
+      "deductible_reduction": "Deductible reduction",
+      "period_extension": "Period extension",
+      "other": "Other"
+    },
+    "status": {
+      "draft": "Draft",
+      "proposed": "Proposed",
+      "issued": "Issued",
+      "applied": "Applied",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "actions": {
+      "issue": "Register issuance",
+      "issueHint": "Attach the endorsement issued by the carrier and apply the deltas to the policy and the collection plan.",
+      "issueDone": "Endorsement issued: policy and collection are up to date.",
+      "needsDocument": "Register the issued endorsement document first.",
+      "alreadyIssued": "This endorsement is already issued.",
+      "confirm": "Confirm data",
+      "backToPolicy": "Back to the policy"
+    },
+    "issueDialog": {
+      "title": "Register the issued endorsement",
+      "documentId": "Issued document ID",
+      "documentHint": "The document must already be uploaded to the case file (08A / 08B / 09B / 09D).",
+      "number": "Endorsement folio",
+      "issuedAt": "Issue date",
+      "effectiveAt": "Effective from",
+      "note": "Internal note",
+      "submit": "Issue"
+    },
+    "noPermission": "You need permission to edit endorsements."
+  },
+
+  "effectDiff": {
+    "title": "Effect table",
+    "description": "One row per changed dimension: before, after and delta.",
+    "empty": "This endorsement has no effect table",
+    "emptyHint": "The before/after detail comes from the extraction of the endorsement document.",
+    "columns": {
+      "dimension": "Dimension",
+      "before": "Before",
+      "after": "After",
+      "delta": "Delta"
+    }
+  },
+
+  "premiumDelta": {
+    "title": "Premium movement",
+    "description": "Deltas keep their sign: an exclusion or a decrease is negative.",
+    "taxable": "Taxable",
+    "exempt": "Exempt",
+    "net": "Net",
+    "vat": "VAT",
+    "total": "Gross",
+    "commission": "Commission",
+    "rule": "Δnet = Δtaxable + Δexempt · ΔVAT = 19% of Δtaxable · Δgross = Δnet + ΔVAT",
+    "noEffect": "No premium effect",
+    "noEffectHint": "Administrative endorsement: every delta is zero. That is valid.",
+    "mismatch": "The deltas do not satisfy the arithmetic; check the endorsement document.",
+    "prorata": "Pro rata: {{days}} of {{unexpired}} unexpired days",
+    "increase": "Increases the premium",
+    "decrease": "Reduces the premium"
+  },
+
+  "collection": {
+    "title": "Collection",
+    "detail": {
+      "heading": "Payment plan {{number}}",
+      "untitled": "Payment plan",
+      "notFound": "We could not find this payment plan",
+      "plan": "Plan",
+      "ledger": "Instalment ledger",
+      "art528": "Article 528 — suspension and reinstatement",
+      "management": "Management note"
+    },
+    "fields": {
+      "planNumber": "Plan number",
+      "policy": "Policy",
+      "paymentMode": "Payment mode",
+      "installmentCount": "Instalments",
+      "totalPremium": "Plan total premium",
+      "bank": "Bank",
+      "accountNumber": "Charge account",
+      "interestRate": "Monthly interest",
+      "status": "Status",
+      "asOfDate": "As of",
+      "caseFile": "Case file"
+    },
+    "paymentMode": {
+      "coupon_book": "Coupon book",
+      "direct_debit": "Direct debit",
+      "card_debit": "Card debit",
+      "transfer": "Bank transfer",
+      "single_charge": "Single charge",
+      "other": "Other"
+    },
+    "status": {
+      "pending": "Pending",
+      "current": "Current",
+      "overdue": "Overdue",
+      "settled": "Settled",
+      "suspended": "Suspended",
+      "terminated": "Terminated",
+      "rehabilitated": "Reinstated"
+    },
+    "kpi": {
+      "scheduled": "Scheduled",
+      "paid": "Paid",
+      "outstanding": "Outstanding",
+      "overdue": "Overdue",
+      "compliance": "Compliance",
+      "nextDue": "Next due date",
+      "overdueCount_one": "{{count}} overdue instalment",
+      "overdueCount_other": "{{count}} overdue instalments"
+    },
+    "alerts": "Alerts",
+    "noAlerts": "No active alerts"
+  },
+
+  "installment": {
+    "title": "Instalment ledger",
+    "description": "Σ instalments = policy gross premium + Σ endorsement deltas. The last instalment absorbs the rounding.",
+    "empty": "This plan has no instalments",
+    "emptyHint": "Instalments come from the carrier's payment plan (document 09).",
+    "columns": {
+      "number": "#",
+      "coupon": "Coupon",
+      "dueDate": "Due date",
+      "gross": "Gross amount",
+      "paidOn": "Paid on",
+      "daysLate": "Days late",
+      "status": "Status",
+      "running": "Running total"
+    },
+    "status": {
+      "pending": "Pending",
+      "due": "Due",
+      "paid": "Paid",
+      "paid_late": "Paid late",
+      "overdue": "Overdue",
+      "credited": "Credited",
+      "cancelled": "Cancelled"
+    },
+    "balance": {
+      "title": "Balance check",
+      "scheduled": "Σ instalments",
+      "policyGross": "Policy gross premium",
+      "endorsementDeltas": "Σ endorsement deltas",
+      "expected": "Expected total",
+      "difference": "Difference",
+      "ok": "The ledger matches the policy and its endorsements.",
+      "mismatch": "The ledger does NOT balance: fix the instalments or register the missing endorsement."
+    },
+    "markPaid": "Mark as paid",
+    "markPaidHint": "Record the payment of instalment {{n}}.",
+    "fromEndorsement": "Instalment created by an endorsement",
+    "noPermission": "You need permission to edit collections."
+  },
+
+  "art528": {
+    "title": "Article 528 — coverage termination and reinstatement",
+    "description": "Non-payment terminates the cover by operation of law; reinstatement has a date and a cost.",
+    "empty": "No article 528 events",
+    "emptyHint": "Cover was never suspended for non-payment on this plan.",
+    "terminated": "Coverage terminated",
+    "rehabilitated": "Reinstated",
+    "daysWithoutCover": "Days without cover",
+    "rehabilitationCost": "Reinstatement cost",
+    "gapWarning": "A loss occurring inside this window is not covered.",
+    "eventDate": "Date",
+    "eventKind": "Event",
+    "eventDetail": "Detail"
+  },
+
+  "claim": {
+    "title": "Claims",
+    "subtitle": "From the notice to the final adjustment, with warranty causality in plain sight.",
+    "searchPlaceholder": "Claim number or insured",
+    "empty": "No claims reported",
+    "emptyHint": "A claim opens with the notice (document 10 / 11) of the case file.",
+    "resultCount_one": "{{count}} claim",
+    "resultCount_other": "{{count}} claims",
+    "kpi": {
+      "total": "Claims",
+      "open": "Open",
+      "pendingRuling": "Awaiting ruling",
+      "paid": "Indemnified"
+    },
+    "columns": {
+      "number": "Claim number",
+      "policy": "Policy",
+      "occurred": "Occurrence",
+      "reported": "Notice",
+      "status": "Status",
+      "ruling": "Ruling",
+      "indemnity": "Indemnity"
+    },
+    "detail": {
+      "heading": "Claim {{number}}",
+      "untitled": "Claim",
+      "notFound": "We could not find this claim",
+      "identity": "Identification",
+      "timeline": "Timeline",
+      "amounts": "Amounts",
+      "description": "Narrative"
+    },
+    "fields": {
+      "claimNumber": "Claim number",
+      "kind": "Claim type",
+      "policy": "Policy",
+      "occurredAt": "Occurrence date and time",
+      "reportedAt": "Notice date and time",
+      "noticeDeadline": "Notice deadline",
+      "noticeLag": "Notice lag",
+      "adjusterName": "Adjuster",
+      "adjusterRegistry": "Adjuster CMF registry",
+      "coverageRuling": "Coverage ruling",
+      "deductible": "Deductible applied",
+      "lossRatio": "Loss ratio",
+      "estimated": "Estimated",
+      "settled": "Settled",
+      "paid": "Paid",
+      "recovery": "Recovery",
+      "reserve": "Reserve",
+      "cost": "Total cost",
+      "caseFile": "Case file"
+    },
+    "status": {
+      "reported": "Reported",
+      "under_review": "Under adjustment",
+      "settled": "Settled",
+      "paid": "Paid",
+      "rejected": "Rejected",
+      "closed": "Closed"
+    },
+    "ruling": {
+      "pending": "Pending",
+      "covered": "Covered",
+      "partially_covered": "Partially covered",
+      "rejected": "Not covered"
+    },
+    "hourHint": "Exact time: the contract's hourly franchise is counted from here.",
+    "noticeOnTime": "Reported within the deadline",
+    "noticeLate": "Reported after the deadline",
+    "actions": {
+      "close": "Close claim",
+      "closeHint": "Sets the final ruling and the account loss ratio.",
+      "backToPolicy": "Back to the policy",
+      "openCase": "Open case file"
+    },
+    "closeDialog": {
+      "title": "Close the claim",
+      "ruling": "Final ruling",
+      "settled": "Settled amount",
+      "paid": "Paid amount",
+      "deductible": "Deductible",
+      "recovery": "Recovery",
+      "lossRatio": "Loss ratio (%)",
+      "note": "Closing note",
+      "submit": "Close"
+    },
+    "noPermission": "You need permission to approve claims."
+  },
+
+  "claimItem": {
+    "title": "Claim items",
+    "description": "The adjuster's progression for each item: notified, determined, damage, deductible and indemnity.",
+    "empty": "No items loaded",
+    "emptyHint": "Items come from the tables of the adjuster's report.",
+    "columns": {
+      "item": "Item",
+      "kind": "Kind",
+      "notified": "Notified",
+      "determined": "Determined",
+      "damage": "Damage",
+      "deductible": "Deductible",
+      "indemnity": "Indemnity"
+    },
+    "kind": {
+      "material_damage": "Material damage",
+      "business_interruption": "Business interruption",
+      "expense": "Expenses",
+      "liability": "Liability",
+      "personal_accident": "Personal accident",
+      "recovery": "Recovery"
+    },
+    "totals": "Totals",
+    "basis": "Basis",
+    "retention": "Insured's retention",
+    "retentionHint": "Determined damage minus indemnity: what the insured ultimately absorbs."
+  },
+
+  "adjuster": {
+    "title": "Adjuster reports",
+    "description": "Preliminary and final reports, with the warranty causality analysis.",
+    "preliminary": "Preliminary report",
+    "final": "Final report",
+    "noReports": "No adjuster reports in the case file yet",
+    "noReportsHint": "The preliminary (11 / 12) and final (12 / 13) reports are uploaded to the claim sub-case.",
+    "openDocument": "Open document",
+    "analyze": "Read with AI",
+    "analyzing": "Reading the report…",
+    "analyzeHint": "Extracts the ruling, the warranty causality and the quantification. It writes nothing: it stays a suggestion.",
+    "analyzeNoPermission": "You need permission to upload documents.",
+    "ruling": "Ruling",
+    "rulingPreliminary": "Preliminary ruling",
+    "rulingFinal": "Final ruling",
+    "warrantyCausality": "Warranty causality",
+    "warrantyCausalityHint": "A breached warranty only excludes when it caused the loss. The report says so explicitly.",
+    "noWarrantyFindings": "The report finds no breached warranty.",
+    "warrantySignals": "Warranties flagged by this claim",
+    "noWarrantySignals": "No warranty of this policy changed status because of this claim.",
+    "conclusions": "Conclusions",
+    "pendingDiligences": "Pending steps",
+    "duration": "Adjustment duration",
+    "suggestionOnly": "Unconfirmed AI suggestion — review it before relying on it.",
+    "aiUnavailable": "We could not read the report with AI."
+  },
+
+  "counterfactual": {
+    "title": "Comparison with the prior program",
+    "description": "What this same loss would have cost under the previous program. This is the renewal argument.",
+    "empty": "No counterfactual comparison available",
+    "emptyHint": "The final report contains it; read the report with AI to bring it in.",
+    "columns": {
+      "scenario": "Scenario",
+      "concept": "Concept",
+      "current": "Current program",
+      "prior": "Prior program",
+      "difference": "Difference"
+    },
+    "actual": "Actual outcome",
+    "alternatives": "Alternatives evaluated",
+    "benefit": "Benefit of the current program",
+    "benefitHint": "The difference in the insured's favour from placing this program.",
+    "renewalStory": "Keep this reading for the renewal conversation."
+  }
+}

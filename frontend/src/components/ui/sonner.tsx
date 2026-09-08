@@ -14,13 +14,14 @@ function Toaster({ ...props }: ToasterProps) {
       toastOptions={{
         classNames: {
           toast:
-            "group toast group-[.toaster]:bg-bg-surface group-[.toaster]:text-text-primary group-[.toaster]:border-line group-[.toaster]:shadow-card group-[.toaster]:rounded-card",
-          description: "group-[.toast]:text-text-muted",
+            "group toast group-[.toaster]:bg-bone group-[.toaster]:text-ink group-[.toaster]:border group-[.toaster]:border-line group-[.toaster]:shadow-overlay group-[.toaster]:rounded-card",
+          description: "group-[.toast]:text-ink-3",
+          // Action = brand (the accent), never ink.
           actionButton:
-            "group-[.toast]:bg-blue group-[.toast]:text-primary-foreground",
+            "group-[.toast]:bg-brand group-[.toast]:text-cta-foreground group-[.toast]:hover:bg-brand-deep",
           cancelButton:
-            "group-[.toast]:bg-bg-recessed group-[.toast]:text-text-secondary",
-          success: "group-[.toaster]:[--success-text:var(--lime)]",
+            "group-[.toast]:bg-paper-2 group-[.toast]:text-ink-2",
+          success: "group-[.toaster]:[--success-text:var(--pos)]",
         },
       }}
       {...props}

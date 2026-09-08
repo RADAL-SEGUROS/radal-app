@@ -19,6 +19,7 @@ from app.models.enums import StrEnum, sql_enum
 if TYPE_CHECKING:
     from app.models.asset import Asset
     from app.models.broker import Broker
+    from app.models.case_file import CaseFile
     from app.models.client import Client
     from app.models.document import Document
     from app.models.inspection import InspectionRequest
@@ -77,6 +78,20 @@ class Placement(Base, TimestampMixin):
         ForeignKey("document.id", ondelete="SET NULL"), index=True
     )
 
+    # Convenience back-pointer to the account expediente that wraps this
+    # placement 1:1. The AUTHORITY is ``case_file.placement_id``.
+    # ``use_alter``: placement <-> case_file is a genuine FK cycle (see
+    # ``document.case_file_id`` for the same treatment).
+    case_file_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "case_file.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_placement_case_file",
+        ),
+        index=True,
+    )
+
     # --- Relationships ------------------------------------------------------
     broker: Mapped["Broker"] = relationship()
     client: Mapped["Client"] = relationship(back_populates="placements")
@@ -85,6 +100,7 @@ class Placement(Base, TimestampMixin):
     brief_document: Mapped["Document | None"] = relationship(
         foreign_keys=[brief_document_id]
     )
+    case_file: Mapped["CaseFile | None"] = relationship(foreign_keys=[case_file_id])
     quote_requests: Mapped[list["QuoteRequest"]] = relationship(
         back_populates="placement", cascade="all, delete-orphan"
     )

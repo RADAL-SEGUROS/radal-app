@@ -438,7 +438,7 @@ export default function ProposalUploadPage() {
           <Card className="grid grid-cols-2 gap-5 p-5 md:grid-cols-5">
             <KeyValue
               label={t("ai.model")}
-              value={<span className="font-mono text-mono-sm">{extraction.model}</span>}
+              value={<span className="text-caption">{extraction.model}</span>}
             />
             <KeyValue
               label={t("ai.promptVersion")}
@@ -469,7 +469,7 @@ export default function ProposalUploadPage() {
                   label={t("ai.sourceDocument")}
                   value={
                     <span className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-teal" />
+                      <FileText className="h-4 w-4 text-brand" />
                       {document.original_name}
                       <MonoChip>DOC-{document.id}</MonoChip>
                     </span>
@@ -480,7 +480,7 @@ export default function ProposalUploadPage() {
             {warnings.length ? (
               <div className="col-span-2 md:col-span-5 flex flex-col gap-1.5">
                 {warnings.map((w) => (
-                  <p key={w} className="text-caption text-amber-deep">
+                  <p key={w} className="text-caption text-warn-text">
                     {w}
                   </p>
                 ))}
@@ -523,13 +523,13 @@ function Stepper({ step, labels }: { step: number; labels: string[] }) {
                 className={cn(
                   "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-caption font-medium transition-colors",
                   active
-                    ? "border-teal bg-[color-mix(in_srgb,var(--teal)_12%,transparent)] text-teal-deep"
+                    ? "border-brand-line bg-brand-soft text-brand-deep"
                     : done
-                      ? "border-[color-mix(in_srgb,var(--lime)_35%,transparent)] bg-[color-mix(in_srgb,var(--lime)_12%,transparent)] text-lime-deep"
+                      ? "border-pos-line bg-pos-soft text-pos-text"
                       : "border-line text-text-muted",
                 )}
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--ink)_8%,transparent)] font-mono text-mono-sm">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-paper-2 text-caption font-medium tabular-nums">
                   {done ? <Check className="h-3 w-3" /> : index}
                 </span>
                 {label}
@@ -578,10 +578,8 @@ function DropZone({
         if (dropped) onFile(dropped);
       }}
       className={cn(
-        "flex flex-col items-center justify-center gap-2.5 rounded-[14px] border-2 border-dashed px-6 py-10 text-center transition-colors",
-        over
-          ? "border-teal bg-[color-mix(in_srgb,var(--teal)_8%,transparent)]"
-          : "border-line bg-bg-recessed",
+        "flex flex-col items-center justify-center gap-2.5 rounded-card border-2 border-dashed px-6 py-10 text-center transition-colors",
+        over ? "border-brand bg-brand-soft" : "border-line bg-bg-recessed",
         disabled && "opacity-60",
       )}
     >
@@ -593,7 +591,7 @@ function DropZone({
         disabled={disabled}
         onChange={(e) => onFile(e.target.files?.[0] ?? null)}
       />
-      <div className="rounded-full bg-bg-surface p-3 text-teal">
+      <div className="rounded-full bg-bg-surface p-3 text-brand">
         <Upload className="h-5 w-5" />
       </div>
       {file ? (
@@ -659,7 +657,7 @@ function Field({
         className={cn(
           type === "number" && "text-right tabular-nums",
           tone === "danger" && "border-signal-danger",
-          tone === "warn" && "border-amber",
+          tone === "warn" && "border-warn",
         )}
       />
       {hint ? <p className="text-caption text-text-muted">{hint}</p> : null}
@@ -912,7 +910,7 @@ function SuggestionForm({
               type="number"
             />
           </div>
-          <p className="mt-4 rounded-[10px] bg-bg-recessed px-3.5 py-2.5 font-mono text-mono-sm text-text-muted">
+          <p className="mt-4 rounded-lg bg-bg-recessed px-3.5 py-2.5 text-caption tabular-nums text-text-muted">
             {t("upload.formula")}
           </p>
         </Section>
@@ -1003,7 +1001,7 @@ function SuggestionForm({
               {draft.deductibles.map((d) => (
                 <div
                   key={d.key}
-                  className="grid gap-3 rounded-[12px] border border-line p-3.5 md:grid-cols-7"
+                  className="grid gap-3 rounded-card border border-line p-3.5 md:grid-cols-7"
                 >
                   <Field
                     label={t("fields.peril")}
@@ -1188,7 +1186,7 @@ function SuggestionForm({
       <FadeUp delay={0.2}>
         <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div className="flex items-start gap-3">
-            <span className="rounded-full bg-[color-mix(in_srgb,var(--teal)_12%,transparent)] p-2 text-teal-deep">
+            <span className="rounded-full bg-brand-soft p-2 text-brand-deep">
               <Bot className="h-5 w-5" />
             </span>
             <div>

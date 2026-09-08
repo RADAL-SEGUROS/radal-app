@@ -16,22 +16,26 @@ interface KpiCardProps {
   /** Optional small caption below the value. */
   hint?: React.ReactNode;
   icon?: React.ReactNode;
-  /** Tone colors the icon chip. */
+  /** Tone colors the HINT line (up/down/status), not a chip. */
   tone?: KpiTone;
   className?: string;
 }
 
-const chipTone: Record<KpiTone, string> = {
-  default:
-    "text-teal-deep bg-[color-mix(in_srgb,var(--teal)_13%,transparent)]",
-  brand: "text-teal-deep bg-[color-mix(in_srgb,var(--teal)_13%,transparent)]",
-  action: "text-blue-deep bg-[color-mix(in_srgb,var(--blue)_13%,transparent)]",
-  danger: "text-red-deep bg-[color-mix(in_srgb,var(--red)_13%,transparent)]",
-  warn: "text-amber-deep bg-[color-mix(in_srgb,var(--amber)_13%,transparent)]",
-  success:
-    "text-lime-deep bg-[color-mix(in_srgb,var(--lime)_13%,transparent)]",
+/** Hint tone: positive/negative/status text on the caption line. */
+const hintTone: Record<KpiTone, string> = {
+  default: "text-ink-2",
+  brand: "text-brand-deep",
+  action: "text-brand-deep",
+  danger: "text-neg-text",
+  warn: "text-warn-text",
+  success: "text-pos-text",
 };
 
+/**
+ * Signal KPI tile: sentence-case caption label FIRST, then the tabular value,
+ * then a toned hint. The icon chip is optional and always brand-soft — status
+ * meaning lives in the hint text, not in a colored chip.
+ */
 export function KpiCard({
   label,
   value,
@@ -45,26 +49,25 @@ export function KpiCard({
   return (
     <FadeUp className="h-full">
       <Card interactive className={cn("h-full p-[18px]", className)}>
-        {icon ? (
-          <span
-            className={cn(
-              "flex h-[38px] w-[38px] items-center justify-center rounded-[11px] [&_svg]:h-5 [&_svg]:w-5",
-              chipTone[tone],
-            )}
-          >
-            {icon}
-          </span>
-        ) : null}
-        <div className="mt-[15px] font-display text-kpi tabular-nums text-text-primary">
+        <div className="flex items-start justify-between gap-2">
+          <div className="text-caption font-medium text-ink-3">
+            {label}
+          </div>
+          {icon ? (
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-brand-soft text-brand-deep [&_svg]:h-4 [&_svg]:w-4">
+              {icon}
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-2 text-kpi font-semibold tabular-nums tracking-tight text-ink">
           {countTo !== undefined ? (
             <CountUp value={countTo} format={format} />
           ) : (
             value
           )}
         </div>
-        <div className="mt-[7px] text-body text-text-muted">{label}</div>
         {hint ? (
-          <div className="mt-[3px] text-caption text-text-muted opacity-85">
+          <div className={cn("mt-[5px] text-caption", hintTone[tone])}>
             {hint}
           </div>
         ) : null}

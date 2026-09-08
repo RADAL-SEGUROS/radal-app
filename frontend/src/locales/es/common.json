@@ -7,9 +7,26 @@
     "sections": {
       "management": "Gestión",
       "commercialOperations": "Comercial y operaciones",
-      "administration": "Administración"
+      "administration": "Administración",
+      "commercial": "Comercial",
+      "aiAssistants": "Asistentes IA",
+      "pinned": "Accesos"
     },
     "dashboard": "Dashboard",
+    "groups": "Grupos",
+    "newGroup": "Nuevo grupo",
+    "allGroups": "Ver todos los grupos",
+    "more": "Más",
+    "portfolio": "Cartera",
+    "reader": "Lector documental",
+    "comparator": "Comparador",
+    "insurersAppetite": "Compañías y apetito",
+    "finance": "Finanzas",
+    "leads": "Leads",
+    "cases": "Expedientes",
+    "agent": "Agente",
+    "endorsements": "Endosos",
+    "collections": "Cobranzas",
     "clients": "Clientes",
     "placements": "Colocaciones",
     "quotes": "Cotizaciones",
@@ -25,7 +42,17 @@
     "billing": "Facturación",
     "reports": "Reportes",
     "comingSoon": "Próximamente",
-    "soon": "Pronto"
+    "soon": "Pronto",
+    "analytics": "Analítica",
+    "backToGroups": "Volver a grupos"
+  },
+  "sidebar": {
+    "collapse": "Contraer barra lateral",
+    "expand": "Expandir barra lateral",
+    "resize": "Ajustar ancho de la barra lateral",
+    "overview": "Resumen",
+    "periods": "Vigencias",
+    "historic": "Histórica"
   },
   "actions": {
     "save": "Guardar",
@@ -61,6 +88,7 @@
     "placeholder": "Buscar clientes, pólizas, activos…",
     "empty": "Sin resultados",
     "categories": {
+      "groups": "Grupos",
       "clients": "Clientes",
       "assets": "Bienes",
       "quotes": "Cotizaciones",
@@ -81,7 +109,10 @@
     "error": "No se pudieron cargar los datos",
     "rowsPerPage": "Filas por página",
     "of": "de",
-    "page": "Página"
+    "page": "Página",
+    "range": "{{from}}–{{to}} de {{total}}",
+    "prev": "Página anterior",
+    "next": "Página siguiente"
   },
   "estados": {
     "activo": "Activo",

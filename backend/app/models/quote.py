@@ -23,6 +23,7 @@ from app.models.types import UF, JSONType
 
 if TYPE_CHECKING:
     from app.models.broker import Broker
+    from app.models.case_file import CaseFile
     from app.models.offering import Offering
     from app.models.placement import Placement
     from app.models.proposal import Proposal
@@ -53,6 +54,22 @@ class QuoteRequest(Base, TimestampMixin):
     placement_id: Mapped[int] = mapped_column(
         ForeignKey("placement.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # ``use_alter``: case_file -> policy -> proposal -> quote_request -> case_file
+    # is a genuine FK cycle. Emitting this constraint with ALTER TABLE keeps
+    # MySQL's create ordering solvable; SQLite (supports_alter=False) keeps it
+    # inline, which it accepts because forward references are legal there.
+    case_file_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "case_file.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_quote_request_case_file",
+        ),
+        index=True,
+    )
+    # Submission round. La Favorita ran a second round (03F re-remisión) after
+    # three declinations, so the round is a first-class number, not a note.
+    round_no: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
     # What is being insured, in the broker's words.
     insured_object: Mapped[str | None] = mapped_column(Text)
@@ -83,6 +100,7 @@ class QuoteRequest(Base, TimestampMixin):
     # --- Relationships ------------------------------------------------------
     broker: Mapped["Broker"] = relationship()
     placement: Mapped["Placement"] = relationship(back_populates="quote_requests")
+    case_file: Mapped["CaseFile | None"] = relationship(foreign_keys=[case_file_id])
     created_by: Mapped["User | None"] = relationship(foreign_keys=[created_by_id])
     line_items: Mapped[list["QuoteLineItem"]] = relationship(
         back_populates="quote_request",

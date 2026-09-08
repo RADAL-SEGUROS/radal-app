@@ -1,0 +1,67 @@
+{
+  "title": "Leads",
+  "subtitle": "Opportunities without a RUT yet: one data point, one contact and one follow-up date.",
+  "noCreatePermission": "You do not have permission to create leads.",
+  "noEditPermission": "You do not have permission to edit leads.",
+  "kpi": {
+    "total": "Leads",
+    "qualified": "Qualified",
+    "dueThisWeek": "Follow-up this week",
+    "overdue": "Follow-up overdue"
+  },
+  "statuses": {
+    "new": "New",
+    "contacted": "Contacted",
+    "qualified": "Qualified",
+    "converted": "Converted",
+    "lost": "Lost"
+  },
+  "board": {
+    "empty": "No leads",
+    "noContact": "No contact recorded",
+    "dragHint": "Move a lead with the card button; drag-and-drop is coming soon."
+  },
+  "actions": {
+    "new": "New lead",
+    "moveTo": "Move to {{status}}"
+  },
+  "fields": {
+    "name": "Trade name",
+    "rutOptional": "RUT (optional)",
+    "noRut": "No RUT",
+    "source": "Source",
+    "contactName": "Contact",
+    "contactEmail": "Email",
+    "contactPhone": "Phone",
+    "estimatedPremium": "Estimated premium (UF)",
+    "followUp": "Follow-up",
+    "lostReason": "Lost reason",
+    "notes": "Notes"
+  },
+  "dialog": {
+    "newTitle": "New lead",
+    "newDescription": "The RUT is optional: a lead exists before identity is known."
+  },
+  "detail": {
+    "factsTitle": "Lead facts",
+    "statusTitle": "Status",
+    "statusHint": "Status moves directly; conversion is the only compound transaction.",
+    "notesTitle": "Notes and follow-up"
+  },
+  "convert": {
+    "action": "Convert into a case file",
+    "title": "Convert lead into a case file",
+    "description": "Creates insured, client, asset, placement and case file in one transaction.",
+    "rut": "Insured RUT",
+    "rutHint": "Validated mod-11 and normalized to BODY-DV.",
+    "legalName": "Legal name",
+    "caseTitle": "Case file title",
+    "assetName": "Asset name",
+    "periodStart": "Period start",
+    "periodEnd": "Period end",
+    "already": "This lead has already been converted.",
+    "noPermission": "You need Leads edit and Case files create.",
+    "openCase": "Open case file",
+    "periodRequired": "The validity period is required: it defines the account folder."
+  }
+}

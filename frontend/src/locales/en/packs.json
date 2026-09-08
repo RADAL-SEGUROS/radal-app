@@ -1,0 +1,71 @@
+{
+  "title": "Case packs",
+  "subtitle": "Master PDF + ZIP, generated from the case's already confirmed documents.",
+  "noPermission": "You need the Manage grant on case files to generate packs.",
+  "kinds": {
+    "submission": {
+      "title": "Submission pack",
+      "description": "Broker → insurers: cover, business summary and document index, plus the ZIP of the root and sub-file 1."
+    },
+    "comparison": {
+      "title": "Comparison pack",
+      "description": "Broker → insured: the economic and coverage comparison with the recommended offer. PDF only."
+    },
+    "proposal": {
+      "title": "Proposal pack",
+      "description": "Broker → winning insurer: the confirmed issuance proposal plus the annexes it lists."
+    }
+  },
+  "actions": {
+    "generate": "Generate",
+    "regenerate": "Regenerate"
+  },
+  "statuses": {
+    "draft": "Draft",
+    "generating": "Generating",
+    "generated": "Generated",
+    "sent": "Sent",
+    "failed": "Failed"
+  },
+  "fields": {
+    "status": "Status",
+    "generatedAt": "Generated at",
+    "recipients": "Recipients"
+  },
+  "empty": {
+    "title": "Not generated yet",
+    "hint": "Regenerating overwrites the previous version; files do not accumulate."
+  },
+  "download": {
+    "pdf": "Master PDF",
+    "zip": "ZIP",
+    "missing": {
+      "pdf": "This pack has no PDF.",
+      "zip": "This pack has no ZIP."
+    }
+  },
+  "summary": {
+    "confirmed": "Summary confirmed",
+    "unconfirmed": "Summary unconfirmed"
+  },
+  "send": {
+    "label": "Send pack to insurers",
+    "soonReason": "Email delivery is coming soon; download and attach for now."
+  },
+  "recipients": {
+    "title": "Resolved recipients",
+    "description": "Native insurers for the line, with the contact the precedence resolves to.",
+    "empty": "No recipients resolved",
+    "emptyHint": "Configure insurer contacts for this line under Insurers.",
+    "noPermission": "You do not have permission to view insurers.",
+    "noContact": "No contact email",
+    "native": "Native",
+    "external": "External",
+    "levels": {
+      "broker_line": "Broker + line",
+      "broker": "Broker",
+      "line": "Line",
+      "global": "Global"
+    }
+  }
+}

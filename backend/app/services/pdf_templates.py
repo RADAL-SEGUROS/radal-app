@@ -1,0 +1,558 @@
+"""Generic branded-expediente HTML composer for the HTML→PDF pipeline.
+
+:func:`render_expediente_html` returns a single self-contained HTML string —
+fonts (Inter body, Space Grotesk for the Radal wordmark, Sora for a broker-name
+wordmark fallback) and logos embedded as ``data:`` URIs, a trimmed Radal
+"Signal" CSS inlined in the head, **no runtime network dependency** — that
+:func:`app.services.pdf.render_html_to_pdf` renders to A4 PDF bytes. It is generic
+on purpose: antecedentes is the first caller (cover + insured identity + a
+per-ramo schema), and later expedientes reuse the same composer.
+
+Branding (the rule the user set 2026-09-07):
+
+- The **cover** carries the **Radal logo** (isotype + "Radal." wordmark lockup)
+  — Radal owns the cover.
+- Every **content page header** carries the **broker on the left** (its uploaded
+  logo, or — when none — the broker company name set in a personalised display
+  font) and the **Radal isotype on the right**. Co-branding on the running frame,
+  not on the cover.
+- A broker without an uploaded logo therefore never shows a monogram avatar; it
+  shows its name as a typographic wordmark.
+
+Pagination: content **flows** across as many A4 pages as needed (no fixed-height
+clipping). The running header repeats on every content page via ``position:fixed``
+inside the ``@page`` top margin; the footer (broker legal name + page n/N) is a
+``@page`` margin box. The cover is page one, full-bleed, and paints over the
+running frame (``@page:first`` clears its margins).
+
+Every empty value renders a marker: a muted em-dash ``—`` when optional, a
+``.badge.warn`` "falta" chip when required — so the human-validate step is visible.
+Logos/marks are ``data:`` URIs only; an http(s) img src is never emitted (it would
+hang ``networkidle`` when the render host is offline).
+"""
+from __future__ import annotations
+
+import base64
+import html
+from decimal import Decimal
+from pathlib import Path
+from typing import Any
+
+from app.schemas.extraction.common import parse_uf
+
+__all__ = ["render_expediente_html", "MISSING_OPTIONAL", "MISSING_REQUIRED"]
+
+_ASSETS_DIR = Path(__file__).with_name("pdf_assets")
+
+# Rendered markers (module-level so tests can assert against them).
+MISSING_OPTIONAL = '<span class="muted">—</span>'
+MISSING_REQUIRED = '<span class="badge warn">falta</span>'
+
+
+# ---------------------------------------------------------------------------
+# Fonts + marks — embedded as data: URIs (offline-safe).
+# ---------------------------------------------------------------------------
+
+_FONT_FILES = [
+    # (family, weight, filename)
+    ("Inter", "100 900", "inter-latin.woff2"),
+    ("Inter", "100 900", "inter-latin-ext.woff2"),
+    ("Space Grotesk", "700", "space-grotesk-700.woff2"),
+    ("Sora", "700", "sora-600.woff2"),
+]
+
+
+def _font_face_block() -> str:
+    faces: list[str] = []
+    for family, weight, fname in _FONT_FILES:
+        try:
+            raw = (_ASSETS_DIR / fname).read_bytes()
+        except OSError:
+            continue
+        b64 = base64.b64encode(raw).decode("ascii")
+        faces.append(
+            f"@font-face{{font-family:'{family}';font-style:normal;"
+            f"font-weight:{weight};font-display:block;"
+            f"src:url(data:font/woff2;base64,{b64}) format('woff2');}}"
+        )
+    if faces:
+        return "\n".join(faces)
+    # Documented offline-unsafe fallback: only when the bundled woff2 are absent.
+    return (
+        "@import url('https://fonts.googleapis.com/css2?"
+        "family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@700"
+        "&family=Sora:wght@700&display=block');"
+    )
+
+
+def _fonts_available() -> bool:
+    """True when the bundled Inter woff2 are present (so fonts embed, no CDN)."""
+    return (_ASSETS_DIR / "inter-latin.woff2").exists()
+
+
+def _mark_datauri(name: str) -> str | None:
+    """A bundled Radal mark SVG (``radal-mark-teal.svg`` …) as a data: URI."""
+    try:
+        raw = (_ASSETS_DIR / name).read_bytes()
+    except OSError:
+        return None
+    return f"data:image/svg+xml;base64,{base64.b64encode(raw).decode('ascii')}"
+
+
+# ---------------------------------------------------------------------------
+# CSS — trimmed Radal "Signal" subset, inlined. Hairline borders, one accent.
+# ---------------------------------------------------------------------------
+
+def _css_str(value: str) -> str:
+    """Escape a Python string for use inside a CSS ``content:"…"`` value."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _stylesheet(footer_left: str) -> str:
+    foot = _css_str(footer_left)
+    return (
+        _font_face_block()
+        + """
+:root{
+  --accent:#0e7c70; --accent-2:#e6f4f1; --accent-ink:#0a5c53;
+  --paper:#ffffff; --ground:#f7f8f8;
+  --ink:#1a2422; --ink-2:#41504c; --muted:#8a968f;
+  --line:#e5e7eb; --line-2:#eef1f0;
+  --warn:#b45309; --warn-bg:#fef3e2;
+  --font-body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-word:"Space Grotesk", var(--font-body);
+  --font-broker:"Sora", var(--font-body);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+body{font-family:var(--font-body);color:var(--ink);background:var(--paper);
+  font-size:11px;line-height:1.5;font-feature-settings:"tnum" 1,"cv05" 1;
+  -webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;}
+
+/* Content pages reserve a top band for the fixed running header and a bottom
+   band for the margin-box footer. The cover (first page) is full-bleed. */
+@page{
+  size:A4; margin:13mm 15mm 15mm;
+  @bottom-left{content:\"""" + foot + """\";font-family:"Inter",sans-serif;
+    font-size:8px;color:#8a968f;}
+  @bottom-right{content:"Página " counter(page) " / " counter(pages);
+    font-family:"Inter",sans-serif;font-size:8px;color:#8a968f;}
+}
+@page:first{ margin:0; @bottom-left{content:none;} @bottom-right{content:none;} }
+
+/* Running header — a <thead> inside the content <table>. Chromium repeats a
+   table-header-group at the top of every page the table spans, which is the
+   reliable way to get a per-page header with images (position:fixed is not
+   dependable in headless print). The cover is a separate block BEFORE the table,
+   so the header only appears on the content pages, never on the cover. */
+.report{width:100%;border-collapse:collapse;}
+.report thead{display:table-header-group;}
+.report>thead>tr>td,.report>tbody>tr>td{padding:0;}
+.runhead{display:flex;align-items:flex-end;justify-content:space-between;
+  height:15mm;padding-bottom:3.5mm;margin-bottom:6mm;
+  border-bottom:1px solid var(--line);}
+.rh-broker-logo{max-height:8.5mm;max-width:52mm;object-fit:contain;object-position:left bottom;display:block;}
+.rh-broker-word{font-family:var(--font-broker);font-weight:700;font-size:12.5px;
+  letter-spacing:0.005em;color:var(--ink);line-height:1;}
+.rh-right{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:8.5px;
+  letter-spacing:0.12em;text-transform:uppercase;}
+.rh-iso{width:6.5mm;height:6.5mm;display:block;}
+
+/* Cover — page one, full-bleed, paints over the running frame. */
+.cover{position:relative;z-index:10;background:var(--paper);
+  height:297mm;overflow:hidden;break-after:page;
+  display:flex;flex-direction:column;padding:30mm 22mm 26mm;}
+.cover-logo{display:flex;align-items:center;gap:13px;}
+.cover-iso{width:16mm;height:16mm;display:block;}
+.cover-word{font-family:var(--font-word);font-weight:700;font-size:40px;
+  letter-spacing:-0.01em;color:var(--ink);line-height:1;}
+.cover-word .dot{color:var(--accent);}
+.cover-tag{margin-top:6px;font-size:10px;color:var(--muted);letter-spacing:0.02em;}
+.cover-body{margin-top:auto;}
+.eyebrow{display:inline-block;font-size:10px;font-weight:600;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--accent-ink);background:var(--accent-2);
+  padding:5px 11px;border-radius:6px;}
+.display{margin-top:16px;font-size:36px;line-height:1.1;font-weight:700;
+  letter-spacing:-0.02em;color:var(--ink);max-width:150mm;}
+.cover-meta{margin-top:30px;display:grid;grid-template-columns:1fr 1fr;
+  gap:0;border-top:1px solid var(--line);}
+.cover-meta .cm{padding:13px 14px 13px 0;border-bottom:1px solid var(--line);}
+.cover-meta .cm:nth-child(odd){padding-left:0;}
+.cover-meta .cm:nth-child(even){padding-left:18px;border-left:1px solid var(--line);}
+.cover-meta .cm .k{font-size:9px;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;}
+.cover-meta .cm .v{margin-top:3px;font-size:13px;color:var(--ink);font-weight:500;}
+.cover-emisor{margin-top:26px;font-size:10px;color:var(--ink-2);}
+.cover-emisor b{color:var(--ink);font-weight:600;}
+
+/* Flowing content. */
+.content{padding-top:4mm;}
+
+/* Sections — flow across pages; the head stays with its content, rows never
+   split, table headers repeat on break. */
+.section{margin-bottom:18px;break-inside:avoid;}
+.section.tbl{break-inside:auto;}
+.sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;
+  padding-bottom:7px;border-bottom:1px solid var(--line);break-after:avoid;}
+.seclabel{font-size:10px;font-weight:700;color:var(--accent);
+  letter-spacing:0.04em;min-width:20px;}
+.sec-title{font-size:14px;font-weight:600;color:var(--ink);letter-spacing:-0.01em;}
+
+/* Field grid */
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+.fields.one{grid-template-columns:1fr;}
+.field{padding:9px 16px 9px 0;border-bottom:1px solid var(--line-2);break-inside:avoid;}
+.field .k{font-size:9px;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;}
+.field .v{margin-top:2px;font-size:11.5px;color:var(--ink);}
+.field .hint{margin-top:2px;font-size:9px;color:var(--muted);font-style:italic;}
+
+/* Tables */
+table.data{width:100%;border-collapse:collapse;font-size:10.5px;margin-top:4px;}
+table.data thead{display:table-header-group;}
+table.data tr{break-inside:avoid;}
+table.data thead th{text-align:left;font-size:9px;letter-spacing:0.06em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;
+  padding:7px 10px;border-bottom:1px solid var(--line);}
+table.data tbody td{padding:8px 10px;border-bottom:1px solid var(--line-2);
+  color:var(--ink);vertical-align:top;}
+table.data tbody tr:last-child td{border-bottom:1px solid var(--line);}
+/* Money / number columns right-align (header + body + total). */
+table.data th.num,table.data td.num{text-align:right;
+  font-feature-settings:"tnum" 1;white-space:nowrap;}
+/* Totals row: a solid top rule, the label + column sums in medium weight. */
+table.data tbody tr.total td{border-top:1.5px solid var(--line);
+  border-bottom:none;padding-top:9px;font-weight:600;color:var(--ink);}
+.table-empty{padding:10px 0;font-size:10.5px;}
+
+/* Stats */
+.stats{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--line);
+  border-radius:8px;overflow:hidden;}
+.stats .stat{flex:1 1 25%;min-width:120px;padding:12px 14px;
+  border-right:1px solid var(--line);}
+.stats .stat:last-child{border-right:none;}
+.stats .stat .k{font-size:9px;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;}
+.stats .stat .v{margin-top:4px;font-size:16px;font-weight:600;color:var(--ink);}
+
+/* Callout */
+.callout{border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:6px;padding:12px 14px;background:var(--ground);break-inside:avoid;}
+.callout .ch{font-size:11px;font-weight:600;color:var(--ink);margin-bottom:4px;}
+.callout .ct{font-size:10.5px;color:var(--ink-2);}
+
+/* Markers */
+.muted{color:var(--muted);}
+.badge{display:inline-block;font-size:9px;font-weight:600;letter-spacing:0.04em;
+  padding:2px 7px;border-radius:999px;text-transform:uppercase;}
+.badge.warn{color:var(--warn);background:var(--warn-bg);}
+"""
+    )
+
+
+# ---------------------------------------------------------------------------
+# Value rendering
+# ---------------------------------------------------------------------------
+
+def _is_empty(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() == ""
+    if isinstance(value, (list, tuple, dict)):
+        return len(value) == 0
+    return False
+
+
+def _fmt_scalar(value: Any) -> str:
+    if isinstance(value, bool):
+        return "Sí" if value else "No"
+    return str(value)
+
+
+def _render_value(value: Any, *, required: bool = False) -> str:
+    """A validated value, or the appropriate missing marker."""
+    if _is_empty(value):
+        return MISSING_REQUIRED if required else MISSING_OPTIONAL
+    if isinstance(value, (list, tuple)):
+        parts = [html.escape(_fmt_scalar(v)) for v in value if not _is_empty(v)]
+        return ", ".join(parts) if parts else MISSING_OPTIONAL
+    return html.escape(_fmt_scalar(value))
+
+
+def _esc(value: Any) -> str:
+    return html.escape("" if value is None else str(value))
+
+
+# ---------------------------------------------------------------------------
+# Section renderers
+# ---------------------------------------------------------------------------
+
+def _render_fields(section: dict) -> str:
+    fields = section.get("fields") or []
+    one = bool(section.get("full_width"))
+    rows: list[str] = []
+    for f in fields:
+        hint = f.get("hint") or f.get("description")
+        hint_html = f'<div class="hint">{_esc(hint)}</div>' if hint else ""
+        rows.append(
+            '<div class="field">'
+            f'<div class="k">{_esc(f.get("label"))}</div>'
+            f'<div class="v">{_render_value(f.get("value"), required=bool(f.get("required")))}</div>'
+            f"{hint_html}"
+            "</div>"
+        )
+    cls = "fields one" if one else "fields"
+    return f'<div class="{cls}">{"".join(rows)}</div>'
+
+
+def _sum_money(rows: list, key: str) -> Decimal | None:
+    """Lenient sum of one money column across ``rows`` — Chilean or plain numbers
+    (``"UF 17.920"`` → 17920). Non-numeric cells are skipped; an all-empty column
+    yields None (rendered as a muted dash in the total row)."""
+    total: Decimal | None = None
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        parsed = parse_uf(row.get(key))
+        if parsed is None:
+            continue
+        total = parsed if total is None else total + parsed
+    return total
+
+
+def _fmt_money(value: Decimal) -> str:
+    """Chilean thousands grouping, trailing ``.0`` trimmed (17920 → "17.920")."""
+    value = value.normalize()
+    sign = "-" if value < 0 else ""
+    value = abs(value)
+    whole = int(value)
+    frac = value - whole
+    grouped = f"{whole:,}".replace(",", ".")
+    if frac != 0:
+        dec = format(frac, "f").split(".")[1].rstrip("0")
+        if dec:
+            grouped = f"{grouped},{dec}"
+    return f"{sign}{grouped}"
+
+
+def _render_table(section: dict) -> str:
+    columns = section.get("columns") or []
+    data_rows = section.get("rows") or []
+    if not data_rows:
+        empty = MISSING_REQUIRED if section.get("required") else MISSING_OPTIONAL
+        return f'<div class="table-empty">{empty}</div>'
+    head = "".join(
+        f'<th class="num">{_esc(c.get("label"))}</th>'
+        if c.get("money")
+        else f"<th>{_esc(c.get('label'))}</th>"
+        for c in columns
+    )
+    body_rows: list[str] = []
+    for row in data_rows:
+        cells: list[str] = []
+        for c in columns:
+            key = c.get("key")
+            required = bool(c.get("required"))
+            cls = ' class="num"' if c.get("money") else ""
+            value = row.get(key) if isinstance(row, dict) else None
+            cells.append(f"<td{cls}>{_render_value(value, required=required)}</td>")
+        body_rows.append(f"<tr>{''.join(cells)}</tr>")
+
+    total_html = ""
+    if section.get("totals"):
+        cells: list[str] = []
+        for i, c in enumerate(columns):
+            if i == 0:
+                cells.append("<td>Total</td>")
+            elif c.get("money"):
+                summed = _sum_money(data_rows, c.get("key"))
+                inner = _fmt_money(summed) if summed is not None else MISSING_OPTIONAL
+                cells.append(f'<td class="num">{inner}</td>')
+            else:
+                cells.append("<td></td>")
+        total_html = f'<tr class="total">{"".join(cells)}</tr>'
+
+    return (
+        '<table class="data"><thead><tr>'
+        f"{head}</tr></thead><tbody>{''.join(body_rows)}{total_html}</tbody></table>"
+    )
+
+
+def _render_stats(section: dict) -> str:
+    items = section.get("items") or []
+    cells = "".join(
+        '<div class="stat">'
+        f'<div class="k">{_esc(i.get("label"))}</div>'
+        f'<div class="v">{_render_value(i.get("value"), required=bool(i.get("required")))}</div>'
+        "</div>"
+        for i in items
+    )
+    return f'<div class="stats">{cells}</div>'
+
+
+def _render_callout(section: dict) -> str:
+    heading = section.get("heading")
+    text = section.get("text")
+    ch = f'<div class="ch">{_esc(heading)}</div>' if heading else ""
+    return f'<div class="callout">{ch}<div class="ct">{_esc(text)}</div></div>'
+
+
+def _render_section(section: dict, *, number: int | None) -> str:
+    kind = section.get("kind", "fields")
+    if kind == "callout":
+        return f'<div class="section">{_render_callout(section)}</div>'
+    if kind == "table":
+        inner = _render_table(section)
+        cls = "section tbl"
+    elif kind == "stats":
+        inner = _render_stats(section)
+        cls = "section"
+    else:
+        inner = _render_fields(section)
+        cls = "section"
+    label = f'<span class="seclabel">{number:02d}</span>' if number is not None else ""
+    heading = section.get("heading")
+    head = (
+        f'<div class="sec-head">{label}'
+        f'<span class="sec-title">{_esc(heading)}</span></div>'
+        if heading or label
+        else ""
+    )
+    return f'<div class="{cls}">{head}{inner}</div>'
+
+
+# ---------------------------------------------------------------------------
+# Cover + running header
+# ---------------------------------------------------------------------------
+
+def _cover_logo() -> str:
+    """The Radal logo lockup: teal isotype + 'Radal.' wordmark."""
+    iso = _mark_datauri("radal-mark-teal.svg")
+    iso_html = (
+        f'<img class="cover-iso" src="{html.escape(iso, quote=True)}" alt="" />' if iso else ""
+    )
+    return (
+        '<div class="cover-logo">'
+        f"{iso_html}"
+        '<span class="cover-word">Radal<span class="dot">.</span></span>'
+        "</div>"
+    )
+
+
+def _broker_head(branding: dict) -> str:
+    """The broker on the running header's left: uploaded logo, or — when none —
+    the broker company name in a personalised display font (never a monogram)."""
+    logo = branding.get("broker_logo_datauri")
+    if logo and isinstance(logo, str) and logo.startswith("data:"):
+        return f'<img class="rh-broker-logo" src="{html.escape(logo, quote=True)}" alt="" />'
+    name = branding.get("broker_name")
+    if name:
+        return f'<span class="rh-broker-word">{_esc(name)}</span>'
+    # Last resort: the Radal wordmark, so the header is never empty.
+    return '<span class="rh-broker-word">Radal.</span>'
+
+
+def _run_head(branding: dict) -> str:
+    right_label = branding.get("running_title") or "Antecedentes"
+    iso = _mark_datauri("radal-mark-teal.svg")
+    iso_html = f'<img class="rh-iso" src="{html.escape(iso, quote=True)}" alt="" />' if iso else ""
+    return (
+        '<div class="runhead">'
+        f'<div class="rh-left">{_broker_head(branding)}</div>'
+        f'<div class="rh-right"><span>{_esc(right_label)}</span>{iso_html}</div>'
+        "</div>"
+    )
+
+
+def _cover(title: str, branding: dict) -> str:
+    eyebrow = branding.get("eyebrow") or "Expediente · Antecedentes"
+    meta = branding.get("cover_meta") or []
+    meta_html = "".join(
+        '<div class="cm">'
+        f'<div class="k">{_esc(m.get("label"))}</div>'
+        f'<div class="v">{_render_value(m.get("value"), required=bool(m.get("required")))}</div>'
+        "</div>"
+        for m in meta
+    )
+    meta_block = f'<div class="cover-meta">{meta_html}</div>' if meta_html else ""
+
+    emisor_bits: list[str] = []
+    if branding.get("broker_name"):
+        emisor_bits.append(f'<b>{_esc(branding["broker_name"])}</b>')
+    if branding.get("broker_rut"):
+        emisor_bits.append(f'RUT {_esc(branding["broker_rut"])}')
+    if branding.get("cmf_code"):
+        emisor_bits.append(f'CMF {_esc(branding["cmf_code"])}')
+    emisor = (
+        f'<div class="cover-emisor">Emisor · {" · ".join(emisor_bits)}</div>'
+        if emisor_bits
+        else ""
+    )
+    tagline = branding.get("tagline") or "El expediente del riesgo"
+
+    return (
+        '<section class="cover">'
+        f"{_cover_logo()}"
+        f'<div class="cover-tag">{_esc(tagline)}</div>'
+        '<div class="cover-body">'
+        f'<span class="eyebrow">{_esc(eyebrow)}</span>'
+        f'<h1 class="display">{_esc(title)}</h1>'
+        f"{meta_block}{emisor}"
+        "</div>"
+        "</section>"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public composer
+# ---------------------------------------------------------------------------
+
+def render_expediente_html(*, title: str, branding: dict, sections: list[dict]) -> str:
+    """Compose the full self-contained expediente HTML string.
+
+    Args:
+        title: the display title shown on the cover.
+        branding: cover + running-frame identity. Keys: ``broker_logo_datauri``
+            (``data:`` URI or None → styled broker-name wordmark), ``broker_name``,
+            ``broker_rut``, ``cmf_code``; optional ``eyebrow`` (cover eyebrow),
+            ``tagline`` (cover sub-line), ``running_title`` (header right label,
+            default "Antecedentes") and ``cover_meta`` (list of
+            ``{label, value, required?}`` — razón social, RUT, ramo, vigencia).
+            ``radal_wordmark`` is accepted for back-compat but the Radal lockup is
+            always "Radal.".
+        sections: ordered Section dicts. A Section is
+            ``{"kind": "fields"|"table"|"callout"|"stats", "heading": str, ...}``.
+
+    Content flows across as many A4 pages as needed; the running header repeats on
+    every page and the footer carries the broker legal name + page n/N. Every empty
+    value renders a marker (``—`` optional, ``falta`` required). No http(s) img src.
+    """
+    sections = sections or []
+
+    numbered = 0
+    body_parts: list[str] = []
+    for sec in sections:
+        num: int | None = None
+        # A section flagged ``unnumbered`` is a sub-part of the section above it
+        # (e.g. the siniestros table under "Siniestralidad") — it keeps its
+        # heading but takes no numeral.
+        if sec.get("kind", "fields") != "callout" and not sec.get("unnumbered"):
+            numbered += 1
+            num = numbered
+        body_parts.append(_render_section(sec, number=num))
+
+    footer_left = str(branding.get("broker_name") or "Radal.")
+
+    return (
+        '<!doctype html><html lang="es"><head><meta charset="utf-8"/>'
+        f"<style>{_stylesheet(footer_left)}</style>"
+        f"<title>{_esc(title)}</title></head><body>"
+        f"{_cover(title, branding)}"
+        '<table class="report"><thead><tr><td>'
+        f"{_run_head(branding)}"
+        '</td></tr></thead><tbody><tr><td>'
+        f'<main class="content">{"".join(body_parts)}</main>'
+        "</td></tr></tbody></table>"
+        "</body></html>"
+    )

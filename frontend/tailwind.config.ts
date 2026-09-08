@@ -7,7 +7,8 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Aqua Spectrum raw tokens
+        // Signal raw tokens (legacy names kept — they alias to the primitives
+        // in index.css, so older files restyle without edits).
         ink: {
           DEFAULT: "var(--ink)",
           2: "var(--ink-2)",
@@ -20,6 +21,8 @@ const config: Config = {
         bone: "var(--bone)",
         sidebar: "var(--sidebar)",
         line: "var(--line)",
+        // Hover borders / emphasized rules: `border-line-strong`.
+        "line-strong": "var(--line-strong)",
         muted: {
           DEFAULT: "var(--bg-recessed)",
           foreground: "var(--text-muted)",
@@ -44,6 +47,44 @@ const config: Config = {
         red: {
           DEFAULT: "var(--red)",
           deep: "var(--red-deep)",
+        },
+
+        // Brand roles. `brand-ring` / `brand-line` are pre-mixed tints so
+        // components never need color-mix() inside a className:
+        //   focus ring → `ring-brand-ring`, tinted hover border → `border-brand-line`.
+        brand: {
+          DEFAULT: "var(--brand)",
+          deep: "var(--brand-deep)",
+          soft: "var(--brand-soft)",
+          ring: "color-mix(in srgb, var(--brand) 15%, transparent)",
+          line: "color-mix(in srgb, var(--brand) 30%, transparent)",
+        },
+        cta: {
+          DEFAULT: "var(--cta)",
+          hover: "var(--cta-hover)",
+          foreground: "var(--cta-tx)",
+        },
+
+        // Status trios: `bg-pos-soft` / `text-pos-text` / `border-pos-line`
+        // (same shape for warn and neg). Sweep agents: use THESE, not
+        // color-mix() or -[var(--…)] arbitrary values.
+        pos: {
+          DEFAULT: "var(--pos)",
+          text: "var(--pos-text)",
+          soft: "var(--pos-soft)",
+          line: "color-mix(in srgb, var(--pos) 30%, transparent)",
+        },
+        warn: {
+          DEFAULT: "var(--warn)",
+          text: "var(--warn-text)",
+          soft: "var(--warn-soft)",
+          line: "color-mix(in srgb, var(--warn) 30%, transparent)",
+        },
+        neg: {
+          DEFAULT: "var(--neg)",
+          text: "var(--neg-text)",
+          soft: "var(--neg-soft)",
+          line: "color-mix(in srgb, var(--neg) 30%, transparent)",
         },
 
         // Semantic signals
@@ -76,8 +117,8 @@ const config: Config = {
         "card-foreground": "var(--text-primary)",
         popover: "var(--bg-surface)",
         "popover-foreground": "var(--text-primary)",
-        primary: "var(--blue)",
-        "primary-foreground": "#FFFFFC",
+        primary: "var(--cta)",
+        "primary-foreground": "var(--cta-tx)",
         secondary: "var(--bg-recessed)",
         "secondary-foreground": "var(--text-primary)",
         accent: "var(--teal-soft)",
@@ -88,33 +129,43 @@ const config: Config = {
         ring: "var(--focus-ring)",
       },
       fontFamily: {
-        display: ["Space Grotesk", "system-ui", "sans-serif"],
-        ui: ["Inter Tight", "system-ui", "sans-serif"],
-        mono: ["IBM Plex Mono", "ui-monospace", "monospace"],
-        sans: ["Inter Tight", "system-ui", "sans-serif"],
+        // Inter everywhere; mono only for genuine code content;
+        // Space Grotesk ONLY in the "Radal." wordmark lockup.
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        ui: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        display: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["ui-monospace", "SF Mono", "Menlo", "monospace"],
+        wordmark: ["Space Grotesk", "system-ui", "sans-serif"],
       },
       fontSize: {
-        display: ["28px", { lineHeight: "1.08", fontWeight: "500", letterSpacing: "-0.02em" }],
-        h1: ["24px", { lineHeight: "1.12", fontWeight: "500", letterSpacing: "-0.02em" }],
-        h2: ["20px", { lineHeight: "1.2", fontWeight: "500", letterSpacing: "-0.01em" }],
-        h3: ["15.5px", { lineHeight: "1.3", fontWeight: "500" }],
-        kpi: ["33px", { lineHeight: "1", fontWeight: "500", letterSpacing: "-0.02em" }],
-        body: ["14px", { lineHeight: "1.5", fontWeight: "400" }],
-        label: ["13.5px", { lineHeight: "1.4", fontWeight: "500" }],
+        display: ["28px", { lineHeight: "1.15", fontWeight: "600", letterSpacing: "-0.02em" }],
+        h1: ["22px", { lineHeight: "1.2", fontWeight: "600", letterSpacing: "-0.015em" }],
+        h2: ["17px", { lineHeight: "1.3", fontWeight: "600", letterSpacing: "-0.01em" }],
+        h3: ["14.5px", { lineHeight: "1.35", fontWeight: "600" }],
+        kpi: ["26px", { lineHeight: "1.1", fontWeight: "600", letterSpacing: "-0.02em" }],
+        body: ["14px", { lineHeight: "1.55", fontWeight: "400" }],
+        label: ["13px", { lineHeight: "1.4", fontWeight: "500" }],
         caption: ["12px", { lineHeight: "1.4", fontWeight: "400" }],
-        mono: ["12.5px", { lineHeight: "1.4", fontWeight: "500" }],
-        "mono-sm": ["11px", { lineHeight: "1.4", fontWeight: "500" }],
+        // Deprecated — kept ONLY until the sweep removes their consumers.
+        // Nothing new uses these.
+        mono: ["12px", { lineHeight: "1.4", fontWeight: "500" }],
+        "mono-sm": ["9.5px", { lineHeight: "1.4", fontWeight: "500", letterSpacing: "0.07em" }],
       },
       borderRadius: {
-        card: "16px",
-        lg: "12px",
-        md: "10px",
-        sm: "8px",
+        // The concentric ladder: outer = inner + padding.
+        card: "12px", // var(--r-card)
+        lg: "10px", // var(--r-well)
+        md: "9px", // var(--r-seg)
+        sm: "8px", // var(--r-ctl)
       },
       boxShadow: {
-        card: "var(--shadow-card)",
-        sm: "var(--shadow-sm)",
-        lift: "var(--shadow)",
+        elev: "var(--elev)",
+        "elev-hover": "var(--elev-hover)",
+        overlay: "var(--elev-overlay)",
+        // legacy names kept, re-pointed:
+        card: "var(--elev)",
+        sm: "var(--elev)",
+        lift: "var(--elev-hover)",
       },
       keyframes: {
         "accordion-down": {
@@ -125,8 +176,8 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        fadeUp: {
-          from: { opacity: "0", transform: "translateY(10px)" },
+        enter: {
+          from: { opacity: "0", transform: "translateY(12px)" },
           to: { opacity: "1", transform: "none" },
         },
         dropIn: {
@@ -137,7 +188,9 @@ const config: Config = {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        fadeUp: "fadeUp 0.5s cubic-bezier(0.22,0.72,0.24,1) both",
+        enter: "enter 400ms cubic-bezier(0.2, 0, 0, 1) both",
+        // legacy name, new motion:
+        fadeUp: "enter 400ms cubic-bezier(0.2, 0, 0, 1) both",
         dropIn: "dropIn 0.18s ease both",
       },
     },

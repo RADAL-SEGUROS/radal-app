@@ -48,6 +48,11 @@ USER_TYPE_ROLES: dict[str, list[str]] = {
         "broker_executive",
         "broker_inspector",
         "broker_technician",
+        # Process profiles (v3 groups & accounts, spec §6). Additive: the four
+        # roles above are unchanged, so no existing user moves.
+        "broker_commercial",
+        "broker_collections",
+        "broker_claims",
     ],
     "insured": [
         "insured_admin",
@@ -64,6 +69,11 @@ MODULES: list[str] = [
     "Dashboard",
     "Clients",
     "Assets",
+    # The expediente (case file) and the pre-client lead pipeline.
+    "CaseFiles",
+    "Leads",
+    # The broker-private group above the expediente (v3 groups & accounts).
+    "Groups",
     "Placements",
     "Quotes",
     "Proposals",
@@ -72,6 +82,9 @@ MODULES: list[str] = [
     "Offerings",
     "Documents",
     "Policies",
+    # Post-sale, switched on with the case-file pass.
+    "Endorsements",
+    "Collections",
     "Claims",
     "Reports",  # OUT OF SCOPE this pass
     "Users",
@@ -141,6 +154,11 @@ ROLES: dict[str, dict] = {
         "Dashboard": _mod(View="yes", Comment="yes"),
         "Clients": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
         "Assets": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes"),
+        # Owns the expediente end to end, minus pack generation (Manage) and
+        # the technician's Approve.
+        "CaseFiles": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
+        "Leads": _mod(View="yes", Create="yes", Edit="yes", Comment="yes"),
+        "Groups": _mod(View="yes", Create="yes", Edit="yes", Comment="yes"),
         "Placements": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
         "Quotes": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
         "Proposals": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
@@ -152,6 +170,9 @@ ROLES: dict[str, dict] = {
         "Offerings": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
         "Documents": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
         "Policies": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes"),
+        "Endorsements": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
+        # Reads and comments the ledger; the technician/admin edit it.
+        "Collections": _mod(View="yes", Comment="yes", Upload="yes"),
         "Claims": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
@@ -164,6 +185,12 @@ ROLES: dict[str, dict] = {
         "Clients": dict(_ALL_NO),
         # Needs the asset sheet to inspect it, but does not own the record.
         "Assets": _mod(View="yes", Comment="yes"),
+        # Only the expedientes that have an inspection assigned to them — the
+        # router narrows the queryset; "partial" passes the coarse gate.
+        "CaseFiles": _mod(View="partial"),
+        "Leads": dict(_ALL_NO),
+        # Only the groups containing a case they can see.
+        "Groups": _mod(View="partial"),
         "Placements": _mod(View="partial", Comment="yes"),
         "Quotes": dict(_ALL_NO),
         "Proposals": dict(_ALL_NO),
@@ -172,8 +199,11 @@ ROLES: dict[str, dict] = {
         "Offerings": dict(_ALL_NO),
         # Only documents attached to the assets/inspections assigned to them.
         "Documents": _mod(View="partial", Create="partial", Upload="partial"),
-        "Policies": dict(_ALL_NO),
-        "Claims": dict(_ALL_NO),
+        # Reads the policy behind the risk it inspects; never edits it.
+        "Policies": _mod(View="yes"),
+        "Endorsements": dict(_ALL_NO),
+        "Collections": dict(_ALL_NO),
+        "Claims": _mod(View="yes"),
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
         "Settings": dict(_ALL_NO),
@@ -184,6 +214,13 @@ ROLES: dict[str, dict] = {
         "Dashboard": _mod(View="yes", Comment="yes"),
         "Clients": _mod(View="yes", Edit="partial", Comment="yes", Upload="yes"),
         "Assets": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes"),
+        # Owns the technical side of the expediente, including sign-off.
+        "CaseFiles": _mod(
+            View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes",
+            Submit="yes", Approve="yes",
+        ),
+        "Leads": _mod(View="yes"),
+        "Groups": _mod(View="yes", Comment="yes"),
         "Placements": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes", Approve="partial"),
         "Quotes": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
         # Owns proposal standardization: confirms AI extractions, runs the comparator.
@@ -192,11 +229,93 @@ ROLES: dict[str, dict] = {
         "Insurers": _mod(View="yes", Create="yes", Edit="partial", Comment="yes"),
         "Offerings": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes", Approve="yes"),
         "Documents": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="partial"),
-        "Policies": _mod(View="yes", Edit="partial", Comment="yes", Upload="yes"),
-        "Claims": _mod(View="yes", Edit="partial", Comment="yes", Upload="yes"),
+        "Policies": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes"),
+        "Endorsements": _mod(
+            View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes",
+            Submit="yes", Approve="yes",
+        ),
+        "Collections": _mod(View="yes", Comment="yes"),
+        "Claims": _mod(
+            View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Approve="yes"
+        ),
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
         "Settings": _mod(View="partial"),
+    },
+
+    # ------------------------- PROCESS PROFILES -------------------------
+    # Narrow desks inside one brokerage. Each one is a SLICE of the tenant, not
+    # a second tenant: ``broker_id`` scoping still applies on top, and the
+    # ``partial`` CaseFiles.View grants are narrowed by exactly one mechanism —
+    # ``app.core.case_scope.CASE_VIEW_SCOPE`` — shared by ``_visible()`` and
+    # ``get_case_or_404()`` so the packs and documents routers cannot leak a
+    # case the role's own list hides.
+    #
+    # The team's definitive permission matrix is still unfilled (spec §9.4);
+    # these grants implement spec §6 verbatim and are meant to be edited HERE,
+    # never in a router.
+
+    # ``broker_commercial`` is DERIVED from ``broker_executive`` just below the
+    # matrix (it is the same 19x9 grid; copying it here would drift silently).
+
+    # The collections desk: owns the cobranza ledger and nothing else. Sees the
+    # collection cases plus the account folders they hang off (without the
+    # parent the cuota has no expediente to sit in), and reads the policy it
+    # bills. No clients, no quotes, no proposals, no claims.
+    "broker_collections": {
+        "user_type": "broker",
+        "Dashboard": _mod(View="yes", Comment="yes"),
+        "Clients": dict(_ALL_NO),
+        "Assets": dict(_ALL_NO),
+        # Narrowed by CASE_VIEW_SCOPE to collection cases + their parents.
+        "CaseFiles": _mod(View="partial"),
+        "Leads": dict(_ALL_NO),
+        "Groups": _mod(View="yes"),
+        "Placements": dict(_ALL_NO),
+        "Quotes": dict(_ALL_NO),
+        "Proposals": dict(_ALL_NO),
+        "Inspections": dict(_ALL_NO),
+        "Insurers": dict(_ALL_NO),
+        "Offerings": dict(_ALL_NO),
+        # Only the documents of the cases the scope lets through.
+        "Documents": _mod(View="partial"),
+        "Policies": _mod(View="yes"),
+        "Endorsements": _mod(View="yes"),
+        "Collections": dict(_ALL_YES),
+        "Claims": dict(_ALL_NO),
+        "Reports": dict(_OUT_OF_SCOPE),
+        "Users": dict(_ALL_NO),
+        "Settings": dict(_ALL_NO),
+    },
+
+    # The claims desk: owns the siniestro end to end, including the ruling
+    # (Approve closes a claim). Edits the policy it settles against; never
+    # touches the collection ledger.
+    "broker_claims": {
+        "user_type": "broker",
+        "Dashboard": _mod(View="yes", Comment="yes"),
+        "Clients": dict(_ALL_NO),
+        "Assets": dict(_ALL_NO),
+        # Narrowed by CASE_VIEW_SCOPE to claim cases + their parents.
+        "CaseFiles": _mod(View="partial"),
+        "Leads": dict(_ALL_NO),
+        "Groups": _mod(View="yes"),
+        "Placements": dict(_ALL_NO),
+        "Quotes": dict(_ALL_NO),
+        "Proposals": dict(_ALL_NO),
+        "Inspections": dict(_ALL_NO),
+        "Insurers": dict(_ALL_NO),
+        "Offerings": dict(_ALL_NO),
+        # A denuncio IS a document; uploading evidence is the desk's daily job,
+        # still narrowed to the cases the scope lets through.
+        "Documents": _mod(View="partial", Create="partial", Upload="partial"),
+        "Policies": _mod(View="yes", Edit="yes"),
+        "Endorsements": dict(_ALL_NO),
+        "Collections": dict(_ALL_NO),
+        "Claims": dict(_ALL_YES),
+        "Reports": dict(_OUT_OF_SCOPE),
+        "Users": dict(_ALL_NO),
+        "Settings": dict(_ALL_NO),
     },
 
     # ============================= INSURED ==============================
@@ -208,6 +327,10 @@ ROLES: dict[str, dict] = {
         "Dashboard": _mod(View="yes"),
         "Clients": _mod(View="partial", Comment="yes"),
         "Assets": _mod(View="partial", Comment="yes", Upload="partial"),
+        # Case files, leads and groups are broker-internal this pass.
+        "CaseFiles": dict(_ALL_NO),
+        "Leads": dict(_ALL_NO),
+        "Groups": dict(_ALL_NO),
         "Placements": _mod(View="partial", Comment="yes"),
         "Quotes": _mod(View="partial", Comment="yes"),
         "Proposals": _mod(View="partial", Comment="yes"),
@@ -216,6 +339,8 @@ ROLES: dict[str, dict] = {
         "Offerings": _mod(View="partial", Comment="yes"),
         "Documents": _mod(View="partial", Comment="yes", Upload="partial"),
         "Policies": _mod(View="partial", Comment="yes"),
+        "Endorsements": dict(_ALL_NO),
+        "Collections": dict(_ALL_NO),
         "Claims": _mod(View="partial", Create="partial", Comment="yes", Upload="yes", Submit="partial"),
         "Reports": dict(_OUT_OF_SCOPE),
         # Manages only the users of their own insured organization.
@@ -228,6 +353,10 @@ ROLES: dict[str, dict] = {
         "Dashboard": _mod(View="yes"),
         "Clients": _mod(View="partial", Comment="yes"),
         "Assets": _mod(View="partial", Comment="yes"),
+        # Case files, leads and groups are broker-internal this pass.
+        "CaseFiles": dict(_ALL_NO),
+        "Leads": dict(_ALL_NO),
+        "Groups": dict(_ALL_NO),
         "Placements": _mod(View="partial", Comment="yes"),
         "Quotes": _mod(View="partial", Comment="yes"),
         "Proposals": _mod(View="partial", Comment="yes"),
@@ -236,6 +365,8 @@ ROLES: dict[str, dict] = {
         "Offerings": _mod(View="partial", Comment="yes"),
         "Documents": _mod(View="partial", Comment="yes", Upload="partial"),
         "Policies": _mod(View="partial", Comment="yes"),
+        "Endorsements": dict(_ALL_NO),
+        "Collections": dict(_ALL_NO),
         "Claims": _mod(View="partial", Comment="yes", Upload="yes"),
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
@@ -251,6 +382,10 @@ ROLES: dict[str, dict] = {
         "Dashboard": _mod(View="yes"),
         "Clients": _mod(View="partial", Comment="yes"),
         "Assets": _mod(View="partial", Comment="yes"),
+        # Case files, leads and groups are broker-internal this pass.
+        "CaseFiles": dict(_ALL_NO),
+        "Leads": dict(_ALL_NO),
+        "Groups": dict(_ALL_NO),
         "Placements": _mod(View="partial", Comment="yes"),
         "Quotes": _mod(View="partial", Comment="yes"),
         "Proposals": _mod(View="partial", Create="partial", Edit="partial", Comment="yes", Upload="yes", Submit="yes", Approve="partial"),
@@ -260,6 +395,8 @@ ROLES: dict[str, dict] = {
         "Offerings": dict(_ALL_NO),
         "Documents": _mod(View="partial", Comment="yes", Upload="partial"),
         "Policies": _mod(View="partial", Comment="yes"),
+        "Endorsements": dict(_ALL_NO),
+        "Collections": dict(_ALL_NO),
         "Claims": _mod(View="partial", Comment="yes"),
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": _mod(View="yes", Create="yes", Edit="yes", Submit="yes", Approve="yes", Manage="partial"),
@@ -271,6 +408,10 @@ ROLES: dict[str, dict] = {
         "Dashboard": _mod(View="yes"),
         "Clients": _mod(View="partial", Comment="yes"),
         "Assets": _mod(View="partial", Comment="yes"),
+        # Case files, leads and groups are broker-internal this pass.
+        "CaseFiles": dict(_ALL_NO),
+        "Leads": dict(_ALL_NO),
+        "Groups": dict(_ALL_NO),
         # Approves at the pre-underwriting gate.
         "Placements": _mod(View="partial", Comment="yes", Approve="partial"),
         "Quotes": _mod(View="partial", Comment="yes"),
@@ -280,6 +421,8 @@ ROLES: dict[str, dict] = {
         "Offerings": dict(_ALL_NO),
         "Documents": _mod(View="partial", Comment="yes", Upload="partial"),
         "Policies": _mod(View="partial", Comment="yes"),
+        "Endorsements": dict(_ALL_NO),
+        "Collections": dict(_ALL_NO),
         "Claims": _mod(View="partial", Comment="yes"),
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
@@ -291,6 +434,10 @@ ROLES: dict[str, dict] = {
         "Dashboard": _mod(View="yes"),
         "Clients": _mod(View="partial", Comment="yes"),
         "Assets": _mod(View="partial", Comment="yes"),
+        # Case files, leads and groups are broker-internal this pass.
+        "CaseFiles": dict(_ALL_NO),
+        "Leads": dict(_ALL_NO),
+        "Groups": dict(_ALL_NO),
         "Placements": _mod(View="partial", Comment="yes"),
         "Quotes": _mod(View="partial", Comment="yes"),
         # Submits proposals but cannot bind them — that is the underwriter's call.
@@ -300,6 +447,8 @@ ROLES: dict[str, dict] = {
         "Offerings": dict(_ALL_NO),
         "Documents": _mod(View="partial", Comment="yes", Upload="partial"),
         "Policies": _mod(View="partial", Comment="yes"),
+        "Endorsements": dict(_ALL_NO),
+        "Collections": dict(_ALL_NO),
         "Claims": _mod(View="partial", Comment="yes"),
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
@@ -307,6 +456,14 @@ ROLES: dict[str, dict] = {
     },
 }
 
+
+# ``broker_commercial`` IS the executive matrix (spec §6). Deriving it instead of
+# copying keeps the two in lockstep until the team deliberately splits them —
+# a copied 19x9 grid drifts silently, a derivation cannot.
+ROLES["broker_commercial"] = {
+    key: (value if key == "user_type" else dict(value))
+    for key, value in ROLES["broker_executive"].items()
+}
 
 # --- Lookup helpers (used by the enforcement layer) --------------------------
 

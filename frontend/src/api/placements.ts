@@ -27,6 +27,8 @@ export interface PlacementListParams {
   status?: PlacementStatus[];
   period?: string;
   open_only?: boolean;
+  /** Groups & accounts (spec v3 §4.3) — the broker-private Group. */
+  account_group_id?: number;
   q?: string;
   page?: number;
   page_size?: number;

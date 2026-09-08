@@ -131,7 +131,7 @@ export function SectionCard({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
           <div className="flex min-w-0 items-center gap-2.5">
             {icon ? (
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--teal)_13%,transparent)] text-teal-deep [&_svg]:h-[17px] [&_svg]:w-[17px]">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-deep [&_svg]:h-[17px] [&_svg]:w-[17px]">
                 {icon}
               </span>
             ) : null}
@@ -162,13 +162,13 @@ export function InfoItem({
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-text-muted">
+      <div className="text-caption font-medium text-ink-3">
         {label}
       </div>
       <div
         className={cn(
           "mt-1 truncate text-body text-text-primary",
-          mono && "font-mono text-mono",
+          mono && "tabular-nums",
         )}
       >
         {children}
@@ -198,7 +198,7 @@ export function Field({
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {error ? (
-        <p className="text-caption text-red-deep">{error}</p>
+        <p className="text-caption text-neg-text">{error}</p>
       ) : hint ? (
         <p className="text-caption text-text-muted">{hint}</p>
       ) : null}
@@ -209,7 +209,7 @@ export function Field({
 /** Empty-state block for a card body. */
 export function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-line bg-[color-mix(in_srgb,var(--bg-recessed)_40%,transparent)] px-6 py-8 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-line bg-paper-2 px-6 py-8 text-center">
       <p className="text-body text-text-muted">{children}</p>
     </div>
   );

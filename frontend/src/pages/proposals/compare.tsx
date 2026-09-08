@@ -112,7 +112,7 @@ export default function ProposalComparisonPage() {
               type="checkbox"
               checked={includeRejected}
               onChange={(e) => setIncludeRejected(e.target.checked)}
-              className="h-4 w-4 accent-[var(--teal)]"
+              className="h-4 w-4 accent-brand"
             />
             {t("compare.includeRejected")}
           </label>
@@ -148,7 +148,7 @@ export default function ProposalComparisonPage() {
 
 const COL_WIDTH = "min-w-[248px]";
 const LABEL_CELL =
-  "sticky left-0 z-20 w-[220px] min-w-[220px] border-r border-line bg-bg-surface px-4 py-2.5 text-left text-caption font-medium uppercase tracking-[0.06em] text-text-muted";
+  "sticky left-0 z-20 w-[220px] min-w-[220px] border-r border-line bg-bg-surface px-4 py-2.5 text-left text-caption font-medium text-text-muted";
 
 function ComparisonGrid({ data }: { data: ProposalComparison }) {
   const { t } = useTranslation("proposals");
@@ -235,7 +235,7 @@ function ComparisonGrid({ data }: { data: ProposalComparison }) {
             {/* ── Header: one card per proposal ── */}
             <thead>
               <tr>
-                <th className={cn(LABEL_CELL, "h-auto bg-bg-recessed py-4 align-bottom")}>
+                <th className={cn(LABEL_CELL, "h-auto py-4 align-bottom")}>
                   {t("compare.proposalsHeader", { count: data.columns.length })}
                 </th>
                 {data.columns.map((col) => (
@@ -243,7 +243,7 @@ function ComparisonGrid({ data }: { data: ProposalComparison }) {
                     key={col.proposal_id}
                     className={cn(
                       COL_WIDTH,
-                      "border-l border-line bg-bg-recessed p-4 text-left align-top",
+                      "border-l border-line bg-bg-surface p-4 text-left align-top",
                     )}
                   >
                     <ColumnHeader column={col} quoteId={data.quote.id} highlights={data.highlights} />
@@ -270,8 +270,7 @@ function ComparisonGrid({ data }: { data: ProposalComparison }) {
                         className={cn(
                           "border-l border-line px-4 py-2.5 align-top tabular-nums",
                           row.emphasis && "font-medium",
-                          isBest &&
-                            "bg-[color-mix(in_srgb,var(--lime)_12%,transparent)] text-lime-deep",
+                          isBest && "bg-pos-soft text-pos-text",
                         )}
                       >
                         <span className="flex flex-wrap items-center gap-1.5">
@@ -373,7 +372,7 @@ function SectionRow({
       <tr>
         <td
           colSpan={span}
-          className="border-t border-line bg-[color-mix(in_srgb,var(--teal)_8%,transparent)] px-4 py-2 font-display text-caption uppercase tracking-[0.1em] text-teal-deep"
+          className="border-t border-line bg-brand-soft px-4 py-2 text-caption font-medium text-brand-deep"
         >
           <span className="flex items-center gap-2">
             {icon}
@@ -413,8 +412,8 @@ function CoverageBlock({
         ) : (
           rows.map((row) => (
             <tr key={row.key} className="border-t border-line">
-              <td className={cn(LABEL_CELL, "normal-case")} title={row.label}>
-                <span className="block truncate normal-case">{row.label}</span>
+              <td className={LABEL_CELL} title={row.label}>
+                <span className="block truncate">{row.label}</span>
               </td>
               {columns.map((col) => {
                 const cell = row.cells.find((c) => c.proposal_id === col.proposal_id);
@@ -428,7 +427,7 @@ function CoverageBlock({
                       <span
                         className={cn(
                           "flex items-start gap-1.5",
-                          tone === "success" ? "text-lime-deep" : "text-amber-deep",
+                          tone === "success" ? "text-pos-text" : "text-warn-text",
                         )}
                       >
                         <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -471,7 +470,7 @@ function ColumnHeader({
     <div className="flex flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate font-display text-h3 text-text-primary">
+          <div className="truncate text-h3 text-text-primary">
             {column.insurer.trade_name || column.insurer.legal_name}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">

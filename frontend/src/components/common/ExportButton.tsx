@@ -44,15 +44,15 @@ export function ExportButton({ onExport, disabled }: ExportButtonProps) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => handle("word")}>
-          <FileText className="h-4 w-4 text-blue" />
+          <FileText className="h-4 w-4 text-ink-3" />
           {t("export.word")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handle("excel")}>
-          <FileSpreadsheet className="h-4 w-4 text-lime" />
+          <FileSpreadsheet className="h-4 w-4 text-ink-3" />
           {t("export.excel")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handle("pdf")}>
-          <FileType className="h-4 w-4 text-signal-danger" />
+          <FileType className="h-4 w-4 text-ink-3" />
           {t("export.pdf")}
         </DropdownMenuItem>
       </DropdownMenuContent>

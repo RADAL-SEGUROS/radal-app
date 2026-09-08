@@ -1,0 +1,138 @@
+{
+  "eyebrow": "Portfolio",
+  "title": "Analytics",
+  "subtitle": "The whole book at a glance: indicators, distribution and the consolidated lists",
+  "noModules": "Your role has no access to any of the modules on this page.",
+  "count_one": "{{count}} result",
+  "count_many": "{{count}} results",
+  "count_other": "{{count}} results",
+  "kpis": {
+    "openAccounts": "Open accounts",
+    "openAccountsHint": "of {{count}} in total",
+    "inMarket": "In market",
+    "inMarketHint": "submitted or receiving quotes",
+    "renewals": "Renewals",
+    "renewalsHint": "under renewal review",
+    "overdueCollections": "Overdue collections",
+    "overdueCollectionsHint": "need collection follow-up",
+    "quotesInProgress": "Quotes in progress",
+    "quotesOverdueHint_one": "{{count}} overdue",
+    "quotesOverdueHint_many": "{{count}} overdue",
+    "quotesOverdueHint_other": "{{count}} overdue",
+    "quotesSentHint_one": "{{count}} sent in the last 30 days",
+    "quotesSentHint_many": "{{count}} sent in the last 30 days",
+    "quotesSentHint_other": "{{count}} sent in the last 30 days",
+    "proposedPremium": "Proposed premium",
+    "proposedPremiumHint_one": "{{count}} confirmed proposal",
+    "proposedPremiumHint_many": "{{count}} confirmed proposals",
+    "proposedPremiumHint_other": "{{count}} confirmed proposals",
+    "activePolicies": "Active policies",
+    "policiesExpiringHint_one": "{{count}} expires within 60 days",
+    "policiesExpiringHint_many": "{{count}} expire within 60 days",
+    "policiesExpiringHint_other": "{{count}} expire within 60 days",
+    "policiesTotalHint": "of {{count}} in total"
+  },
+  "charts": {
+    "empty": "No data yet",
+    "byStage": {
+      "title": "Case files by stage",
+      "subtitle": "The stages holding the most open accounts",
+      "unit": "case files"
+    },
+    "byInsurer": {
+      "title": "Proposals by insurer",
+      "subtitle": "Who answers your quote requests",
+      "unit": "proposals",
+      "others": "Other insurers",
+      "centerLabel": "proposals"
+    }
+  },
+  "tabs": {
+    "accounts": "Accounts",
+    "quotes": "Quotes",
+    "proposals": "Proposals",
+    "policies": "Policies",
+    "postsale": "Post-sale",
+    "documents": "Documents"
+  },
+  "filters": {
+    "all": "All",
+    "clear": "Clear filters",
+    "stage": "Stage",
+    "status": "Status",
+    "line": "Line",
+    "insurer": "Insurer",
+    "entityType": "Entity",
+    "category": "Category"
+  },
+  "views": {
+    "table": "Table",
+    "board": "Board"
+  },
+  "columns": {
+    "group": "Group / account",
+    "line": "Line",
+    "period": "Period",
+    "stage": "Stage",
+    "status": "Status",
+    "reference": "Reference",
+    "object": "Insured object",
+    "declared": "Declared value",
+    "sentAt": "Sent",
+    "dueAt": "Due",
+    "proposalsCount": "Proposals",
+    "insurer": "Insurer",
+    "quote": "Quote",
+    "totalPremium": "Total premium",
+    "rate": "Rate",
+    "confirmed": "Confirmation",
+    "policyNumber": "Policy no.",
+    "client": "Client",
+    "kind": "Kind",
+    "delta": "Δ premium",
+    "effectiveAt": "Endorsement effective",
+    "plan": "Plan",
+    "paymentMode": "Payment mode",
+    "installments": "Installments",
+    "ledgerTotal": "Plan total",
+    "claimNumber": "Claim no.",
+    "eventDate": "Event date",
+    "paid": "Paid",
+    "ruling": "Coverage",
+    "name": "Document",
+    "category": "Category",
+    "entityType": "Entity",
+    "size": "Size",
+    "uploadedAt": "Uploaded"
+  },
+  "postsale": {
+    "endorsements": "Endorsements",
+    "collections": "Collections",
+    "claims": "Claims"
+  },
+  "documents": {
+    "download": "Download"
+  },
+  "board": {
+    "empty": "No accounts in this phase",
+    "postsaleFooter_one": "{{count}} open post-sale case across the book",
+    "postsaleFooter_many": "{{count}} open post-sale cases across the book",
+    "postsaleFooter_other": "{{count}} open post-sale cases across the book"
+  },
+  "empty": {
+    "accounts": "No accounts yet",
+    "quotes": "No quotes yet",
+    "proposals": "No proposals yet",
+    "policies": "No policies yet",
+    "postsale": "No post-sale cases yet",
+    "documents": "No documents yet"
+  },
+  "emptyHint": {
+    "accounts": "Create a group and add its first account to see it here.",
+    "quotes": "Quote requests sent to the market will show up in this list.",
+    "proposals": "Upload an insurer's quotation to register its proposal.",
+    "policies": "Policies issued from an accepted proposal will show up here.",
+    "postsale": "Endorsements, collections and claims on your policies will show up here.",
+    "documents": "Files uploaded to case files and entities will show up here."
+  }
+}

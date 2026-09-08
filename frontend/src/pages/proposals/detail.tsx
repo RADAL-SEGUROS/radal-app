@@ -498,12 +498,12 @@ function CoveragesPanel({ proposal: p }: { proposal: Proposal }) {
         {rows.map((c) => (
           <li
             key={c.id}
-            className="group flex items-start gap-2 rounded-[10px] border border-line px-3 py-2"
+            className="group flex items-start gap-2 rounded-lg border border-line px-3 py-2"
           >
             <span
               className={cn(
                 "mt-0.5 h-2 w-2 shrink-0 rounded-full",
-                tone === "success" ? "bg-lime" : "bg-amber",
+                tone === "success" ? "bg-pos" : "bg-warn",
               )}
             />
             <span className="min-w-0 flex-1 text-body text-text-secondary">{c.text}</span>
@@ -616,7 +616,7 @@ function SourceDocumentPanel({ proposal: p }: { proposal: Proposal }) {
       <Section title={t("detail.sourceTitle")} description={t("detail.sourceDescription")}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="rounded-[11px] bg-[color-mix(in_srgb,var(--blue)_13%,transparent)] p-2.5 text-blue-deep">
+            <span className="rounded-lg bg-brand-soft p-2.5 text-brand-deep">
               <FileText className="h-5 w-5" />
             </span>
             <div className="min-w-0">
@@ -701,7 +701,7 @@ function ProposalChat({ proposalId }: { proposalId: number }) {
       <Section
         title={
           <span className="flex items-center gap-2">
-            <Bot className="h-4 w-4 text-teal" />
+            <Bot className="h-4 w-4 text-brand" />
             {t("chat.title")}
           </span>
         }
@@ -736,9 +736,9 @@ function ProposalChat({ proposalId }: { proposalId: number }) {
                   <div
                     key={m.id}
                     className={cn(
-                      "max-w-[85%] rounded-[12px] px-3.5 py-2.5 text-body",
+                      "max-w-[85%] rounded-card px-3.5 py-2.5 text-body",
                       m.role === "user"
-                        ? "self-end bg-[color-mix(in_srgb,var(--blue)_12%,transparent)] text-text-primary"
+                        ? "self-end bg-brand-soft text-text-primary"
                         : "self-start border border-line bg-bg-recessed text-text-secondary",
                     )}
                   >
@@ -751,7 +751,7 @@ function ProposalChat({ proposalId }: { proposalId: number }) {
                 ))
               )}
               {send.isPending ? (
-                <div className="self-start rounded-[12px] border border-line bg-bg-recessed px-3.5 py-2.5 text-caption text-text-muted">
+                <div className="self-start rounded-card border border-line bg-bg-recessed px-3.5 py-2.5 text-caption text-text-muted">
                   {t("chat.thinking")}
                 </div>
               ) : null}

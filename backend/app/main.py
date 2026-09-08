@@ -27,9 +27,30 @@ def create_app() -> FastAPI:
     )
 
     @app.on_event("startup")
-    def _on_startup() -> None:
+    async def _on_startup() -> None:
         # Create all tables if they don't exist (no alembic this pass).
         Base.metadata.create_all(bind=engine)
+        # Warm up the shared headless Chromium for HTML->PDF. Best-effort: the
+        # app must still boot where Chromium isn't installed (tests/dev), so a
+        # failure here is swallowed and the first PDF render lazy-launches (or
+        # surfaces a clean PDFGenerationError -> 502). Skipped under pytest so
+        # the (function-scoped, context-managed) test client never spins up a
+        # browser per test — a real render in tests is mocked anyway.
+        import sys
+
+        if "pytest" not in sys.modules:
+            try:
+                from app.services.pdf import ensure_browser
+
+                await ensure_browser()
+            except Exception:  # noqa: BLE001 - never block boot on the PDF engine
+                pass
+
+    @app.on_event("shutdown")
+    async def _on_shutdown() -> None:
+        from app.services.pdf import close_browser
+
+        await close_browser()
 
     prefix = settings.API_V1_PREFIX
 
@@ -63,6 +84,12 @@ def create_app() -> FastAPI:
 
     app.include_router(ai_router.router, prefix=prefix)
 
+    # --- Antecedentes expediente (v6): consolidate -> register -> PDF --------
+    from app.api.routers import antecedentes
+
+    app.include_router(antecedentes.router, prefix=prefix)
+    app.include_router(antecedentes.schemas_router, prefix=prefix)
+
     # --- Inspections + documents (S3) + offerings ---------------------------
     from app.api.routers import documents, inspections, offerings
 
@@ -72,6 +99,35 @@ def create_app() -> FastAPI:
     app.include_router(offerings.router, prefix=prefix)
     # Unauthenticated share link — the offering's share_token IS the credential.
     app.include_router(offerings.public_router, prefix=prefix)
+
+    # --- Expedientes: case files, leads, notes/activity, packs --------------
+    from app.api.routers import case_files, leads, notes, packs
+
+    app.include_router(case_files.router, prefix=prefix)
+    app.include_router(leads.router, prefix=prefix)
+    app.include_router(notes.router, prefix=prefix)
+    app.include_router(notes.activities_router, prefix=prefix)
+    app.include_router(packs.router, prefix=prefix)
+    app.include_router(packs.packs_router, prefix=prefix)
+
+    # --- Groups & the navigator (v3): the folder above the expediente -------
+    from app.api.routers import account_groups, navigator
+
+    app.include_router(account_groups.router, prefix=prefix)
+    # A router of its own: a literal path on a collection that also owns
+    # ``/{id}`` is a route-order trap.
+    app.include_router(navigator.router, prefix=prefix)
+
+    # --- Post-sale: policies, endorsements, collections, claims -------------
+    from app.api.routers import claims, collections, endorsements, policies
+
+    app.include_router(policies.router, prefix=prefix)
+    app.include_router(policies.warranties_router, prefix=prefix)
+    # The policy's post-sale sub-funnel is a case-file view under /policies.
+    app.include_router(case_files.policy_cases_router, prefix=prefix)
+    app.include_router(endorsements.router, prefix=prefix)
+    app.include_router(collections.router, prefix=prefix)
+    app.include_router(claims.router, prefix=prefix)
 
     return app
 

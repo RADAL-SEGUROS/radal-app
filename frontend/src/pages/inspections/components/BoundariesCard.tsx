@@ -157,7 +157,7 @@ function BoundaryDialog({
           <label className="flex cursor-pointer items-center gap-2.5 text-body text-text-secondary">
             <input
               type="checkbox"
-              className="h-4 w-4 accent-[var(--teal)]"
+              className="h-4 w-4 accent-brand"
               checked={draft.is_aggravating}
               onChange={(e) => setDraft((p) => ({ ...p, is_aggravating: e.target.checked }))}
             />
@@ -294,7 +294,7 @@ export function BoundariesCard({
                     {boundary.orientation ?? "—"}
                   </TableCell>
                   <TableCell>{boundary.description ?? "—"}</TableCell>
-                  <TableCell className="font-mono text-mono">
+                  <TableCell className="tabular-nums">
                     {boundary.distance ?? "—"}
                   </TableCell>
                   <TableCell>

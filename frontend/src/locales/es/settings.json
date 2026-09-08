@@ -4,7 +4,8 @@
   "tabs": {
     "profile": "Perfil",
     "team": "Equipo y roles",
-    "documents": "Documentos"
+    "documents": "Documentos",
+    "schemas": "Líneas"
   },
   "noPermission": {
     "title": "Sin acceso",
@@ -139,6 +140,9 @@
     "broker_executive": "Ejecutivo de corredora",
     "broker_inspector": "Inspector",
     "broker_technician": "Técnico",
+    "broker_commercial": "Ejecutivo comercial",
+    "broker_collections": "Ejecutivo de cobranza",
+    "broker_claims": "Ejecutivo de siniestros",
     "insured_admin": "Administrador del asegurado",
     "insured_user": "Usuario del asegurado",
     "insurer_admin": "Administrador de aseguradora",
@@ -198,7 +202,8 @@
     "claims_history": "Historial de siniestros",
     "proposal": "Propuesta",
     "power_of_attorney": "Poder",
-    "other": "Otro"
+    "other": "Otro",
+    "archive_pack": "Expediente descargable"
   },
   "entities": {
     "broker": "Corredora",
@@ -215,7 +220,13 @@
     "inspection": "Inspección",
     "policy": "Póliza",
     "claim": "Siniestro",
-    "offering": "Oferta"
+    "offering": "Oferta",
+    "case_file": "Expediente",
+    "sales_lead": "Lead",
+    "endorsement": "Endoso",
+    "collection_plan": "Plan de cobranza",
+    "warranty": "Garantía",
+    "account_group": "Grupo"
   },
   "guard": {
     "noPermission": "No tienes permisos para esta acción",
@@ -225,5 +236,126 @@
   "error": {
     "generic": "No pudimos completar la acción",
     "load": "No pudimos cargar los datos"
+  },
+  "schemas": {
+    "title": "Esquemas por ramo",
+    "description": "Define qué antecedentes normaliza la IA para cada ramo.",
+    "add": "Nuevo esquema",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "empty": "Todavía no hay esquemas. Crea el primero para tu ramo principal.",
+    "globalScope": "Radal (global)",
+    "ownScope": "Tu corredora",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "readOnlyGlobal": "El esquema global de Radal no se edita; crea uno propio para tu corredora.",
+    "columns": {
+      "name": "Nombre",
+      "line": "Ramo",
+      "scope": "Origen",
+      "sections": "Secciones",
+      "status": "Estado",
+      "actions": ""
+    },
+    "form": {
+      "createTitle": "Nuevo esquema de ramo",
+      "editTitle": "Editar esquema",
+      "description": "Un esquema son secciones y campos. Las claves son identificadores en inglés; las etiquetas son lo que verás en pantalla.",
+      "name": "Nombre del esquema",
+      "namePlaceholder": "Incendio y Sismo — Antecedentes",
+      "line": "Ramo",
+      "linePlaceholder": "Elige un ramo",
+      "noLines": "La corredora todavía no tiene ramos activos.",
+      "isActive": "Activo",
+      "sections": "Secciones",
+      "addSection": "Agregar sección",
+      "removeSection": "Quitar sección",
+      "noSections": "Agrega al menos una sección.",
+      "sectionKey": "Clave",
+      "sectionLabel": "Etiqueta",
+      "fields": "Campos",
+      "addField": "Agregar campo",
+      "removeField": "Quitar campo",
+      "noFields": "Agrega al menos un campo.",
+      "fieldKey": "Clave",
+      "fieldLabel": "Etiqueta",
+      "fieldType": "Tipo",
+      "required": "Obligatorio",
+      "fieldDescription": "Ayuda",
+      "descriptionPlaceholder": "Instrucción para la IA y el usuario",
+      "options": "Opciones",
+      "optionsHint": "Separadas por coma",
+      "repeatable": "Repetible (tabla)",
+      "subfields": "Subcampos",
+      "addSubfield": "Agregar subcampo",
+      "keyHint": "Sólo letras, números y guion bajo.",
+      "save": "Guardar esquema",
+      "saving": "Guardando…",
+      "cancel": "Cancelar",
+      "needName": "Ponle un nombre al esquema.",
+      "needLine": "Elige un ramo.",
+      "needSection": "Agrega al menos una sección con un campo.",
+      "totals": "Fila de totales",
+      "totalsHint": "Suma las columnas de monto (UF) al pie de la tabla (matriz de ubicaciones × materias)."
+    },
+    "fieldTypes": {
+      "text": "Texto",
+      "number": "Número",
+      "integer": "Entero",
+      "boolean": "Sí / No",
+      "date": "Fecha",
+      "money_uf": "Monto (UF)",
+      "percent": "Porcentaje",
+      "select": "Selección",
+      "list": "Lista (tabla)",
+      "group": "Grupo"
+    },
+    "deleteTitle": "Eliminar esquema",
+    "deleteDescription": "Se eliminará el esquema. Los expedientes ya registrados no cambian.",
+    "created": "Esquema creado",
+    "updated": "Esquema actualizado",
+    "deleted": "Esquema eliminado"
+  },
+  "lines": {
+    "title": "Líneas",
+    "description": "Una línea es el ramo más los antecedentes que solicita. Define las tuyas o adopta una plantilla recomendada.",
+    "create": "Crear línea",
+    "empty": "Todavía no tienes líneas. Créala desde una plantilla o desde cero.",
+    "plantilla": "Plantilla",
+    "ownScope": "Tu corredora",
+    "usageLabel": "{{accounts}} cuentas · {{groups}} grupos",
+    "active": "Activa",
+    "inactive": "Inactiva",
+    "adopt": "Adoptar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "deleteInUse": "En uso por {{count}} cuenta(s); no se puede eliminar.",
+    "columns": {
+      "name": "Nombre",
+      "line": "Ramo",
+      "scope": "Origen",
+      "usage": "Uso",
+      "status": "Estado",
+      "actions": ""
+    },
+    "deleteTitle": "Eliminar línea",
+    "deleteDescription": "Se eliminará la línea. Los expedientes ya registrados no cambian.",
+    "created": "Línea creada",
+    "updated": "Línea actualizada",
+    "deleted": "Línea eliminada",
+    "form": {
+      "createTitle": "Nueva línea",
+      "editTitle": "Editar línea"
+    },
+    "picker": {
+      "title": "Crear línea",
+      "description": "Parte de una plantilla recomendada (podrás editarla) o crea la línea desde cero.",
+      "templatesTitle": "Plantillas recomendadas",
+      "useTemplate": "Usar plantilla",
+      "sectionsCount": "{{count}} secciones",
+      "noTemplates": "No hay plantillas disponibles para adoptar.",
+      "fromScratch": "Desde cero",
+      "fromScratchHint": "Crea una línea vacía y define sus secciones y campos."
+    }
   }
 }

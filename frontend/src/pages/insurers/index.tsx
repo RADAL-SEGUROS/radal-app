@@ -89,7 +89,7 @@ export default function InsurersListPage() {
         <FadeUp delay={0.04}>
           <Card className="p-5">
             <div className="mb-4 flex items-center gap-2">
-              <Star className="h-4 w-4 text-teal" />
+              <Star className="h-4 w-4 text-brand" />
               <h2 className="font-display text-h3 text-text-primary">
                 {t("recommendations.title")}
               </h2>
@@ -102,7 +102,7 @@ export default function InsurersListPage() {
                 <Link
                   key={rec.insurer.id}
                   to={`/insurers/${rec.insurer.id}`}
-                  className="flex flex-col gap-2 rounded-[12px] border border-line bg-bg-recessed p-3.5 no-underline transition-colors hover:border-teal"
+                  className="flex flex-col gap-2 rounded-card border border-line bg-bg-recessed p-3.5 no-underline transition-colors hover:border-brand-line"
                 >
                   <span className="truncate text-body font-medium text-text-primary">
                     {rec.insurer.trade_name || rec.insurer.legal_name}

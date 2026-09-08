@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RADAL · El Viaje del Riesgo</title>
+<style>
+  :root{
+    --bg:#0B1418; --panel:#101C22; --card:#13232B; --line:#22343C;
+    --white:#EEF2EF; --mut:#8CA3AB; --soft:#B8EBE5;
+    --cor:#14B8A6;
+    --ins:#E8A33D;
+    --cli:#8F9FF5;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--white);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;overflow-x:hidden}
+  header{padding:22px 28px 14px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between}
+  .brand{font-size:12px;font-weight:700;letter-spacing:5px;color:var(--cor)}
+  h1{font-size:24px;font-weight:700;margin-top:4px}
+  h1 span{color:var(--cor)}
+  .sub{font-size:12px;color:var(--mut);margin-top:3px;max-width:560px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .btn{background:var(--card);border:1px solid var(--line);color:var(--mut);font-size:12px;font-weight:600;
+       padding:7px 14px;border-radius:20px;cursor:pointer;transition:.15s;user-select:none}
+  .btn:hover{color:var(--white);border-color:var(--mut)}
+  .btn.active{color:#0B1418;font-weight:700}
+  .btn.f-cor.active{background:var(--cor);border-color:var(--cor)}
+  .btn.f-ins.active{background:var(--ins);border-color:var(--ins)}
+  .btn.f-cli.active{background:var(--cli);border-color:var(--cli)}
+  .btn.play{border-color:var(--cor);color:var(--cor)}
+  .btn.play.active{background:var(--cor);color:#0B1418}
+  .stepper{display:none;gap:6px;align-items:center}
+  .stepper.on{display:flex}
+  .stepper .btn{padding:7px 12px}
+  .stepnum{font-size:12px;color:var(--soft);font-weight:700;min-width:72px;text-align:center}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;padding:4px 28px 10px;font-size:11px;color:var(--mut);align-items:center}
+  .lg{display:flex;gap:6px;align-items:center}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .tagchip{border:1px solid var(--line);border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--mut)}
+  .mirror-mini{color:var(--soft);border:1px dashed var(--soft);border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700}
+  .board{overflow-x:auto;padding:0 12px}
+  .grid{position:relative;display:grid;grid-template-columns:150px repeat(19,minmax(96px,1fr));min-width:1980px}
+  .phase-h{padding:10px 6px 8px;border-bottom:1px solid var(--line);border-left:1px solid var(--line);text-align:center;transition:opacity .25s}
+  .phase-h .pnum{font-size:10px;color:var(--mut);letter-spacing:2px}
+  .phase-h .pname{font-size:12.5px;font-weight:700;color:var(--soft);margin-top:2px}
+  .corner{border-bottom:1px solid var(--line)}
+  .lane-label{position:sticky;left:0;z-index:5;background:var(--bg);display:flex;flex-direction:column;justify-content:center;
+              padding:0 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);cursor:pointer;transition:opacity .25s}
+  .lane-label .ln{font-size:12px;font-weight:800;letter-spacing:1.5px}
+  .lane-label .ls{font-size:10px;color:var(--mut);margin-top:3px;line-height:1.35}
+  .cell{min-height:150px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+        padding:12px 2px;transition:opacity .25s, background .25s}
+  .cell.pstart{border-left:1px dashed rgba(140,163,171,.25)}
+  .lane-ins .cell,.lane-ins.lane-label{background:rgba(232,163,61,.025)}
+  .lane-cli .cell,.lane-cli.lane-label{background:rgba(143,159,245,.03)}
+  .cell.phase-on{background:rgba(20,184,166,.06)}
+  .phase-h.phase-on .pname{color:var(--cor)}
+  .node{width:96px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;transition:opacity .25s, transform .15s;position:relative;z-index:3}
+  .node:hover{transform:translateY(-2px)}
+  .pin{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+       font-weight:800;font-size:14px;color:#0B1418;box-shadow:0 0 0 4px rgba(0,0,0,.25);transition:.2s}
+  .node.p-cor .pin{background:var(--cor)}
+  .node.p-ins .pin{background:var(--ins)}
+  .node.p-cli .pin{background:transparent;border:2px solid var(--cli);color:var(--cli);font-size:12px}
+  .node .nt{font-size:10.5px;font-weight:700;text-align:center;line-height:1.25}
+  .node .na{font-size:8.5px;letter-spacing:.5px;font-weight:700;border-radius:3px;padding:1px 5px;border:1px solid}
+  .node.p-cor .na{color:var(--cor);border-color:var(--cor)}
+  .node.p-ins .na{color:var(--ins);border-color:var(--ins)}
+  .node.p-cli .na{color:var(--cli);border-color:var(--cli)}
+  .node.sel .pin{box-shadow:0 0 0 4px rgba(184,235,229,.35),0 0 18px 2px rgba(184,235,229,.35)}
+  .node.hl .pin{box-shadow:0 0 0 4px rgba(184,235,229,.3),0 0 16px 2px rgba(184,235,229,.3)}
+  .ghost{opacity:.55}
+  .ghost .pin{background:transparent!important;border:2px dashed var(--mut);color:var(--mut)!important}
+  .ghost .nt{color:var(--mut);font-weight:600}
+  svg#wires{position:absolute;top:0;left:0;pointer-events:none;z-index:2}
+  path.wire{fill:none;stroke-width:1.6;stroke-dasharray:5 5;opacity:.6;pointer-events:stroke;cursor:pointer;transition:opacity .2s,stroke-width .2s}
+  path.wire:hover{opacity:1;stroke-width:2.4}
+  path.wire.sel{opacity:1;stroke-width:2.6;stroke-dasharray:none}
+  path.wire.int{opacity:.35;pointer-events:none;cursor:default;stroke-width:1.4}
+  path.wire.loop{stroke-dasharray:2 4;opacity:.45;stroke-width:1.5}
+  path.wire.loop:hover{opacity:1}
+  path.wire.loop.sel{opacity:1;stroke-width:2.2;stroke-dasharray:none}
+  .hlabel{position:absolute;z-index:4;transform:translate(-50%,-50%);background:var(--card);border:1px solid var(--line);
+          color:var(--mut);font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer;white-space:nowrap;transition:.15s}
+  .hlabel:hover{color:var(--white);border-color:var(--mut)}
+  .hlabel.sel{color:#0B1418;background:var(--soft);border-color:var(--soft)}
+  .hlabel.loop{border-style:dashed;color:var(--soft)}
+  .hlabel .mm{margin-left:4px;color:var(--cor);font-weight:800}
+  .hlabel.sel .mm{color:#0B1418}
+  .grid.focus-cor .lane-ins .cell,.grid.focus-cor .lane-cli .cell,.grid.focus-cor .lane-label.lane-ins,.grid.focus-cor .lane-label.lane-cli{opacity:.22}
+  .grid.focus-ins .lane-cor .cell,.grid.focus-ins .lane-cli .cell,.grid.focus-ins .lane-label.lane-cor,.grid.focus-ins .lane-label.lane-cli{opacity:.22}
+  .grid.focus-cli .lane-cor .cell,.grid.focus-cli .lane-ins .cell,.grid.focus-cli .lane-label.lane-cor,.grid.focus-cli .lane-label.lane-ins{opacity:.22}
+  .grid.phase-mode .cell:not(.phase-on),.grid.phase-mode .phase-h:not(.phase-on){opacity:.2}
+  .grid.focus-cor path.wire,.grid.focus-ins path.wire,.grid.focus-cli path.wire{opacity:.12}
+  .grid.phase-mode path.wire{opacity:.08}
+  .grid.phase-mode path.wire.phase-on{opacity:.9}
+  .grid.phase-mode path.wire.int.phase-on{opacity:.45}
+  .grid.phase-mode .hlabel{opacity:.15}
+  .grid.phase-mode .hlabel.phase-on{opacity:1}
+  .panel{margin:14px 28px 10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+         padding:16px 20px;min-height:96px;display:flex;gap:26px;align-items:flex-start}
+  .panel .pl{flex:0 0 300px}
+  .panel .kick{font-size:10px;font-weight:800;letter-spacing:2px;margin-bottom:4px}
+  .panel .tt{font-size:16px;font-weight:800}
+  .panel .aa{font-size:11px;color:var(--mut);margin-top:2px}
+  .panel .body{flex:1;font-size:12.5px;color:#C9D8D5;line-height:1.55}
+  .panel .io{flex:0 0 330px;font-size:11.5px;line-height:1.5}
+  .panel .io b{color:var(--soft)}
+  .panel .io div{margin-bottom:5px}
+  .mirror-badge{display:inline-block;margin-top:8px;border:1px dashed var(--soft);color:var(--soft);border-radius:5px;padding:2px 9px;font-size:10px;font-weight:800;letter-spacing:1px}
+  footer{padding:6px 28px 22px;font-size:10.5px;color:var(--mut);line-height:1.6;max-width:1100px}
+  footer b{color:var(--soft)}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="brand">R A D A L</div>
+    <h1>El Viaje del <span>Riesgo</span></h1>
+    <div class="sub">Tres partes, una plataforma, un solo recorrido. La línea guía muestra por dónde viaja la información, paso a paso y en orden.</div>
+  </div>
+  <div class="controls">
+    <button class="btn f-cor" data-focus="cor">Corredor</button>
+    <button class="btn f-ins" data-focus="ins">Aseguradora</button>
+    <button class="btn f-cli" data-focus="cli">Asegurado</button>
+    <button class="btn" id="btnAll">Todos</button>
+    <button class="btn play" id="btnPlay">▶ Seguir el riesgo</button>
+    <div class="stepper" id="stepper">
+      <button class="btn" id="stPrev">◀</button>
+      <div class="stepnum" id="stNum">Fase 1 / 7</div>
+      <button class="btn" id="stNext">▶</button>
+      <button class="btn" id="stExit">✕ Salir</button>
+    </div>
+  </div>
+</header>
+
+<div class="legend">
+  <div class="lg"><div class="dot" style="background:var(--ins)"></div>Aseguradora</div>
+  <div class="lg"><div class="dot" style="background:var(--cor)"></div>Corredor</div>
+  <div class="lg"><div class="dot" style="border:2px solid var(--cli);width:8px;height:8px"></div>Asegurado (rol pasivo)</div>
+  <div style="width:14px"></div>
+  <div class="lg"><span class="tagchip">ENVÍA</span></div>
+  <div class="lg"><span class="tagchip">PROCESA</span></div>
+  <div class="lg"><span class="tagchip">RECIBE</span></div>
+  <div class="lg"><span class="tagchip">VE</span></div>
+  <div class="lg"><span class="tagchip">DECIDE</span></div>
+  <div class="lg"><span class="mirror-mini">≡ ESPEJO</span> traspaso estructurado y versionado</div>
+  <div class="lg"><span class="mirror-mini">⟲</span> idas y vueltas — cada versión queda registrada</div>
+</div>
+
+<div class="board"><div class="grid" id="grid"></div></div>
+
+<div class="panel" id="panel"></div>
+
+<footer>
+  <b>Cómo está ordenado:</b> cada hito ocupa su propia posición cronológica de izquierda a derecha — nada ocurre "en paralelo desfasado". La línea guía punteada es el recorrido real de la información: cuando cruza de un carril a otro es un traspaso entre partes (clickeable); cuando avanza dentro del mismo carril es trabajo interno de esa parte. ·
+  La decisión del asegurado viaja siempre vía corredor. ·
+  Las flechas ⟲ son las idas y vueltas reales del proceso (información parcial, aclaraciones, negociación): ocurren dentro de la plataforma y cada versión queda registrada con su hash. ·
+  El asegurado tiene 5 touchpoints contra 7 hitos de cada operador: el diseño busca un solo input; cuando se le necesita de nuevo, interactúa a demanda — siempre trazado.
+</footer>
+
+<script>
+const PHASES = [
+  {id:1, name:"Originación",             s1:1,  s2:3},
+  {id:2, name:"Estructuración",          s1:4,  s2:4},
+  {id:3, name:"Envío a Mercado",         s1:5,  s2:6},
+  {id:4, name:"Suscripción y Cotización",s1:7,  s2:8},
+  {id:5, name:"Comparación y Decisión",  s1:9,  s2:12},
+  {id:6, name:"Ratificación y Propuesta",s1:13, s2:15},
+  {id:7, name:"Emisión y Cierre",        s1:16, s2:19},
+];
+const NSLOTS = 19;
+const phaseOfSlot = sl => PHASES.find(p=>sl>=p.s1 && sl<=p.s2).id;
+
+const LANES = [
+  {id:"ins", name:"ASEGURADORA", color:"var(--ins)", sub:"Recepción · Suscripción · Emisión"},
+  {id:"cor", name:"CORREDOR",    color:"var(--cor)", sub:"Orquesta el viaje del riesgo"},
+  {id:"cli", name:"ASEGURADO",   color:"var(--cli)", sub:"Envía, ve y decide — interactúa solo cuando se le necesita"},
+];
+
+const NODES = [
+  {id:"c1", lane:"cor", slot:1,  num:"1", title:"Agente Comercial", tag:"PROCESA", area:"Comercial",
+   desc:"Antes de la reunión con el cliente, el Agente Radal prepara al corredor: qué pedir, qué preguntar y qué esperar según el rubro del prospecto. Partner estratégico en la captación desde el minuto 1. Abre el expediente.",
+   rec:"Perfil del prospecto", ent:"Pauta de captación: checklist de antecedentes y preguntas clave"},
+  {id:"s1", lane:"cli", slot:2,  num:"↑", title:"Entrega antecedentes", tag:"ENVÍA", area:"",
+   desc:"Guiado por el checklist del corredor, entrega la información de sus bienes y operación. En la práctica suele llegar parcial: el corredor pregunta y aclara en idas y vueltas acotadas hasta cerrar el levantamiento.",
+   rec:"Checklist de qué información entregar", ent:"Antecedentes del riesgo"},
+  {id:"c2", lane:"cor", slot:3,  num:"2", title:"Lector Documental", tag:"PROCESA", area:"Comercial → Técnica",
+   desc:"Analiza y prioriza automáticamente los antecedentes del prospecto; detecta qué falta y alimenta las solicitudes pendientes al asegurado.",
+   rec:"Documentos del expediente", ent:"Antecedentes estructurados y priorizados"},
+  {id:"c3", lane:"cor", slot:4,  num:"3", title:"Pre-Suscripción", tag:"PROCESA", area:"Técnica / Riesgo",
+   desc:"Analiza, modela y propone la estructura de cobertura: nace la matriz T&C, el objeto de datos que viajará todo el ciclo.",
+   rec:"Antecedentes estructurados", ent:"Estructura de cobertura propuesta (matriz T&C)"},
+  {id:"c4", lane:"cor", slot:5,  num:"4", title:"Bases Técnicas", tag:"ENVÍA", area:"Técnica / Riesgo",
+   desc:"Genera las bases técnicas y las envía a las aseguradoras seleccionadas, en campos estructurados.",
+   rec:"Matriz T&C propuesta", ent:"Expediente técnico + bases estructuradas"},
+  {id:"a1", lane:"ins", slot:6,  num:"1", title:"Recepción Calificada", tag:"RECIBE", area:"Recepción / Ejecutivo",
+   desc:"La oportunidad llega pre-filtrada contra apetito y lineamientos; se segmenta y enruta al UW correcto.",
+   rec:"Expediente técnico estructurado", ent:"Caso enrutado al UW"},
+  {id:"a2", lane:"ins", slot:7,  num:"2", title:"Suscripción Asistida", tag:"PROCESA", area:"Suscripción / UW",
+   desc:"El UW revalida, modela y define precio sobre T&C pre-armados según sus lineamientos; solo toca las excepciones.",
+   rec:"Matriz T&C pre-poblada", ent:"T&C definidos + precio"},
+  {id:"cw", lane:"cor", slot:7,  num:"…", title:"En espera", tag:"", area:"", ghost:true,
+   desc:"El corredor no interviene: recibe las cotizaciones a medida que las compañías las cargan en plataforma. Sin llamadas ni correos.",
+   rec:"Cotizaciones versionadas", ent:""},
+  {id:"a3", lane:"ins", slot:8,  num:"3", title:"Carga de Cotización", tag:"ENVÍA", area:"Suscripción / UW",
+   desc:"Carga la cotización formal en formato estructurado y comparable, con T&C versionados.",
+   rec:"", ent:"Cotización versionada (v1, v2…)"},
+  {id:"c5", lane:"cor", slot:9,  num:"5", title:"Comparador Cotizaciones", tag:"PROCESA", area:"Comercial",
+   desc:"Compara las ofertas campo a campo y presenta alternativas claras al asegurado. Aquí también se negocian ajustes con cada compañía: cada nueva versión queda registrada con su hash.",
+   rec:"Cotizaciones versionadas", ent:"Cuadro comparativo de alternativas"},
+  {id:"s2", lane:"cli", slot:10, num:"👁", title:"Ve alternativas", tag:"VE", area:"",
+   desc:"Recibe el cuadro comparativo con las alternativas de cotización, en lenguaje claro. No ve el modelado interno ni el pricing del UW.",
+   rec:"Alternativas comparadas", ent:""},
+  {id:"s3", lane:"cli", slot:11, num:"✓", title:"Decide", tag:"DECIDE", area:"",
+   desc:"Orden en Firme o Declinación, con motivo. Es su única decisión en el flujo — y genera la data de mercado más valiosa del ciclo.",
+   rec:"", ent:"Orden en Firme / Declinación + motivo"},
+  {id:"a4", lane:"ins", slot:12, num:"4", title:"Resultado y Feedback", tag:"RECIBE", area:"Recepción / Ejecutivo",
+   desc:"Recibe la Orden en Firme o la Declinación con motivos estructurados. Gane o pierda, captura data real de mercado.",
+   rec:"Decisión + motivo + versión T&C", ent:""},
+  {id:"a5", lane:"ins", slot:13, num:"5", title:"Ratificación de T&C", tag:"DECIDE", area:"Suscripción / UW",
+   desc:"Confirma que bajo los últimos T&C cotizados (versión exacta, con hash) hay acuerdo para emitir. El candado del espejo.",
+   rec:"Orden en Firme", ent:"Ratificación vinculante (hash)"},
+  {id:"c6", lane:"cor", slot:14, num:"6", title:"Emisión de Propuesta", tag:"ENVÍA", area:"Operaciones",
+   desc:"Con la ratificación de la compañía, genera la propuesta formal desde los T&C ratificados — nunca re-tipeada.",
+   rec:"Ratificación con hash", ent:"Propuesta formal (mismo hash)"},
+  {id:"s4", lane:"cli", slot:15, num:"👁", title:"Ve propuesta", tag:"VE", area:"",
+   desc:"Recibe la propuesta formal, espejo exacto de lo cotizado y ratificado.",
+   rec:"Propuesta formal", ent:""},
+  {id:"a6", lane:"ins", slot:16, num:"6", title:"Emisión Espejo", tag:"ENVÍA", area:"Operaciones / Emisión",
+   desc:"Emite la póliza y la carga con pre-verificación automática contra los T&C ratificados.",
+   rec:"Propuesta formal", ent:"Póliza emitida"},
+  {id:"c7", lane:"cor", slot:17, num:"7", title:"Validación Espejo", tag:"PROCESA", area:"Operaciones",
+   desc:"Coteja la póliza emitida contra lo pactado, campo a campo, antes de entregarla al asegurado.",
+   rec:"Póliza emitida", ent:"Póliza validada espejo"},
+  {id:"s5", lane:"cli", slot:18, num:"👁", title:"Recibe póliza", tag:"VE", area:"",
+   desc:"Recibe la póliza final, ya validada espejo por el corredor: póliza = propuesta = T&C ratificados.",
+   rec:"Póliza final validada", ent:""},
+  {id:"a7", lane:"ins", slot:19, num:"7", title:"Cierre y Cartera", tag:"PROCESA", area:"Operaciones + Ejecutivo",
+   desc:"La validación espejo cierra el expediente; la data del ciclo alimenta pricing, apetito y desarrollo de cartera.",
+   rec:"Data del ciclo completo", ent:""},
+];
+
+const HANDOFFS = [
+  {id:"h0", from:"c1", to:"s1", short:"Checklist", mirror:false,
+   data:"Pauta de levantamiento: qué documentos, datos y respuestas necesita el corredor según el rubro del prospecto.",
+   format:"Checklist estructurado generado por el Agente Radal antes de la primera reunión."},
+  {id:"h1", from:"s1", to:"c2", short:"Antecedentes", mirror:false,
+   data:"Antecedentes del riesgo: bienes, operación, documentación.",
+   format:"Documentos y datos del asegurado que entran directo al Lector Documental como expediente digital."},
+  {id:"h2", from:"c4", to:"a1", short:"Bases técnicas", mirror:true,
+   data:"Expediente técnico + bases de cotización, pre-filtrado por apetito.",
+   format:"Campos estructurados y normalizados (matriz T&C) — no un PDF suelto. Cada compañía recibe lo mismo, comparable."},
+  {id:"h3", from:"a3", to:"c5", short:"Cotización", mirror:true,
+   data:"Cotización formal: prima, tasa y T&C completos.",
+   format:"Mismo esquema de la matriz T&C, versionada (v1, v2…). Comparable campo a campo con las demás ofertas."},
+  {id:"h4", from:"c5", to:"s2", short:"Alternativas", mirror:false,
+   data:"Cuadro comparativo de las alternativas de cotización.",
+   format:"Comparación campo a campo traducida a lenguaje claro para decidir informado."},
+  {id:"h5", from:"s3", to:"a4", short:"Decisión", mirror:true,
+   data:"Orden en Firme o Declinación + motivo + versión exacta de T&C escogida.",
+   format:"Decisión estructurada que viaja vía corredor. La aseguradora recibe data real y fidedigna de por qué ganó o perdió."},
+  {id:"h6", from:"a5", to:"c6", short:"Ratificación", mirror:true,
+   data:"Confirmación vinculante: bajo los T&C versión X (hash) hay acuerdo para emitir.",
+   format:"Acto formal en plataforma sobre una versión exacta. Después de esto, nada cambia sin re-ratificar."},
+  {id:"h7", from:"c6", to:"a6", short:"Propuesta", mirror:true,
+   data:"Propuesta formal para emisión de póliza.",
+   format:"Generada desde los T&C ratificados — mismo hash, nunca re-tipeada."},
+  {id:"h8", from:"c6", to:"s4", short:"Propuesta", mirror:false,
+   data:"Propuesta formal para el asegurado.",
+   format:"Documento formal, espejo de lo cotizado y ratificado."},
+  {id:"h9", from:"a6", to:"c7", short:"Póliza", mirror:true,
+   data:"Póliza emitida, cargada en plataforma.",
+   format:"Pre-verificada automáticamente contra los T&C ratificados antes de cargarse."},
+  {id:"h10", from:"c7", to:"s5", short:"Póliza", mirror:true,
+   data:"Póliza final entregada al asegurado.",
+   format:"Solo se entrega tras la validación espejo: póliza = propuesta = T&C ratificados."},
+];
+
+const LOOPS = [
+  {id:"l1", a:"s1", b:"c2", short:"Q&A aclaratorias",
+   data:"El asegurado rara vez tiene todo a la primera: envía información parcial, el Lector detecta qué falta y el corredor pide solo lo pendiente, con preguntas específicas. Idas y vueltas hasta cerrar el checklist ítem por ítem.",
+   format:"Solicitudes acotadas y trazadas dentro del expediente — nada de correos sueltos ni WhatsApp. Queda registro de qué se pidió, cuándo y qué llegó."},
+  {id:"l2", a:"a3", b:"c5", short:"Negociación v1…vN",
+   data:"Ping-pong de negociación: el corredor pide ajustes (deducible, sublímite, cláusula, precio), la compañía responde con una nueva versión de cotización, y así hasta cerrar.",
+   format:"Cada ida y vuelta genera una versión con su hash registrado (v1, v2… vN). La versión final es la que se compara, se escoge y se ratifica — trazabilidad completa de la negociación."},
+];
+
+const SEQUENCE = [
+  {from:"c1", to:"s1", h:"h0"},
+  {from:"s1", to:"c2", h:"h1"},
+  {from:"c2", to:"c3"},
+  {from:"c3", to:"c4"},
+  {from:"c4", to:"a1", h:"h2"},
+  {from:"a1", to:"a2"},
+  {from:"a2", to:"a3"},
+  {from:"a3", to:"c5", h:"h3"},
+  {from:"c5", to:"s2", h:"h4"},
+  {from:"s2", to:"s3"},
+  {from:"s3", to:"a4", h:"h5"},
+  {from:"a4", to:"a5"},
+  {from:"a5", to:"c6", h:"h6"},
+  {from:"c6", to:"s4", h:"h8"},
+  {from:"c6", to:"a6", h:"h7"},
+  {from:"a6", to:"c7", h:"h9"},
+  {from:"c7", to:"s5", h:"h10"},
+  {from:"c7", to:"a7"},
+];
+
+const STORY = {
+  1:"El Agente Comercial prepara al corredor antes de la primera reunión: qué pedir, qué preguntar y qué esperar según el rubro — partner estratégico en la captación desde el minuto 1. Con esa pauta, el asegurado entrega sus antecedentes; en la práctica suelen llegar parciales, y el corredor pregunta y aclara en idas y vueltas acotadas hasta cerrar el checklist. El Lector Documental estructura y prioriza todo automáticamente. La aseguradora aún no participa.",
+  2:"El corredor modela el riesgo y propone la estructura de cobertura: nace la matriz T&C, el objeto de datos que viajará todo el ciclo. Trabajo técnico interno.",
+  3:"Las bases técnicas viajan estructuradas a las aseguradoras. Cada compañía las recibe pre-filtradas contra su apetito y enrutadas al UW correcto.",
+  4:"Turno de la aseguradora: el UW revalida sobre T&C pre-armados — solo toca excepciones — y carga su cotización versionada. El corredor solo espera: sin llamadas ni correos.",
+  5:"La cotización llega al comparador y parte la negociación: el corredor pide ajustes, la compañía responde con una nueva versión — cada una con su hash registrado (v1…vN). Con las versiones finales, el corredor compara campo a campo y presenta alternativas. El asegurado decide: Orden en Firme o Declinación, y el motivo llega estructurado a cada compañía — data real de mercado.",
+  6:"La compañía adjudicada ratifica los T&C exactos (versión con hash). Con eso el corredor genera la propuesta: mismo objeto de datos, nunca re-tipeado. El asegurado la recibe formal y viaja a la compañía para emisión.",
+  7:"La compañía emite con pre-verificación; el corredor valida que la póliza sea espejo de lo pactado y recién ahí la entrega. La data del ciclo alimenta pricing, apetito y cartera.",
+};
+
+const grid = document.getElementById("grid");
+const state = { sel:null, selType:null, focus:null, phase:0 };
+
+function build(){
+  grid.innerHTML = "";
+  const corner = document.createElement("div"); corner.className="corner"; grid.appendChild(corner);
+  PHASES.forEach(p=>{
+    const d=document.createElement("div"); d.className="phase-h"; d.dataset.phase=p.id;
+    d.style.gridColumn = (p.s1+1) + " / " + (p.s2+2);
+    d.innerHTML='<div class="pnum">FASE '+p.id+'</div><div class="pname">'+p.name+'</div>';
+    grid.appendChild(d);
+  });
+  LANES.forEach(l=>{
+    const lbl=document.createElement("div");
+    lbl.className="lane-label lane-"+l.id;
+    lbl.innerHTML='<div class="ln" style="color:'+l.color+'">'+l.name+'</div><div class="ls">'+l.sub+'</div>';
+    lbl.onclick=()=>toggleFocus(l.id);
+    grid.appendChild(lbl);
+    for(let sl=1; sl<=NSLOTS; sl++){
+      const c=document.createElement("div");
+      const ph=phaseOfSlot(sl);
+      c.className="cell lane-"+l.id+(PHASES.some(p=>p.s1===sl)?" pstart":"");
+      c.dataset.phase=ph; c.id="cell-"+l.id+"-"+sl;
+      grid.appendChild(c);
+    }
+  });
+  NODES.forEach(n=>{
+    const el=document.createElement("div");
+    el.className="node p-"+n.lane+(n.ghost?" ghost":"");
+    el.id="n-"+n.id;
+    el.innerHTML='<div class="pin">'+n.num+'</div><div class="nt">'+n.title+'</div>'+(n.tag?'<div class="na">'+n.tag+'</div>':'');
+    el.onclick=(e)=>{e.stopPropagation();selectNode(n.id);};
+    document.getElementById("cell-"+n.lane+"-"+n.slot).appendChild(el);
+  });
+  const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  svg.id="wires"; grid.appendChild(svg);
+  requestAnimationFrame(drawWires);
+}
+
+function laneColor(id){return getComputedStyle(document.documentElement).getPropertyValue("--"+id).trim();}
+
+function drawWires(){
+  const svg=document.getElementById("wires");
+  grid.querySelectorAll(".hlabel").forEach(e=>e.remove());
+  const W=grid.scrollWidth,H=grid.scrollHeight;
+  svg.setAttribute("width",W);svg.setAttribute("height",H);
+  svg.style.width=W+"px";svg.style.height=H+"px";
+  svg.innerHTML="";
+  const gr=grid.getBoundingClientRect();
+  const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");
+  ["cor","ins","cli"].forEach(k=>{
+    defs.innerHTML+='<marker id="ar-'+k+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="'+laneColor(k)+'"/></marker>';
+  });
+  defs.innerHTML+='<marker id="ar-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#B8EBE5"/></marker>';
+  svg.appendChild(defs);
+
+  const center=(id)=>{
+    const el=document.getElementById("n-"+id);
+    if(!el) return null;
+    const r=el.querySelector(".pin").getBoundingClientRect();
+    return {x:r.left-gr.left+r.width/2, y:r.top-gr.top+r.height/2};
+  };
+
+  SEQUENCE.forEach(seg=>{
+    const A=center(seg.from), B=center(seg.to);
+    if(!A||!B) return;
+    const fromNode=NODES.find(n=>n.id===seg.from);
+    const toNode=NODES.find(n=>n.id===seg.to);
+    const col=laneColor(fromNode.lane);
+    const h = seg.h ? HANDOFFS.find(x=>x.id===seg.h) : null;
+    const phase = phaseOfSlot(toNode.slot);
+
+    const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+    if(fromNode.lane===toNode.lane){
+      path.setAttribute("d","M "+(A.x+20)+" "+A.y+" L "+(B.x-24)+" "+B.y);
+      path.classList.add("wire","int");
+    }else{
+      const dx=B.x-A.x;
+      path.setAttribute("d","M "+A.x+" "+A.y+" C "+(A.x+dx*0.2)+" "+(A.y+(B.y-A.y)*0.55)+", "+(B.x-dx*0.2)+" "+(A.y+(B.y-A.y)*0.45)+", "+B.x+" "+B.y);
+      path.classList.add("wire");
+    }
+    path.setAttribute("stroke",col);
+    path.setAttribute("marker-end","url(#ar-"+fromNode.lane+")");
+    path.dataset.phase=phase;
+    if(h){
+      path.dataset.h=h.id;
+      path.addEventListener("click",e=>{e.stopPropagation();selectHandoff(h.id);});
+    }
+    svg.appendChild(path);
+
+    if(h){
+      const lb=document.createElement("div");
+      lb.className="hlabel"; lb.dataset.h=h.id; lb.dataset.phase=phase;
+      lb.style.left=((A.x+B.x)/2)+"px"; lb.style.top=((A.y+B.y)/2)+"px";
+      lb.innerHTML=h.short+(h.mirror?'<span class="mm">≡</span>':'');
+      lb.title=h.mirror?"Traspaso espejo (estructurado y versionado)":"Traspaso de información";
+      lb.onclick=(e)=>{e.stopPropagation();selectHandoff(h.id);};
+      grid.appendChild(lb);
+    }
+  });
+
+  LOOPS.forEach(L=>{
+    const A=center(L.a), B=center(L.b);
+    if(!A||!B) return;
+    const nb=NODES.find(n=>n.id===L.b);
+    const phase=phaseOfSlot(nb.slot);
+    const mxx=Math.max(A.x,B.x)+58;
+    const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+    path.setAttribute("d","M "+(A.x+14)+" "+A.y+" C "+mxx+" "+A.y+", "+mxx+" "+B.y+", "+(B.x+14)+" "+B.y);
+    path.classList.add("wire","loop");
+    path.setAttribute("stroke","#B8EBE5");
+    path.setAttribute("marker-end","url(#ar-soft)");
+    path.setAttribute("marker-start","url(#ar-soft)");
+    path.dataset.loop=L.id; path.dataset.phase=phase;
+    path.addEventListener("click",e=>{e.stopPropagation();selectLoop(L.id);});
+    svg.appendChild(path);
+    const lb=document.createElement("div");
+    lb.className="hlabel loop"; lb.dataset.loop=L.id; lb.dataset.phase=phase;
+    lb.style.left=(mxx-10)+"px"; lb.style.top=((A.y+B.y)/2)+"px";
+    lb.innerHTML="⟲ "+L.short;
+    lb.title="Idas y vueltas — cada versión queda registrada";
+    lb.onclick=(e)=>{e.stopPropagation();selectLoop(L.id);};
+    grid.appendChild(lb);
+  });
+  applyStateClasses();
+}
+
+const panel=document.getElementById("panel");
+
+function clearSel(){
+  state.sel=null;state.selType=null;
+  document.querySelectorAll(".node.sel,.node.hl").forEach(e=>e.classList.remove("sel","hl"));
+  document.querySelectorAll("path.wire.sel").forEach(e=>e.classList.remove("sel"));
+  document.querySelectorAll(".hlabel.sel").forEach(e=>e.classList.remove("sel"));
+}
+
+function selectNode(id){
+  clearSel(); state.sel=id; state.selType="node";
+  document.getElementById("n-"+id).classList.add("sel");
+  const n=NODES.find(x=>x.id===id);
+  const lane=LANES.find(l=>l.id===n.lane);
+  panel.innerHTML=
+    '<div class="pl">'+
+      '<div class="kick" style="color:'+laneColor(n.lane)+'">'+lane.name+(n.tag?" · "+n.tag:"")+'</div>'+
+      '<div class="tt">'+(n.ghost?"":n.num+". ")+n.title+'</div>'+
+      (n.area?'<div class="aa">Área: '+n.area+'</div>':'')+
+    '</div>'+
+    '<div class="body">'+n.desc+'</div>'+
+    '<div class="io">'+
+      (n.rec?'<div><b>Recibe:</b> '+n.rec+'</div>':'')+
+      (n.ent?'<div><b>Entrega:</b> '+n.ent+'</div>':'')+
+    '</div>';
+}
+
+function selectHandoff(id){
+  clearSel(); state.sel=id; state.selType="handoff";
+  const h=HANDOFFS.find(x=>x.id===id);
+  const pth=document.querySelector('path.wire[data-h="'+id+'"]'); if(pth) pth.classList.add("sel");
+  const lbl=document.querySelector('.hlabel[data-h="'+id+'"]'); if(lbl) lbl.classList.add("sel");
+  document.getElementById("n-"+h.from).classList.add("hl");
+  document.getElementById("n-"+h.to).classList.add("hl");
+  const a=NODES.find(n=>n.id===h.from), b=NODES.find(n=>n.id===h.to);
+  const la=LANES.find(l=>l.id===a.lane), lb2=LANES.find(l=>l.id===b.lane);
+  panel.innerHTML=
+    '<div class="pl">'+
+      '<div class="kick" style="color:var(--soft)">TRASPASO · FASE '+phaseOfSlot(b.slot)+'</div>'+
+      '<div class="tt" style="font-size:14px;line-height:1.4">'+
+        '<span style="color:'+laneColor(a.lane)+'">'+a.title+'</span> → '+
+        '<span style="color:'+laneColor(b.lane)+'">'+b.title+'</span></div>'+
+      '<div class="aa">'+la.name+' → '+lb2.name+'</div>'+
+      (h.mirror?'<div class="mirror-badge">≡ ESPEJO</div>':'')+
+    '</div>'+
+    '<div class="body"><b style="color:var(--soft)">Qué viaja:</b> '+h.data+'</div>'+
+    '<div class="io"><div><b>Formato:</b> '+h.format+'</div></div>';
+}
+
+function selectLoop(id){
+  clearSel(); state.sel=id; state.selType="loop";
+  const L=LOOPS.find(x=>x.id===id);
+  const pth=document.querySelector('path.wire[data-loop="'+id+'"]'); if(pth) pth.classList.add("sel");
+  const lbl=document.querySelector('.hlabel[data-loop="'+id+'"]'); if(lbl) lbl.classList.add("sel");
+  document.getElementById("n-"+L.a).classList.add("hl");
+  document.getElementById("n-"+L.b).classList.add("hl");
+  const a=NODES.find(n=>n.id===L.a), b=NODES.find(n=>n.id===L.b);
+  panel.innerHTML=
+    '<div class="pl">'+
+      '<div class="kick" style="color:var(--soft)">⟲ IDAS Y VUELTAS</div>'+
+      '<div class="tt" style="font-size:14px;line-height:1.4">'+
+        '<span style="color:'+laneColor(a.lane)+'">'+a.title+'</span> ⇄ '+
+        '<span style="color:'+laneColor(b.lane)+'">'+b.title+'</span></div>'+
+      '<div class="aa">Iteración dentro de la plataforma, registrada</div>'+
+    '</div>'+
+    '<div class="body"><b style="color:var(--soft)">Qué pasa:</b> '+L.data+'</div>'+
+    '<div class="io"><div><b>Trazabilidad:</b> '+L.format+'</div></div>';
+}
+
+function toggleFocus(id){
+  state.focus = (state.focus===id)?null:id;
+  exitPhaseMode(false);
+  applyStateClasses(); syncButtons();
+  if(state.focus){
+    const l=LANES.find(x=>x.id===id);
+    const txt = id==="cli"
+      ? "Mira lo vacío de este carril: el asegurado envía antecedentes al inicio, ve documentación formal y toma una única decisión. Si se le necesita de nuevo — información pendiente, una aclaración — interactúa a demanda, siempre dentro de la plataforma. Todo lo demás ocurre sin él, con trazabilidad total para él."
+      : id==="cor"
+      ? "El corredor orquesta el viaje: origina, estructura, envía a mercado, compara, propone y valida espejo. Es el único que interactúa con las otras dos partes."
+      : "La aseguradora recibe filtrado, suscribe asistida, cotiza estructurado, ratifica con hash y emite espejo. Toca lo mínimo, captura data de mercado en cada etapa.";
+    panel.innerHTML='<div class="pl"><div class="kick" style="color:'+laneColor(id)+'">FOCO</div>'+
+      '<div class="tt">'+l.name+'</div><div class="aa">'+l.sub+'</div></div>'+
+      '<div class="body">'+txt+'</div>';
+  } else showIntro();
+}
+
+function applyStateClasses(){
+  grid.classList.remove("focus-cor","focus-ins","focus-cli","phase-mode");
+  if(state.focus) grid.classList.add("focus-"+state.focus);
+  if(state.phase>0){
+    grid.classList.add("phase-mode");
+    grid.querySelectorAll("[data-phase]").forEach(el=>{
+      el.classList.toggle("phase-on", +el.dataset.phase===state.phase);
+    });
+  } else {
+    grid.querySelectorAll(".phase-on").forEach(el=>el.classList.remove("phase-on"));
+  }
+}
+
+function syncButtons(){
+  document.querySelectorAll("[data-focus]").forEach(b=>{
+    b.classList.toggle("active", state.focus===b.dataset.focus);
+  });
+}
+
+const stepper=document.getElementById("stepper"), btnPlay=document.getElementById("btnPlay");
+function enterPhaseMode(){
+  state.focus=null; syncButtons();
+  state.phase=1; stepper.classList.add("on"); btnPlay.classList.add("active");
+  updatePhase();
+}
+function exitPhaseMode(update){
+  if(update===undefined) update=true;
+  state.phase=0; stepper.classList.remove("on"); btnPlay.classList.remove("active");
+  if(update){applyStateClasses(); showIntro();}
+}
+function updatePhase(){
+  document.getElementById("stNum").textContent="Fase "+state.phase+" / 7";
+  applyStateClasses(); clearSel();
+  const p=PHASES.find(x=>x.id===state.phase);
+  panel.innerHTML='<div class="pl"><div class="kick" style="color:var(--cor)">SEGUIR EL RIESGO · FASE '+p.id+'</div>'+
+    '<div class="tt">'+p.name+'</div></div>'+
+    '<div class="body">'+STORY[p.id]+'</div>';
+  const ph=document.querySelector('.phase-h[data-phase="'+state.phase+'"]');
+  if(ph) ph.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"});
+}
+btnPlay.onclick=()=>{ state.phase>0 ? exitPhaseMode() : enterPhaseMode(); };
+document.getElementById("stNext").onclick=()=>{ if(state.phase<7){state.phase++;updatePhase();} };
+document.getElementById("stPrev").onclick=()=>{ if(state.phase>1){state.phase--;updatePhase();} };
+document.getElementById("stExit").onclick=()=>exitPhaseMode();
+document.getElementById("btnAll").onclick=()=>{ state.focus=null; exitPhaseMode(false); applyStateClasses(); syncButtons(); showIntro(); };
+document.querySelectorAll("[data-focus]").forEach(b=>b.onclick=()=>toggleFocus(b.dataset.focus));
+document.body.addEventListener("click",()=>{ if(state.selType){clearSel(); if(state.phase===0) showIntro();} });
+
+function showIntro(){
+  panel.innerHTML='<div class="pl"><div class="kick" style="color:var(--soft)">CÓMO LEER ESTA VISTA</div>'+
+    '<div class="tt" style="font-size:15px">Un riesgo, tres viajes coordinados</div></div>'+
+    '<div class="body">La <b>línea guía punteada</b> es el recorrido real de la información, en orden cronológico de izquierda a derecha. Cuando cruza de carril es un <b>traspaso entre partes</b> — haz clic en su etiqueta para ver qué dato viaja y en qué formato. Las flechas <b>⟲</b> son las idas y vueltas reales (aclaraciones, negociación): cada versión queda registrada con su hash. Usa <b>▶ Seguir el riesgo</b> para recorrer fase por fase, o filtra por parte. Los traspasos <span class="mm" style="color:var(--cor);font-weight:800">≡</span> son <b>espejo</b>: mismo objeto de datos, estructurado y versionado, nunca re-tipeado.</div>';
+}
+
+window.addEventListener("resize",()=>requestAnimationFrame(drawWires));
+build(); showIntro();
+</script>
+</body>
+</html>

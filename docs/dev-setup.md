@@ -1,7 +1,12 @@
 # Radal — Local Development Setup
 
+> ⚠️ **SUPERSEDED (v1). Do not follow this file.** It predates the v2 rebuild and states the wrong
+> frontend port. The authoritative run instructions are **`CLAUDE.md` §5 "How to run"**, which
+> covers the `MEDIA_BACKEND=local` override, both importers (fixtures **and** expedientes) and the
+> real ports. Kept only for historical context.
+
 Step-by-step to run the Radal corredora app locally: FastAPI backend on
-`:8000` and Vite/React frontend on `:4000`.
+`:8000` and Vite/React frontend on `:4000` *(wrong — the dev server runs on `:5500`)*.
 
 Repo root: `/Users/bgg/Documents/repos/radal/radal-app`
 ```

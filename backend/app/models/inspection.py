@@ -36,6 +36,7 @@ from app.models.types import PCT, SCORE, JSONType
 if TYPE_CHECKING:
     from app.models.asset import Asset
     from app.models.broker import Broker
+    from app.models.case_file import CaseFile
     from app.models.document import Document
     from app.models.insurance_line import InsuranceLine
     from app.models.placement import Placement
@@ -133,6 +134,9 @@ class Inspection(Base, TimestampMixin):
     inspector_id: Mapped[int | None] = mapped_column(
         ForeignKey("user.id", ondelete="SET NULL"), index=True
     )
+    case_file_id: Mapped[int | None] = mapped_column(
+        ForeignKey("case_file.id", ondelete="SET NULL"), index=True
+    )
 
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     status: Mapped[InspectionStatus] = mapped_column(
@@ -169,6 +173,7 @@ class Inspection(Base, TimestampMixin):
         back_populates="inspections"
     )
     inspector: Mapped["User | None"] = relationship(foreign_keys=[inspector_id])
+    case_file: Mapped["CaseFile | None"] = relationship(foreign_keys=[case_file_id])
     report_document: Mapped["Document | None"] = relationship(
         foreign_keys=[report_document_id]
     )

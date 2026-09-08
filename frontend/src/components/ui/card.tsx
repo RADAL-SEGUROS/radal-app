@@ -2,18 +2,21 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** Adds a hover lift (translateY) + elevated shadow + teal-tinted border. */
+  /** Hover feedback: stronger border + a whisper more shadow. */
   interactive?: boolean;
 }
 
+/**
+ * Signal card: the hairline border does structure, the shadow only whispers
+ * depth. Never nest a card inside a card — prefer `divide-y divide-line`.
+ */
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, interactive, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        "rounded-card border border-line bg-bg-surface text-text-primary shadow-card transition-all duration-200 ease-out",
-        interactive &&
-          "hover:-translate-y-[3px] hover:border-[color-mix(in_srgb,var(--teal)_38%,var(--line))] hover:shadow-lift",
+        "rounded-card border border-line bg-bone text-ink shadow-elev transition-[border-color,box-shadow] duration-150 ease-out",
+        interactive && "hover:border-line-strong hover:shadow-elev-hover",
         className,
       )}
       {...props}
@@ -40,7 +43,7 @@ const CardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h3
     ref={ref}
-    className={cn("text-h3 font-display leading-none tracking-tight", className)}
+    className={cn("text-h3 font-semibold leading-none tracking-tight", className)}
     {...props}
   />
 ));
@@ -52,7 +55,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-caption text-text-muted", className)}
+    className={cn("text-caption text-ink-3", className)}
     {...props}
   />
 ));

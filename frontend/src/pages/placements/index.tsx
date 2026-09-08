@@ -154,7 +154,7 @@ export default function PlacementsPage() {
         header: t("placements:columns.period") as string,
         accessorFn: (row) => row.period ?? "",
         cell: ({ row }) => (
-          <span className="font-mono text-mono-sm text-text-secondary">
+          <span className="text-caption tabular-nums text-text-secondary">
             {row.original.period ?? "—"}
           </span>
         ),
@@ -176,7 +176,7 @@ export default function PlacementsPage() {
         header: t("placements:columns.market") as string,
         accessorFn: (row) => row.proposals_count,
         cell: ({ row }) => (
-          <span className="whitespace-nowrap font-mono text-mono-sm tabular-nums text-text-secondary">
+          <span className="whitespace-nowrap text-caption tabular-nums text-text-secondary">
             {t("placements:columns.quotesShort", {
               count: row.original.quote_requests_count,
             })}{" "}
@@ -304,9 +304,9 @@ export default function PlacementsPage() {
             onClick={() => setOpenOnly((value) => !value)}
             aria-pressed={openOnly}
             className={cn(
-              "h-10 rounded-[10px] border px-3.5 text-label font-medium transition-colors",
+              "h-10 rounded-lg border px-3.5 text-label font-medium transition-colors",
               openOnly
-                ? "border-teal bg-[color-mix(in_srgb,var(--teal)_12%,transparent)] text-teal-deep"
+                ? "border-brand-line bg-brand-soft text-brand-deep"
                 : "border-line bg-bg-surface text-text-tertiary hover:text-text-primary",
             )}
           >
@@ -369,7 +369,7 @@ export default function PlacementsPage() {
           >
             {t("common:actions.previous")}
           </Button>
-          <span className="font-mono text-mono-sm tabular-nums">
+          <span className="text-caption tabular-nums">
             {page} / {Math.max(1, totalPages)}
           </span>
           <Button

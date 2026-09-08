@@ -79,6 +79,9 @@ function DownloadButton({ doc }: { doc: RadalDocument }) {
 function EditDocumentDialog({ doc, onDone }: { doc: RadalDocument; onDone: () => void }) {
   const { t } = useTranslation("settings");
   const { t: tc } = useTranslation("common");
+  // Category labels: the `documents` namespace is the complete 42-member set;
+  // `settings.categories` is a legacy partial that would render raw keys.
+  const { t: td } = useTranslation("documents");
   const update = useUpdateDocument(doc.id);
   const [name, setName] = React.useState(doc.original_name);
   const [category, setCategory] = React.useState<DocumentCategory>(doc.category);
@@ -125,7 +128,7 @@ function EditDocumentDialog({ doc, onDone }: { doc: RadalDocument; onDone: () =>
               <SelectContent>
                 {DOCUMENT_CATEGORIES.map((entry) => (
                   <SelectItem key={entry} value={entry}>
-                    {t(`categories.${entry}`)}
+                    {td(`categories.${entry}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -169,6 +172,7 @@ function UploadDialog({
 }) {
   const { t } = useTranslation("settings");
   const { t: tc } = useTranslation("common");
+  const { t: td } = useTranslation("documents");
   const upload = useUploadDocument();
   const [file, setFile] = React.useState<File | null>(null);
   const [category, setCategory] = React.useState<DocumentCategory>("other");
@@ -223,7 +227,7 @@ function UploadDialog({
               <SelectContent>
                 {DOCUMENT_CATEGORIES.map((entry) => (
                   <SelectItem key={entry} value={entry}>
-                    {t(`categories.${entry}`)}
+                    {td(`categories.${entry}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -251,6 +255,9 @@ function UploadDialog({
 export function DocumentsTab() {
   const { t } = useTranslation("settings");
   const { t: tc } = useTranslation("common");
+  // Category labels: the `documents` namespace is the complete 42-member set;
+  // `settings.categories` is a legacy partial that would render raw keys.
+  const { t: td } = useTranslation("documents");
   const { organization } = useAuth();
   const perms = useModulePermissions("Documents");
 
@@ -290,7 +297,7 @@ export function DocumentsTab() {
             <p className="truncate font-medium text-text-primary">
               {row.original.original_name}
             </p>
-            <p className="truncate font-mono text-mono-sm text-text-muted">
+            <p className="truncate text-caption text-text-muted">
               {row.original.mime_type ?? "—"}
             </p>
           </div>
@@ -300,7 +307,7 @@ export function DocumentsTab() {
         accessorKey: "category",
         header: t("documents.columns.category"),
         cell: ({ row }) => (
-          <Badge variant="outline">{t(`categories.${row.original.category}`)}</Badge>
+          <Badge variant="outline">{td(`categories.${row.original.category}`)}</Badge>
         ),
       },
       {
@@ -388,7 +395,7 @@ export function DocumentsTab() {
             <SelectItem value={ALL}>{t("documents.allCategories")}</SelectItem>
             {DOCUMENT_CATEGORIES.map((entry) => (
               <SelectItem key={entry} value={entry}>
-                {t(`categories.${entry}`)}
+                {td(`categories.${entry}`)}
               </SelectItem>
             ))}
           </SelectContent>

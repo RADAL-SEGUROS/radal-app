@@ -10,10 +10,13 @@ What it does, in order:
    taxonomy and all 25 CMF general insurers (``is_native=False`` by default).
 2. Mark the NATIVE partner set and give each one a ``native_insurer_profile``
    and ``insurer_contact`` rows.
-3. Import the broker workspace: 3 brokers, 15 users, 3 insureds, 3 clients,
+3. Import the broker workspace: 3 brokers, 15 users, 3 insureds, 3 account
+   groups (one per client, named from the insured's trade name), 3 clients,
    3 assets, 6 insurance lines (+ CMF junction), 3 placements, 3 quote requests
    (+ line items), 9 proposals (+ coverages/exclusions), 3 inspection requests,
-   3 inspections (+ boundaries), 66 documents, activity and notes.
+   3 inspections (+ boundaries), 66 documents, activity and notes. NO case file
+   is created here: the three placements stay folder-less on purpose, so a
+   fresh tenant shows an honest empty state under Expedientes.
 4. Upload the 66 files to S3 under the v2 layout and point each ``document`` row
    at its new key (``--no-upload`` / ``--dry-run`` skip the AWS calls).
 
@@ -38,7 +41,9 @@ import argparse
 import json
 import mimetypes
 import os
+import re
 import sys
+import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -78,6 +83,8 @@ from app.db.fixture_mappings import (
 )
 from app.db.session import SessionLocal, engine
 from app.models import (
+    AccountGroup,
+    AccountGroupStatus,
     Activity,
     Asset,
     Broker,
@@ -93,6 +100,7 @@ from app.models import (
     Insured,
     Insurer,
     InsurerContact,
+    LineRecordSchema,
     NativeInsurerProfile,
     Note,
     Placement,
@@ -105,6 +113,7 @@ from app.models import (
 from app.models.asset import AssetStatus
 from app.models.base_class import Base
 from app.models.broker import BrokerStatus
+from app.models.case_file import CaseFile
 from app.models.document import DocumentCategory
 from app.models.enums import CoverageKind, EntityType, PersonType, Priority, UserType
 from app.models.insurer import InsurerStatus
@@ -303,8 +312,17 @@ class Ids:
 class Uploader:
     """Copies the package's files to S3 under the v2 layout.
 
-    ``enabled=False`` (``--no-upload`` / ``--dry-run``) turns every call into a
-    no-op so the whole import runs on a laptop with no AWS credentials.
+    ``enabled=False`` (``--no-upload`` / ``--dry-run``) skips every AWS call so
+    the whole import runs on a laptop with no credentials. That must NOT mean
+    the bytes vanish: with ``MEDIA_BACKEND=local`` the API serves a document by
+    opening ``MEDIA_LOCAL_DIR/<s3_key>`` (see ``documents.document_content``),
+    so ``local_dir`` — when set — mirrors every file to exactly that path.
+    Without it, every imported document 404s on ``GET /documents/{id}/content``,
+    AI extraction has nothing to read and pack ZIPs come out empty.
+
+    ``resolve_local_dir()`` picks the default: mirror whenever uploads are off
+    or the runtime media backend is ``local`` (both can be true), never during
+    a dry run, and never when the operator passed ``--no-local-copy``.
     """
 
     bucket: str
@@ -312,9 +330,24 @@ class Uploader:
     profile: str | None
     enabled: bool
     log: Log
+    #: Media root to mirror bytes into (``settings.MEDIA_LOCAL_DIR``), or None.
+    local_dir: Path | None = None
     uploaded: int = 0
     skipped: int = 0
+    copied: int = 0
     _client: Any = field(default=None, init=False, repr=False)
+
+    @staticmethod
+    def resolve_local_dir(
+        *, upload_enabled: bool, dry_run: bool = False, no_local_copy: bool = False
+    ) -> Path | None:
+        """Where (if anywhere) the imported bytes must also live locally."""
+        if dry_run or no_local_copy:
+            return None
+        backend_is_local = (settings.MEDIA_BACKEND or "local").lower() != "s3"
+        if not upload_enabled or backend_is_local:
+            return Path(settings.MEDIA_LOCAL_DIR)
+        return None
 
     def client(self) -> Any:
         if self._client is None:
@@ -325,6 +358,13 @@ class Uploader:
         return self._client
 
     def put(self, local_path: Path, key: str, content_type: str | None) -> None:
+        if self.local_dir is not None:
+            import shutil  # noqa: PLC0415  (stdlib, kept next to its one use)
+
+            target = self.local_dir / key
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(local_path, target)
+            self.copied += 1
         if not self.enabled:
             self.skipped += 1
             return
@@ -350,6 +390,30 @@ def _ext_of(name: str) -> str:
 
 def _mime_of(name: str, declared: str | None) -> str | None:
     return declared or mimetypes.guess_type(name)[0]
+
+
+# ``account_group.slug`` is String(80); the same budget every group writer uses.
+GROUP_SLUG_MAX = 80
+
+
+def slugify_group_name(value: str) -> str:
+    """Accent-folded, lowercase, ``-``-joined — the group get-or-create key.
+
+    Every writer of ``account_group`` (this importer, ``import_expedientes``
+    and ``scripts/backfill_groups.py``) MUST produce the same string for the
+    same name, or a re-imported database and a backfilled one would hold two
+    different groups for one commercial relationship. The rule: fold accents
+    (NFD, drop the combining marks), lowercase, every run of non-alphanumerics
+    becomes one ``-``, trim to 80 characters.
+
+        ``GRUPO VIÑA INDÓMITA`` -> ``grupo-vina-indomita``
+        ``Clínica del Valle``   -> ``clinica-del-valle``
+    """
+    folded = "".join(
+        ch for ch in unicodedata.normalize("NFD", value or "") if unicodedata.category(ch) != "Mn"
+    )
+    slug = re.sub(r"[^a-z0-9]+", "-", folded.lower()).strip("-")
+    return slug[:GROUP_SLUG_MAX].strip("-") or "grupo"
 
 
 # =============================================================================
@@ -382,6 +446,9 @@ class FixtureImporter:
         self.doc_by_source_key: dict[str, int] = {}
         self.proposal_doc: dict[str, int] = {}
         self.external_proposals: list[str] = []
+        # source cliente id -> account_group.id, filled by import_account_groups
+        # and read one step later by import_clients.
+        self.group_of_client: dict[str, int] = {}
 
     # --- loading -----------------------------------------------------------
 
@@ -723,6 +790,57 @@ class FixtureImporter:
         self.db.flush()
         self.log.ok(f"{len(self.load('corredora'))} broker rows")
 
+    def seed_broker_logos(self) -> None:
+        """Seed the real Ossa Covarrubias (broker 1) wordmark logo.
+
+        The 898×177 JPEG wordmark is converted to WEBP **preserving aspect
+        ratio** (never square-cropped like avatars — that would ruin the
+        wordmark) and written to ``media/broker/1/logo.webp`` on whichever
+        backends the run targets. ``broker.logo_key`` already points there, so
+        no DB change is needed. Guarded on the seed asset existing.
+        """
+        seed_path = Path(__file__).parent / "seed_assets" / "ossa-covarrubias-logo.jpeg"
+        if not seed_path.exists():
+            self.log.warn("Ossa logo seed asset missing — skipping broker-1 logo")
+            return
+        try:
+            import io  # noqa: PLC0415
+
+            from PIL import Image  # noqa: PLC0415
+        except ModuleNotFoundError:
+            self.log.warn("Pillow not installed — skipping broker-1 logo seed")
+            return
+
+        key = "media/broker/1/logo.webp"
+        try:
+            img = Image.open(seed_path)
+            img = img.convert("RGB")  # wordmark on white; no alpha to preserve
+            buf = io.BytesIO()
+            img.save(buf, format="WEBP", quality=88, method=6)  # aspect preserved
+            webp = buf.getvalue()
+        except Exception as exc:  # noqa: BLE001
+            self.log.warn(f"Could not convert Ossa logo: {exc}")
+            return
+
+        wrote_local = False
+        if self.uploader.local_dir is not None:
+            target = self.uploader.local_dir / key
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(webp)
+            wrote_local = True
+        if self.uploader.enabled:
+            self.uploader.client().put_object(
+                Bucket=self.uploader.bucket,
+                Key=key,
+                Body=webp,
+                ContentType="image/webp",
+            )
+            self.log.ok(f"seeded Ossa logo -> s3://{self.uploader.bucket}/{key}")
+        elif wrote_local:
+            self.log.ok(f"seeded Ossa logo -> {self.uploader.local_dir / key}")
+        else:
+            self.log.warn("Ossa logo converted but no target (dry-run) — skipped write")
+
     def import_users(self) -> None:
         self.log.section("Users")
         password = hash_password(DEMO_PASSWORD)
@@ -884,6 +1002,61 @@ class FixtureImporter:
         self.db.flush()
         self.log.ok(f"{len(self.load('asegurado'))} insured rows")
 
+    def import_account_groups(self) -> None:
+        """One broker-private group per fixture client (spec v3 §3.2).
+
+        The group is the commercial label the broker works under, so its name
+        comes from the insured's ``nombre_fantasia`` (trade name) — "Santa
+        Elisa", not "Agroindustrial Santa Elisa SpA" — falling back to the
+        legal name when a fixture insured has no trade name.
+
+        Ids are assigned from a local counter rather than through ``Ids``:
+        groups are get-or-created by ``(broker_id, slug)``, so two clients of
+        one broker sharing a trade name collapse into one row and a
+        pre-allocated per-client id would leave a hole. There is no FK cycle
+        here to justify pre-allocation — ``client`` points at ``account_group``
+        and nothing points back — and the groups are flushed before the clients
+        that reference them.
+
+        No ``case_file`` is created: the three fixture placements stay
+        folder-less and visible under Colocaciones. An honest empty state beats
+        an invented account (rule: real or realistic data only).
+        """
+        insured_by_src = {row["id"]: row for row in self.load("asegurado")}
+        by_broker_slug: dict[tuple[int, str], AccountGroup] = {}
+        next_id = 1
+
+        for row in self.load("cliente"):
+            insured = insured_by_src.get(row.get("asegurado_id"), {})
+            name = (insured.get("nombre_fantasia") or insured.get("razon_social") or "").strip()
+            if not name:
+                raise FixtureError(
+                    f"cliente {row['id']}: insured {row.get('asegurado_id')!r} has neither "
+                    "nombre_fantasia nor razon_social, so no group name can be derived"
+                )
+            broker_id = self.ids.get("broker", row["corredora_id"])
+            slug = slugify_group_name(name)
+
+            group = by_broker_slug.get((broker_id, slug))
+            if group is None:
+                group = AccountGroup(
+                    id=next_id,
+                    broker_id=broker_id,
+                    name=name,
+                    slug=slug,
+                    status=AccountGroupStatus.ACTIVE,
+                )
+                next_id += 1
+                by_broker_slug[(broker_id, slug)] = group
+                self.db.add(group)
+            self.group_of_client[row["id"]] = group.id
+
+        self.db.flush()
+        self.log.ok(
+            f"{len(by_broker_slug)} account group rows "
+            f"({', '.join(g.name for g in by_broker_slug.values())})"
+        )
+
     def import_clients(self) -> None:
         for row in self.load("cliente"):
             if not row.get("asegurado_id"):
@@ -893,6 +1066,7 @@ class FixtureImporter:
                     id=self.ids.get("client", row["id"]),
                     broker_id=self.ids.get("broker", row["corredora_id"]),
                     insured_id=self.ids.get("insured", row["asegurado_id"]),
+                    account_group_id=self.group_of_client.get(row["id"]),
                     status=CLIENT_STATUS.get(norm_token(row.get("estado")), CLIENT_STATUS["prospecto"]),
                     account_manager_id=self.ids.maybe("user", row.get("ejecutivo_id")),
                     sector=row.get("sector"),
@@ -1380,11 +1554,13 @@ class FixtureImporter:
         self.import_cmf_lines()
         self.import_insurance_lines()
         self.import_brokers()
+        self.seed_broker_logos()
         self.import_users()
         self.import_documents()
         self.import_insurers()
         self.import_native_profiles()
         self.import_insureds()
+        self.import_account_groups()
         self.import_clients()
         self.import_assets()
         self.import_placements()
@@ -1392,7 +1568,322 @@ class FixtureImporter:
         self.import_proposals()
         self.import_inspections()
         self.import_activity()
+        self.import_line_templates()
         self.verify_external_scenario()
+
+    def import_line_templates(self) -> None:
+        """Seed the v7 global line templates + the Fuenzalida demo line (§C)."""
+        self.log.section("Line templates (Bases Técnicas)")
+        seed_line_templates(self.db, log=self.log, commit=False)
+
+
+# =============================================================================
+# v7 — Line templates (Bases Técnicas). Global recommended definitions a broker
+# adopts and edits. Seeded verbatim from docs/v7-lines-and-bases-tecnicas-spec.md
+# §C. English field keys (rule 1); Spanish labels (broker-authored display data).
+# =============================================================================
+
+# The identity block shared by both templates.
+_TPL_INSURED_SECTION = {
+    "key": "insured",
+    "label": "Identificación del asegurado",
+    "fields": [
+        {"key": "legal_name", "label": "Razón social", "type": "text", "required": True},
+        {"key": "rut", "label": "RUT", "type": "text", "required": True},
+        {"key": "trade_name", "label": "Nombre de fantasía", "type": "text"},
+        {"key": "activity", "label": "Giro / actividad", "type": "text"},
+        {"key": "commercial_address", "label": "Dirección comercial", "type": "text"},
+        {"key": "commune", "label": "Comuna", "type": "text"},
+        {"key": "region", "label": "Región", "type": "text"},
+        {"key": "contact_name", "label": "Nombre de contacto", "type": "text"},
+        {"key": "contact_email", "label": "Correo de contacto", "type": "text"},
+        {"key": "contact_phone", "label": "Teléfono de contacto", "type": "text"},
+    ],
+}
+
+_TPL_SUBLIMITS_SECTION = {
+    "key": "sublimits",
+    "label": "Coberturas y sublímites solicitados",
+    "fields": [
+        {
+            "key": "rows",
+            "label": "Coberturas y sublímites solicitados",
+            "type": "list",
+            "repeatable": True,
+            "fields": [
+                {"key": "coverage", "label": "Cobertura", "type": "text", "required": True},
+                {"key": "sublimit", "label": "Sublímite", "type": "text"},
+            ],
+        }
+    ],
+}
+
+_TPL_DEDUCTIBLES_SECTION = {
+    "key": "deductibles",
+    "label": "Deducibles solicitados",
+    "fields": [
+        {
+            "key": "rows",
+            "label": "Deducibles solicitados",
+            "type": "list",
+            "repeatable": True,
+            "fields": [
+                {"key": "coverage", "label": "Cobertura", "type": "text", "required": True},
+                {"key": "deductible", "label": "Deducible", "type": "text"},
+            ],
+        }
+    ],
+}
+
+_TPL_INDEMNITY_SECTION = {
+    "key": "indemnity",
+    "label": "Límite de indemnización",
+    "fields": [
+        {"key": "indemnity_limit", "label": "Límite de indemnización", "type": "text"},
+    ],
+}
+
+_TPL_VIGENCIA_SECTION = {
+    "key": "vigencia",
+    "label": "Vigencia",
+    "fields": [
+        {"key": "start_date", "label": "Desde", "type": "date", "required": True},
+        {"key": "end_date", "label": "Hasta", "type": "date", "required": True},
+    ],
+}
+
+_TPL_COMMISSION_SECTION = {
+    "key": "commission",
+    "label": "Comisión del corredor",
+    "fields": [
+        {"key": "commission_pct", "label": "Comisión del corredor", "type": "percent"},
+    ],
+}
+
+_TPL_LOSS_HISTORY_SECTION = {
+    "key": "loss_history",
+    "label": "Siniestralidad",
+    "fields": [
+        {"key": "has_claims", "label": "¿Registra siniestros?", "type": "boolean"},
+        {
+            "key": "items",
+            "label": "Detalle de siniestros",
+            "type": "list",
+            "repeatable": True,
+            "fields": [
+                {"key": "date", "label": "Fecha", "type": "date"},
+                {"key": "peril", "label": "Evento", "type": "text"},
+                {"key": "description", "label": "Descripción", "type": "text"},
+                {"key": "amount_uf", "label": "Monto", "type": "money_uf"},
+                {"key": "status", "label": "Estado", "type": "text"},
+            ],
+        },
+    ],
+}
+
+# Template 1 — "Incendio y Sismo (TRBF)" (insurance_line_id=1).
+TEMPLATE_INCENDIO_SISMO = {
+    "sections": [
+        _TPL_INSURED_SECTION,
+        {
+            "key": "insured_matters",
+            "label": "Ubicaciones y materias aseguradas",
+            "fields": [
+                {
+                    "key": "rows",
+                    "label": "Ubicaciones y materias aseguradas",
+                    "type": "list",
+                    "repeatable": True,
+                    "totals": True,
+                    "fields": [
+                        {"key": "location", "label": "Ubicación", "type": "text", "required": True},
+                        {"key": "commune", "label": "Comuna", "type": "text"},
+                        {"key": "description", "label": "Descripción", "type": "text"},
+                        {"key": "building_uf", "label": "Edificio", "type": "money_uf"},
+                        {"key": "machinery_uf", "label": "Maquinaria y equipos", "type": "money_uf"},
+                        {"key": "vessels_uf", "label": "Cubas y estanques", "type": "money_uf"},
+                        {"key": "furniture_uf", "label": "Muebles y útiles", "type": "money_uf"},
+                        {"key": "stock_uf", "label": "Existencias", "type": "money_uf"},
+                        {"key": "bi_uf", "label": "Perjuicio por paralización", "type": "money_uf"},
+                    ],
+                }
+            ],
+        },
+        {
+            "key": "total_insured",
+            "label": "Monto total asegurado",
+            "fields": [
+                {
+                    "key": "total_insured_uf",
+                    "label": "Monto total asegurado",
+                    "type": "money_uf",
+                    "required": True,
+                },
+            ],
+        },
+        _TPL_SUBLIMITS_SECTION,
+        _TPL_DEDUCTIBLES_SECTION,
+        _TPL_INDEMNITY_SECTION,
+        _TPL_VIGENCIA_SECTION,
+        _TPL_COMMISSION_SECTION,
+        _TPL_LOSS_HISTORY_SECTION,
+        {
+            "key": "protections",
+            "label": "Medidas de protección",
+            "fields": [
+                {
+                    "key": "items",
+                    "label": "Medidas de protección",
+                    "type": "list",
+                    "repeatable": True,
+                    "fields": [
+                        {"key": "measure", "label": "Medida", "type": "text"},
+                        {"key": "detail", "label": "Detalle", "type": "text"},
+                    ],
+                }
+            ],
+        },
+    ]
+}
+
+# Template 2 — "Responsabilidad Civil" (insurance_line_id=2).
+TEMPLATE_RC = {
+    "sections": [
+        _TPL_INSURED_SECTION,
+        {
+            "key": "operation",
+            "label": "Actividad y operación",
+            "fields": [
+                {"key": "activity", "label": "Actividad", "type": "text"},
+                {"key": "annual_revenue_uf", "label": "Ventas anuales", "type": "money_uf"},
+                {"key": "employees", "label": "N° de empleados", "type": "integer"},
+                {"key": "territory", "label": "Territorialidad", "type": "text"},
+                {"key": "operations_description", "label": "Descripción de operaciones", "type": "text"},
+            ],
+        },
+        _TPL_SUBLIMITS_SECTION,
+        _TPL_DEDUCTIBLES_SECTION,
+        _TPL_INDEMNITY_SECTION,
+        _TPL_VIGENCIA_SECTION,
+        _TPL_COMMISSION_SECTION,
+        _TPL_LOSS_HISTORY_SECTION,
+    ]
+}
+
+# The two global templates, keyed for the seed (name, insurance_line_id, definition).
+LINE_TEMPLATES = [
+    ("Incendio y Sismo (TRBF)", 1, TEMPLATE_INCENDIO_SISMO),
+    ("Responsabilidad Civil", 2, TEMPLATE_RC),
+]
+
+# The demo broker line cloned from Template 1 and assigned to the Viña accounts.
+FUENZALIDA_BROKER_ID = 3
+FUENZALIDA_PROPERTY_LINE_NAME = "Incendio y Sismo (TRBF) — Fuenzalida"
+FUENZALIDA_ASSIGNED_CASE_FILES = (4, 6)
+
+
+def seed_line_templates(
+    db: Session,
+    *,
+    log: "Log | None" = None,
+    broker_id: int = FUENZALIDA_BROKER_ID,
+    assign_case_files: tuple[int, ...] = FUENZALIDA_ASSIGNED_CASE_FILES,
+    commit: bool = True,
+) -> dict[str, int]:
+    """Idempotently seed the two global line TEMPLATES and clone Template 1 into a
+    Fuenzalida (broker 3) LINE assigned to the demo Viña accounts (case_file 4 & 6).
+
+    Standalone + importable: safe to run against the live database (upserts by
+    name; never duplicates) OR from inside the importer's ``--reset`` rebuild.
+    Returns ``{name: id}`` for the seeded rows. The assignment step is a no-op
+    when the target case_files do not exist yet (they are created by
+    ``import_expedientes``), so a bare ``import_fixtures`` run stays clean."""
+
+    def _emit(msg: str) -> None:
+        if log is not None:
+            log.ok(msg)
+
+    seeded: dict[str, int] = {}
+
+    # 1. The global templates (broker_id NULL, is_template=True). Upsert by name.
+    for name, line_id, definition in LINE_TEMPLATES:
+        row = db.scalars(
+            select(LineRecordSchema).where(
+                LineRecordSchema.broker_id.is_(None),
+                LineRecordSchema.name == name,
+            )
+        ).first()
+        if row is None:
+            row = LineRecordSchema(
+                broker_id=None,
+                insurance_line_id=line_id,
+                name=name,
+                version=1,
+                is_active=True,
+                is_template=True,
+                definition=definition,
+            )
+            db.add(row)
+        else:
+            row.insurance_line_id = line_id
+            row.is_active = True
+            row.is_template = True
+            row.definition = definition
+        db.flush()
+        seeded[name] = row.id
+        _emit(f"line template '{name}' (id={row.id}, ramo {line_id})")
+
+    # 2. Clone Template 1 into a Fuenzalida (broker 3) line. Upsert by (broker, name).
+    fz_line = None
+    broker = db.get(Broker, broker_id)
+    if broker is not None:
+        fz_line = db.scalars(
+            select(LineRecordSchema).where(
+                LineRecordSchema.broker_id == broker_id,
+                LineRecordSchema.name == FUENZALIDA_PROPERTY_LINE_NAME,
+            )
+        ).first()
+        if fz_line is None:
+            fz_line = LineRecordSchema(
+                broker_id=broker_id,
+                insurance_line_id=1,
+                name=FUENZALIDA_PROPERTY_LINE_NAME,
+                version=1,
+                is_active=True,
+                is_template=False,
+                definition=TEMPLATE_INCENDIO_SISMO,
+            )
+            db.add(fz_line)
+        else:
+            fz_line.insurance_line_id = 1
+            fz_line.is_active = True
+            fz_line.is_template = False
+            fz_line.definition = TEMPLATE_INCENDIO_SISMO
+        db.flush()
+        seeded[FUENZALIDA_PROPERTY_LINE_NAME] = fz_line.id
+        _emit(f"Fuenzalida line '{FUENZALIDA_PROPERTY_LINE_NAME}' (id={fz_line.id})")
+    else:
+        _emit(f"broker {broker_id} absent — skipped Fuenzalida line clone")
+
+    # 3. Assign the Fuenzalida line to case_file 4 & 6 when they exist.
+    if fz_line is not None:
+        for case_id in assign_case_files:
+            case = db.scalars(
+                select(CaseFile).where(
+                    CaseFile.id == case_id,
+                    CaseFile.broker_id == broker_id,
+                )
+            ).first()
+            if case is None:
+                continue
+            case.line_record_schema_id = fz_line.id
+            _emit(f"assigned line to case_file {case_id}")
+
+    if commit:
+        db.commit()
+    else:
+        db.flush()
+    return seeded
 
 
 # =============================================================================
@@ -1403,6 +1894,7 @@ COUNTED_MODELS = [
     ("broker", Broker),
     ("user", User),
     ("insured", Insured),
+    ("account_group", AccountGroup),
     ("client", Client),
     ("asset", Asset),
     ("insurer", Insurer),
@@ -1460,6 +1952,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-upload", action="store_true", help="Import to the DB but skip every S3 call"
     )
     parser.add_argument(
+        "--no-local-copy",
+        action="store_true",
+        help=(
+            "Skip mirroring file bytes into MEDIA_LOCAL_DIR. By default the "
+            "bytes are mirrored whenever uploads are off or MEDIA_BACKEND=local, "
+            "so /documents/{id}/content works without S3"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Run the whole import, skip S3, then ROLL BACK the transaction",
@@ -1487,17 +1988,25 @@ def main(argv: list[str] | None = None) -> int:
     Base.metadata.create_all(bind=engine)
     log.ok(f"create_all on {engine.url.render_as_string(hide_password=True)}")
 
+    upload_enabled = not (args.no_upload or args.dry_run)
     uploader = Uploader(
         bucket=args.bucket,
         region=args.region,
         profile=args.profile,
-        enabled=not (args.no_upload or args.dry_run),
+        enabled=upload_enabled,
         log=log,
+        local_dir=Uploader.resolve_local_dir(
+            upload_enabled=upload_enabled,
+            dry_run=args.dry_run,
+            no_local_copy=args.no_local_copy,
+        ),
     )
     if uploader.enabled:
         log.info(f"uploading to s3://{uploader.bucket} with AWS profile {args.profile!r}")
     else:
         log.info("S3 uploads disabled — document rows still get their v2 keys")
+    if uploader.local_dir is not None:
+        log.info(f"mirroring file bytes into {uploader.local_dir} (MEDIA_BACKEND=local layout)")
 
     db = SessionLocal()
     try:
@@ -1545,6 +2054,8 @@ def main(argv: list[str] | None = None) -> int:
             log.ok(f"{uploader.uploaded} files uploaded to s3://{uploader.bucket}")
         else:
             log.ok(f"{uploader.skipped} file uploads skipped (--no-upload)")
+        if uploader.local_dir is not None:
+            log.ok(f"{uploader.copied} files mirrored into {uploader.local_dir}")
         log.ok(f"every demo user password: {DEMO_PASSWORD!r}")
         if log.warnings:
             print(f"\n  {len(log.warnings)} warning(s) — see above.")

@@ -45,12 +45,13 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base_class import Base, TimestampMixin
-from app.models.enums import CoverageKind, StrEnum, sql_enum
+from app.models.enums import CoverageKind, ProposalOutcome, StrEnum, sql_enum
 from app.models.types import PCT, RATE, UF, JSONType
 
 if TYPE_CHECKING:
     from app.models.ai import Extraction
     from app.models.broker import Broker
+    from app.models.case_file import CaseFile
     from app.models.document import Document
     from app.models.insurer import Insurer
     from app.models.policy import Policy
@@ -98,6 +99,18 @@ class Proposal(Base, TimestampMixin):
     origin: Mapped[ProposalOrigin] = mapped_column(
         sql_enum(ProposalOrigin), default=ProposalOrigin.EXTERNAL, nullable=False
     )
+    # ``use_alter``: case_file reaches proposal transitively (case_file -> policy
+    # -> proposal), so this back-pointer closes a genuine FK cycle. See
+    # ``document.case_file_id`` for the same treatment.
+    case_file_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "case_file.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_proposal_case_file",
+        ),
+        index=True,
+    )
 
     # MANDATORY source file. A proposal without its document cannot exist.
     source_document_id: Mapped[int] = mapped_column(
@@ -140,6 +153,23 @@ class Proposal(Base, TimestampMixin):
     status: Mapped[ProposalStatus] = mapped_column(
         sql_enum(ProposalStatus), default=ProposalStatus.DRAFT, nullable=False
     )
+    # How the insurer ANSWERED, which is not the same axis as ``status``: a
+    # declination and a conditional pronouncement are both real answers that
+    # never become an offer. NULL until the answer is filed.
+    outcome: Mapped[ProposalOutcome | None] = mapped_column(sql_enum(ProposalOutcome))
+
+    # Carrier's own quotation folio, verbatim.
+    quotation_number: Mapped[str | None] = mapped_column(String(64), index=True)
+    # Cover modality as quoted, e.g. "Todo Riesgo" vs "Riesgos Nombrados".
+    cover_mode: Mapped[str | None] = mapped_column(String(64))
+
+    # --- AI prose: suggest -> human edit -> confirm --------------------------
+    ai_summary: Mapped[str | None] = mapped_column(Text)
+    ai_summary_model: Mapped[str | None] = mapped_column(String(120))
+    ai_summary_prompt_version: Mapped[str | None] = mapped_column(String(64))
+    is_summary_confirmed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     # --- AI provenance: suggest -> human confirm -> commit -------------------
     extraction_id: Mapped[int | None] = mapped_column(
@@ -155,6 +185,7 @@ class Proposal(Base, TimestampMixin):
     # --- Relationships ------------------------------------------------------
     broker: Mapped["Broker"] = relationship()
     quote_request: Mapped["QuoteRequest"] = relationship(back_populates="proposals")
+    case_file: Mapped["CaseFile | None"] = relationship(foreign_keys=[case_file_id])
     insurer: Mapped["Insurer"] = relationship(back_populates="proposals")
     source_document: Mapped["Document"] = relationship(foreign_keys=[source_document_id])
     extraction: Mapped["Extraction | None"] = relationship(
@@ -200,4 +231,10 @@ class ProposalCoverage(Base, TimestampMixin):
     proposal: Mapped["Proposal"] = relationship(back_populates="coverages")
 
 
-__all__ = ["Proposal", "ProposalOrigin", "ProposalStatus", "ProposalCoverage"]
+__all__ = [
+    "Proposal",
+    "ProposalOrigin",
+    "ProposalStatus",
+    "ProposalOutcome",
+    "ProposalCoverage",
+]

@@ -1,8 +1,8 @@
 """``/search`` — global search for the topbar.
 
-One query across the broker's book: clients (by name or RUT), assets, quotes and
-proposals. Results are grouped by kind so the UI can render a categorized
-dropdown, and each hit carries the frontend ``url`` to navigate to.
+One query across the broker's book: groups, clients (by name or RUT), assets,
+quotes and proposals. Results are grouped by kind so the UI can render a
+categorized dropdown, and each hit carries the frontend ``url`` to navigate to.
 
 Tenant scoping is absolute: every branch filters on the authenticated user's
 ``broker_id``. The canonical ``insured`` table is only reached through the
@@ -16,8 +16,12 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.core.permissions import user_has_permission
+from app.models.account_group import AccountGroup
 from app.models.asset import Asset
+from app.models.case_file import CaseFile
 from app.models.client import Client
+from app.models.enums import CaseFileKind
 from app.models.insured import Insured
 from app.models.proposal import Proposal
 from app.models.quote import QuoteRequest
@@ -39,10 +43,84 @@ class SearchHit(BaseModel):
 
 
 class SearchResults(BaseModel):
+    groups: list[SearchHit] = []
     clients: list[SearchHit] = []
     assets: list[SearchHit] = []
     quotes: list[SearchHit] = []
     proposals: list[SearchHit] = []
+
+
+def _group_hits(db: Session, broker_id: int, like: str) -> list[SearchHit]:
+    """Broker-private groups matching ``like`` on name or slug.
+
+    The sublabel is what the broker recognises the group by: the primary RUT's
+    legal name and the latest vigencia label. Both are DERIVED, never stored --
+    ``account_group`` carries no ``primary_client_id`` (spec v3 s2.1), so the
+    primary client is the ``client_id`` of the account folder with the latest
+    ``period_start``.
+    """
+    groups = db.execute(
+        select(AccountGroup)
+        .where(
+            AccountGroup.broker_id == broker_id,
+            or_(AccountGroup.name.ilike(like), AccountGroup.slug.ilike(like)),
+        )
+        .order_by(AccountGroup.name.asc(), AccountGroup.id.asc())
+        .limit(_PER_KIND)
+    ).scalars().all()
+    if not groups:
+        return []
+
+    group_ids = [g.id for g in groups]
+    # Latest account/renewal folder per group. ``period_start`` is nullable
+    # (a lead-stage folder may not carry one yet), so NULLs sort last without
+    # ``NULLS LAST``, which MySQL does not support.
+    latest: dict[int, CaseFile] = {}
+    rows = db.execute(
+        select(CaseFile)
+        .where(
+            CaseFile.broker_id == broker_id,
+            CaseFile.account_group_id.in_(group_ids),
+            CaseFile.kind.in_((CaseFileKind.ACCOUNT, CaseFileKind.RENEWAL)),
+        )
+        .order_by(
+            CaseFile.period_start.is_(None).asc(),
+            CaseFile.period_start.desc(),
+            CaseFile.id.desc(),
+        )
+    ).scalars().all()
+    for case in rows:
+        latest.setdefault(int(case.account_group_id), case)
+
+    client_ids = {case.client_id for case in latest.values() if case.client_id}
+    names: dict[int, str] = {}
+    if client_ids:
+        for client_id, legal_name in db.execute(
+            select(Client.id, Insured.legal_name)
+            .join(Insured, Insured.id == Client.insured_id)
+            .where(Client.broker_id == broker_id, Client.id.in_(client_ids))
+        ).all():
+            names[int(client_id)] = legal_name
+
+    hits: list[SearchHit] = []
+    for group in groups:
+        case = latest.get(group.id)
+        parts: list[str] = []
+        if case is not None:
+            primary = names.get(int(case.client_id)) if case.client_id else None
+            if primary:
+                parts.append(primary)
+            if case.period_label:
+                parts.append(case.period_label)
+        hits.append(
+            SearchHit(
+                id=group.id,
+                label=group.name,
+                sublabel=" \u00b7 ".join(parts) or None,
+                url=f"/groups/{group.id}",
+            )
+        )
+    return hits
 
 
 def _rut_variants(term: str) -> list[str]:
@@ -62,13 +140,20 @@ def global_search(
     q: str = Query(min_length=2, max_length=120),
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
-    _: User = Depends(require_permission("Dashboard", "View")),
+    current_user: User = Depends(require_permission("Dashboard", "View")),
 ) -> SearchResults:
-    """Search the broker's clients, assets, quotes and proposals."""
+    """Search the broker's groups, clients, assets, quotes and proposals."""
     term = q.strip()
     if not term:
         return SearchResults()
     like = f"%{term}%"
+
+    # --- groups (only when the caller's role may see the module at all) ------
+    groups = (
+        _group_hits(db, broker_id, like)
+        if user_has_permission(current_user, "Groups", "View")
+        else []
+    )
 
     # --- clients (by insured name/trade name, or RUT in either notation) -----
     rut_clauses = [Insured.rut.ilike(f"%{v}%") for v in _rut_variants(term)]
@@ -126,6 +211,7 @@ def global_search(
     ][:_PER_KIND]
 
     return SearchResults(
+        groups=groups,
         clients=[
             SearchHit(
                 id=c.id,

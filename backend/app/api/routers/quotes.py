@@ -11,7 +11,7 @@ line-item endpoints re-sync the declared value by default
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response, status
@@ -45,6 +45,7 @@ from app.schemas.quote import (
     QuoteRequestPage,
     QuoteRequestRead,
     QuoteRequestSend,
+    QuoteRequestSummary,
     QuoteRequestUpdate,
     check_declared_value,
     line_items_total,
@@ -156,6 +157,60 @@ def _get_line_item(db: Session, quote: QuoteRequest, item_id: int) -> QuoteLineI
 
 # --- Quote requests ----------------------------------------------------------
 
+# A quote request in one of these states is still being worked; ``closed`` and
+# ``cancelled`` are terminal (mirrors the send/accept transitions above).
+_OPEN_QUOTE_STATUSES = (
+    QuoteRequestStatus.DRAFT,
+    QuoteRequestStatus.SENT,
+    QuoteRequestStatus.RECEIVING,
+)
+
+
+# NOTE: registered before ``/{quote_id}`` so the literal path wins the match.
+@router.get("/summary", response_model=QuoteRequestSummary)
+def get_quotes_summary(
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    _user: User = Depends(require_permission("Quotes", "View")),
+) -> QuoteRequestSummary:
+    """The quotes board: status split plus the sent / overdue clocks."""
+    rows = db.execute(
+        select(QuoteRequest.status, func.count(QuoteRequest.id))
+        .where(QuoteRequest.broker_id == broker_id)
+        .group_by(QuoteRequest.status)
+    ).all()
+    by_status = {str(key): int(value) for key, value in rows}
+
+    now = datetime.now(timezone.utc)
+    sent_last_30d = int(
+        db.scalar(
+            select(func.count(QuoteRequest.id)).where(
+                QuoteRequest.broker_id == broker_id,
+                QuoteRequest.sent_at.is_not(None),
+                QuoteRequest.sent_at >= now - timedelta(days=30),
+            )
+        )
+        or 0
+    )
+    overdue = int(
+        db.scalar(
+            select(func.count(QuoteRequest.id)).where(
+                QuoteRequest.broker_id == broker_id,
+                QuoteRequest.due_at.is_not(None),
+                QuoteRequest.due_at < now,
+                QuoteRequest.status.in_(_OPEN_QUOTE_STATUSES),
+            )
+        )
+        or 0
+    )
+    return QuoteRequestSummary(
+        total=sum(by_status.values()),
+        by_status={s.value: by_status.get(s.value, 0) for s in QuoteRequestStatus},
+        sent_last_30d=sent_last_30d,
+        overdue=overdue,
+    )
+
+
 @router.get("", response_model=QuoteRequestPage)
 def list_quote_requests(
     db: Session = Depends(get_db),
@@ -163,6 +218,9 @@ def list_quote_requests(
     _user: User = Depends(require_permission("Quotes", "View")),
     placement_id: int | None = None,
     client_id: int | None = None,
+    case_file_id: int | None = Query(
+        default=None, description="Only quote requests filed under this expediente"
+    ),
     quote_status: QuoteRequestStatus | None = Query(default=None, alias="status"),
     priority: Priority | None = None,
     search: str | None = Query(default=None, min_length=1, max_length=120),
@@ -173,6 +231,10 @@ def list_quote_requests(
     filters = [QuoteRequest.broker_id == broker_id]
     if placement_id is not None:
         filters.append(QuoteRequest.placement_id == placement_id)
+    if case_file_id is not None:
+        # ``broker_id`` is already in ``filters``; a foreign case file just
+        # yields an empty page rather than confirming that it exists.
+        filters.append(QuoteRequest.case_file_id == case_file_id)
     if quote_status is not None:
         filters.append(QuoteRequest.status == quote_status)
     if priority is not None:

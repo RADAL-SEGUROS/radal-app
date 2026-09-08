@@ -63,8 +63,8 @@ function SectionCard({
     <Card className={cn("flex flex-col p-5", className)}>
       <div className="mb-3.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Icon className="h-[17px] w-[17px] text-teal-deep" strokeWidth={1.75} />
-          <h2 className="font-display text-h3 text-text-primary">{title}</h2>
+          <Icon className="h-[17px] w-[17px] text-brand-deep" strokeWidth={1.75} />
+          <h2 className="text-h3 text-text-primary">{title}</h2>
         </div>
         {action}
       </div>
@@ -272,7 +272,7 @@ export default function DashboardPage() {
             {openPlacements.isLoading ? (
               <div className="flex flex-col gap-2">
                 {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-14 w-full rounded-[12px]" />
+                  <Skeleton key={i} className="h-14 w-full rounded-card" />
                 ))}
               </div>
             ) : attention.length === 0 ? (
@@ -283,7 +283,7 @@ export default function DashboardPage() {
                   <li key={placement.id}>
                     <Link
                       to={`/placements/${placement.id}`}
-                      className="flex items-center gap-3 rounded-[12px] border border-line bg-bg-surface px-3.5 py-3 transition-all duration-150 hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--teal)_38%,var(--line))] hover:shadow-card"
+                      className="flex items-center gap-3 rounded-card border border-line bg-bg-surface px-3.5 py-3 transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-line-strong hover:shadow-elev-hover"
                     >
                       <span
                         className={cn(
@@ -319,7 +319,7 @@ export default function DashboardPage() {
             className="h-full"
           >
             {isLoading ? (
-              <Skeleton className="h-32 w-full rounded-[12px]" />
+              <Skeleton className="h-32 w-full rounded-card" />
             ) : statusTotal === 0 ? (
               <EmptyLine>{t("dashboard:pipeline.empty")}</EmptyLine>
             ) : (
@@ -340,13 +340,13 @@ export default function DashboardPage() {
                               defaultValue: status,
                             })}
                           </span>
-                          <span className="font-mono tabular-nums text-text-muted">
+                          <span className="tabular-nums text-text-muted">
                             {count}
                           </span>
                         </span>
-                        <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-bg-recessed">
+                        <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-paper-2">
                           <span
-                            className="block h-full rounded-full bg-gradient-to-r from-teal to-blue transition-[width] duration-500"
+                            className="block h-full rounded-full bg-brand transition-[width] duration-500"
                             style={{ width: `${(count / statusTotal) * 100}%` }}
                           />
                         </span>
@@ -376,7 +376,7 @@ export default function DashboardPage() {
             {clients.isLoading ? (
               <div className="flex flex-col gap-2">
                 {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full rounded-[12px]" />
+                  <Skeleton key={i} className="h-12 w-full rounded-card" />
                 ))}
               </div>
             ) : topClients.length === 0 ? (
@@ -387,9 +387,9 @@ export default function DashboardPage() {
                   <li key={client.id}>
                     <Link
                       to={`/clients/${client.id}`}
-                      className="flex items-center gap-3 border-b border-line py-2.5 last:border-0 hover:text-teal-deep"
+                      className="flex items-center gap-3 border-b border-line py-2.5 last:border-0 hover:text-brand-deep"
                     >
-                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-[color-mix(in_srgb,var(--teal)_12%,transparent)] font-display text-caption text-teal-deep">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-brand-soft text-caption font-medium text-brand-deep">
                         {(client.insured.legal_name || "?").slice(0, 2).toUpperCase()}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -401,7 +401,7 @@ export default function DashboardPage() {
                         </span>
                       </span>
                       <span className="shrink-0 text-right">
-                        <span className="block font-mono text-mono tabular-nums text-text-primary">
+                        <span className="block font-medium tabular-nums text-text-primary">
                           {client.active_placements_count}
                         </span>
                         <span className="block text-caption text-text-muted">
@@ -426,7 +426,7 @@ export default function DashboardPage() {
             {openPlacements.isLoading || clients.isLoading ? (
               <div className="flex flex-col gap-2">
                 {[0, 1].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full rounded-[12px]" />
+                  <Skeleton key={i} className="h-12 w-full rounded-card" />
                 ))}
               </div>
             ) : recent.length === 0 ? (
@@ -438,7 +438,7 @@ export default function DashboardPage() {
                     <li key={entry.key}>
                       <Link
                         to={entry.to}
-                        className="flex items-center gap-3 border-b border-line py-2.5 hover:text-teal-deep"
+                        className="flex items-center gap-3 border-b border-line py-2.5 hover:text-brand-deep"
                       >
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-label font-medium text-text-primary">
@@ -448,7 +448,7 @@ export default function DashboardPage() {
                             {entry.detail}
                           </span>
                         </span>
-                        <span className="shrink-0 font-mono text-mono-sm text-text-muted">
+                        <span className="shrink-0 text-caption tabular-nums text-text-muted">
                           {formatDateTime(entry.at)}
                         </span>
                       </Link>
@@ -458,7 +458,7 @@ export default function DashboardPage() {
                 {recent.length > 2 ? (
                   <Accordion type="single" collapsible>
                     <AccordionItem value="more" className="border-0">
-                      <AccordionTrigger className="text-caption text-text-muted hover:text-teal-deep">
+                      <AccordionTrigger className="text-caption text-text-muted hover:text-brand-deep">
                         {t("dashboard:recent.showMore", { count: recent.length - 2 })}
                       </AccordionTrigger>
                       <AccordionContent>
@@ -467,7 +467,7 @@ export default function DashboardPage() {
                             <li key={entry.key}>
                               <Link
                                 to={entry.to}
-                                className="flex items-center gap-3 border-b border-line py-2.5 last:border-0 hover:text-teal-deep"
+                                className="flex items-center gap-3 border-b border-line py-2.5 last:border-0 hover:text-brand-deep"
                               >
                                 <span className="min-w-0 flex-1">
                                   <span className="block truncate text-label font-medium text-text-primary">
@@ -477,7 +477,7 @@ export default function DashboardPage() {
                                     {entry.detail}
                                   </span>
                                 </span>
-                                <span className="shrink-0 font-mono text-mono-sm text-text-muted">
+                                <span className="shrink-0 text-caption tabular-nums text-text-muted">
                                   {formatDateTime(entry.at)}
                                 </span>
                               </Link>

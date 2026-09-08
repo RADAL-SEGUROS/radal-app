@@ -28,6 +28,8 @@ export interface ClientListParams {
   account_manager_id?: number;
   sector?: string;
   source?: string;
+  /** Groups & accounts (spec v3 §4.3) — the broker-private Group. */
+  account_group_id?: number;
   page?: number;
   page_size?: number;
 }

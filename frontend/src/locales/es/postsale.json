@@ -1,0 +1,595 @@
+{
+  "shared": {
+    "severity": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja"
+    },
+    "noPermission": "Tu rol no tiene permiso para esta acción.",
+    "loading": "Cargando…",
+    "notFound": "No encontramos este registro.",
+    "saved": "Cambios guardados",
+    "uf": "UF",
+    "days_one": "{{count}} día",
+    "days_other": "{{count}} días",
+    "total": "Total",
+    "pending": "Pendiente",
+    "yes": "Sí",
+    "no": "No",
+    "soonEmail": "El envío por correo llega pronto.",
+    "soonExport": "La exportación llega pronto.",
+    "soonRenewal": "La renovación se crea por API en esta versión."
+  },
+
+  "policy": {
+    "title": "Pólizas",
+    "subtitle": "El contrato vigente y todo lo que ocurre después de la emisión.",
+    "searchPlaceholder": "N° de póliza, asegurado o RUT",
+    "empty": "No hay pólizas registradas",
+    "emptyHint": "Una póliza nace de una propuesta aceptada y del documento 08 recibido de la compañía.",
+    "resultCount_one": "{{count}} póliza",
+    "resultCount_other": "{{count}} pólizas",
+    "filters": {
+      "status": "Estado",
+      "allStatuses": "Todos los estados"
+    },
+    "kpi": {
+      "total": "Pólizas",
+      "active": "Vigentes",
+      "expiring": "Por vencer",
+      "expiringHint": "Vigencia que termina dentro de 60 días",
+      "gross": "Prima bruta vigente"
+    },
+    "columns": {
+      "number": "Póliza",
+      "client": "Asegurado",
+      "insurer": "Compañía",
+      "period": "Vigencia",
+      "insuredAmount": "Monto asegurado",
+      "gross": "Prima bruta",
+      "status": "Estado",
+      "postSale": "Post-venta"
+    },
+    "status": {
+      "draft": "Borrador",
+      "active": "Vigente",
+      "expired": "Vencida",
+      "cancelled": "Anulada",
+      "renewed": "Renovada"
+    },
+    "detail": {
+      "heading": "Póliza {{number}}",
+      "notFound": "No encontramos esta póliza",
+      "identity": "Identificación",
+      "period": "Vigencia",
+      "money": "Prima",
+      "terms": "Condiciones del contrato",
+      "postSale": "Post-venta",
+      "endorsements": "Endosos",
+      "collection": "Cobranza",
+      "claims": "Siniestros",
+      "noEndorsements": "Sin endosos en esta póliza",
+      "noCollection": "Sin plan de pago cargado",
+      "noClaims": "Sin siniestros registrados",
+      "openCollection": "Abrir cobranza",
+      "openEndorsement": "Abrir endoso",
+      "openClaim": "Abrir siniestro"
+    },
+    "fields": {
+      "policyNumber": "N° de póliza",
+      "insurer": "Compañía",
+      "client": "Asegurado",
+      "coverMode": "Modalidad de cobertura",
+      "cmfCode": "Código CMF (POL)",
+      "periodStart": "Inicio de vigencia",
+      "periodEnd": "Término de vigencia",
+      "issuedAt": "Fecha de emisión",
+      "insuredAmount": "Monto asegurado",
+      "insuredAmountSemantics": "Base del monto asegurado",
+      "aggregateLimit": "Límite agregado",
+      "averageRate": "Tasa media",
+      "indemnityLimit": "Límite de indemnización",
+      "renewsPolicy": "Renueva la póliza",
+      "sourceDocument": "Documento origen",
+      "caseFile": "Expediente",
+      "deductibles": "Deducibles",
+      "notes": "Observaciones",
+      "daysToExpiry": "Días para el vencimiento"
+    },
+    "money": {
+      "taxable": "Prima afecta",
+      "exempt": "Prima exenta",
+      "net": "Prima neta",
+      "vat": "IVA",
+      "gross": "Prima bruta",
+      "commission": "Comisión",
+      "rule": "neta = afecta + exenta · IVA = 19% de la afecta (no de la neta) · bruta = neta + IVA",
+      "vatHint": "19% sobre la prima afecta. La cobertura de terremoto es exenta.",
+      "mismatch": "La prima registrada no cuadra con la aritmética: revisa el documento origen.",
+      "checks": "Aritmética verificada"
+    },
+    "noonHint": "Vigencia contractual: el documento fija las 12:00 del día indicado.",
+    "actions": {
+      "openCase": "Ver expediente",
+      "newEndorsement": "Nuevo endoso",
+      "newClaim": "Registrar siniestro",
+      "renew": "Renovar",
+      "exportPolicy": "Exportar póliza"
+    }
+  },
+
+  "subFunnel": {
+    "title": "Sub-expedientes de post-venta",
+    "description": "Cada caso con su secuencia, su versión y sus fechas: el recorrido de pasado a presente.",
+    "empty": "Esta póliza todavía no tiene casos de post-venta",
+    "emptyHint": "Los endosos, la cobranza, los siniestros y la renovación se abren como expedientes hijos de esta póliza.",
+    "columns": {
+      "case": "Caso",
+      "kind": "Tipo",
+      "stage": "Hito",
+      "status": "Estado",
+      "opened": "Apertura",
+      "closed": "Cierre"
+    },
+    "sequence": "E{{n}}",
+    "version": "v{{n}}",
+    "supersedes": "Reemplaza a la versión anterior",
+    "current": "Vigente",
+    "kind": {
+      "account": "Cuenta",
+      "endorsement": "Endoso",
+      "collection": "Cobranza",
+      "claim": "Siniestro",
+      "renewal": "Renovación"
+    },
+    "openCase": "Abrir expediente"
+  },
+
+  "mirror": {
+    "title": "Validación espejo",
+    "description": "La póliza emitida contra la propuesta de emisión, campo por campo. Nada se corrige solo: cada diferencia se resuelve con un endoso.",
+    "empty": "La póliza calza con la propuesta",
+    "emptyHint": "No hay diferencias entre lo propuesto y lo emitido.",
+    "missingSources": "Faltan extracciones confirmadas para comparar: {{sources}}",
+    "columns": {
+      "field": "Campo",
+      "expected": "Propuesto",
+      "found": "Emitido",
+      "severity": "Severidad",
+      "action": "Acción"
+    },
+    "createEndorsement": "Crear endoso",
+    "createAll": "Crear endosos para todo",
+    "queued_one": "{{count}} endoso en borrador",
+    "queued_other": "{{count}} endosos en borrador",
+    "suggestedKind": "Endoso sugerido: {{kind}}",
+    "noSuggestion": "Sin tipo de endoso sugerido",
+    "noPermission": "Necesitas permiso de creación de endosos."
+  },
+
+  "warranty": {
+    "title": "Garantías y recomendaciones",
+    "description": "El código R-n / G-n / M-n recorre inspección, póliza, cobranza y siniestro. Su estado decide la cobertura.",
+    "empty": "Esta póliza no tiene garantías registradas",
+    "emptyHint": "Las garantías nacen de las recomendaciones de inspección (categoría A) y del plan de ingeniería.",
+    "columns": {
+      "code": "Código",
+      "requirement": "Exigencia",
+      "source": "Origen",
+      "due": "Vence",
+      "status": "Estado",
+      "cost": "Costo"
+    },
+    "source": {
+      "inspection_recommendation": "Recomendación de inspección",
+      "underwriting_warranty": "Garantía de suscripción",
+      "engineering_measure": "Medida de ingeniería"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "in_progress": "En ejecución",
+      "met_on_time": "Cumplida en plazo",
+      "met_late": "Cumplida fuera de plazo",
+      "met_after_claim": "Cumplida tras el siniestro",
+      "breached": "Incumplida",
+      "waived": "Liberada"
+    },
+    "flags": {
+      "permanent": "Permanente",
+      "suspensive": "Suspensiva"
+    },
+    "budget": "Presupuesto",
+    "actualCost": "Costo real",
+    "overrun": "Sobrecosto {{pct}}",
+    "category": "Categoría {{letter}}",
+    "verification": "Verificación",
+    "completedOn": "Cumplida el {{date}}",
+    "overdue": "Vencida",
+    "markStatus": "Cambiar estado",
+    "compliance": "Cumplimiento",
+    "noPermission": "Necesitas permiso de edición de pólizas."
+  },
+
+  "endorsement": {
+    "title": "Endosos",
+    "detail": {
+      "heading": "Endoso {{number}}",
+      "untitled": "Endoso E{{n}}",
+      "notFound": "No encontramos este endoso",
+      "identity": "Identificación",
+      "motive": "Motivo",
+      "effect": "Efecto sobre la póliza",
+      "premium": "Movimiento de prima",
+      "documents": "Documentos"
+    },
+    "fields": {
+      "number": "Folio del endoso",
+      "sequence": "Secuencia",
+      "kind": "Tipo",
+      "status": "Estado",
+      "policy": "Póliza",
+      "effectiveAt": "Inicio de efecto",
+      "endsAt": "Término de efecto",
+      "issuedAt": "Fecha de emisión",
+      "contractualBasis": "Base contractual",
+      "prorataDays": "Días de endoso",
+      "unexpiredDays": "Días no corridos",
+      "insuredAmountDelta": "Variación del monto asegurado",
+      "proposalDocument": "Propuesta de endoso",
+      "issuedDocument": "Endoso emitido",
+      "caseFile": "Expediente",
+      "confirmed": "Confirmado"
+    },
+    "kind": {
+      "location_inclusion": "Inclusión de ubicación",
+      "location_exclusion": "Exclusión de ubicación",
+      "vehicle_inclusion": "Inclusión de vehículo",
+      "vehicle_exclusion": "Exclusión de vehículo",
+      "additional_insured": "Asegurado adicional",
+      "activity_extension": "Extensión de actividad",
+      "aggregate_reinstatement": "Reposición del agregado",
+      "roster_increase": "Aumento de nómina",
+      "roster_adjustment": "Ajuste de nómina",
+      "pledge_update": "Actualización de prenda",
+      "policyholder_change": "Cambio de contratante",
+      "sum_insured_increase": "Aumento de monto asegurado",
+      "sum_insured_decrease": "Rebaja de monto asegurado",
+      "deductible_reduction": "Rebaja de deducible",
+      "period_extension": "Prórroga de vigencia",
+      "other": "Otro"
+    },
+    "status": {
+      "draft": "Borrador",
+      "proposed": "Propuesto",
+      "issued": "Emitido",
+      "applied": "Aplicado",
+      "rejected": "Rechazado",
+      "cancelled": "Anulado"
+    },
+    "actions": {
+      "issue": "Registrar emisión",
+      "issueHint": "Adjunta el endoso emitido por la compañía y aplica los deltas a la póliza y a la cobranza.",
+      "issueDone": "Endoso emitido: la póliza y la cobranza quedaron actualizadas.",
+      "needsDocument": "Primero registra el documento del endoso emitido.",
+      "alreadyIssued": "Este endoso ya fue emitido.",
+      "confirm": "Confirmar datos",
+      "backToPolicy": "Volver a la póliza"
+    },
+    "issueDialog": {
+      "title": "Registrar el endoso emitido",
+      "documentId": "ID del documento emitido",
+      "documentHint": "El documento ya debe estar cargado en el expediente (08A / 08B / 09B / 09D).",
+      "number": "Folio del endoso",
+      "issuedAt": "Fecha de emisión",
+      "effectiveAt": "Inicio de efecto",
+      "note": "Nota interna",
+      "submit": "Emitir"
+    },
+    "noPermission": "Necesitas permiso de edición de endosos."
+  },
+
+  "effectDiff": {
+    "title": "Tabla de efecto",
+    "description": "Una fila por dimensión que cambia: antes, después y variación.",
+    "empty": "Este endoso no registra una tabla de efecto",
+    "emptyHint": "El detalle antes/después llega desde la extracción del documento del endoso.",
+    "columns": {
+      "dimension": "Dimensión",
+      "before": "Antes",
+      "after": "Después",
+      "delta": "Variación"
+    }
+  },
+
+  "premiumDelta": {
+    "title": "Movimiento de prima",
+    "description": "Los deltas conservan el signo: una exclusión o una rebaja son negativas.",
+    "taxable": "Afecta",
+    "exempt": "Exenta",
+    "net": "Neta",
+    "vat": "IVA",
+    "total": "Bruta",
+    "commission": "Comisión",
+    "rule": "Δneta = Δafecta + Δexenta · ΔIVA = 19% de Δafecta · Δbruta = Δneta + ΔIVA",
+    "noEffect": "Sin efecto en prima",
+    "noEffectHint": "Endoso administrativo: todos los deltas son cero. Es válido.",
+    "mismatch": "Los deltas no cumplen la aritmética; revisa el documento del endoso.",
+    "prorata": "Prorrata: {{days}} de {{unexpired}} días no corridos",
+    "increase": "Aumenta la prima",
+    "decrease": "Rebaja la prima"
+  },
+
+  "collection": {
+    "title": "Cobranza",
+    "detail": {
+      "heading": "Plan de pago {{number}}",
+      "untitled": "Plan de pago",
+      "notFound": "No encontramos este plan de pago",
+      "plan": "Plan",
+      "ledger": "Cartola de cuotas",
+      "art528": "Artículo 528 — suspensión y rehabilitación",
+      "management": "Nota de gestión"
+    },
+    "fields": {
+      "planNumber": "N° de plan",
+      "policy": "Póliza",
+      "paymentMode": "Forma de pago",
+      "installmentCount": "N° de cuotas",
+      "totalPremium": "Prima total del plan",
+      "bank": "Banco",
+      "accountNumber": "Cuenta de cargo",
+      "interestRate": "Interés mensual",
+      "status": "Estado",
+      "asOfDate": "Estado al",
+      "caseFile": "Expediente"
+    },
+    "paymentMode": {
+      "coupon_book": "Cupones",
+      "direct_debit": "PAC (cargo en cuenta)",
+      "card_debit": "PAT (cargo en tarjeta)",
+      "transfer": "Transferencia",
+      "single_charge": "Pago único",
+      "other": "Otra"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "current": "Al día",
+      "overdue": "En mora",
+      "settled": "Pagado",
+      "suspended": "Suspendido",
+      "terminated": "Terminado",
+      "rehabilitated": "Rehabilitado"
+    },
+    "kpi": {
+      "scheduled": "Programado",
+      "paid": "Pagado",
+      "outstanding": "Saldo",
+      "overdue": "En mora",
+      "compliance": "Cumplimiento",
+      "nextDue": "Próximo vencimiento",
+      "overdueCount_one": "{{count}} cuota en mora",
+      "overdueCount_other": "{{count}} cuotas en mora"
+    },
+    "alerts": "Alertas",
+    "noAlerts": "Sin alertas activas"
+  },
+
+  "installment": {
+    "title": "Cartola de cuotas",
+    "description": "Σ de las cuotas = prima bruta de la póliza + Σ de los deltas de endoso. La última cuota absorbe el redondeo.",
+    "empty": "Este plan no tiene cuotas cargadas",
+    "emptyHint": "Las cuotas llegan del plan de pago de la compañía (documento 09).",
+    "columns": {
+      "number": "N°",
+      "coupon": "Cupón",
+      "dueDate": "Vencimiento",
+      "gross": "Monto bruto",
+      "paidOn": "Pagada el",
+      "daysLate": "Días de atraso",
+      "status": "Estado",
+      "running": "Acumulado"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "due": "Por vencer",
+      "paid": "Pagada",
+      "paid_late": "Pagada con atraso",
+      "overdue": "En mora",
+      "credited": "Abonada",
+      "cancelled": "Anulada"
+    },
+    "balance": {
+      "title": "Cuadratura",
+      "scheduled": "Σ cuotas",
+      "policyGross": "Prima bruta de la póliza",
+      "endorsementDeltas": "Σ deltas de endoso",
+      "expected": "Total esperado",
+      "difference": "Diferencia",
+      "ok": "La cartola cuadra con la póliza y sus endosos.",
+      "mismatch": "La cartola NO cuadra: la diferencia se resuelve corrigiendo las cuotas o registrando el endoso que falta."
+    },
+    "markPaid": "Marcar pagada",
+    "markPaidHint": "Registra el pago de la cuota {{n}}.",
+    "fromEndorsement": "Cuota originada por un endoso",
+    "noPermission": "Necesitas permiso de edición de cobranzas."
+  },
+
+  "art528": {
+    "title": "Artículo 528 — término y rehabilitación de cobertura",
+    "description": "El no pago suspende la cobertura de pleno derecho; la rehabilitación tiene fecha y costo.",
+    "empty": "Sin eventos del artículo 528",
+    "emptyHint": "La cobertura nunca se suspendió por no pago en este plan.",
+    "terminated": "Término de cobertura",
+    "rehabilitated": "Rehabilitación",
+    "daysWithoutCover": "Días sin cobertura",
+    "rehabilitationCost": "Costo de rehabilitación",
+    "gapWarning": "Un siniestro ocurrido dentro de esta ventana no tiene cobertura.",
+    "eventDate": "Fecha",
+    "eventKind": "Evento",
+    "eventDetail": "Detalle"
+  },
+
+  "claim": {
+    "title": "Siniestros",
+    "subtitle": "Del denuncio a la liquidación final, con la causalidad de las garantías a la vista.",
+    "searchPlaceholder": "N° de siniestro o asegurado",
+    "empty": "No hay siniestros registrados",
+    "emptyHint": "El siniestro se abre con el denuncio (documento 10 / 11) del expediente.",
+    "resultCount_one": "{{count}} siniestro",
+    "resultCount_other": "{{count}} siniestros",
+    "kpi": {
+      "total": "Siniestros",
+      "open": "En curso",
+      "pendingRuling": "Sin pronunciamiento",
+      "paid": "Indemnizado"
+    },
+    "columns": {
+      "number": "N° de siniestro",
+      "policy": "Póliza",
+      "occurred": "Ocurrencia",
+      "reported": "Denuncio",
+      "status": "Estado",
+      "ruling": "Pronunciamiento",
+      "indemnity": "Indemnización"
+    },
+    "detail": {
+      "heading": "Siniestro {{number}}",
+      "untitled": "Siniestro",
+      "notFound": "No encontramos este siniestro",
+      "identity": "Identificación",
+      "timeline": "Cronología",
+      "amounts": "Montos",
+      "description": "Relato"
+    },
+    "fields": {
+      "claimNumber": "N° de siniestro",
+      "kind": "Tipo de siniestro",
+      "policy": "Póliza",
+      "occurredAt": "Fecha y hora de ocurrencia",
+      "reportedAt": "Fecha y hora del denuncio",
+      "noticeDeadline": "Plazo de denuncio",
+      "noticeLag": "Demora del denuncio",
+      "adjusterName": "Liquidador",
+      "adjusterRegistry": "Registro CMF del liquidador",
+      "coverageRuling": "Pronunciamiento de cobertura",
+      "deductible": "Deducible aplicado",
+      "lossRatio": "Siniestralidad",
+      "estimated": "Estimado",
+      "settled": "Liquidado",
+      "paid": "Pagado",
+      "recovery": "Recupero",
+      "reserve": "Reserva",
+      "cost": "Costo total",
+      "caseFile": "Expediente"
+    },
+    "status": {
+      "reported": "Denunciado",
+      "under_review": "En liquidación",
+      "settled": "Liquidado",
+      "paid": "Pagado",
+      "rejected": "Rechazado",
+      "closed": "Cerrado"
+    },
+    "ruling": {
+      "pending": "Pendiente",
+      "covered": "Con cobertura",
+      "partially_covered": "Cobertura parcial",
+      "rejected": "Sin cobertura"
+    },
+    "hourHint": "Hora exacta: la franquicia horaria del contrato se cuenta desde aquí.",
+    "noticeOnTime": "Denunciado dentro del plazo",
+    "noticeLate": "Denunciado fuera de plazo",
+    "actions": {
+      "close": "Cerrar siniestro",
+      "closeHint": "Fija el pronunciamiento final y la siniestralidad de la cuenta.",
+      "backToPolicy": "Volver a la póliza",
+      "openCase": "Ver expediente"
+    },
+    "closeDialog": {
+      "title": "Cierre del siniestro",
+      "ruling": "Pronunciamiento final",
+      "settled": "Monto liquidado",
+      "paid": "Monto pagado",
+      "deductible": "Deducible",
+      "recovery": "Recupero",
+      "lossRatio": "Siniestralidad (%)",
+      "note": "Nota de cierre",
+      "submit": "Cerrar"
+    },
+    "noPermission": "Necesitas permiso de aprobación de siniestros."
+  },
+
+  "claimItem": {
+    "title": "Partidas del siniestro",
+    "description": "El recorrido del liquidador por cada partida: denunciado, determinado, daño, deducible e indemnización.",
+    "empty": "Sin partidas cargadas",
+    "emptyHint": "Las partidas llegan de las tablas del informe de liquidación.",
+    "columns": {
+      "item": "Partida",
+      "kind": "Tipo",
+      "notified": "Denunciado",
+      "determined": "Determinado",
+      "damage": "Daño",
+      "deductible": "Deducible",
+      "indemnity": "Indemnización"
+    },
+    "kind": {
+      "material_damage": "Daño material",
+      "business_interruption": "Perjuicio por paralización",
+      "expense": "Gastos",
+      "liability": "Responsabilidad civil",
+      "personal_accident": "Accidentes personales",
+      "recovery": "Recupero"
+    },
+    "totals": "Totales",
+    "basis": "Base de cálculo",
+    "retention": "Retención del asegurado",
+    "retentionHint": "Daño determinado menos indemnización: lo que finalmente soporta el asegurado."
+  },
+
+  "adjuster": {
+    "title": "Informes de liquidación",
+    "description": "Pre-informe y liquidación final, con el análisis de causalidad de las garantías.",
+    "preliminary": "Pre-informe",
+    "final": "Informe final",
+    "noReports": "Todavía no hay informes del liquidador en el expediente",
+    "noReportsHint": "El pre-informe (11 / 12) y el informe final (12 / 13) se cargan en el sub-expediente de siniestro.",
+    "openDocument": "Abrir documento",
+    "analyze": "Leer con IA",
+    "analyzing": "Leyendo el informe…",
+    "analyzeHint": "Extrae el pronunciamiento, la causalidad de garantías y la cuantificación. No escribe nada: queda como sugerencia.",
+    "analyzeNoPermission": "Necesitas permiso de carga de documentos.",
+    "ruling": "Pronunciamiento",
+    "rulingPreliminary": "Pronunciamiento preliminar",
+    "rulingFinal": "Pronunciamiento final",
+    "warrantyCausality": "Causalidad de garantías",
+    "warrantyCausalityHint": "Una garantía incumplida solo excluye si es causa del siniestro. El informe lo dice explícitamente.",
+    "noWarrantyFindings": "El informe no observa garantías incumplidas.",
+    "warrantySignals": "Garantías con señal en este siniestro",
+    "noWarrantySignals": "Ninguna garantía de la póliza cambió de estado por este siniestro.",
+    "conclusions": "Conclusiones",
+    "pendingDiligences": "Diligencias pendientes",
+    "duration": "Duración de la liquidación",
+    "suggestionOnly": "Sugerencia de IA sin confirmar — revísala antes de usarla.",
+    "aiUnavailable": "No pudimos leer el informe con IA."
+  },
+
+  "counterfactual": {
+    "title": "Comparación con el programa anterior",
+    "description": "Qué habría pasado con este mismo siniestro bajo el programa previo. Es el argumento de la renovación.",
+    "empty": "Sin comparación contrafactual disponible",
+    "emptyHint": "El informe final la incluye; léelo con IA para traerla.",
+    "columns": {
+      "scenario": "Escenario",
+      "concept": "Concepto",
+      "current": "Programa actual",
+      "prior": "Programa anterior",
+      "difference": "Diferencia"
+    },
+    "actual": "Resultado real",
+    "alternatives": "Alternativas evaluadas",
+    "benefit": "Beneficio del programa actual",
+    "benefitHint": "Diferencia a favor del asegurado por haber colocado este programa.",
+    "renewalStory": "Guarda esta lectura para la conversación de renovación."
+  }
+}

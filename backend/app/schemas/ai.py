@@ -331,6 +331,10 @@ class MessageRead(ApiModel):
     thread_id: int
     role: AgentRoleLiteral
     content: str | None = None
+    # Additive (v4 agent): the provider's tool_calls on an assistant message /
+    # the linkage stub on a tool message, and the refs a user message carried.
+    tool_calls: dict[str, Any] | list[Any] | None = None
+    context_refs: list[dict[str, Any]] | None = None
     model: str | None = None
     tokens: int | None = None
     created_at: datetime | None = None
@@ -349,9 +353,219 @@ class MessageExchange(ApiModel):
     assistant_message: MessageRead
 
 
+# --- Agentic turn (v4 agent spec §7) ------------------------------------------
+
+AgentActionStatusLiteral = Annotated[
+    Literal["proposed", "confirmed", "discarded", "failed"],
+    BeforeValidator(_enum_value),
+]
+
+#: Ref entity types the agent endpoint resolves (spec §6.1). The service is the
+#: authority; this mirrors it so the request 422s early with a clear message.
+CONTEXT_REF_TYPES = (
+    "account_group",
+    "client",
+    "case_file",
+    "policy",
+    "quote_request",
+    "proposal",
+    "document",
+    "sales_lead",
+)
+
+MAX_CONTEXT_REFS = 6
+
+
+class ContextRef(ApiModel):
+    """One @-mention attached to a user message."""
+
+    entity_type: str = Field(..., min_length=1, max_length=30)
+    entity_id: int = Field(..., gt=0)
+
+
+class AgentTurnRequest(ApiModel):
+    """``POST /ai/agent/messages`` — one agentic turn."""
+
+    thread_id: int | None = Field(default=None, gt=0)
+    content: str = Field(..., min_length=1, max_length=8000)
+    context_refs: list[ContextRef] = Field(default_factory=list, max_length=MAX_CONTEXT_REFS)
+
+
+class AgentActionRead(ApiModel):
+    """One proposed/resolved write. ``allowed`` is computed per response for
+    the CALLER, so the card can render Confirmar disabled-with-reason without a
+    second request (the server still re-checks on confirm)."""
+
+    id: int
+    thread_id: int
+    message_id: int | None = None
+    tool: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    summary: str | None = None
+    module: str
+    action: str
+    status: AgentActionStatusLiteral
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    confirmed_at: datetime | None = None
+    created_at: datetime | None = None
+    allowed: bool = False
+
+
+class AgentActionList(ApiModel):
+    items: list[AgentActionRead]
+    total: int
+
+
+class AgentTurnResponse(ApiModel):
+    """Everything one agent turn persisted, in order."""
+
+    thread: ThreadRead
+    messages: list[MessageRead]
+    pending_actions: list[AgentActionRead] = Field(default_factory=list)
+
+
+# --- Registry-driven extraction (v2) -----------------------------------------
+#
+# The generic path: any of the 26 registry categories, one response shape, so the
+# UI can render a review form for a category it has never seen.
+
+
+class DocumentExtractionRequest(ApiModel):
+    """Ask the model to read one uploaded document with its registry schema."""
+
+    document_id: int = Field(..., gt=0)
+    category: str | None = Field(
+        default=None,
+        description="Override the document's filed category (registry slug)",
+    )
+
+
+# The spec's own name for the same shape.
+ExtractionRequestV2 = DocumentExtractionRequest
+
+
+class CategoryFieldRead(ApiModel):
+    """One top-level field of a category schema, for the generic review form."""
+
+    name: str
+    type: str | None = None
+    required: bool = False
+    description: str | None = None
+
+
+class CategorySpecRead(ApiModel):
+    """One registry row as JSON — everything the UI needs to render it."""
+
+    category: str
+    canonical_category: str
+    is_alias: bool = False
+    code: str | None = None
+    codes: list[str] = Field(default_factory=list)
+    section: str
+    direction: str
+    prompt_version: str
+    module: str
+    schema_name: str
+    prefill_target: str
+    extraction_kind: str
+    guidance: str
+    fields: list[CategoryFieldRead] = Field(default_factory=list)
+
+
+class CategoryListResponse(ApiModel):
+    items: list[CategorySpecRead]
+    total: int
+
+
+class DocumentExtractionResponse(ApiModel):
+    """SUGGEST, generic: the audit row plus the category's own payload."""
+
+    extraction: ExtractionRead
+    category: str
+    canonical_category: str
+    schema_name: str
+    schema_version: str
+    prefill_target: str
+    section: str
+    payload: dict[str, Any] | None = None
+    # The raw parse, kept alongside the typed payload so a field the schema could
+    # not coerce is still visible to the reviewer instead of vanishing.
+    parsed: dict[str, Any] | None = None
+    # Only filled for the insurer-quotation categories: the legacy contract.
+    suggestion: ProposalSuggestion | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class DocumentConfirmRequest(ApiModel):
+    """COMMIT the human-reviewed payload for any registry category."""
+
+    payload: dict[str, Any] = Field(default_factory=dict)
+    category: str | None = Field(
+        default=None, description="Override the extraction's recorded category"
+    )
+    # Only for the insurer-quotation categories, where confirming really does
+    # create a proposal.
+    quote_request_id: int | None = Field(default=None, gt=0)
+    status: ProposalStatusLiteral = "submitted"
+    is_confirmed: bool = True
+
+
+class DocumentConfirmResponse(ApiModel):
+    extraction: ExtractionRead
+    category: str
+    prefill_target: str
+    # True when the confirm wrote the target entity (spec §6.6). False either
+    # because the category is genuinely informational (``informational=True``)
+    # or because something required is missing (see ``commit.detail``).
+    applied: bool = False
+    # True for categories that legitimately commit nothing (comparatives,
+    # declinations, cover letters, closure notes) — the UI says so instead of
+    # looking broken.
+    informational: bool = False
+    # What the commit did: {target, entity_type, entity_id, detail, ...extras}.
+    commit: dict[str, Any] | None = None
+    payload: dict[str, Any] | None = None
+    proposal: ProposalRead | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class SummaryRead(ApiModel):
+    """AI prose, always UNCONFIRMED: suggest -> edit -> confirmar."""
+
+    extraction_id: int
+    text: str
+    model: str
+    prompt_version: str
+    is_confirmed: bool = False
+    proposal_id: int | None = None
+    case_file_id: int | None = None
+    pack_id: int | None = None
+
+
+class StreamFrame(ApiModel):
+    """One SSE frame. Documentation-only: the endpoint writes text/event-stream.
+
+    ``start`` -> ``token``* -> ``done``, or a single ``error`` frame.
+    """
+
+    event: Literal["start", "token", "done", "error"]
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
 __all__ = [
     "ApiModel",
     "EnumStr",
+    "DocumentExtractionRequest",
+    "ExtractionRequestV2",
+    "CategoryFieldRead",
+    "CategorySpecRead",
+    "CategoryListResponse",
+    "DocumentExtractionResponse",
+    "DocumentConfirmRequest",
+    "DocumentConfirmResponse",
+    "SummaryRead",
+    "StreamFrame",
     "DeductibleEntry",
     "CoverageSuggestion",
     "InsurerRef",
@@ -369,4 +583,11 @@ __all__ = [
     "MessageRead",
     "MessageList",
     "MessageExchange",
+    "CONTEXT_REF_TYPES",
+    "MAX_CONTEXT_REFS",
+    "ContextRef",
+    "AgentTurnRequest",
+    "AgentActionRead",
+    "AgentActionList",
+    "AgentTurnResponse",
 ]

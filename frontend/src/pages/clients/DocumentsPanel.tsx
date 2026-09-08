@@ -203,7 +203,7 @@ export function DocumentsPanel({
                 interactive
                 className="flex flex-wrap items-center gap-3 p-3.5"
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[color-mix(in_srgb,var(--teal)_12%,transparent)] text-teal-deep">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-deep">
                   <FileText className="h-[18px] w-[18px]" strokeWidth={1.75} />
                 </span>
                 <div className="min-w-0 flex-1">

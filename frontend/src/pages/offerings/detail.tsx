@@ -111,7 +111,7 @@ export default function OfferingDetailPage() {
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge value={o.status} label={t(`status.${o.status}`)} />
             {o.sent_via ? <Badge variant="action">{t(`channels.${o.sent_via}`)}</Badge> : null}
-            <Link to={`/quotes/${o.quote_request_id}`} className="font-mono text-mono-sm">
+            <Link to={`/quotes/${o.quote_request_id}`} className="text-caption tabular-nums">
               COT-{String(o.quote_request_id).padStart(4, "0")}
             </Link>
           </span>
@@ -133,7 +133,7 @@ export default function OfferingDetailPage() {
             value={
               o.viewed_at ? (
                 <span className="flex items-center gap-1.5">
-                  <Eye className="h-4 w-4 text-lime-deep" />
+                  <Eye className="h-4 w-4 text-pos-text" />
                   {formatDateTime(o.viewed_at)}
                 </span>
               ) : (
@@ -210,10 +210,10 @@ function ProposalPicker({ offering }: { offering: Offering }) {
                   disabled={!canEdit.allowed || update.isPending}
                   onClick={() => select(p)}
                   className={cn(
-                    "flex flex-col gap-2 rounded-[14px] border p-4 text-left transition-all duration-150",
+                    "flex flex-col gap-2 rounded-card border p-4 text-left transition-all duration-150",
                     selected
-                      ? "border-teal bg-[color-mix(in_srgb,var(--teal)_9%,transparent)] shadow-card"
-                      : "border-line bg-bg-surface hover:-translate-y-[2px] hover:border-teal",
+                      ? "border-brand bg-brand-soft shadow-elev"
+                      : "border-line bg-bg-surface hover:-translate-y-[2px] hover:border-brand-line",
                     (!canEdit.allowed || update.isPending) && "cursor-not-allowed opacity-70",
                   )}
                 >
@@ -256,7 +256,7 @@ function ProposalPicker({ offering }: { offering: Offering }) {
           </div>
         )}
         {!canEdit.allowed ? (
-          <p className="mt-3 text-caption text-amber-deep">{t("detail.editNoPermission")}</p>
+          <p className="mt-3 text-caption text-warn-text">{t("detail.editNoPermission")}</p>
         ) : null}
         {update.isError ? <ErrorBanner error={update.error} className="mt-3" /> : null}
       </Section>
@@ -302,7 +302,7 @@ function PdfPanel({ offering }: { offering: Offering }) {
       >
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="rounded-[11px] bg-[color-mix(in_srgb,var(--blue)_13%,transparent)] p-2.5 text-blue-deep">
+            <span className="rounded-lg bg-brand-soft p-2.5 text-brand-deep">
               <FileText className="h-5 w-5" />
             </span>
             <div>
@@ -387,9 +387,9 @@ function SharePanel({ offering }: { offering: Offering }) {
       <Section title={t("detail.step3Title")} description={t("detail.step3Description")}>
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-[10px] border border-line bg-bg-recessed px-3.5 py-2.5">
-              <Link2 className="h-4 w-4 shrink-0 text-teal" />
-              <span className="truncate font-mono text-mono-sm text-text-secondary">
+            <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-lg border border-line bg-bg-recessed px-3.5 py-2.5">
+              <Link2 className="h-4 w-4 shrink-0 text-brand" />
+              <span className="truncate text-caption text-text-secondary">
                 {shareUrl || t("detail.noShareUrl")}
               </span>
             </div>

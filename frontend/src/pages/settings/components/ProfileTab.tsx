@@ -36,13 +36,13 @@ import {
 function LogoPreview({ doc }: { doc: RadalDocument }) {
   const { data, isLoading } = useDocumentDownload(doc.id);
   if (isLoading || !data) {
-    return <Skeleton className="h-24 w-24 rounded-[14px]" />;
+    return <Skeleton className="h-24 w-24 rounded-card" />;
   }
   return (
     <img
       src={data.url}
       alt={doc.original_name}
-      className="h-24 w-24 rounded-[14px] border border-line object-cover"
+      className="h-24 w-24 rounded-card border border-line object-cover"
     />
   );
 }
@@ -105,7 +105,7 @@ function LogoCard({ brokerId, uploadGuard }: { brokerId: number; uploadGuard: Gu
       }
     >
       {isLoading ? (
-        <Skeleton className="h-24 w-24 rounded-[14px]" />
+        <Skeleton className="h-24 w-24 rounded-card" />
       ) : !current ? (
         <EmptyState>{t("logo.empty")}</EmptyState>
       ) : (

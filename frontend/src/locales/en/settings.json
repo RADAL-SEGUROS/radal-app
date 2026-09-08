@@ -4,7 +4,8 @@
   "tabs": {
     "profile": "Profile",
     "team": "Team & roles",
-    "documents": "Documents"
+    "documents": "Documents",
+    "schemas": "Lines"
   },
   "noPermission": {
     "title": "No access",
@@ -139,6 +140,9 @@
     "broker_executive": "Broker executive",
     "broker_inspector": "Inspector",
     "broker_technician": "Technician",
+    "broker_commercial": "Commercial executive",
+    "broker_collections": "Collections executive",
+    "broker_claims": "Claims executive",
     "insured_admin": "Insured administrator",
     "insured_user": "Insured user",
     "insurer_admin": "Insurer administrator",
@@ -198,7 +202,8 @@
     "claims_history": "Claims history",
     "proposal": "Proposal",
     "power_of_attorney": "Power of attorney",
-    "other": "Other"
+    "other": "Other",
+    "archive_pack": "Downloadable case folder"
   },
   "entities": {
     "broker": "Broker",
@@ -215,7 +220,13 @@
     "inspection": "Inspection",
     "policy": "Policy",
     "claim": "Claim",
-    "offering": "Offering"
+    "offering": "Offering",
+    "case_file": "Case file",
+    "sales_lead": "Lead",
+    "endorsement": "Endorsement",
+    "collection_plan": "Collection plan",
+    "warranty": "Warranty",
+    "account_group": "Group"
   },
   "guard": {
     "noPermission": "You do not have permission for this action",
@@ -225,5 +236,126 @@
   "error": {
     "generic": "We could not complete the action",
     "load": "We could not load the data"
+  },
+  "schemas": {
+    "title": "Schemas by line",
+    "description": "Define what records the AI normalizes for each insurance line.",
+    "add": "New schema",
+    "edit": "Edit",
+    "delete": "Delete",
+    "empty": "No schemas yet. Create the first one for your main line.",
+    "globalScope": "Radal (global)",
+    "ownScope": "Your brokerage",
+    "active": "Active",
+    "inactive": "Inactive",
+    "readOnlyGlobal": "Radal's global schema cannot be edited; create your own for your brokerage.",
+    "columns": {
+      "name": "Name",
+      "line": "Line",
+      "scope": "Source",
+      "sections": "Sections",
+      "status": "Status",
+      "actions": ""
+    },
+    "form": {
+      "createTitle": "New line schema",
+      "editTitle": "Edit schema",
+      "description": "A schema is sections and fields. Keys are English identifiers; labels are what you see on screen.",
+      "name": "Schema name",
+      "namePlaceholder": "Fire & Earthquake — Records",
+      "line": "Line",
+      "linePlaceholder": "Choose a line",
+      "noLines": "The brokerage has no active lines yet.",
+      "isActive": "Active",
+      "sections": "Sections",
+      "addSection": "Add section",
+      "removeSection": "Remove section",
+      "noSections": "Add at least one section.",
+      "sectionKey": "Key",
+      "sectionLabel": "Label",
+      "fields": "Fields",
+      "addField": "Add field",
+      "removeField": "Remove field",
+      "noFields": "Add at least one field.",
+      "fieldKey": "Key",
+      "fieldLabel": "Label",
+      "fieldType": "Type",
+      "required": "Required",
+      "fieldDescription": "Help",
+      "descriptionPlaceholder": "Guidance for the AI and the user",
+      "options": "Options",
+      "optionsHint": "Comma-separated",
+      "repeatable": "Repeatable (table)",
+      "subfields": "Subfields",
+      "addSubfield": "Add subfield",
+      "keyHint": "Letters, numbers and underscore only.",
+      "save": "Save schema",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "needName": "Give the schema a name.",
+      "needLine": "Choose a line.",
+      "needSection": "Add at least one section with a field.",
+      "totals": "Totals row",
+      "totalsHint": "Sums the amount (UF) columns at the foot of the table (locations × insured-matters matrix)."
+    },
+    "fieldTypes": {
+      "text": "Text",
+      "number": "Number",
+      "integer": "Integer",
+      "boolean": "Yes / No",
+      "date": "Date",
+      "money_uf": "Amount (UF)",
+      "percent": "Percent",
+      "select": "Select",
+      "list": "List (table)",
+      "group": "Group"
+    },
+    "deleteTitle": "Delete schema",
+    "deleteDescription": "The schema will be deleted. Already-registered expedientes are unchanged.",
+    "created": "Schema created",
+    "updated": "Schema updated",
+    "deleted": "Schema deleted"
+  },
+  "lines": {
+    "title": "Lines",
+    "description": "A line is the ramo plus the records it requests. Define your own or adopt a recommended template.",
+    "create": "Create line",
+    "empty": "You have no lines yet. Create one from a template or from scratch.",
+    "plantilla": "Template",
+    "ownScope": "Your brokerage",
+    "usageLabel": "{{accounts}} accounts · {{groups}} groups",
+    "active": "Active",
+    "inactive": "Inactive",
+    "adopt": "Adopt",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteInUse": "In use by {{count}} account(s); cannot delete.",
+    "columns": {
+      "name": "Name",
+      "line": "Ramo",
+      "scope": "Origin",
+      "usage": "Usage",
+      "status": "Status",
+      "actions": ""
+    },
+    "deleteTitle": "Delete line",
+    "deleteDescription": "The line will be deleted. Already-registered expedientes are unchanged.",
+    "created": "Line created",
+    "updated": "Line updated",
+    "deleted": "Line deleted",
+    "form": {
+      "createTitle": "New line",
+      "editTitle": "Edit line"
+    },
+    "picker": {
+      "title": "Create line",
+      "description": "Start from a recommended template (you can edit it) or build the line from scratch.",
+      "templatesTitle": "Recommended templates",
+      "useTemplate": "Use template",
+      "sectionsCount": "{{count}} sections",
+      "noTemplates": "No templates available to adopt.",
+      "fromScratch": "From scratch",
+      "fromScratchHint": "Create an empty line and define its sections and fields."
+    }
   }
 }

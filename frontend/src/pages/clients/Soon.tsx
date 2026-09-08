@@ -58,7 +58,7 @@ export function SoonButton({
 /** Inline "pronto" chip for a whole panel that has no endpoint behind it yet. */
 export function SoonNote({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-[10px] border border-dashed border-line bg-bg-recessed px-3.5 py-2.5 text-caption text-text-muted">
+    <p className="rounded-lg border border-dashed border-line bg-bg-recessed px-3.5 py-2.5 text-caption text-text-muted">
       {children}
     </p>
   );

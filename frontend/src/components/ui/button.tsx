@@ -3,33 +3,44 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+/**
+ * Signal buttons: ONE accent primary per view (pine fill, white text — never
+ * ink). Everything else is neutral: bordered secondary, real outline, ghost.
+ * Destructive is quiet — red appears only on the destructive control itself.
+ * Hover is a fill/border change, press is scale(0.98); 150ms named-property
+ * transitions, nothing bouncy.
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[11px] text-label font-semibold transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-app)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-[17px] [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm text-label font-medium transition-[background-color,color,border-color,box-shadow,transform,scale] duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-app)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        // Blue = primary ACTION (main CTA). Solid, soft shadow, lifts on hover.
-        primary:
-          "border border-blue bg-blue text-primary-foreground shadow-[0_8px_18px_-9px_color-mix(in_srgb,var(--blue)_75%,transparent)] hover:-translate-y-px hover:border-blue-deep hover:bg-blue-deep hover:shadow-[0_12px_24px_-10px_color-mix(in_srgb,var(--blue)_80%,transparent)]",
-        // Teal = brand-forward action (rare; nav/brand contexts)
-        teal: "bg-teal text-white shadow-[0_8px_18px_-9px_color-mix(in_srgb,var(--teal)_75%,transparent)] hover:-translate-y-px hover:bg-teal-deep",
-        // Secondary = bone surface, teal-tinted hover + lift.
+        // THE accent button — one per view.
+        primary: "bg-cta text-cta-foreground shadow-elev hover:bg-cta-hover",
+        // Bordered neutral — the workhorse secondary.
         secondary:
-          "border border-line bg-bg-surface text-text-secondary hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--teal)_45%,var(--line))] hover:bg-[color-mix(in_srgb,var(--teal)_6%,transparent)] hover:text-teal-deep",
+          "border border-line bg-bone text-ink-2 hover:border-line-strong hover:bg-paper-2 hover:text-ink",
+        // A REAL outline: transparent fill, hairline border.
         outline:
-          "border border-line bg-bg-surface text-text-secondary hover:border-[color-mix(in_srgb,var(--teal)_45%,var(--line))] hover:bg-[color-mix(in_srgb,var(--teal)_6%,transparent)] hover:text-teal-deep",
-        ghost:
-          "bg-transparent text-text-tertiary hover:bg-[color-mix(in_srgb,var(--ink)_5%,transparent)] hover:text-teal-deep",
-        success: "bg-lime text-ink hover:brightness-95",
+          "border border-line bg-transparent text-ink-2 hover:border-line-strong hover:bg-paper-2 hover:text-ink",
+        ghost: "bg-transparent text-ink-3 hover:bg-paper-2 hover:text-ink",
+        // Brand-soft tint — rare accent-adjacent actions.
+        "accent-soft":
+          "border border-transparent bg-brand-soft text-brand-deep hover:border-brand-line",
+        // Legacy name → alias of accent-soft.
+        teal: "border border-transparent bg-brand-soft text-brand-deep hover:border-brand-line",
+        success:
+          "border border-transparent bg-pos-soft text-pos-text hover:border-pos-line",
+        // Quiet destructive: soft tint, red only here.
         destructive:
-          "bg-destructive text-destructive-foreground shadow-[0_8px_18px_-9px_color-mix(in_srgb,var(--red)_75%,transparent)] hover:-translate-y-px hover:brightness-95",
-        link: "text-blue underline-offset-4 hover:underline hover:text-blue-deep",
+          "border border-transparent bg-neg-soft text-neg-text hover:border-neg-line",
+        link: "text-brand underline-offset-4 hover:text-brand-deep hover:underline",
       },
       size: {
-        default: "h-10 px-4",
-        sm: "h-9 rounded-[10px] px-3 text-caption",
-        lg: "h-11 px-6",
-        icon: "h-10 w-10 rounded-[10px]",
+        default: "h-9 px-4",
+        sm: "h-8 px-3 text-caption",
+        lg: "h-10 px-5",
+        icon: "h-9 w-9",
       },
     },
     defaultVariants: {

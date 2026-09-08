@@ -8,13 +8,14 @@ model is complete so nothing needs a migration when it is switched on.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     Boolean,
     Date,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -24,18 +25,29 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.models.enums import (
+    ClaimItemKind,
+    ClaimRuling,
+    CoverageKind,
+    StrEnum,
+    sql_enum,
+)
 from app.models.base_class import Base, TimestampMixin
-from app.models.enums import CoverageKind, StrEnum, sql_enum
-from app.models.types import PCT, UF, JSONType
+from app.models.types import PCT, RATE, UF, JSONType
 
 if TYPE_CHECKING:
     from app.models.asset import Asset
     from app.models.broker import Broker
+    from app.models.case_file import CaseFile
     from app.models.client import Client
+    from app.models.collection import CollectionPlan
+    from app.models.document import Document
+    from app.models.endorsement import Endorsement
     from app.models.insurance_line import InsuranceLine
     from app.models.insurer import Insurer
     from app.models.placement import Placement
     from app.models.proposal import Proposal
+    from app.models.warranty import Warranty
 
 
 class PolicyStatus(StrEnum):
@@ -88,14 +100,50 @@ class Policy(Base, TimestampMixin):
     insurance_line_id: Mapped[int | None] = mapped_column(
         ForeignKey("insurance_line.id", ondelete="SET NULL"), index=True
     )
+    # The account expediente that produced the policy.
+    # ``use_alter``: policy <-> case_file is a genuine FK cycle (see
+    # ``document.case_file_id`` for the same treatment).
+    case_file_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "case_file.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_policy_case_file",
+        ),
+        index=True,
+    )
+    # The 08 the policy was read from — rule 8: FK to document, never a key.
+    source_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("document.id", ondelete="SET NULL"), index=True
+    )
+    # Renewal chain: the policy this one renews.
+    renews_policy_id: Mapped[int | None] = mapped_column(
+        ForeignKey("policy.id", ondelete="SET NULL"), index=True
+    )
 
     policy_number: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
+    # The 12:00 convention is contractual. ``start_date``/``end_date`` stay and
+    # are kept in sync by the service layer — nothing is dropped.
+    period_start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    period_end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     issued_at: Mapped[date | None] = mapped_column(Date)
     status: Mapped[PolicyStatus] = mapped_column(
         sql_enum(PolicyStatus), default=PolicyStatus.DRAFT, nullable=False
     )
+
+    # --- As-issued technical identity ---------------------------------------
+    # "Todo Riesgo" vs "Riesgos Nombrados", verbatim from the carrier.
+    cover_mode: Mapped[str | None] = mapped_column(String(64))
+    # CMF-registered policy-conditions code (POL / CAD).
+    cmf_policy_code: Mapped[str | None] = mapped_column(String(32))
+    # How the insured amount is to be read (first loss, total value, ...).
+    insured_amount_semantics: Mapped[str | None] = mapped_column(String(255))
+    aggregate_limit_uf: Mapped[Decimal | None] = mapped_column(UF)
+    average_rate_permille: Mapped[Decimal | None] = mapped_column(RATE)
+    # Prose: in the corpus the exact wording IS the limit.
+    indemnity_limit: Mapped[str | None] = mapped_column(Text)
 
     # --- Money (UF), same invariants as the proposal ------------------------
     insured_amount_uf: Mapped[Decimal | None] = mapped_column(UF)
@@ -118,6 +166,42 @@ class Policy(Base, TimestampMixin):
     insurer: Mapped["Insurer"] = relationship(back_populates="policies")
     insurance_line: Mapped["InsuranceLine | None"] = relationship(
         foreign_keys=[insurance_line_id]
+    )
+    # The account case that produced this policy.
+    case_file: Mapped["CaseFile | None"] = relationship(
+        "CaseFile", foreign_keys=[case_file_id]
+    )
+    # The post-sale sub-funnel: endorsement / collection / claim / renewal cases.
+    case_files: Mapped[list["CaseFile"]] = relationship(
+        "CaseFile",
+        foreign_keys="CaseFile.policy_id",
+        back_populates="policy",
+        order_by="(CaseFile.kind, CaseFile.sequence_no, CaseFile.version)",
+    )
+    source_document: Mapped["Document | None"] = relationship(
+        foreign_keys=[source_document_id]
+    )
+    renews_policy: Mapped["Policy | None"] = relationship(
+        "Policy", remote_side=[id], foreign_keys=[renews_policy_id]
+    )
+    endorsements: Mapped[list["Endorsement"]] = relationship(
+        "Endorsement",
+        foreign_keys="Endorsement.policy_id",
+        back_populates="policy",
+        order_by="Endorsement.sequence_no",
+    )
+    collection_plans: Mapped[list["CollectionPlan"]] = relationship(
+        "CollectionPlan",
+        foreign_keys="CollectionPlan.policy_id",
+        back_populates="policy",
+        cascade="all, delete-orphan",
+    )
+    warranties: Mapped[list["Warranty"]] = relationship(
+        "Warranty",
+        foreign_keys="Warranty.policy_id",
+        back_populates="policy",
+        cascade="all, delete-orphan",
+        order_by="Warranty.sort_order",
     )
     coinsurance_shares: Mapped[list["CoinsuranceShare"]] = relationship(
         back_populates="policy", cascade="all, delete-orphan"
@@ -217,16 +301,35 @@ class Claim(Base, TimestampMixin):
     asset_id: Mapped[int | None] = mapped_column(
         ForeignKey("asset.id", ondelete="SET NULL"), index=True
     )
+    case_file_id: Mapped[int | None] = mapped_column(
+        ForeignKey("case_file.id", ondelete="SET NULL"), index=True
+    )
 
     claim_number: Mapped[str | None] = mapped_column(String(64), index=True)
     # Line the loss was reported under (insurer's own wording, e.g. "Incendio").
     kind: Mapped[str | None] = mapped_column(String(160))
     event_date: Mapped[date | None] = mapped_column(Date)
     reported_date: Mapped[date | None] = mapped_column(Date)
+    # Hour-level, because the hourly franchise (4-hour BI waiting period) is
+    # contractual. The existing Dates stay and are kept in sync.
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Contractual notice window from knowledge of the loss.
+    notice_deadline_days: Mapped[int | None] = mapped_column(Integer)
     description: Mapped[str | None] = mapped_column(Text)
     status: Mapped[ClaimStatus] = mapped_column(
         sql_enum(ClaimStatus), default=ClaimStatus.REPORTED, nullable=False
     )
+
+    # --- Adjuster (liquidador) and ruling -----------------------------------
+    adjuster_name: Mapped[str | None] = mapped_column(String(160))
+    # CMF registry number of the adjuster.
+    adjuster_registry: Mapped[str | None] = mapped_column(String(32))
+    coverage_ruling: Mapped[ClaimRuling] = mapped_column(
+        sql_enum(ClaimRuling), default=ClaimRuling.PENDING, nullable=False
+    )
+    deductible_uf: Mapped[Decimal | None] = mapped_column(UF)
+    loss_ratio_pct: Mapped[Decimal | None] = mapped_column(PCT)
 
     estimated_amount_uf: Mapped[Decimal | None] = mapped_column(UF)
     settled_amount_uf: Mapped[Decimal | None] = mapped_column(UF)
@@ -241,9 +344,61 @@ class Claim(Base, TimestampMixin):
     policy: Mapped["Policy | None"] = relationship(back_populates="claims")
     client: Mapped["Client"] = relationship(back_populates="claims")
     asset: Mapped["Asset | None"] = relationship(foreign_keys=[asset_id])
+    case_file: Mapped["CaseFile | None"] = relationship(
+        "CaseFile", foreign_keys=[case_file_id]
+    )
+    items: Mapped[list["ClaimItem"]] = relationship(
+        back_populates="claim",
+        cascade="all, delete-orphan",
+        order_by="ClaimItem.sort_order",
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<Claim id={self.id} number={self.claim_number!r}>"
+
+
+class ClaimItem(Base, TimestampMixin):
+    """One partida of a loss, as the adjuster quantified it.
+
+    A CHILD TABLE, not JSON: the adjuster's tables are 1:N and every column is
+    summed (notified -> determined -> damage -> deductible -> indemnity), which
+    is exactly what the final report reconciles.
+    """
+
+    __tablename__ = "claim_item"
+    __table_args__ = (
+        Index("ix_claim_item_claim_order", "claim_id", "sort_order"),
+        Index("ix_claim_item_broker_kind", "broker_id", "kind"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    broker_id: Mapped[int] = mapped_column(
+        ForeignKey("broker.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    claim_id: Mapped[int] = mapped_column(
+        ForeignKey("claim.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[ClaimItemKind] = mapped_column(
+        sql_enum(ClaimItemKind), default=ClaimItemKind.MATERIAL_DAMAGE, nullable=False
+    )
+    item: Mapped[str | None] = mapped_column(String(255))
+    # How the figure was arrived at — prose survives verbatim.
+    basis: Mapped[str | None] = mapped_column(Text)
+
+    notified_uf: Mapped[Decimal | None] = mapped_column(UF)
+    determined_uf: Mapped[Decimal | None] = mapped_column(UF)
+    damage_uf: Mapped[Decimal | None] = mapped_column(UF)
+    deductible_uf: Mapped[Decimal | None] = mapped_column(UF)
+    indemnity_uf: Mapped[Decimal | None] = mapped_column(UF)
+
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+
+    broker: Mapped["Broker"] = relationship()
+    claim: Mapped["Claim"] = relationship(back_populates="items")
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return f"<ClaimItem id={self.id} claim={self.claim_id} kind={self.kind}>"
 
 
 __all__ = [
@@ -254,4 +409,7 @@ __all__ = [
     "CoverageItem",
     "Claim",
     "ClaimStatus",
+    "ClaimItem",
+    "ClaimItemKind",
+    "ClaimRuling",
 ]

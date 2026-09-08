@@ -312,7 +312,7 @@ export default function QuoteDetailPage() {
                 <li key={o.id}>
                   <Link
                     to={`/offerings/${o.id}`}
-                    className="flex items-center justify-between gap-3 rounded-[12px] border border-line px-3.5 py-2.5 no-underline transition-colors hover:border-teal hover:bg-[color-mix(in_srgb,var(--teal)_6%,transparent)]"
+                    className="flex items-center justify-between gap-3 rounded-card border border-line px-3.5 py-2.5 no-underline transition-colors hover:border-brand-line hover:bg-brand-soft"
                   >
                     <span className="flex items-center gap-2">
                       <MonoChip>OFR-{String(o.id).padStart(4, "0")}</MonoChip>
@@ -625,7 +625,7 @@ function LineItemsEditor({ quote }: { quote: QuoteRequest }) {
               checked={sync}
               onChange={(e) => setSync(e.target.checked)}
               disabled={!canEdit.allowed}
-              className="h-4 w-4 accent-[var(--teal)]"
+              className="h-4 w-4 accent-brand"
             />
             {t("lineItems.syncDeclared")}
           </label>
@@ -718,7 +718,7 @@ function SendDialog({
             className="h-9"
           />
 
-          <div className="max-h-[280px] overflow-y-auto rounded-[12px] border border-line">
+          <div className="max-h-[280px] overflow-y-auto rounded-card border border-line">
             {insurers.isLoading ? (
               <div className="p-4">
                 <Skeleton className="h-24 w-full" />
@@ -726,7 +726,7 @@ function SendDialog({
             ) : list.length === 0 ? (
               <p className="p-4 text-body text-text-muted">{t("send.noInsurers")}</p>
             ) : (
-              <ul className="divide-y divide-[var(--line)]">
+              <ul className="divide-y divide-line">
                 {list.map((i) => (
                   <li key={i.id}>
                     <label className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 transition-colors hover:bg-bg-recessed">
@@ -734,7 +734,7 @@ function SendDialog({
                         type="checkbox"
                         checked={selected.includes(i.id)}
                         onChange={() => toggle(i.id)}
-                        className="h-4 w-4 accent-[var(--teal)]"
+                        className="h-4 w-4 accent-brand"
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-body font-medium text-text-primary">

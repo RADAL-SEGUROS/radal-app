@@ -3,15 +3,21 @@ import { cn } from "@/lib/utils";
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
+/**
+ * Signal input: a real hairline border on a white field (no inset-shadow
+ * hack). Focus turns the border brand and adds a soft brand ring. Mobile
+ * keeps a 16px floor (`text-base sm:text-body`) so iOS never zooms.
+ */
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, ...props }, ref) => {
     return (
       <input
         type={type}
         className={cn(
-          "flex h-10 w-full rounded-[10px] border border-line bg-bg-surface px-3.5 py-1 text-body text-text-primary transition-[border-color,box-shadow] duration-150",
-          "placeholder:text-text-muted",
-          "focus-visible:border-teal focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--teal)_18%,transparent)]",
+          "flex h-9 w-full rounded-sm border border-line bg-bone px-3 py-1 text-base text-ink transition-[border-color,box-shadow] duration-150 ease-out sm:text-body",
+          "placeholder:text-muted-foreground",
+          "hover:border-line-strong",
+          "focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring",
           "disabled:cursor-not-allowed disabled:opacity-50",
           "file:border-0 file:bg-transparent file:text-body file:font-medium",
           className,

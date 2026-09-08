@@ -65,7 +65,7 @@ function ScoreBar({ label, value }: { label: string; value: number | null }) {
     <div>
       <div className="flex items-baseline justify-between gap-2">
         <span className="truncate text-caption text-text-tertiary">{label}</span>
-        <span className="font-mono text-mono tabular-nums text-text-primary">
+        <span className="text-caption font-medium tabular-nums text-text-primary">
           {value === null ? "—" : formatNumber(value, 0)}
         </span>
       </div>
