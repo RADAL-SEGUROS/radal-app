@@ -1,3 +1,4 @@
+# redeploy trigger: 2026-09-09 — re-run after connecting the Blacksmith runner
 name: Deploy Frontend (dev)
 
 # Builds the frontend container image, pushes to ECR, updates the frontend

@@ -1,3 +1,4 @@
+# redeploy trigger: 2026-09-09 — re-run after connecting the Blacksmith runner
 name: Deploy Backend (dev)
 
 # Builds the backend container image, pushes to ECR, syncs the Lambda env from
