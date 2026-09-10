@@ -11,6 +11,8 @@ body:
 
         Si esto ya existe pero está incómodo, usa *Mejora (improvement)*.
 
+        ¿No sabes cuál elegir? La guía está en el [README](../blob/master/README.md#cómo-reportar-algo-para-todo-el-equipo).
+
   - type: textarea
     id: problem
     attributes:

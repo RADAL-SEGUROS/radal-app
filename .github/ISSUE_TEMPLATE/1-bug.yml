@@ -12,6 +12,8 @@ body:
 
         La versión la copias en **Configuración → abajo a la derecha** (un clic la copia).
 
+        ¿No sabes cuál elegir? La guía está en el [README](../blob/master/README.md#cómo-reportar-algo-para-todo-el-equipo).
+
   - type: input
     id: version
     attributes:

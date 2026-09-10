@@ -12,6 +12,8 @@ body:
         Lo más valioso acá es **cuántas veces al día te topas con esto**: eso es lo
         que decide el orden en que las tomamos.
 
+        ¿No sabes cuál elegir? La guía está en el [README](../blob/master/README.md#cómo-reportar-algo-para-todo-el-equipo).
+
   - type: dropdown
     id: area
     attributes:
