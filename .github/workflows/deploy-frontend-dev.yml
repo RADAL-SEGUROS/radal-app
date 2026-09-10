@@ -43,10 +43,22 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
       - uses: aws-actions/amazon-ecr-login@v2
 
+      # Blacksmith sticky-disk layer cache — big win for the node_modules / build layers.
+      - name: Set up Blacksmith Docker builder
+        uses: useblacksmith/setup-docker-builder@v1
+
       - name: Build & push frontend image (Lambda-compatible)
-        run: |
-          docker buildx build --provenance=false --platform linux/amd64 --build-arg VITE_API_URL=/api/v1 \
-            -t $ECR_REGISTRY/radal-frontend:$IMAGE_TAG -t $ECR_REGISTRY/radal-frontend:dev --push ./frontend
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: ./frontend
+          push: true
+          provenance: false            # Lambda needs a single-arch manifest, no OCI attestation
+          platforms: linux/amd64
+          build-args: |
+            VITE_API_URL=/api/v1
+          tags: |
+            ${{ env.ECR_REGISTRY }}/radal-frontend:${{ env.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/radal-frontend:dev
 
       - name: Update frontend Lambda
         run: |

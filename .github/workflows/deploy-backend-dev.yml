@@ -45,10 +45,20 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
       - uses: aws-actions/amazon-ecr-login@v2
 
+      # Blacksmith sticky-disk layer cache — big win for the Chromium install layer.
+      - name: Set up Blacksmith Docker builder
+        uses: useblacksmith/setup-docker-builder@v1
+
       - name: Build & push backend image (Lambda-compatible)
-        run: |
-          docker buildx build --provenance=false --platform linux/amd64 \
-            -t $ECR_REGISTRY/radal-backend:$IMAGE_TAG -t $ECR_REGISTRY/radal-backend:dev --push ./backend
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: ./backend
+          push: true
+          provenance: false            # Lambda needs a single-arch manifest, no OCI attestation
+          platforms: linux/amd64
+          tags: |
+            ${{ env.ECR_REGISTRY }}/radal-backend:${{ env.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/radal-backend:dev
 
       - name: Sync backend env from S3 (source of truth)
         run: |
