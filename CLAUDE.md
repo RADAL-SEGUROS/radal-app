@@ -72,44 +72,52 @@ unroutable port **before** any `app.*` import — delete those two lines and the
 calls and hangs. (10) There is **no Alembic**: `create_all` never ALTERs, so any new column must go
 through `backend/scripts/migrate_case_files.py` before the branch is pushed.
 
-**Where the work stands (v9, 2026-09-09 — deploying to dev).** The whole v2→v9 arc lands together in
-one push to `dev` (the first ever deploy of anything past v1). The current shape is **v9**, which
-**corrected the v8 build** (see `docs/handoff-2026-09-09-v9.md` for the as-built journey AND a candid
-log of the errors made). A **ramo** is an **advisory recommended-files template + AI context — NOT a
-field/section schema**: it is chosen when creating the grupo-cuenta via a **dropdown** or a **"Crear
-ramo" drawer**, and is **not** managed in Configuración; two global ramos are seeded (Incendio,
-RC/Ingeniería/Transporte) and the seed self-prunes stale globals. The account milestones are
-**Antecedentes → Bases Técnicas → Comparación → Propuesta → Pólizas** (the account tabs; no duplicate
-Cotizaciones/Propuestas). **Antecedentes** shows the ramo's recommended-file slots + free upload, two
-subtabs (Archivos / Extracción = per-document AI extraction), **cotizaciones scoped out**, **PDF/Word
-only** (Excel rejected; vision fallback flagged-not-done), warn-not-block. **Comparación** is a dynamic
-incremental comparison via **tool calls** (`extract_budget_proposal` → `submit_comparison`: standardized
-table + a named AI recommendation, adaptive batch/merge, block-on-provider-down, per-column premium);
-**Propuesta** is `broker_proposal` (validated core + tail, account-aware); **Pólizas** is
-validate-then-dynamic upload with account-aware insurer resolution. Extraction is **context-aware** and
-runs on **GLM-5.3 tool-calling** (it supports tools) with a model-tiering registry; stage-guard reasons
-are **Spanish**. Expedient PDFs (`comparison_pack`, `proposal_pack`) render via Playwright; the backend
-image installs Chromium.
+**Where the work stands (v10, 2026-09-10 — pushed to dev).** The whole v2→v10 arc is committed
+(`0c60de6`) and **pushed to `dev`**, which fires CI to `https://dev.radalseguros.cl`. **v9** built the
+broker journey (see `docs/handoff-2026-09-09-v9.md`); **v10** built the two analysis destinations and
+the account super-overview (see `docs/handoff-2026-09-10-v10.md` — as-built AND a candid error log;
+`docs/technical-reference.md` §17 is the spec). A **ramo** is an **advisory recommended-files template
++ AI context — NOT a field/section schema**: chosen when creating the grupo-cuenta via a **dropdown**
+or a **"Crear ramo" drawer**, never managed in Configuración. **Antecedentes** shows the ramo's
+recommended-file slots + free upload, two subtabs (Archivos / Extracción), **cotizaciones scoped out**,
+**PDF/Word only** (Excel rejected; vision fallback flagged-not-done), warn-not-block. **Comparación**
+is a dynamic incremental comparison via **tool calls** (`extract_budget_proposal` →
+`submit_comparison`: standardized table + a named AI recommendation, block-on-provider-down);
+**Propuesta** is `broker_proposal`; **Pólizas** is validate-then-dynamic upload with account-aware
+insurer resolution. Extraction is context-aware on **GLM-5.3 tool-calling** with a model-tiering
+registry; stage-guard reasons are **Spanish**.
 
-Frontend (Signal): the **Journey lives only on Resumen** (restyled) + pending-actions + summary; the
-**vigencia sidebar expands** into a journey submenu; authenticated blob downloads; the comparison board
-`/comparisons/:caseId`; the public insured-decision page `/o/:token`. New tables
-`comparison`/`comparison_entry`/`comparison_source`, `broker_proposal`; new columns on
-`line_record_schema` (`recommended_files`, `explanation`, nullable `insurance_line_id`/`definition`),
-`policy`, `offering`, `account_group`; routers reuse existing RBAC modules. **Verified: 643 backend
-tests; `tsc -b`/`build`/`check:locales` clean; the account view verified live in a real browser.** Read
-the spec you need — `README.md` orients, `docs/handoff-2026-09-09-v9.md` is the latest handoff (journey
-+ error log), `docs/technical-reference.md` is the full spec; also `docs/deployment.md`,
-`docs/usuarios-de-prueba.md`, and delegate to `.claude/agents/`.
+**What v10 changed.** The **MÁS nav section is gone**; the rail is GRUPOS + five plain rows — **Datos ·
+Analítica · Agente · Compañías · Configuración** (no ADMINISTRACIÓN header). `/analytics` split into
+**`/data` (Datos — eleven table tabs)** and **`/analytics` (Analítica — visuals only, with a `?by=`
+dimension read from the server catalog)**. The old entity routes still resolve for group deep links;
+they just lost their rail entries. Both destinations share one **scope — grupo · grupo-cuenta ·
+fechas — held in the URL**, applied server-side to lists, summaries and exports alike; comparing
+several groups is deliberately NOT built (that is the agent's job). **"Ver expediente completo"** now
+opens `/groups/:groupId/accounts/:caseId/expediente` — the account super-overview (identidad, the
+journey with real completion dates, antecedentes, comparación, propuesta, pólizas, montos, documents)
+plus a branded PDF, **rendered on demand so it is always current and needed no migration**; absent
+blocks print a Spanish reason **derived from the journey**, never a blank. New: `POST /exports/{entity}`
+(XLSX + PDF over every matching row) and `GET /exports/entities`. **Motion lives in the `Tabs`
+primitive** so every tab bar inherits the sliding marker. **Verified: 752 backend tests;
+`tsc -b`/`build`/`check:locales` clean (22 namespaces, 3 695 keys/locale); the whole surface driven
+live in a real browser.** Read `README.md` to orient, the handoffs for the arc, the technical reference
+for detail, plus `docs/deployment.md`, `docs/usuarios-de-prueba.md`; delegate to `.claude/agents/`.
 
-**Deploy state / traps.** The **dev RDS has been reset to the v9 schema + blank baseline** (fresh
-`create_all` — no by-hand ALTER needed for a clean reset), S3 `deploy/backend.env` carries the v9
-AI/media keys (`MEDIA_BACKEND=s3`), and CI (`.github/workflows/dev-deploy.yml`, OIDC, all secrets
-present) fires on push to `dev` → `https://dev.radalseguros.cl`. **Still owed / watch on deploy:** the
-first CI run builds Chromium into the image (slowest/riskiest step); **money-core extraction is
+**Deploy state / traps.** The dev RDS carries the **v9 schema + blank baseline**; **v10 added no
+columns and no enum values, so it needs no migration**. S3 `deploy/backend.env` carries the AI/media
+keys (`MEDIA_BACKEND=s3`); CI (`.github/workflows/dev-deploy.yml`, OIDC) fires on push to `dev` →
+`https://dev.radalseguros.cl`. **Still owed / watch:** the **full sequential QA walk has never been run**
+(`docs/qa-handoff-chrome.md` — v10 verified only its own changes); the backend image builds Chromium
+(slowest/riskiest CI step); **money-core extraction is
 unreliable** under tool-calling (needs a retry or a stronger tier — not fixed); the **vision fallback
 is stubbed**; comparison align can run **minutes** (buffered Lambda/CloudFront may time out — do NOT
 change the invoke mode, OAC constraint 4). Locally, run the backend with `MEDIA_BACKEND=local` or every
 document 404s. There is **no Alembic** — future column changes go through
 `backend/scripts/migrate_case_files.py`. **Aqua Spectrum + Porcelana are deprecated — Signal is the
-direction.**
+direction.** Three v10 traps that fail *silently*: the **`paramsSerializer` in `src/lib/api.ts`**
+(without it every repeatable filter — `kind`, `stage`, `status` — stops applying and returns plausible
+wrong data); **`expose_headers` on CORS in `main.py`** (without it an export loses the server filename
+and row count while still downloading); and the **group-by dimensions are server-driven and NOT
+uniform** per entity, so never hardcode them. `git remote` still points at the old repo location and
+works only via GitHub's redirect.

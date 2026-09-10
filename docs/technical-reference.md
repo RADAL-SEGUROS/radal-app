@@ -46,15 +46,20 @@ of orientation and current state, nothing more.** When a pass adds detail, it go
 | 13 | [Handoff prompts](#13-handoff-prompts) | ready-to-paste prompts to start the next task |
 | 14 | [v3 — Groups & Accounts](#14-v3--groups--accounts-as-built) | the group layer, the Account, the navigator, the binary rules |
 | 15 | [v4 — Agent & Porcelana UI](#15-v4--agent--porcelana-ui-as-built) | the tool-using agent and the current UI direction |
-| 16 | [v5·v6·v7 — Signal UI · Antecedentes → Bases Técnicas · broker Lines](#16-v5--v6--v7--signal-ui-antecedentes--bases-técnicas-broker-defined-lines-as-built) | **the latest arc** — the current UI, the expediente/bases-técnicas builder, and broker-defined lines |
+| 16 | [v5·v6·v7 — Signal UI · Antecedentes → Bases Técnicas · broker Lines](#16-v5--v6--v7--signal-ui-antecedentes--bases-técnicas-broker-defined-lines-as-built) | the UI direction, the expediente/bases-técnicas builder, and broker-defined lines |
+| 17 | [v10 — Datos/Analítica, expediente completo, scope & exports](#17-v10--datosanalítica-el-expediente-completo-filtros-y-exportes-as-built) | **the latest arc** — the two analysis destinations, the account super-overview, the shared filter vocabulary and the export layer |
 
-**Current state (verified 2026-09-08):** **564 backend tests passing in ~125 s** · `npx tsc -b
---noEmit`, `npm run build` and `npm run check:locales` (19 namespaces) clean · live GLM extraction
-green on the demo account. **~270 files uncommitted on branch `dev`** (v2→v7), still on commit
-`ed8b8a1` · **the dev RDS migration has not been run and nothing is on S3** — see §4 and §12. Passes
-since the v2 rebuild: v2 case files, **v3 groups & accounts (§14)**, **v4 agent + Porcelana (§15)**,
-and **v5 Signal UI · v6 Antecedentes → Bases Técnicas · v7 broker-defined Lines (§16 — Porcelana is
-now deprecated)**. The short "what changed + backlog" companion is `docs/handoff-2026-09-08.md`.
+**Current state (verified 2026-09-10):** **752 backend tests passing in ~155 s** · `npx tsc -b
+--noEmit`, `npm run build` and `npm run check:locales` (**22 namespaces, 3 695 keys per locale**)
+clean · the whole v10 surface **driven live in a real browser**, not just compile-green. The v2→v9
+arc plus **v10** is committed as `0c60de6` on branch `dev` and **pushed**, which fired both CI
+deploys to `https://dev.radalseguros.cl`. The dev RDS already carries the v9 schema + blank baseline;
+**v10 added no columns and no enum values, so it needs no migration**. Passes since the v2 rebuild:
+v2 case files, **v3 groups & accounts (§14)**, **v4 agent + Porcelana (§15)**, **v5·v6·v7 Signal UI ·
+Antecedentes → Bases Técnicas · broker-defined Lines (§16)**, v8/v9 broker-journey redesign +
+tool-calling AI + expedient PDFs, and **v10 Datos/Analítica · expediente completo · scope & exports
+(§17)**. The short "what changed + candid error log" companions are
+`docs/handoff-2026-09-09-v9.md` and `docs/handoff-2026-09-10-v10.md`.
 
 ---
 
@@ -2337,6 +2342,110 @@ summary text to confirm"`.
 
 ---
 
+### 6.22 `expediente` — `/case-files/{id}/expediente`
+
+`app/api/routers/expediente.py`. The account **super-overview** behind "Ver expediente completo".
+Both endpoints gate on `CaseFiles:View`, resolve through `case_files.get_case_or_404` (so
+`CASE_VIEW_SCOPE` narrowing applies), and answer **404** for a foreign/invisible case. A non-account
+folder (endoso/cobranza/siniestro) is **422 `not_an_account`**; `kind=renewal` is accepted.
+
+| Method | Path | Perm | Notes |
+|---|---|---|---|
+| GET | `/case-files/{id}/expediente?activity_limit=20` | CaseFiles:View | `AccountExpediente` — the whole account in one payload |
+| GET | `/case-files/{id}/expediente/pdf` | CaseFiles:View | `application/pdf` **bytes**; `attachment; filename="expediente-{reference}.pdf"`; 502 on render failure |
+
+**Rendered on demand, never stored.** No `PackKind`, no `DocumentCategory`, no pack row, no column —
+which is both why it is always current and why it needed no migration.
+
+`AccountExpediente` carries `case_file`, `group`, `clients` (contratante first), `journey`,
+`antecedentes`, `comparison`, `proposal`, `policies`, `documents` + `documents_count`, `money`,
+`activity`, `generated_at`. Decimals cross the wire as **strings**. The optional blocks are
+**nullable with a sibling `*_pending_reason`** (`antecedentes_pending_reason`,
+`comparison_pending_reason`, `proposal_pending_reason`, `policies_pending_reason`,
+`money_pending_reason`, `group_pending_reason`).
+
+`journey` is one entry per milestone — `antecedentes` → `technical_basis` → `comparison` →
+`proposal` → `policies` — each `{key,label,stage,stages,status,completed_at,summary,pending_reason}`.
+`status` is `complete|in_progress|pending`; `completed_at` comes from the real
+`case_file_stage_event` and is **never inferred**, so a force-moved or imported folder can legitimately
+read `complete` with `completed_at: null`.
+
+**Every reason is derived FROM the journey, never in parallel with it** — that was the v10 bug, twice
+(see `docs/handoff-2026-09-10-v10.md` §2). Three shapes:
+- milestone not reached → `Pronto, al cerrar {milestone anterior}`
+- milestone reached, artifact never created → `La cuenta avanzó sin registrar una comparación en Radal.`
+- milestone pending, artifact already present → `La comparación ya está cargada; la etapa se cierra cuando el expediente avance desde Bases técnicas.`
+
+`money` resolves in order **Σ pólizas → propuesta → accepted cotización**, runs through
+`reconcile_money_verbose`, and reports `derived_fields` (what the server computed rather than read)
+and `warnings` (invariant/rate mismatches). **A read never 422s over a money mismatch**, so the UI has
+to surface `warnings` or the disagreement is invisible.
+
+### 6.23 Scope filters and `group_by` — on every list and every `/summary`
+
+One dependency (`app/services/analytics.py::scope_filters`) gives 13 entities the same vocabulary:
+
+```
+?account_group_id=<int>&case_file_id=<int>&date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+```
+
+Entities: `case_files`, `quotes`, `proposals`, `policies`, `endorsements`, `collections`, `claims`,
+`documents`, `placements`, `inspections`, `offerings`, `leads`, `clients`. Dates are **inclusive both
+ends** (on DATETIME columns the upper bound is `< date_to + 1 day`); the date column differs per
+entity (policy → `start_date`/vigencia, claim → `event_date`, inspection → `visit_date`, most others
+→ `created_at`) and each router's docstring names its own.
+
+Group resolution is a **correlated `EXISTS`** through the entity's real path to the group
+(`case_file.account_group_id`, or the client's, or the policy's) — **no denormalised column, no
+schema change** — and every hop re-asserts `broker_id`, so a foreign `account_group_id` yields an
+empty page rather than a leak (rule 2). `case_files` and `documents` still run through
+`CASE_VIEW_SCOPE` first, on list, summary **and** export.
+
+`/summary` was **added** to the six entities that had none: endorsements, collections, claims,
+documents, inspections, offerings. `?group_by=` adds a `grouped` envelope to any summary:
+
+```json
+{"group_by":"insurer","dimensions":["status","insurer","account_group","month"],
+ "money_field":"total_premium_uf","total":1,"total_uf":"423.0300",
+ "buckets":[{"key":"1","label":"HDI Seguros S.A.","count":1,"total_uf":"423.0300"}]}
+```
+
+`key` is stable (enum value, id-as-string, `"2026-09"`, `"unassigned"`). **`label` is data-derived
+server-side** — a group's name, an insurer's name, `"Sin asignar"` — and enum dimensions stay RAW,
+because translating those is the frontend's job (rule 1). An unsupported dimension is **422
+`unsupported_group_by`** with the supported list, never a silent ignore.
+
+**The dimensions are NOT uniform across entities** — `case_files` groups by `stage` and has no
+insurer; `proposals` groups by `insurer` and has no stage. Read them from the catalog (§6.24); do not
+hardcode a list.
+
+### 6.24 `exports` — `/exports`
+
+`app/api/routers/exports.py`. XLSX and branded PDF over **every row matching the filters**, not the
+50-row page the client is holding.
+
+| Method | Path | Perm | Notes |
+|---|---|---|---|
+| GET | `/exports/entities` | any authenticated | `ExportCatalog` — per entity: `label`, `module`, `date_field`, `money_field`, `group_by[]`, `columns[{key,label,kind}]`, `row_cap`. **Build pickers off this.** |
+| POST | `/exports/{entity}` | that entity's `View` | Body `{format:"xlsx"\|"pdf", filters:{…}, columns:[…]\|null, group_by:"…"\|null}` |
+
+Returns raw bytes + `Content-Type`, `Content-Disposition: attachment; filename="policies-grupo-3-cuenta-5-2026-09-09.xlsx"`,
+and **`X-Radal-Row-Count`**. `group_by` on an export swaps rows for buckets
+(`Clave | Etiqueta | Cantidad | Total UF`). XLSX: bold white-on-teal header, `freeze_panes="A2"`,
+autofilter, typed cells (dates as dates, UF as `#,##0.0000`). PDF: A4 **landscape** on the existing
+branded Playwright pipeline (`render_table_report_html`) — no second PDF stack.
+
+Errors: `404 unknown_entity`, `403` on the module, `422 unknown_columns`, `422 unsupported_group_by`,
+`422 export_too_large` (`row_cap` 10 000). **Nothing is written to `document`; no S3 key ever appears
+in output** (rule 8). Dependency: `openpyxl` (already present).
+
+> **`group_by` is a SIBLING of `filters`, never a member.** `ScopeFilterPayload` is
+> `extra="forbid"`, so a stray key 422s rather than silently vanishing — which is the point.
+
+> **`main.py` CORS must keep `expose_headers=["Content-Disposition","X-Radal-Row-Count"]`.**
+> `allow_headers` governs the REQUEST; a browser can only read a RESPONSE header that is explicitly
+> exposed. Without these the export still downloads, so the loss of filename and row count is silent.
+
 ## 7. Permissions (RBAC)
 
 `app/core/roles_config.py` is the **single source of truth** — a plain, spreadsheet-friendly
@@ -2703,6 +2812,9 @@ All app routes are declared in one file, `src/App.tsx` — there is exactly one 
 | `/collections/:planId` | `pages/collections/detail.tsx` | `Collections` | **lazy** — instalment ledger + the article-528 timeline. |
 | `/claims` | `pages/claims/index.tsx` | `Claims` | **lazy** — claim list. |
 | `/claims/:claimId` | `pages/claims/detail.tsx` | `Claims` | **lazy** — items table, adjuster report, counterfactual card. `Claims.Approve` to close. |
+| `/data` | `pages/data/index.tsx` | `Dashboard` (per-tab module gates) | **Datos** — eleven table tabs behind one scope (grupo · grupo-cuenta · fechas) + XLSX/PDF export. Six tabs live in `pages/data/`; Clientes, Colocaciones, Inspecciones, Ofertas and Leads reuse the standalone pages with `embedded`. |
+| `/analytics` | `pages/analytics/index.tsx` | `Dashboard` | **Analítica** — visuals only. KPI row + a `?by=` dimension (read from `GET /exports/entities`) driving generic bucket charts. |
+| `/groups/:groupId/accounts/:caseId/expediente` | `pages/groups/expediente.tsx` | `CaseFiles` | **El expediente completo** — the account super-overview + its branded PDF. This is what "Ver expediente completo" opens; it used to go to `/cases/:id`. |
 | `/agent` | `pages/agent/index.tsx` | `Dashboard` | SSE agent chat with a 5 s non-streaming fallback (§12.6). |
 | `/settings` | `pages/settings/index.tsx` | `Settings` / `Users` | Broker profile, team, documents. Sidebar entry shown only when `isBrokerAdmin()` — i.e. `Settings.Manage` **or** `Users.Manage` **and** `user_type === "broker"`. |
 | `*` | — | — | `<Navigate to="/" replace />`. |
@@ -2771,6 +2883,16 @@ Also in the file: single-flight 401 → `POST /auth/refresh` → replay, with a 
 concurrent 401s produce one refresh, and a hard redirect to `/login` when the refresh token is
 gone.
 
+**A fourth mechanism was added in v10: `paramsSerializer`.** Axios's default array serialisation is
+`kind[]=account&kind[]=renewal`. FastAPI declares these as `list[X] = Query(None)` and reads
+**repeated bare keys** — `kind=account&kind=renewal` — so the bracketed form does not match the
+parameter at all. It is not an error either: the param simply stays `None` and the endpoint returns
+**everything**. That silence was the damage: the Cuentas table asked for `kind=["account","renewal"]`
+and was served endorsements, collections and claims as though they were accounts. Every repeatable
+filter in the app (`kind`, `stage`, `status`) went through the same hole. `serializeParams()` repeats
+the bare key once per member and drops `undefined`/`null`/`""`. **Do not remove it, and do not
+"simplify" it to `qs`-style brackets.**
+
 **`src/api/ai.ts:242-349` deliberately re-implements mechanisms 1 and 2** for the SSE endpoint.
 It has to: axios cannot read a response body incrementally, so `streamAgentMessage()` uses
 `fetch` and hand-builds the same headers (`Authorization` + `X-Radal-Token`, plus its own local
@@ -2779,7 +2901,7 @@ in the file.** The alternative — making `lib/api.ts` generic enough to serve b
 precisely so the frozen file stays frozen. If constraint 1 or 2 ever changes, **both** places
 must change together; there is no third copy.
 
-### 9.5 i18n: 16 namespaces and the dynamic-key trap
+### 9.5 i18n: 22 namespaces and the dynamic-key trap
 
 `src/i18n/index.ts` registers exactly these, `es` default with `fallbackLng: "es"`:
 
@@ -2791,8 +2913,15 @@ proposals · insurers · offerings · cases · leads · documents · packs · po
 Verified parity today, per namespace: `auth` 9 · `cases` 127 · `clients` 139 · `common` 108 ·
 `dashboard` 38 · `documents` 92 · `inspections` 200 · `insurers` 79 · `leads` 48 · `offerings` 79 ·
 `packs` 41 · `placements` 117 · `postsale` 464 · `proposals` 246 · `quotes` 130 · `settings` 189.
-**2 106 keys in `es`, 2 106 in `en`, zero drift.** Keep it that way — the mirror is the only
-thing that makes a missing translation detectable.
+**As of v10: 22 namespaces, 3 695 keys per locale, zero drift** (`npm run check:locales`; the
+per-namespace counts above are the v7 snapshot and are no longer current). Keep the mirror exact — it
+is the only thing that makes a missing translation detectable.
+
+**v10 added `accounts.expediente.*`, `analytics.data.*` / `.scope.*` / `.export.*` / `.dimensions.*`,
+and `common.nav.data`.** Note especially `analytics.dimensions.*`: the group-by picker is driven by
+the SERVER catalog, so **adding a dimension server-side lights it up in the UI with no frontend
+change — but it renders as a raw key until its Spanish label is added here.** All 19 current
+dimensions are covered.
 
 **The trap.** The codebase leans hard on dynamic keys built from backend enum values:
 
@@ -2972,6 +3101,83 @@ pre-confirmed, so `GET /policies/{id}/mirror-diff` renders without ever calling 
 > Newest first. **Append a new dated `###` section above the previous one**, one per pass. Each
 > entry states what was added, what changed in existing behaviour, and the verified state at the
 > end of the pass — with the commands and the numbers, so the next reader can re-run them.
+
+### 2026-09-10 — v10 · Datos/Analítica, el expediente completo, filtros y exportes
+
+Removed the MÁS nav section and answered what it held in three places: **rows in Datos**, **shape in
+Analítica**, **one account's detail inside its grupo**. Full as-built + a candid
+**errors-made-and-caught** log: `docs/handoff-2026-09-10-v10.md`. Committed `0c60de6` on `dev`.
+
+**Navigation.** `SidebarGlobal.tsx` is now GRUPOS plus five plain rows — Datos · Analítica · Agente ·
+Compañías · Configuración. The one-item ADMINISTRACIÓN header is gone, and the two never-built
+"pronto" stubs with it (Reportería IS Analítica; Finanzas had no surface). **The old entity routes
+stay alive** for the group deep links that point at them; they just lost their rail entries.
+
+**Split of `/analytics`.** It used to be a KPI dashboard AND six data tables in one scroll.
+- **`/data` — Datos** (`frontend/src/pages/data/index.tsx`): eleven table tabs. The six former
+  analytics tabs moved to `pages/data/`; the other five reuse the standalone list pages via a new
+  `PageHeader` `embedded` prop.
+- **`/analytics` — Analítica**: visuals only; KPI row + a `?by=` dimension driving generic
+  `BucketBarChart`/`BucketTrendChart` (`pages/analytics/charts.tsx`).
+Both share **the scope** — grupo · grupo-cuenta · fechas — in the URL (`?group=`, `?account=`,
+`?from=`, `?to=`), so a scoped view is a shareable link. Tab switch keeps the scope and clears the
+tab-local params. Comparing several groups is deliberately NOT built (that is the agent's job).
+
+**Motion on interactions.** Fixed in the primitive (`components/ui/tabs.tsx`): the active marker is a
+shared-layout element (`layoutId`, spring, namespaced per `<TabsList>` with `useId`) that slides
+between triggers, and the panel fades+rises on activation — so every tab bar in the app inherits it.
+New `Swap`/`RouteSwap` (`components/common/motion.tsx`) cover non-Radix swaps: the vigencia switch,
+the Datos panels, the Analítica re-bucketing. All skipped under `prefers-reduced-motion`, where the
+marker falls back to a static border.
+
+**El expediente completo.** "Ver expediente completo" pointed at `/cases/:id`. It now opens
+`/groups/:groupId/accounts/:caseId/expediente` (`pages/groups/expediente.tsx`), inside `GroupShell`:
+identidad + empresas, the journey with **real completion dates** (from `case_file_stage_event`, never
+inferred), antecedentes slots, comparación, propuesta, pólizas, montos, every document, and a branded
+PDF. New endpoints `GET /case-files/{id}/expediente` and `GET /case-files/{id}/expediente/pdf`
+(§6.x), backed by `app/services/expediente.py` + `app/schemas/expediente.py`. **Rendered on demand —
+no `PackKind`, no `DocumentCategory`, no pack row, no column, so no migration.** Absent blocks carry a
+Spanish reason derived FROM the journey, in three shapes: not reached
+(`Pronto, al cerrar {milestone}`), reached-but-never-created
+(`La cuenta avanzó sin registrar una comparación en Radal.`), and pending-but-already-there
+(`La comparación ya está cargada; la etapa se cierra cuando el expediente avance desde Bases técnicas.`).
+
+**Shared filter vocabulary.** Every list AND every `/summary` on 13 entities now takes
+`account_group_id`, `case_file_id`, `date_from`, `date_to` through one dependency
+(`app/services/analytics.py::scope_filters`). Group resolution is a correlated `EXISTS` per entity —
+no denormalised column, no schema change — and every hop re-asserts `broker_id`, so a foreign group
+is an empty page. `/summary` was **added** to the six entities that had none (endorsements,
+collections, claims, documents, inspections, offerings). `?group_by=` returns a `grouped` envelope;
+an unsupported dimension is a **422**, never a silent ignore.
+
+**Exports.** `POST /exports/{entity}` → XLSX or branded PDF over **every row matching the filters**
+(cap 10 000, then 422 `export_too_large`), plus `GET /exports/entities` publishing the catalog the UI
+reads instead of hardcoding. PNG capture is client-side off the rendered recharts `<svg>`
+(`frontend/src/lib/exports.ts`). **CSV was explicitly not built.** Nothing is written to `document`
+and no S3 key appears in output. `main.py` CORS gained
+`expose_headers=["Content-Disposition","X-Radal-Row-Count"]` — without it a cross-origin export loses
+the server filename and row count *silently*.
+
+**Bugs fixed while verifying in a real browser (compile was green throughout):**
+- **Array query params were dropped app-wide.** Axios sent `kind[]=account`; FastAPI reads repeated
+  bare keys, so the param stayed `None` and the endpoint returned everything — the Cuentas table was
+  serving endorsements, collections and claims as accounts (6 rows where 2 were right). Every
+  repeatable filter (`kind`, `stage`, `status`) went through it. Fixed with a `paramsSerializer` on
+  the axios instance (`frontend/src/lib/api.ts`). **Pre-existing, not introduced by v10.**
+- **The scope filter did not filter** — chips and URL were shareable but no table consumed them, so
+  the export would have been narrowed while the screen showed everything.
+- **Empty groups were unrecoverable**: membership could only be set at group creation, though
+  `POST /account-groups/{id}/clients` existed all along. The Empresas tab now adds and removes
+  (`ClientPicker.tsx`), with inline **create-by-RUT** — a broker arrives with a RUT, not a client row.
+  `ClientListItem` now exposes `account_group_id` so the picker can disable an already-grouped row
+  instead of offering one that can only 422.
+- `window.confirm` on detach replaced with a dialog (the native one blocks the page and every
+  automated driver).
+- Raw enum keys rendering as UI copy (`technical_basis`, `policyholder`, `aligned`,
+  `kind`/`origin`/`outcome`) and `category` rendered where the server already sends `category_label`.
+
+**Verified:** **752 backend tests**; `tsc -b` / `build` / `check:locales` clean (22 namespaces,
+3 695 keys per locale); the whole surface driven live in Chrome.
 
 ### 2026-09-09 — v9 corrections + first deploy to dev
 
@@ -3203,6 +3409,10 @@ branch `dev`, plus a fix round. Authoritative as-built detail: `docs/v2-case-fil
 Consolidated from `docs/v2-case-files-as-built.md` §3 and re-verified against the tree.
 Ordered by what will hurt soonest.
 
+> **v10 traps are in §17.4** — the axios `paramsSerializer` (a filter that silently did not apply),
+> `expose_headers` on CORS (a silently-lost export filename), the server-driven dimension catalog,
+> `PageHeader embedded`, and `ScopeFilterPayload`'s `extra="forbid"`.
+>
 > **v5/v6/v7 open items are in §16.5** (prefill known account data; convention→explicit PDF flags;
 > retire stale `line_record_schema` id 1; extraction tuning; line-at-creation; **dev RDS migration +
 > hand-drop the old `line_record_schema` unique constraint**; browser QA not done). New traps:
@@ -3821,3 +4031,77 @@ confidence and renders a 5-page Bases Técnicas PDF. Demo: `usuario11@fuenzalida
 group 6 → account `case_file 4`. Seed: `line_record_schema` ids 2/3 (global templates), id 4
 (Fuenzalida Property line) assigned to case 4 & 6; id 1 is the stale v6 schema to retire.
 **Everything uncommitted on `dev`; nothing on dev RDS or S3.**
+
+---
+
+## 17. v10 — Datos/Analítica, el expediente completo, filtros y exportes (as built)
+
+Companion handoff with the candid error log: `docs/handoff-2026-09-10-v10.md`. Commit `0c60de6`.
+
+### 17.1 The shape of the change
+
+MÁS held a flat list of a dozen entity routes plus two never-built "pronto" stubs. v10 removed it and
+answered the same need in three places — **rows in Datos, shape in Analítica, one account's detail
+inside its grupo**. The rail is now GRUPOS + five plain rows (Datos · Analítica · Agente · Compañías ·
+Configuración); the one-item ADMINISTRACIÓN header is gone. **The old entity routes still resolve**
+— group pages deep-link into them; they just lost their rail entries.
+
+### 17.2 Two destinations, one scope
+
+`/data` (eleven table tabs) and `/analytics` (visuals only) both read the same scope from the URL:
+`?group=` · `?account=` · `?from=` · `?to=`, so a scoped view is a shareable link. `ScopeFilter`
+(`components/common/ScopeFilter.tsx`) renders it; `useScopeParams()` turns it into query params that
+every Datos table spreads into its OWN list call. **That last part is not optional** — v10 shipped the
+control before wiring it and the tables silently ignored it while the export honoured it.
+
+Switching tab keeps the scope and clears the tab-local params (`TAB_LOCAL_PARAMS` in
+`pages/data/index.tsx`), because `status` means one thing to Cuentas and another to Colocaciones.
+
+Comparing several groups side by side is **deliberately not built** — that is the agent's job. The
+scope narrows to ONE group, optionally one grupo-cuenta inside it.
+
+### 17.3 Motion belongs to the primitive
+
+`components/ui/tabs.tsx` owns it: the active marker is a shared-layout element (`layoutId`, spring,
+namespaced per `<TabsList>` with `useId` so two bars never animate into each other) that slides
+between triggers; the panel fades+rises on activation because Radix unmounts the inactive one, so
+every switch is a fresh mount. `components/common/motion.tsx` adds `Swap`/`RouteSwap` for the
+non-Radix swaps (vigencia, Datos panels, Analítica re-bucketing). All of it is skipped under
+`prefers-reduced-motion`, where the marker falls back to the original static border — **the active
+tab must never be unmarked.**
+
+Put motion here, not per page: half the call sites would otherwise never get it.
+
+### 17.4 Traps v10 introduces
+
+1. **`paramsSerializer` in `src/lib/api.ts` is load-bearing** (§9.4). Remove it and every repeatable
+   filter (`kind`, `stage`, `status`) silently stops applying — returning plausible, wrong data.
+2. **`expose_headers=["Content-Disposition","X-Radal-Row-Count"]` in `main.py`.** `allow_headers`
+   governs the REQUEST; a browser can only read a RESPONSE header explicitly exposed. Without it an
+   export still downloads, so the lost filename and row count go unnoticed.
+3. **The group-by dimensions are server-driven** (`GET /exports/entities`) and **not uniform**:
+   `case_files` has no `insurer`, `proposals` has no `stage`. Never hardcode the list; a wrong pick is
+   a 422 behind a control that looked live. Adding one server-side needs only its Spanish label in
+   `locales/*/analytics.json → dimensions`.
+4. **`group_by` is a sibling of `filters`, never a member** — `ScopeFilterPayload` is
+   `extra="forbid"`.
+5. **`PageHeader` takes `embedded`.** A list page rendered as a Datos tab must pass it, or it prints a
+   second `<h1>` under the host's.
+6. **Expediente reasons must be derived FROM the journey.** Computing them from the prerequisite
+   ladder in parallel produced cards that contradicted the line directly above them — twice, in both
+   directions. `app/services/expediente.py` builds `journey` first and keys every block reason off it.
+7. **The expediente PDF renders on demand through Chromium** — the slowest endpoint on the page, and
+   it inherits the buffered-Lambda latency risk (do NOT change the invoke mode; OAC constraint 4).
+
+### 17.5 Open after v10
+
+- **The full sequential QA walk was never run.** v10 verified only its own four changes; the
+  antecedentes → extracción → bases técnicas → comparación → propuesta → pólizas walk
+  (`docs/qa-handoff-chrome.md`) is still owed, and that is where the AI-latency and vision-fallback
+  risks live.
+- Carried from v9: money-core extraction unreliable under tool-calling; vision fallback stubbed;
+  comparison align can run minutes on the buffered Lambda.
+- Cosmetic: Resumen KPI cards still labelled "Cotizaciones/Propuestas"; account-new still shows
+  "El grupo sólo tiene este RUT" when the group has zero empresas.
+- **`git remote` still points at the old repo location** — the push works only because GitHub
+  redirects. `git remote set-url origin git@github.com:RADAL-SEGUROS/radal-app.git`.

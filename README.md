@@ -18,6 +18,23 @@ the completed antecedentes as a branded PDF. **Comparación** is a dynamic, incr
 insurer cotizaciones with an AI recommendation. **Propuesta** is the outbound artifact built from the
 comparison. **Pólizas** validates-then-dynamically extracts uploaded policies.
 
+**"Ver expediente completo"** opens the account's super-overview — identidad, the journey with real
+completion dates, every document, montos — plus a branded PDF, rendered on demand so it is always
+current. What is missing prints *why* in Spanish, never a blank.
+
+## The three ways to look at the book
+
+The rail is GRUPOS plus five rows: **Datos · Analítica · Agente · Compañías · Configuración.**
+
+- **Datos** (`/data`) — every consolidated table.
+- **Analítica** (`/analytics`) — the shape of the portfolio: indicators and distribution.
+- **inside a grupo** — one account's detail.
+
+Both Datos and Analítica share one **scope** — grupo · grupo-cuenta · fechas — held in the URL, so a
+filtered view is a link you can send. Everything exports to **XLSX or PDF** (charts to **PNG**), over
+every row matching the filters rather than the page on screen. Comparing several groups side by side
+is deliberately not a feature — ask the agent.
+
 ## Stack
 
 - **Backend** — FastAPI + SQLAlchemy 2.x, SQLite locally / MySQL (RDS) in the cloud, `uv`-managed
@@ -50,7 +67,7 @@ you create the journey live. See `docs/usuarios-de-prueba.md` for the full roste
 ## Verify
 
 ```bash
-cd backend  && MEDIA_BACKEND=local .venv/bin/python -m pytest tests/ -q   # 643 passing
+cd backend  && MEDIA_BACKEND=local .venv/bin/python -m pytest tests/ -q   # 752 passing
 cd frontend && npx tsc -b --noEmit && npm run build && npm run check:locales
 ```
 
@@ -59,8 +76,11 @@ cd frontend && npx tsc -b --noEmit && npm run build && npm run check:locales
 - **`CLAUDE.md`** — orientation + the ten non-negotiables + where the work stands (start here).
 - **`docs/technical-reference.md`** — the full spec: setup, data model, every endpoint, the RBAC
   matrix, the AI registry, the frontend map, the changelog and the traps.
-- **`docs/handoff-2026-09-09-v9.md`** — the latest handoff: the as-built broker journey, a candid
-  log of the errors made and how they were corrected, and the deploy state.
+- **`docs/handoff-2026-09-10-v10.md`** — the latest handoff: Datos/Analítica, the expediente
+  completo, the shared filter vocabulary and the exports, plus a candid log of the errors made and
+  how each was caught.
+- **`docs/handoff-2026-09-09-v9.md`** — the previous pass: the as-built broker journey and its own
+  errors-and-corrections log.
 - **`docs/deployment.md`** — AWS, CI/CD, the four OAC constraints, the migration runbook.
 
 > Code is English; the UI is Spanish (locale values + LLM prompts only). There is no Alembic —
