@@ -1,0 +1,14 @@
+# Issue routing for Radal.
+#
+# Blank issues are disabled on purpose: a report without the environment, the
+# URL and the build stamp costs more to chase than it saves to file. Every
+# template below asks for those three first.
+blank_issues_enabled: false
+
+contact_links:
+  - name: ¿Dudas sobre cómo usar Radal?
+    url: https://github.com/RADAL-SEGUROS/radal-app/discussions
+    about: Para preguntas de uso, no de errores. Si algo no funciona como debería, abre un reporte de error.
+  - name: ¿Encontraste un problema de seguridad o de datos de otro cliente?
+    url: mailto:ben@nirvana-ai.com
+    about: NO lo publiques como issue. Radal es multi-tenant; escríbenos directamente.
