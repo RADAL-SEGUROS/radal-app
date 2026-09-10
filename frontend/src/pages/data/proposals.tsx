@@ -39,6 +39,7 @@ import {
   useSetUrlParams,
   useUrlParam,
 } from "./shared";
+import { useScopeParams } from "@/components/common/ScopeFilter";
 
 export default function ProposalsTab() {
   const { t } = useTranslation("analytics");
@@ -55,7 +56,12 @@ export default function ProposalsTab() {
   const canSeeInsurers = useCan("Insurers", "View");
   const insurers = useInsurers({ limit: 100 }, canSeeInsurers.allowed);
 
+  const scope = useScopeParams();
   const list = useProposals({
+    // The page-level scope (grupo · grupo-cuenta · fechas) is applied
+    // SERVER-side, exactly like the export, so the table and the file the
+    // broker downloads can never disagree about what was filtered.
+    ...scope,
     status: (status as ProposalStatus) || undefined,
     insurer_id: insurer ? Number(insurer) : undefined,
     limit: PAGE_SIZE,

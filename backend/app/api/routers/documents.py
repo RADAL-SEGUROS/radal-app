@@ -43,6 +43,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_broker_id, get_db
 from app.core.case_scope import case_view_scope, scope_case_query
+from app.services.analytics import (
+    ScopeFilters,
+    build_entity_summary,
+    group_by_query,
+    scope_filters,
+    scope_predicates,
+)
 from app.core.config import settings
 from app.core.permissions import require_permission
 from app.models import (
@@ -69,6 +76,7 @@ from app.models.collection import CollectionPlan
 from app.models.endorsement import Endorsement
 from app.models.enums import CaseSection, EntityType
 from app.models.sales_lead import SalesLead
+from app.schemas.analytics import EntitySummary
 from app.models.warranty import Warranty
 from app.schemas.document import (
     DocumentDownload,
@@ -659,13 +667,57 @@ def _validate_case_file(
         )
 
 
+def _case_narrowing_filters(db: Session, broker_id: int, user) -> list:
+    """The ``CASE_VIEW_SCOPE`` narrowing, as a predicate list.
+
+    A narrowed ``CaseFiles.View`` must not leak an invisible case's documents —
+    with or without an explicit ``case_file_id`` filter. Documents that belong
+    to no expediente are untouched by the narrowing.
+    """
+    if not _case_narrowing_applies(user):
+        return []
+    return [
+        or_(
+            Document.case_file_id.is_(None),
+            Document.case_file_id.in_(_visible_case_ids(db, broker_id, user)),
+        )
+    ]
+
+
+# NOTE: registered before ``/{document_id}`` so the literal path wins.
+@router.get("/summary", response_model=EntitySummary)
+def get_documents_summary(
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    _user: User = Depends(require_permission("Documents", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
+) -> EntitySummary:
+    """The documentos board: how many files, split by category.
+
+    Scope: ``account_group_id`` resolves through ``document.case_file_id ->
+    case_file.account_group_id``; the date window sits on ``created_at`` (when
+    the file was uploaded). ``group_by`` accepts
+    ``category | section | entity_type | account_group | month``. The narrowed
+    ``CaseFiles.View`` scope is applied here exactly as it is on the list.
+    """
+    scoped = [
+        Document.broker_id == broker_id,
+        *_case_narrowing_filters(db, broker_id, _user),
+        *scope_predicates("documents", scope, broker_id),
+    ]
+    return build_entity_summary(
+        db, "documents", broker_id=broker_id, scoped=scoped, group_by=group_by
+    )
+
+
 @router.get("", response_model=DocumentListResponse)
 def list_documents(
     entity_type: EntityType | None = Query(default=None),
     entity_id: int | None = Query(default=None, gt=0),
     category: list[DocumentCategory] | None = Query(default=None),
     section: list[CaseSection] | None = Query(default=None),
-    case_file_id: int | None = Query(default=None, gt=0),
+    scope: ScopeFilters = Depends(scope_filters),
     document_code: str | None = Query(default=None, max_length=8),
     phase: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
@@ -679,6 +731,10 @@ def list_documents(
     ``category`` and ``section`` accept repeats (``?category=a&category=b``), which
     is what the expediente's section accordion needs to fetch one sub-expediente
     at a time.
+
+    Scope params: ``account_group_id`` (the grupo, through the document's
+    expediente), ``case_file_id`` (the grupo-cuenta) and ``date_from`` /
+    ``date_to`` on ``created_at`` (the upload date).
     """
     if entity_id is not None and entity_type is None:
         raise HTTPException(
@@ -686,7 +742,10 @@ def list_documents(
             detail="entity_id requires entity_type",
         )
 
-    filters = [Document.broker_id == broker_id]
+    filters = [
+        Document.broker_id == broker_id,
+        *scope_predicates("documents", scope, broker_id),
+    ]
     if entity_type is not None:
         filters.append(Document.entity_type == entity_type)
     if entity_id is not None:
@@ -695,18 +754,7 @@ def list_documents(
         filters.append(Document.category.in_(category))
     if section:
         filters.append(Document.section.in_(section))
-    if case_file_id is not None:
-        filters.append(Document.case_file_id == case_file_id)
-    if _case_narrowing_applies(_user):
-        # A narrowed CaseFiles.View must not leak an invisible case's documents
-        # — with or without an explicit ``case_file_id`` filter. Documents that
-        # belong to no expediente are untouched by the narrowing.
-        filters.append(
-            or_(
-                Document.case_file_id.is_(None),
-                Document.case_file_id.in_(_visible_case_ids(db, broker_id, _user)),
-            )
-        )
+    filters.extend(_case_narrowing_filters(db, broker_id, _user))
     if document_code is not None:
         filters.append(Document.document_code == document_code)
     if phase is not None:

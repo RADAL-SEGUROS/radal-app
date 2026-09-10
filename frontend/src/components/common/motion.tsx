@@ -1,5 +1,6 @@
 import * as React from "react";
 import {
+  AnimatePresence,
   motion,
   useReducedMotion,
   type HTMLMotionProps,
@@ -174,4 +175,70 @@ export function CountUp({
 /** UF formatter matching the reference: "UF 4.540" (de-DE grouping, rounded). */
 export function formatUFCompact(n: number): string {
   return "UF " + Math.round(n).toLocaleString("de-DE");
+}
+
+/**
+ * Animates a content swap keyed by `swapKey`.
+ *
+ * Radix tabs already animate themselves (see `components/ui/tabs.tsx`), but a
+ * lot of the app changes content WITHOUT remounting: picking another vigencia,
+ * flipping a sub-view, paging a table. Those used to blink from one state to
+ * the next with nothing in between. Wrap them in <Swap swapKey={value}> and the
+ * outgoing content leaves before the incoming one arrives.
+ *
+ * `mode="wait"` (default) is right when the two states share the same space —
+ * two vigencias in one panel. Use `mode="popLayout"` when the height changes a
+ * lot and you would rather not collapse to zero mid-transition.
+ */
+export function Swap({
+  swapKey,
+  children,
+  className,
+  mode = "wait",
+  /** Vertical travel in px. 0 gives a pure cross-fade. */
+  distance = 8,
+}: {
+  swapKey: React.Key;
+  children: React.ReactNode;
+  className?: string;
+  mode?: "wait" | "popLayout" | "sync";
+  distance?: number;
+}) {
+  const reduce = useReducedMotion();
+  if (reduce) return <div className={className}>{children}</div>;
+  return (
+    <AnimatePresence mode={mode} initial={false}>
+      <motion.div
+        key={swapKey}
+        className={className}
+        initial={{ opacity: 0, y: distance }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -distance }}
+        transition={{ duration: 0.2, ease: EASE }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+/**
+ * Route-level transition: the same idea as <Swap>, keyed on the pathname, for
+ * pages that replace each other inside a persistent shell (the group hub, the
+ * account journey). Keeps the sidebar still while the panel moves.
+ */
+export function RouteSwap({
+  routeKey,
+  children,
+  className,
+}: {
+  routeKey: React.Key;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <Swap swapKey={routeKey} className={className} distance={10}>
+      {children}
+    </Swap>
+  );
 }

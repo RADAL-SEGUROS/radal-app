@@ -29,6 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.models.enums import CoverageKind
 from app.models.proposal import ProposalOrigin, ProposalStatus
 from app.models.quote import QuoteRequestStatus
+from app.schemas.analytics import GroupedSummary
 
 # Chilean VAT. Applies to the taxable premium only.
 VAT_RATE = Decimal("0.19")
@@ -283,6 +284,10 @@ class ProposalSummary(BaseModel):
     confirmed_count: int
     total_premium_uf: Decimal
     avg_rate_permille: Decimal | None = None
+    grouped: GroupedSummary | None = Field(
+        default=None,
+        description="Buckets listos para el gráfico cuando se pide ?group_by=.",
+    )
 
 
 class ProposalDecisionResult(BaseModel):

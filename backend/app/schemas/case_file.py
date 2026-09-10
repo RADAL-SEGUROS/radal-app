@@ -20,6 +20,7 @@ from app.models.enums import (
 from app.models.policy import ClaimStatus
 from app.schemas.document import DocumentRead
 from app.schemas.policy import PolicyRead
+from app.schemas.analytics import GroupedSummary
 
 
 def _check_period_order(start: date | None, end: date | None) -> None:
@@ -335,6 +336,10 @@ class CaseFileSummary(BaseModel):
     by_stage: dict[str, int]
     by_status: dict[str, int]
     overdue: int
+    grouped: GroupedSummary | None = Field(
+        default=None,
+        description="Buckets listos para el gráfico cuando se pide ?group_by=.",
+    )
 
 
 class CaseDocumentRead(BaseModel):

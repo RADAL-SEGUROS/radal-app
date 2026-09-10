@@ -25,6 +25,13 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_current_broker_id, get_db, is_partial, require_permission
 from app.api.routers.clients import count_total, record_activity
 from app.core.case_scope import scope_case_query
+from app.services.analytics import (
+    ScopeFilters,
+    group_by_query,
+    grouped_or_none,
+    scope_filters,
+    scope_predicates,
+)
 from app.models.account_client import AccountClient, AccountClientRole
 from app.models.account_group import AccountGroup
 from app.models.activity import Activity, Note
@@ -419,9 +426,22 @@ def get_case_files_summary(
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     current_user: User = Depends(require_permission("CaseFiles", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
 ) -> CaseFileSummary:
-    """The pipeline board: counts by kind, stage and status in one round trip."""
-    base = _visible(db, broker_id, current_user).subquery()
+    """The pipeline board: counts by kind, stage and status in one round trip.
+
+    Scope: ``account_group_id`` is ``case_file.account_group_id`` itself and
+    ``case_file_id`` narrows to the single grupo-cuenta; the date window sits on
+    ``opened_at``. Everything still passes through ``_visible()`` — the ONE
+    ``CASE_VIEW_SCOPE`` mechanism — so a process desk never widens its view by
+    filtering. ``group_by`` accepts
+    ``stage | status | kind | origin | account_group | insurance_line | month``.
+    """
+    visible = _visible(db, broker_id, current_user).where(
+        *scope_predicates("case_files", scope, broker_id)
+    )
+    base = visible.subquery()
 
     def _group(column) -> dict[str, int]:
         rows = db.execute(select(column, func.count()).select_from(base).group_by(column)).all()
@@ -450,6 +470,13 @@ def get_case_files_summary(
         by_stage={s.value: by_stage.get(s.value, 0) for s in CaseStage},
         by_status={s.value: by_status.get(s.value, 0) for s in CaseFileStatus},
         overdue=overdue,
+        grouped=grouped_or_none(
+            db,
+            "case_files",
+            group_by=group_by,
+            broker_id=broker_id,
+            extra_filters=[visible.whereclause],
+        ),
     )
 
 
@@ -466,7 +493,7 @@ def list_case_files(
     parent_id: int | None = Query(default=None, gt=0),
     insurance_line_id: int | None = Query(default=None, gt=0),
     owner_user_id: int | None = Query(default=None, gt=0),
-    account_group_id: int | None = Query(default=None, gt=0),
+    scope: ScopeFilters = Depends(scope_filters),
     period_label: str | None = Query(default=None, max_length=32),
     origin: list[CaseOrigin] | None = Query(default=None),
     q: str | None = Query(default=None, description="reference, title or insured"),
@@ -475,8 +502,16 @@ def list_case_files(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=200),
 ) -> CaseFilePage:
-    """List the broker's expedientes, filtered and paginated."""
-    stmt = _visible(db, broker_id, current_user)
+    """List the broker's expedientes, filtered and paginated.
+
+    Scope params: ``account_group_id`` (the grupo — read straight off the row),
+    ``case_file_id`` (narrows to one grupo-cuenta, useful for the export body)
+    and ``date_from`` / ``date_to`` on ``opened_at``. The ``_visible()`` narrowing
+    is applied first and is never widened by a filter.
+    """
+    stmt = _visible(db, broker_id, current_user).where(
+        *scope_predicates("case_files", scope, broker_id)
+    )
     if kind:
         stmt = stmt.where(CaseFile.kind.in_(kind))
     if stage:
@@ -493,8 +528,6 @@ def list_case_files(
         stmt = stmt.where(CaseFile.insurance_line_id == insurance_line_id)
     if owner_user_id is not None:
         stmt = stmt.where(CaseFile.owner_user_id == owner_user_id)
-    if account_group_id is not None:
-        stmt = stmt.where(CaseFile.account_group_id == account_group_id)
     if period_label:
         stmt = stmt.where(CaseFile.period_label == period_label)
     if origin:

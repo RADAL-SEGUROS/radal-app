@@ -6,7 +6,7 @@ import { Building2, Plus, Search, UserCheck, Users, X } from "lucide-react";
 import { useClients, useClientsSummary } from "@/api/clients";
 import { useUsers } from "@/api/users";
 import { CLIENT_STATUSES, type ClientListItem, type ClientStatus } from "@/api/types";
-import { PageHeader } from "@/components/common/PageHeader";
+import { PageHeader, type EmbeddablePageProps } from "@/components/common/PageHeader";
 import { KpiCard } from "@/components/common/KpiCard";
 import { DataTable } from "@/components/common/DataTable";
 import { FadeUp, Stagger } from "@/components/common/motion";
@@ -46,7 +46,7 @@ function useDebounced<T>(value: T, delay = 300): T {
  * supports (`q`, `status`, `account_manager_id`, `page`, `page_size`); nothing
  * is filtered client-side behind the user's back.
  */
-export default function ClientsPage() {
+export default function ClientsPage({ embedded }: EmbeddablePageProps = {}) {
   const { t } = useTranslation(["clients", "common"]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -176,6 +176,7 @@ export default function ClientsPage() {
   return (
     <div className="flex flex-col gap-[22px]">
       <PageHeader
+        embedded={embedded}
         title={t("clients:title")}
         subtitle={t("clients:subtitle")}
         actions={

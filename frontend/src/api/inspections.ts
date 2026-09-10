@@ -23,6 +23,7 @@ import type {
   InspectionUpdate,
   InspectionVersionCreate,
   ListResponse,
+  ScopeParams,
 } from "@/api/types";
 
 // --- Inspection requests -----------------------------------------------------
@@ -112,7 +113,7 @@ export function useCancelInspectionRequest(requestId: number) {
 
 // --- Inspections -------------------------------------------------------------
 
-export interface InspectionListParams {
+export interface InspectionListParams extends ScopeParams {
   asset_id?: number;
   inspection_request_id?: number;
   inspector_id?: number;

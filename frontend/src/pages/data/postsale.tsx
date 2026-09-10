@@ -48,6 +48,7 @@ import {
   useSetUrlParams,
   useUrlParam,
 } from "./shared";
+import { useScopeParams } from "@/components/common/ScopeFilter";
 
 type SubView = "endorsements" | "collections" | "claims";
 
@@ -127,7 +128,12 @@ function EndorsementsView({ status, setStatus }: SubViewProps) {
   const navigate = useNavigate();
 
   const [pageIndex, setPageIndex] = usePageIndex();
+  const scope = useScopeParams();
   const list = useEndorsements({
+    // The page-level scope (grupo · grupo-cuenta · fechas) is applied
+    // SERVER-side, exactly like the export, so the table and the file the
+    // broker downloads can never disagree about what was filtered.
+    ...scope,
     status: (status as EndorsementStatus) || undefined,
     limit: PAGE_SIZE,
     offset: pageIndex * PAGE_SIZE,
@@ -242,7 +248,12 @@ function CollectionsView({ status, setStatus }: SubViewProps) {
   const navigate = useNavigate();
 
   const [pageIndex, setPageIndex] = usePageIndex();
+  const scope = useScopeParams();
   const list = useCollectionPlans({
+    // The page-level scope (grupo · grupo-cuenta · fechas) is applied
+    // SERVER-side, exactly like the export, so the table and the file the
+    // broker downloads can never disagree about what was filtered.
+    ...scope,
     status: (status as CollectionPlanStatus) || undefined,
     limit: PAGE_SIZE,
     offset: pageIndex * PAGE_SIZE,
@@ -358,7 +369,12 @@ function ClaimsView({ status, setStatus }: SubViewProps) {
   const navigate = useNavigate();
 
   const [pageIndex, setPageIndex] = usePageIndex();
+  const scope = useScopeParams();
   const list = useClaims({
+    // The page-level scope (grupo · grupo-cuenta · fechas) is applied
+    // SERVER-side, exactly like the export, so the table and the file the
+    // broker downloads can never disagree about what was filtered.
+    ...scope,
     status: (status as ClaimStatus) || undefined,
     limit: PAGE_SIZE,
     offset: pageIndex * PAGE_SIZE,

@@ -24,6 +24,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    build_entity_summary,
+    group_by_query,
+    scope_filters,
+    scope_predicates,
+)
 from app.api.routers.clients import record_activity
 from app.api.routers.policies import get_policy_or_404
 from app.models.collection import CollectionInstallment, CollectionPlan
@@ -37,6 +44,7 @@ from app.models.enums import (
 )
 from app.models.policy import Policy
 from app.models.user import User
+from app.schemas.analytics import EntitySummary
 from app.schemas.endorsement import (
     EndorsementBatchCreate,
     EndorsementBatchIssue,
@@ -116,23 +124,56 @@ def _d(value) -> Decimal:
 
 # --- Endpoints -----------------------------------------------------------------
 
+# NOTE: registered before ``/{endorsement_id}`` so the literal path wins.
+@router.get("/summary", response_model=EntitySummary)
+def get_endorsements_summary(
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    _user: User = Depends(require_permission("Endorsements", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
+) -> EntitySummary:
+    """The endosos board: status split and the Σ of the premium deltas.
+
+    Scope: ``account_group_id`` resolves through the endorsement's own case file
+    OR its policy (expediente → grupo, contratante → grupo); the date window
+    sits on ``effective_at`` (when the endoso takes effect — an endoso with no
+    effective date is excluded while a bound is present). ``group_by`` accepts
+    ``status | kind | account_group | month``.
+    """
+    scoped = [
+        Endorsement.broker_id == broker_id,
+        *scope_predicates("endorsements", scope, broker_id),
+    ]
+    return build_entity_summary(
+        db, "endorsements", broker_id=broker_id, scoped=scoped, group_by=group_by
+    )
+
+
 @router.get("", response_model=EndorsementPage)
 def list_endorsements(
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Endorsements", "View")),
     policy_id: int | None = Query(default=None, gt=0),
-    case_file_id: int | None = Query(default=None, gt=0),
+    scope: ScopeFilters = Depends(scope_filters),
     batch_key: str | None = Query(default=None, min_length=1, max_length=36),
     status_filter: list[EndorsementStatus] | None = Query(default=None, alias="status"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> EndorsementPage:
-    stmt = select(Endorsement).where(Endorsement.broker_id == broker_id)
+    """List the broker's endosos.
+
+    Scope params: ``account_group_id`` (the grupo — via the endoso's case file
+    or its policy), ``case_file_id`` (the grupo-cuenta, matching the endoso's own
+    folder or its policy's) and ``date_from`` / ``date_to`` on ``effective_at``.
+    """
+    stmt = select(Endorsement).where(
+        Endorsement.broker_id == broker_id,
+        *scope_predicates("endorsements", scope, broker_id),
+    )
     if policy_id is not None:
         stmt = stmt.where(Endorsement.policy_id == policy_id)
-    if case_file_id is not None:
-        stmt = stmt.where(Endorsement.case_file_id == case_file_id)
     if batch_key is not None:
         # The N rows of one prórroga, read back as an ordinary page.
         stmt = stmt.where(Endorsement.batch_key == batch_key)

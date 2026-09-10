@@ -25,6 +25,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    group_by_query,
+    grouped_or_none,
+    scope_filters,
+    scope_predicates,
+)
 from app.api.routers.clients import record_activity
 from app.models.client import Client
 from app.models.document import Document
@@ -180,18 +187,29 @@ def get_policies_summary(
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Policies", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
 ) -> PolicySummary:
-    """The portfolio board: status split, live premium and the renewal clock."""
+    """The portfolio board: status split, live premium and the renewal clock.
+
+    Scope: ``account_group_id`` resolves through ``policy.case_file_id ->
+    case_file.account_group_id`` OR ``policy.client_id -> client.account_group_id``
+    (a policy can predate its expediente). The date window sits on
+    ``start_date`` — the vigencia start, the honest analytic date for a
+    portfolio. ``group_by`` accepts
+    ``status | insurer | insurance_line | account_group | month``.
+    """
+    scoped = [Policy.broker_id == broker_id, *scope_predicates("policies", scope, broker_id)]
     rows = db.execute(
         select(Policy.status, func.count(Policy.id))
-        .where(Policy.broker_id == broker_id)
+        .where(*scoped)
         .group_by(Policy.status)
     ).all()
     by_status = {str(key): int(value) for key, value in rows}
 
     premium_sum = db.scalar(
         select(func.sum(Policy.total_premium_uf)).where(
-            Policy.broker_id == broker_id,
+            *scoped,
             Policy.status == PolicyStatus.ACTIVE,
             Policy.total_premium_uf.is_not(None),
         )
@@ -201,7 +219,7 @@ def get_policies_summary(
     expiring = int(
         db.scalar(
             select(func.count(Policy.id)).where(
-                Policy.broker_id == broker_id,
+                *scoped,
                 Policy.status == PolicyStatus.ACTIVE,
                 Policy.end_date.is_not(None),
                 Policy.end_date >= today,
@@ -223,6 +241,9 @@ def get_policies_summary(
             else Decimal("0")
         ),
         expiring_within_60_days=expiring,
+        grouped=grouped_or_none(
+            db, "policies", group_by=group_by, broker_id=broker_id, extra_filters=scoped
+        ),
     )
 
 
@@ -234,21 +255,27 @@ def list_policies(
     client_id: int | None = Query(default=None, gt=0),
     insurer_id: int | None = Query(default=None, gt=0),
     placement_id: int | None = Query(default=None, gt=0),
-    case_file_id: int | None = Query(default=None, gt=0),
+    scope: ScopeFilters = Depends(scope_filters),
     status_filter: list[PolicyStatus] | None = Query(default=None, alias="status"),
     q: str | None = Query(default=None, description="policy number or insured"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> PolicyPage:
-    stmt = select(Policy).where(Policy.broker_id == broker_id)
+    """List the broker's policies, newest first.
+
+    Scope params: ``account_group_id`` (grupo — via the expediente or the
+    contratante), ``case_file_id`` (grupo-cuenta) and ``date_from`` / ``date_to``
+    on ``start_date`` (the vigencia start). A foreign id yields an empty page.
+    """
+    stmt = select(Policy).where(
+        Policy.broker_id == broker_id, *scope_predicates("policies", scope, broker_id)
+    )
     if client_id is not None:
         stmt = stmt.where(Policy.client_id == client_id)
     if insurer_id is not None:
         stmt = stmt.where(Policy.insurer_id == insurer_id)
     if placement_id is not None:
         stmt = stmt.where(Policy.placement_id == placement_id)
-    if case_file_id is not None:
-        stmt = stmt.where(Policy.case_file_id == case_file_id)
     if status_filter:
         stmt = stmt.where(Policy.status.in_(status_filter))
     if q:

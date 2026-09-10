@@ -31,6 +31,8 @@ import type {
   PolicyUploadResponse,
   Warranty,
   WarrantyCreate,
+  SummaryParams,
+  ScopeParams,
 } from "@/api/types";
 
 /** `GET /policies` — the server sends an offset page. */
@@ -41,13 +43,10 @@ export interface PolicyPage {
   offset: number;
 }
 
-export interface PolicyListParams {
+export interface PolicyListParams extends ScopeParams {
   client_id?: number;
   insurer_id?: number;
   placement_id?: number;
-  case_file_id?: number;
-  /** Groups & accounts (spec v3 §4.3) — the broker-private Group. */
-  account_group_id?: number;
   /** Single value: `lib/api.ts` sets no array param serializer, and the
    *  server reads repeated `status=` keys, not `status[]=`. */
   status?: PolicyStatus;
@@ -71,12 +70,22 @@ export function usePolicies(params: PolicyListParams = {}, enabled = true) {
 
 /** `GET /policies/summary` — broker-scoped counts for the analytics dashboard.
  *  Gate on `Policies.View` via `enabled`; the server 403s without it. */
-export function usePoliciesSummary(enabled = true) {
+export function usePoliciesSummary(
+  enabled = true,
+  /**
+   * Scope: `account_group_id` / `case_file_id` / `date_from` / `date_to`, and
+   * `group_by` for the bucket shape the charts consume. The params are part of
+   * the cache key, so two scopes never share a cached answer.
+   */
+  params: SummaryParams = {},
+) {
   return useQuery({
-    queryKey: qk.policies.summary(),
+    queryKey: qk.policies.summary(params),
     enabled,
     queryFn: async () => {
-      const { data } = await api.get<PolicySummary>("/policies/summary");
+      const { data } = await api.get<PolicySummary>("/policies/summary", {
+        params: clean(params),
+      });
       return data;
     },
   });

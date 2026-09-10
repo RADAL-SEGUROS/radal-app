@@ -20,6 +20,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    build_entity_summary,
+    group_by_query,
+    scope_filters,
+    scope_predicates,
+)
 from app.api.routers.clients import record_activity
 from app.api.routers.policies import get_policy_or_404
 from app.models.collection import CollectionInstallment, CollectionPlan
@@ -31,6 +38,7 @@ from app.models.enums import (
     InstallmentStatus,
 )
 from app.models.user import User
+from app.schemas.analytics import EntitySummary
 from app.schemas.collection import (
     CollectionAlert,
     CollectionPlanCreate,
@@ -141,22 +149,55 @@ def _rows_from(payload: list[InstallmentCreate], broker_id: int) -> list[Collect
 
 # --- Plans ---------------------------------------------------------------------
 
+# NOTE: registered before ``/{plan_id}`` so the literal path wins.
+@router.get("/summary", response_model=EntitySummary)
+def get_collections_summary(
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    _user: User = Depends(require_permission("Collections", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
+) -> EntitySummary:
+    """The cobranza board: status split and the Σ of the planned premium.
+
+    Scope: ``account_group_id`` resolves through the plan's own case file OR its
+    policy; the date window sits on ``created_at`` (a plan de pago has no single
+    domain date — ``as_of_date`` is a snapshot marker and the due dates live on
+    the installments). ``group_by`` accepts
+    ``status | payment_mode | account_group | month``.
+    """
+    scoped = [
+        CollectionPlan.broker_id == broker_id,
+        *scope_predicates("collections", scope, broker_id),
+    ]
+    return build_entity_summary(
+        db, "collections", broker_id=broker_id, scoped=scoped, group_by=group_by
+    )
+
+
 @router.get("", response_model=CollectionPlanPage)
 def list_collection_plans(
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Collections", "View")),
     policy_id: int | None = Query(default=None, gt=0),
-    case_file_id: int | None = Query(default=None, gt=0),
+    scope: ScopeFilters = Depends(scope_filters),
     status_filter: list[CollectionPlanStatus] | None = Query(default=None, alias="status"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> CollectionPlanPage:
-    stmt = select(CollectionPlan).where(CollectionPlan.broker_id == broker_id)
+    """List the broker's planes de pago.
+
+    Scope params: ``account_group_id`` (the grupo — via the plan's case file or
+    its policy), ``case_file_id`` (the grupo-cuenta) and ``date_from`` /
+    ``date_to`` on ``created_at``.
+    """
+    stmt = select(CollectionPlan).where(
+        CollectionPlan.broker_id == broker_id,
+        *scope_predicates("collections", scope, broker_id),
+    )
     if policy_id is not None:
         stmt = stmt.where(CollectionPlan.policy_id == policy_id)
-    if case_file_id is not None:
-        stmt = stmt.where(CollectionPlan.case_file_id == case_file_id)
     if status_filter:
         stmt = stmt.where(CollectionPlan.status.in_(status_filter))
 

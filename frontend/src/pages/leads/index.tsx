@@ -11,7 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AlarmClock, CalendarClock, Plus, Sparkles, Users } from "lucide-react";
 
-import { PageHeader } from "@/components/common/PageHeader";
+import { PageHeader, type EmbeddablePageProps } from "@/components/common/PageHeader";
 import { KpiCard } from "@/components/common/KpiCard";
 import { FadeUp } from "@/components/common/motion";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +42,7 @@ const TONE: Record<LeadStatus, "neutral" | "action" | "brand" | "success" | "mut
   lost: "muted",
 };
 
-export default function LeadsPage() {
+export default function LeadsPage({ embedded }: EmbeddablePageProps = {}) {
   const { t } = useTranslation("leads");
   const navigate = useNavigate();
 
@@ -63,6 +63,7 @@ export default function LeadsPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
+        embedded={embedded}
         title={t("title")}
         subtitle={t("subtitle")}
         actions={

@@ -28,9 +28,42 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH_KEY);
 }
 
+/**
+ * Repeatable query params, the way FastAPI reads them.
+ *
+ * Axios's default array serialisation is `kind[]=account&kind[]=renewal`.
+ * FastAPI declares these as `list[X] = Query(None)` and reads REPEATED bare
+ * keys — `kind=account&kind=renewal` — so the bracketed form does not match the
+ * parameter at all. It is not an error either: the param simply stays `None`
+ * and the endpoint returns everything.
+ *
+ * That silence is the damage. The Cuentas table asked for
+ * `kind=["account","renewal"]` and was served endorsements, collections and
+ * claims as though they were accounts — a filter that looks applied, reads as
+ * data, and is wrong. Every repeatable filter in the app (`kind`, `stage`,
+ * `status`) went through the same hole.
+ */
+function serializeParams(params: Record<string, unknown>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "") continue;
+    if (Array.isArray(value)) {
+      // Repeat the bare key once per member — never `key[]`.
+      for (const item of value) {
+        if (item === undefined || item === null || item === "") continue;
+        search.append(key, String(item));
+      }
+    } else {
+      search.append(key, String(value));
+    }
+  }
+  return search.toString();
+}
+
 export const api = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
+  paramsSerializer: { serialize: serializeParams },
 });
 
 // Attach JWT bearer to every request.

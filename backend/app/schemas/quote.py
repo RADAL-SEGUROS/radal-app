@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.enums import Priority
 from app.models.placement import PlacementStatus
 from app.models.quote import QuoteRequestStatus
+from app.schemas.analytics import GroupedSummary
 
 # UF is stored Numeric(14,4); source documents round to 2 decimals, so a cent of
 # slack keeps honest data from tripping the invariant.
@@ -153,6 +154,10 @@ class QuoteRequestSummary(BaseModel):
     by_status: dict[str, int]
     sent_last_30d: int
     overdue: int
+    grouped: GroupedSummary | None = Field(
+        default=None,
+        description="Buckets listos para el gráfico cuando se pide ?group_by=.",
+    )
 
 
 class QuoteRequestPage(BaseModel):

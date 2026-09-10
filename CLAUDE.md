@@ -12,6 +12,48 @@ endpoint, the RBAC matrix, the AI registry, the frontend map, the changelog and 
 detail there, not here. Reference paths are written plain on purpose: **never `@`-prefix them**, or
 they are pasted into every session and cost ~170k tokens before a word is exchanged.
 
+**The broker journey & key terms (learn this vocabulary — the whole app speaks it).** The broker
+works top-down and left-to-right:
+
+```
+grupo (group) → grupo-cuenta (account: ramo × vigencia) →
+   Antecedentes → Bases Técnicas → Comparación → Propuesta → Pólizas
+```
+
+- **grupo / group** (`account_group`) — the broker-private folder grouping the *empresas* (RUTs), the
+  *vigencias* and the *ramos* of one commercial account. Has an icon; carries no money and no stage.
+- **grupo-cuenta / account / expediente** (`case_file(kind=account)`) — **one ramo × one vigencia × N
+  RUTs**, under a group. THE unit of work; it carries the journey stage. "Expediente" = the folder;
+  every milestone below produces/updates an expediente.
+- **ramo** — the class of insurance (Incendio/Property, RC/Ingeniería/Transporte, …). In Radal a ramo
+  is an **advisory recommended-files template + AI context, NOT a field/section schema**; it is chosen
+  when creating the grupo-cuenta (dropdown or "Crear ramo" drawer), never managed in Configuración.
+- **vigencia** — the coverage period (e.g. `2026-2027`); a *label over per-account full dates*, not a
+  shared range.
+- **Antecedentes** — the **intake** stage: the ramo's recommended files + free uploads the insured/
+  broker gathers, each AI-extracted per document. Free upload; **PDF/Word only** (Excel → print to PDF;
+  vision fallback for scans is flagged-not-done). Excludes cotizaciones.
+- **Bases Técnicas** — the completed antecedentes **consolidated into a structured, branded document**
+  (PDF + UI view) — "the slip" of terms & conditions the broker sends to the market. It is itself an
+  expediente; warn-not-block (always renders, incomplete = warning).
+- **cotización / cotizaciones** — an **insurer's inbound offer/quote** against the bases técnicas. In
+  code this is a `proposal` (read dynamically as a `budget_proposal`); it is uploaded into the
+  Comparación. **⚠ Terminology trap:** in the codebase `proposal` = the insurer's INBOUND cotización.
+- **Comparación** — the expediente that **dynamically compares the cotizaciones** side by side
+  (standardized table + verbatim + an AI recommendation). This IS the cotizaciones step; there is no
+  separate "Cotizaciones" journey tab.
+- **Propuesta** — the broker's **OUTBOUND artifact sent to the insurer**, built from the comparison
+  winner (`broker_proposal`, a validated core + tail). **Never confuse it with `proposal`/cotización
+  (the insurer's inbound offer) — they are opposites.**
+- **Póliza / policy** (`policy`) — the issued policy; **uploaded, validate-then-dynamic** (a fixed core
+  check confirms it's a policy, then the full parse is kept in `policy.payload`).
+- **corredora / broker** = the tenant; **asegurado / insured**, **aseguradora / insurer** = canonical,
+  cross-broker.
+
+Account **tabs** = the journey: Resumen · Antecedentes · Bases Técnicas · Comparación · Propuesta ·
+Pólizas · Renovación · Notas · Bitácora. The **Journey rail lives only on Resumen**; the sidebar
+**vigencia expands** into that journey.
+
 **The non-negotiables — do not simplify these away.** (1) Every identifier is **English**; Spanish
 belongs only in `locales/*/**.json` values and inside LLM prompts, because the source documents are
 Spanish. (2) Every workspace table carries `broker_id` and every query filters it; `insured`,
@@ -30,36 +72,44 @@ unroutable port **before** any `app.*` import — delete those two lines and the
 calls and hangs. (10) There is **no Alembic**: `create_all` never ALTERs, so any new column must go
 through `backend/scripts/migrate_case_files.py` before the branch is pushed.
 
-**Where the work stands (verified 2026-09-08).** Every pass since the v2 rebuild (`ed8b8a1`) is
-**still uncommitted on `dev`**: *v2 case files* (the expediente, the 29-stage journey machine, the
-extraction registry, packs, the post-sale half), *v3 groups & accounts* (`account_group` above the
-expediente, `case_file(kind=account)` as the Account), *v4* (the tool-using **agent**; the deprecated
-Porcelana restyle), *v5 Signal* UI (`docs/v5-signal-ui-spec.md`: Inter, pine-accent primaries,
-hairline borders; group tree removed from the rail; `/analytics`), *v6/v7* (antecedentes → Bases
-Técnicas; broker-defined lines), and now **v8 — the broker-journey redesign** (this session). v8
-reframes **ramos as advisory antecedentes templates** (`line_record_schema` gains `recommended_files`
-+ `explanation`, `insurance_line_id` is now nullable; antecedentes is **warn-not-block** — Bases
-Técnicas always renders, `GET …/pdf` no longer 409s) and makes the account milestones **antecedentes
-→ bases técnicas → comparación → propuesta → pólizas**: a new **incremental, dynamically-extracted
-`comparison`** expedient (`extract_budget_proposal` with a fixed money core + open facets + wrong-file
-detection; monotonic `align_comparison` with a deterministic fallback), the outbound **`broker_proposal`**
-(propuesta) built from the comparison, and **validate-then-dynamic policy** upload (`validate_policy_core`
-hard-gates the core, `override` forces it, the full parse is kept in `policy.payload`) with a policies
-overview. Extraction is **context-aware** (`_account_extraction_context` prepends prior antecedentes/
-proposal for policies). Frontend: the enlarged **overview-altitude 7-node Journey** + pending-actions +
-default **Summary** tab, group **icons** (emoji/glyph/image, styled-name fallback), the **vigencia
-shortcut**, the comparison board `/comparisons/:caseId`, and the public insured-decision page `/o/:token`.
-New tables `comparison`/`comparison_entry`/`comparison_source`, `broker_proposal`; new columns on
-`policy`, `offering`, `account_group`; routers reuse existing RBAC modules (no matrix change). Verified
-state: **596 backend tests passing**, `tsc -b` and `npm run build` clean, `check:locales` 22 namespaces
-(es==en). Read the spec you need rather than re-deriving it — `docs/handoff-2026-09-08-v8.md` is the v8
-companion; also `docs/v2-architecture.md`, `docs/v2-case-files-as-built.md`,
-`docs/v2-data-modeling-decisions.md`, `docs/v3-groups-accounts-spec.md`, `docs/v5-signal-ui-spec.md`,
-`docs/v6-antecedentes-expediente-spec.md`, `docs/v7-lines-and-bases-tecnicas-spec.md`,
-`docs/deployment.md`, `docs/usuarios-de-prueba.md` — and delegate to the sub-prompts in `.claude/agents/`.
-**Standing pre-push traps:** the dev RDS migration has **not** been run — run
-`backend/scripts/migrate_case_files.py --apply` **and** by-hand `ALTER TABLE line_record_schema MODIFY
-COLUMN insurance_line_id BIGINT NULL` (the script never alters nullability), before pushing (CI fires on
-push to `dev`); nothing was ever uploaded to S3, so run the backend with `MEDIA_BACKEND=local` or every
-document 404s; **corpus extraction has not been run through the new dynamic comparison/policy paths** and
-**browser QA is not done**; and **Aqua Spectrum + Porcelana are deprecated** — Signal is the direction.
+**Where the work stands (v9, 2026-09-09 — deploying to dev).** The whole v2→v9 arc lands together in
+one push to `dev` (the first ever deploy of anything past v1). The current shape is **v9**, which
+**corrected the v8 build** (see `docs/handoff-2026-09-09-v9.md` for the as-built journey AND a candid
+log of the errors made). A **ramo** is an **advisory recommended-files template + AI context — NOT a
+field/section schema**: it is chosen when creating the grupo-cuenta via a **dropdown** or a **"Crear
+ramo" drawer**, and is **not** managed in Configuración; two global ramos are seeded (Incendio,
+RC/Ingeniería/Transporte) and the seed self-prunes stale globals. The account milestones are
+**Antecedentes → Bases Técnicas → Comparación → Propuesta → Pólizas** (the account tabs; no duplicate
+Cotizaciones/Propuestas). **Antecedentes** shows the ramo's recommended-file slots + free upload, two
+subtabs (Archivos / Extracción = per-document AI extraction), **cotizaciones scoped out**, **PDF/Word
+only** (Excel rejected; vision fallback flagged-not-done), warn-not-block. **Comparación** is a dynamic
+incremental comparison via **tool calls** (`extract_budget_proposal` → `submit_comparison`: standardized
+table + a named AI recommendation, adaptive batch/merge, block-on-provider-down, per-column premium);
+**Propuesta** is `broker_proposal` (validated core + tail, account-aware); **Pólizas** is
+validate-then-dynamic upload with account-aware insurer resolution. Extraction is **context-aware** and
+runs on **GLM-5.3 tool-calling** (it supports tools) with a model-tiering registry; stage-guard reasons
+are **Spanish**. Expedient PDFs (`comparison_pack`, `proposal_pack`) render via Playwright; the backend
+image installs Chromium.
+
+Frontend (Signal): the **Journey lives only on Resumen** (restyled) + pending-actions + summary; the
+**vigencia sidebar expands** into a journey submenu; authenticated blob downloads; the comparison board
+`/comparisons/:caseId`; the public insured-decision page `/o/:token`. New tables
+`comparison`/`comparison_entry`/`comparison_source`, `broker_proposal`; new columns on
+`line_record_schema` (`recommended_files`, `explanation`, nullable `insurance_line_id`/`definition`),
+`policy`, `offering`, `account_group`; routers reuse existing RBAC modules. **Verified: 643 backend
+tests; `tsc -b`/`build`/`check:locales` clean; the account view verified live in a real browser.** Read
+the spec you need — `README.md` orients, `docs/handoff-2026-09-09-v9.md` is the latest handoff (journey
++ error log), `docs/technical-reference.md` is the full spec; also `docs/deployment.md`,
+`docs/usuarios-de-prueba.md`, and delegate to `.claude/agents/`.
+
+**Deploy state / traps.** The **dev RDS has been reset to the v9 schema + blank baseline** (fresh
+`create_all` — no by-hand ALTER needed for a clean reset), S3 `deploy/backend.env` carries the v9
+AI/media keys (`MEDIA_BACKEND=s3`), and CI (`.github/workflows/dev-deploy.yml`, OIDC, all secrets
+present) fires on push to `dev` → `https://dev.radalseguros.cl`. **Still owed / watch on deploy:** the
+first CI run builds Chromium into the image (slowest/riskiest step); **money-core extraction is
+unreliable** under tool-calling (needs a retry or a stronger tier — not fixed); the **vision fallback
+is stubbed**; comparison align can run **minutes** (buffered Lambda/CloudFront may time out — do NOT
+change the invoke mode, OAC constraint 4). Locally, run the backend with `MEDIA_BACKEND=local` or every
+document 404s. There is **no Alembic** — future column changes go through
+`backend/scripts/migrate_case_files.py`. **Aqua Spectrum + Porcelana are deprecated — Signal is the
+direction.**

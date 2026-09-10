@@ -36,6 +36,13 @@ from app.api.routers.documents import (
 )
 from app.core.config import settings
 from app.core.permissions import require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    build_entity_summary,
+    group_by_query,
+    scope_filters,
+    scope_predicates,
+)
 from app.models import (
     Broker,
     Document,
@@ -50,6 +57,7 @@ from app.models import (
 from app.models.enums import EntityType
 from app.schemas.document import DocumentDownload
 from app.models.proposal import ProposalStatus
+from app.schemas.analytics import EntitySummary
 from app.schemas.offering import (
     OfferingCreate,
     OfferingDecisionRequest,
@@ -296,17 +304,51 @@ def create_offering(
     return _to_read(offering)
 
 
+# NOTE: registered before ``/{offering_id}`` so the literal path wins.
+@router.get("/summary", response_model=EntitySummary)
+def get_offerings_summary(
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    _user: User = Depends(require_permission("Offerings", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
+) -> EntitySummary:
+    """The presentaciones board: status split (sent / viewed / decided).
+
+    Scope: an offering hangs off a quote request, so ``account_group_id`` and
+    ``case_file_id`` both resolve through ``quote_request.case_file_id``; the
+    date window sits on ``created_at``. ``group_by`` accepts
+    ``status | sent_via | account_group | month``.
+    """
+    scoped = [
+        Offering.broker_id == broker_id,
+        *scope_predicates("offerings", scope, broker_id),
+    ]
+    return build_entity_summary(
+        db, "offerings", broker_id=broker_id, scoped=scoped, group_by=group_by
+    )
+
+
 @router.get("", response_model=OfferingListResponse)
 def list_offerings(
     quote_request_id: int | None = Query(default=None, gt=0),
     offering_status: OfferingStatus | None = Query(default=None, alias="status"),
+    scope: ScopeFilters = Depends(scope_filters),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Offerings", "View")),
 ) -> OfferingListResponse:
-    filters = [Offering.broker_id == broker_id]
+    """List the broker's presentaciones al asegurado.
+
+    Scope params: ``account_group_id`` and ``case_file_id`` resolve through the
+    offering's quote request; ``date_from`` / ``date_to`` sit on ``created_at``.
+    """
+    filters = [
+        Offering.broker_id == broker_id,
+        *scope_predicates("offerings", scope, broker_id),
+    ]
     if quote_request_id is not None:
         filters.append(Offering.quote_request_id == quote_request_id)
     if offering_status is not None:

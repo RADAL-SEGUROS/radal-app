@@ -1,21 +1,24 @@
 /**
- * /analytics — dashboard first, then the consolidated tables (spec v4 §4,
- * standing decision 4).
+ * `/analytics` — **Analítica**: the shape of the portfolio, nothing else.
  *
- * Top half: the portfolio dashboard — a KPI row fed by the four module
- * summary endpoints (`/case-files/summary`, `/quotes/summary`,
- * `/proposals/summary`, `/policies/summary`, each gated on its module's `View`
- * grant) and two recharts charts (case files by stage, proposals by insurer).
+ * This page used to be a dashboard AND six data tables in one scroll. The
+ * tables moved to **Datos** (`pages/data/index.tsx`); what is left here answers
+ * a different question — not "show me the rows" but "show me the shape". Both
+ * destinations speak the SAME scope vocabulary (grupo · grupo-cuenta · fechas)
+ * so the broker can narrow one, switch, and still be looking at the same slice.
  *
- * Bottom half: the entity tabs (underline variant) — Cuentas, Cotizaciones,
- * Propuestas, Pólizas, Post-venta, Documentos — each backed by its existing
- * list endpoint with server-side pagination (50 per page, `?page=`). A tab
- * whose module lacks `View` in the server matrix does not render; the page
- * itself is reachable by any role and per-tab gating handles narrow roles.
+ * Two controls make it interactive rather than a poster:
+ *  - the **scope**, which narrows every KPI and every chart to one grupo or one
+ *    grupo-cuenta, server-side;
+ *  - the **dimensión** (`?by=`), which re-buckets the group-by charts. Adding a
+ *    dimension is a server change — the charts are generic (`BucketBarChart`).
  *
- * URL discipline: `?tab=` for the active tab, `?sub=` / `?view=` / filter
- * params / `?page=` for tab state — a filtered view is a shareable link.
- * Switching tab drops `?page=` (a page index is meaningless across tables).
+ * Comparing several groups side by side is deliberately absent: that is the
+ * agent's job. This narrows to ONE and answers well.
+ *
+ * Exports: every chart card carries a PNG capture (the format a broker actually
+ * pastes into WhatsApp), and the header exports the whole scoped dashboard as a
+ * branded PDF.
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -23,81 +26,86 @@ import { AlarmClock, FileSearch, FolderOpen, Repeat, Send, ShieldCheck, Sigma } 
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { KpiCard } from "@/components/common/KpiCard";
-import { Stagger } from "@/components/common/motion";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Stagger, Swap } from "@/components/common/motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { uf } from "@/components/common/kit";
+import { ScopeFilter, scopeParams, useScope } from "@/components/common/ScopeFilter";
+import { ExportMenu } from "@/components/common/ExportMenu";
+import { FilterChip } from "@/pages/data/shared";
 import { useCaseFilesSummary } from "@/api/caseFiles";
 import { useQuotesSummary } from "@/api/quotes";
 import { useProposalsSummary } from "@/api/proposals";
 import { usePoliciesSummary } from "@/api/policies";
-import { num0 } from "@/api/types";
-import { usePermissions, can, type PermissionModule } from "@/lib/permissions";
-import { useSetUrlParams, useUrlParam } from "./shared";
-import { InsurerDonutChart, StageBarChart } from "./charts";
+import { num0, type WithGroupedSummary } from "@/api/types";
+import { supports, unionDimensions, useExportCatalog } from "@/api/exports";
+import { usePermissions, can } from "@/lib/permissions";
+import { useSetUrlParams, useUrlParam } from "@/lib/urlParams";
+import {
+  BucketBarChart,
+  BucketTrendChart,
+  InsurerDonutChart,
+  StageBarChart,
+  useBucketLabel,
+} from "./charts";
 
-import AccountsTab from "./accounts";
-import QuotesTab from "./quotes";
-import ProposalsTab from "./proposals";
-import PoliciesTab from "./policies";
-import PostsaleTab from "./postsale";
-import DocumentsTab from "./documents";
+/**
+ * The two entities charted here. Their dimensions do NOT match — `case_files`
+ * groups by `stage` and has no insurer, `proposals` groups by `insurer` and has
+ * no stage — so the picker offers the union and each chart asks only for a
+ * dimension its own entity can answer. Anything else would be a 422 behind a
+ * control that looked live (rule 3).
+ */
+const CHART_ENTITIES = ["case_files", "proposals"] as const;
 
-type TabId = "accounts" | "quotes" | "proposals" | "policies" | "postsale" | "documents";
-
-/** Tab → the module(s) whose `View` grant makes it exist. Post-venta renders
- *  when ANY of its three modules is granted (§4.2). */
-const TAB_GATES: Record<TabId, PermissionModule[]> = {
-  accounts: ["CaseFiles"],
-  quotes: ["Quotes"],
-  proposals: ["Proposals"],
-  policies: ["Policies"],
-  postsale: ["Endorsements", "Collections", "Claims"],
-  documents: ["Documents"],
-};
-
-const TAB_ORDER: TabId[] = [
-  "accounts",
-  "quotes",
-  "proposals",
-  "policies",
-  "postsale",
-  "documents",
-];
+/** `month` is the only ORDERED dimension, so it is the only one drawn as a trend. */
+const TIME_DIMENSION = "month";
 
 export default function AnalyticsPage() {
   const { t } = useTranslation("analytics");
   const { t: tCases } = useTranslation("cases");
   const perms = usePermissions();
-  const [tabParam] = useUrlParam("tab");
+  const scope = useScope();
+  const [byParam] = useUrlParam("by");
   const setParams = useSetUrlParams();
 
-  const visibleTabs = React.useMemo(
-    () =>
-      TAB_ORDER.filter((tab) =>
-        TAB_GATES[tab].some((module) => can(perms.data, module, "View")),
-      ),
-    [perms.data],
+  const catalog = useExportCatalog();
+  const dimensions = React.useMemo(
+    () => unionDimensions(catalog.data, [...CHART_ENTITIES]),
+    [catalog.data],
   );
 
-  const activeTab: TabId | null =
-    tabParam && visibleTabs.includes(tabParam as TabId)
-      ? (tabParam as TabId)
-      : (visibleTabs[0] ?? null);
+  // Fall back to the first offered dimension rather than a hardcoded "stage":
+  // a deployment whose catalog does not offer it would otherwise 422 on load.
+  const dimension: string =
+    byParam && dimensions.includes(byParam) ? byParam : (dimensions[0] ?? "");
 
-  /** Tab switch drops the page (and the post-sale sub-view's status leak). */
-  const setTab = (tab: string) => setParams({ tab, page: null });
+  const casesGrouped = supports(catalog.data, "case_files", dimension);
+  const proposalsGrouped = supports(catalog.data, "proposals", dimension);
 
-  // --- Dashboard data, each summary behind its module's View grant ----------
+  // --- Data, each summary behind its module's View grant --------------------
   const canSeeCases = can(perms.data, "CaseFiles", "View");
   const canSeeQuotes = can(perms.data, "Quotes", "View");
   const canSeeProposals = can(perms.data, "Proposals", "View");
   const canSeePolicies = can(perms.data, "Policies", "View");
 
-  const cases = useCaseFilesSummary(canSeeCases);
-  const quotes = useQuotesSummary(canSeeQuotes);
-  const proposals = useProposalsSummary(canSeeProposals);
-  const policies = usePoliciesSummary(canSeePolicies);
+  const filters = React.useMemo(() => scopeParams(scope), [scope]);
+
+  const cases = useCaseFilesSummary(
+    canSeeCases,
+    React.useMemo(
+      () => (casesGrouped ? { ...filters, group_by: dimension } : filters),
+      [filters, dimension, casesGrouped],
+    ),
+  );
+  const quotes = useQuotesSummary(canSeeQuotes, filters);
+  const proposals = useProposalsSummary(
+    canSeeProposals,
+    React.useMemo(
+      () => (proposalsGrouped ? { ...filters, group_by: dimension } : filters),
+      [filters, dimension, proposalsGrouped],
+    ),
+  );
+  const policies = usePoliciesSummary(canSeePolicies, filters);
 
   const caseKpis = React.useMemo(() => {
     const data = cases.data;
@@ -125,10 +133,25 @@ export default function AnalyticsPage() {
     (canSeeProposals && proposals.isLoading) ||
     (canSeePolicies && policies.isLoading);
 
+  // Enum buckets arrive as raw values; only the frontend has the Spanish.
+  const bucketLabel = useBucketLabel(dimension);
+
   const stageLabel = React.useCallback(
     (stage: string) => tCases(`stages.${stage}`, { defaultValue: stage }),
     [tCases],
   );
+
+  /** The server's bucket envelope, present only when `group_by` was asked. */
+  const caseBuckets = (cases.data as WithGroupedSummary | undefined)?.grouped?.buckets;
+  const proposalBuckets = (proposals.data as WithGroupedSummary | undefined)?.grouped
+    ?.buckets;
+
+  // `defaultValue` matters: the catalog can name a dimension this build has no
+  // copy for yet, and a missing key must render as the key, not blank.
+  const dimensionOptions = dimensions.map((value) => ({
+    value,
+    label: t(`dimensions.${value}`, { defaultValue: value }),
+  }));
 
   return (
     <div className="flex flex-col gap-5">
@@ -136,6 +159,21 @@ export default function AnalyticsPage() {
         eyebrow={t("eyebrow")}
         title={t("title")}
         subtitle={t("subtitle")}
+      />
+
+      <ScopeFilter
+        trailing={
+          // `group_by` is a sibling of `filters`, never a member of it:
+          // `ScopeFilterPayload` is extra="forbid", so a stray key 422s rather
+          // than being silently dropped. Only send it when case_files can
+          // actually bucket by it.
+          <ExportMenu
+            entity="case_files"
+            filters={filters}
+            groupBy={casesGrouped ? dimension : null}
+            filenameStem="analitica"
+          />
+        }
       />
 
       {/* ---- KPI row ------------------------------------------------------ */}
@@ -220,7 +258,67 @@ export default function AnalyticsPage() {
         )
       ) : null}
 
-      {/* ---- Charts row --------------------------------------------------- */}
+      {/* ---- The dimension picker ------------------------------------------ */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-caption text-ink-3">{t("dimensions.label")}</span>
+        <FilterChip
+          label={t("dimensions.label")}
+          value={dimension}
+          options={dimensionOptions}
+          onChange={(value) => setParams({ by: value })}
+        />
+      </div>
+
+      {/* ---- Group-by charts ----------------------------------------------- */}
+      {/* Keyed on the dimension so re-bucketing animates instead of snapping. */}
+      <Swap swapKey={dimension}>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {canSeeCases && casesGrouped ? (
+            dimension === TIME_DIMENSION ? (
+              <BucketTrendChart
+                title={t("charts.casesBy.title", {
+                  dimension: t(`dimensions.${dimension}`),
+                })}
+                subtitle={t("charts.casesBy.subtitle")}
+                buckets={caseBuckets}
+                isLoading={cases.isLoading}
+                unitLabel={t("charts.byStage.unit")}
+                exportAs={`expedientes-por-${dimension}`}
+                labelFor={bucketLabel}
+              />
+            ) : (
+              <BucketBarChart
+                title={t("charts.casesBy.title", {
+                  dimension: t(`dimensions.${dimension}`),
+                })}
+                subtitle={t("charts.casesBy.subtitle")}
+                buckets={caseBuckets}
+                isLoading={cases.isLoading}
+                unitLabel={t("charts.byStage.unit")}
+                exportAs={`expedientes-por-${dimension}`}
+                labelFor={bucketLabel}
+              />
+            )
+          ) : null}
+
+          {canSeeProposals && proposalsGrouped ? (
+            <BucketBarChart
+              title={t("charts.premiumBy.title", {
+                dimension: t(`dimensions.${dimension}`),
+              })}
+              subtitle={t("charts.premiumBy.subtitle")}
+              buckets={proposalBuckets}
+              isLoading={proposals.isLoading}
+              metric="uf"
+              unitLabel="UF"
+              exportAs={`prima-por-${dimension}`}
+              labelFor={bucketLabel}
+            />
+          ) : null}
+        </div>
+      </Swap>
+
+      {/* ---- The two fixed charts ------------------------------------------ */}
       {canSeeCases || canSeeProposals ? (
         <div className="grid gap-3 lg:grid-cols-2">
           {canSeeCases ? (
@@ -240,40 +338,11 @@ export default function AnalyticsPage() {
         </div>
       ) : null}
 
-      {/* ---- Entity tabs -------------------------------------------------- */}
-      {perms.isLoading ? (
-        <Skeleton className="h-64 w-full rounded-card" />
-      ) : activeTab ? (
-        <div className="flex flex-col gap-4">
-          <Tabs value={activeTab} onValueChange={setTab}>
-            <TabsList variant="underline">
-              {visibleTabs.map((tab) => (
-                <TabsTrigger key={tab} value={tab}>
-                  {t(`tabs.${tab}`, { defaultValue: tab })}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-
-          {activeTab === "accounts" ? (
-            <AccountsTab />
-          ) : activeTab === "quotes" ? (
-            <QuotesTab />
-          ) : activeTab === "proposals" ? (
-            <ProposalsTab />
-          ) : activeTab === "policies" ? (
-            <PoliciesTab />
-          ) : activeTab === "documents" ? (
-            <DocumentsTab />
-          ) : (
-            <PostsaleTab />
-          )}
-        </div>
-      ) : (
-        // A role with no list module at all (matrix says no to everything):
-        // say so instead of a blank pane — nothing is hidden without a reason.
+      {!anyKpiVisible ? (
+        // A role with no analytics module at all: say so instead of a blank
+        // page — nothing is hidden without a reason.
         <p className="text-body text-ink-3">{t("noModules")}</p>
-      )}
+      ) : null}
     </div>
   );
 }

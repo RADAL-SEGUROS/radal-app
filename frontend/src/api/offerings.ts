@@ -17,9 +17,10 @@ import type {
   OfferingSend,
   OfferingStatus,
   OfferingUpdate,
+  ScopeParams,
 } from "@/api/types";
 
-export interface OfferingListParams {
+export interface OfferingListParams extends ScopeParams {
   quote_request_id?: number;
   status?: OfferingStatus;
   limit?: number;

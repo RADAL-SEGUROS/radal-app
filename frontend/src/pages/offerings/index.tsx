@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Eye, Plus, Send, Share2 } from "lucide-react";
 
-import { PageHeader } from "@/components/common/PageHeader";
+import { PageHeader, type EmbeddablePageProps } from "@/components/common/PageHeader";
 import { KpiCard } from "@/components/common/KpiCard";
 import { FadeUp, Stagger } from "@/components/common/motion";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +57,7 @@ import {
   uf,
 } from "@/pages/proposals/shared";
 
-export default function OfferingsListPage() {
+export default function OfferingsListPage({ embedded }: EmbeddablePageProps = {}) {
   const { t } = useTranslation("offerings");
   const navigate = useNavigate();
   const offerings = useOfferings({ limit: 100 });
@@ -71,6 +71,7 @@ export default function OfferingsListPage() {
   return (
     <>
       <PageHeader
+        embedded={embedded}
         title={t("title")}
         subtitle={t("subtitle")}
         actions={

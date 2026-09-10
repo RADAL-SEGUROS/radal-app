@@ -24,6 +24,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    group_by_query,
+    grouped_or_none,
+    scope_filters,
+    scope_predicates,
+)
 from app.models.document import Document
 from app.models.insurer import Insurer
 from app.models.placement import Placement, PlacementStatus
@@ -279,16 +286,28 @@ def get_proposals_summary(
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Proposals", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
 ) -> ProposalSummary:
     """The proposals board: status split, top insurers, and the money in play.
 
     The money aggregates (``total_premium_uf``, ``avg_rate_permille``) exclude
     ``_CLOSED_STATUSES`` — a rejected, withdrawn or expired offer is out of the
     running, exactly as the comparator treats it.
+
+    Scope: ``account_group_id`` resolves through the proposal's own
+    ``case_file_id`` OR its quote request's; the date window sits on
+    ``created_at`` (``received_at`` is optional on the source document, so it
+    would silently drop rows). ``group_by`` accepts
+    ``status | outcome | origin | insurer | account_group | month``.
     """
+    scoped = [
+        Proposal.broker_id == broker_id,
+        *scope_predicates("proposals", scope, broker_id),
+    ]
     rows = db.execute(
         select(Proposal.status, func.count(Proposal.id))
-        .where(Proposal.broker_id == broker_id)
+        .where(*scoped)
         .group_by(Proposal.status)
     ).all()
     by_status = {str(key): int(value) for key, value in rows}
@@ -296,7 +315,7 @@ def get_proposals_summary(
     insurer_rows = db.execute(
         select(Proposal.insurer_id, Insurer.legal_name, func.count(Proposal.id))
         .join(Insurer, Insurer.id == Proposal.insurer_id)
-        .where(Proposal.broker_id == broker_id)
+        .where(*scoped)
         .group_by(Proposal.insurer_id, Insurer.legal_name)
         .order_by(func.count(Proposal.id).desc(), Proposal.insurer_id)
         .limit(10)
@@ -305,7 +324,7 @@ def get_proposals_summary(
     confirmed_count = int(
         db.scalar(
             select(func.count(Proposal.id)).where(
-                Proposal.broker_id == broker_id, Proposal.is_confirmed.is_(True)
+                *scoped, Proposal.is_confirmed.is_(True)
             )
         )
         or 0
@@ -314,14 +333,14 @@ def get_proposals_summary(
     in_the_running = Proposal.status.not_in(_CLOSED_STATUSES)
     premium_sum = db.scalar(
         select(func.sum(Proposal.total_premium_uf)).where(
-            Proposal.broker_id == broker_id,
+            *scoped,
             in_the_running,
             Proposal.total_premium_uf.is_not(None),
         )
     )
     rate_avg = db.scalar(
         select(func.avg(Proposal.comprehensive_rate_permille)).where(
-            Proposal.broker_id == broker_id,
+            *scoped,
             in_the_running,
             Proposal.comprehensive_rate_permille.is_not(None),
         )
@@ -349,6 +368,9 @@ def get_proposals_summary(
             if rate_avg is not None
             else None
         ),
+        grouped=grouped_or_none(
+            db, "proposals", group_by=group_by, broker_id=broker_id, extra_filters=scoped
+        ),
     )
 
 
@@ -359,9 +381,7 @@ def list_proposals(
     _user: User = Depends(require_permission("Proposals", "View")),
     quote_request_id: int | None = None,
     placement_id: int | None = None,
-    case_file_id: int | None = Query(
-        default=None, description="Only proposals filed under this expediente"
-    ),
+    scope: ScopeFilters = Depends(scope_filters),
     insurer_id: int | None = None,
     proposal_status: ProposalStatus | None = Query(default=None, alias="status"),
     origin: ProposalOrigin | None = None,
@@ -369,14 +389,19 @@ def list_proposals(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> ProposalPage:
-    """List the broker's proposals, newest first."""
-    filters = [Proposal.broker_id == broker_id]
+    """List the broker's proposals, newest first.
+
+    Scope params: ``account_group_id`` (the grupo — the proposal's own
+    expediente OR its quote request's), ``case_file_id`` (the grupo-cuenta) and
+    ``date_from`` / ``date_to`` on ``created_at``. ``broker_id`` is always in the
+    filter list, so a foreign id yields an empty page, never a leak.
+    """
+    filters = [
+        Proposal.broker_id == broker_id,
+        *scope_predicates("proposals", scope, broker_id),
+    ]
     if quote_request_id is not None:
         filters.append(Proposal.quote_request_id == quote_request_id)
-    if case_file_id is not None:
-        # ``broker_id`` is already in ``filters``; a foreign case file just
-        # yields an empty page rather than confirming that it exists.
-        filters.append(Proposal.case_file_id == case_file_id)
     if insurer_id is not None:
         filters.append(Proposal.insurer_id == insurer_id)
     if proposal_status is not None:

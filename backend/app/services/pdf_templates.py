@@ -42,6 +42,7 @@ from app.schemas.extraction.common import parse_uf
 
 __all__ = [
     "render_expediente_html",
+    "render_expediente_completo_html",
     "render_comparison_html",
     "render_propuesta_html",
     "MISSING_OPTIONAL",
@@ -875,3 +876,346 @@ def render_propuesta_html(*, title: str, branding: dict, data: dict) -> str:
         )
 
     return _wrap_document(title=title, branding=branding, body_html="".join(parts))
+
+
+# ---------------------------------------------------------------------------
+# Expediente completo composer (the whole grupo-cuenta on one document)
+# ---------------------------------------------------------------------------
+
+def _pending_callout(reason: str | None) -> str:
+    """What prints where a section does not exist yet: the Spanish reason
+    ("Pronto, al cerrar Comparación"), never a blank. The section heading is
+    already above it, so the callout only carries the reason."""
+    return _render_callout(
+        {
+            "heading": "Pendiente",
+            "text": reason or "Pronto, en cuanto avance el expediente",
+        }
+    )
+
+
+def _journey_table(rows: list[dict]) -> str:
+    """The journey with REAL completion dates — the heart of this document."""
+    return _render_table(
+        {
+            "kind": "table",
+            "columns": [
+                {"key": "milestone", "label": "Hito"},
+                {"key": "state", "label": "Estado"},
+                {"key": "completed_at", "label": "Completado"},
+                {"key": "summary", "label": "Resumen"},
+                {"key": "reason", "label": "Pendiente"},
+            ],
+            "rows": rows,
+        }
+    )
+
+
+def render_expediente_completo_html(*, title: str, branding: dict, data: dict) -> str:
+    """Compose the EXPEDIENTE COMPLETO PDF HTML string (a PURE string builder).
+
+    The super overview of one grupo-cuenta: cover → identidad → empresas →
+    journey (with completion dates) → antecedentes → comparación (+ the AI
+    recommendation) → propuesta → pólizas → índice de documentos → resumen de
+    dinero. Every absent section prints its Spanish "Pronto, al cerrar X" line
+    instead of a blank.
+
+    Args:
+        title: the display title shown on the cover.
+        branding: the same cover + running-frame identity dict
+            :func:`render_expediente_html` takes.
+        data: the shaped aggregate, a plain dict (no DB) — see
+            ``app.services.expediente.expediente_pdf_data``:
+            ``identity_rows`` ``[{label,value,required?}]``; ``clients_rows``
+            ``[{legal_name,rut,role}]``; ``journey_rows``
+            ``[{milestone,state,completed_at,summary,reason}]``;
+            ``antecedentes_rows`` ``[{file,required,state}]`` +
+            ``antecedentes_note``; ``comparison`` (the SAME dict
+            :func:`render_comparison_html` takes) + ``comparison_pending``;
+            ``propuesta_rows`` ``[{label,value}]`` + ``propuesta_pending``;
+            ``policies_rows`` ``[{number,insurer,period,premium}]`` +
+            ``policies_pending``; ``documents_rows``
+            ``[{name,category,section,date}]``; ``money_rows``
+            ``[{label,value}]`` + ``money_pending`` + ``money_source``.
+    """
+    data = data or {}
+    parts: list[str] = []
+    number = 0
+
+    # 01 Identidad
+    number += 1
+    parts.append(
+        _render_section(
+            {
+                "kind": "fields",
+                "heading": "Identificación de la cuenta",
+                "fields": data.get("identity_rows") or [],
+            },
+            number=number,
+        )
+    )
+
+    # 02 Empresas de la cuenta
+    number += 1
+    parts.append(
+        _render_section(
+            {
+                "kind": "table",
+                "heading": "Empresas de la cuenta",
+                "columns": [
+                    {"key": "legal_name", "label": "Razón social", "required": True},
+                    {"key": "rut", "label": "RUT", "required": True},
+                    {"key": "role", "label": "Rol"},
+                ],
+                "rows": data.get("clients_rows") or [],
+            },
+            number=number,
+        )
+    )
+
+    # 03 Journey
+    number += 1
+    parts.append(
+        _matrix_section(
+            "Journey del expediente", number, _journey_table(data.get("journey_rows") or [])
+        )
+    )
+
+    # 04 Antecedentes
+    number += 1
+    antecedentes_rows = data.get("antecedentes_rows") or []
+    note = data.get("antecedentes_note")
+    inner = (
+        _render_table(
+            {
+                "kind": "table",
+                "columns": [
+                    {"key": "file", "label": "Archivo recomendado"},
+                    {"key": "required", "label": "Obligatorio"},
+                    {"key": "state", "label": "Estado", "required": True},
+                ],
+                "rows": antecedentes_rows,
+            }
+        )
+        if antecedentes_rows
+        else _pending_callout(note)
+    )
+    if antecedentes_rows and note:
+        inner += _render_callout({"heading": "Resumen", "text": note})
+    parts.append(_matrix_section("Antecedentes", number, inner))
+
+    # 05 Comparación
+    number += 1
+    comparison = data.get("comparison")
+    if comparison:
+        columns = comparison.get("columns") or []
+        inner = _recommendation_block(comparison.get("recommendation"))
+        inner += _render_premium_matrix(columns, comparison.get("premium_rows") or [])
+        common = comparison.get("common_dimensions") or []
+        if common:
+            inner += _render_dimension_matrix(columns, common)
+        extras = comparison.get("extra_dimensions") or []
+        if extras:
+            inner += _render_dimension_matrix(columns, extras)
+    else:
+        inner = _pending_callout(data.get("comparison_pending"))
+    parts.append(_matrix_section("Comparación", number, inner))
+
+    # 06 Propuesta
+    number += 1
+    propuesta_rows = data.get("propuesta_rows") or []
+    if propuesta_rows:
+        parts.append(
+            _render_section(
+                {
+                    "kind": "fields",
+                    "heading": "Propuesta",
+                    "fields": [
+                        {"label": row.get("label"), "value": row.get("value")}
+                        for row in propuesta_rows
+                    ],
+                },
+                number=number,
+            )
+        )
+    else:
+        parts.append(
+            _matrix_section(
+                "Propuesta", number, _pending_callout(data.get("propuesta_pending"))
+            )
+        )
+
+    # 07 Pólizas
+    number += 1
+    policies_rows = data.get("policies_rows") or []
+    if policies_rows:
+        inner = _render_table(
+            {
+                "kind": "table",
+                "columns": [
+                    {"key": "number", "label": "N° de póliza", "required": True},
+                    {"key": "insurer", "label": "Aseguradora"},
+                    {"key": "period", "label": "Vigencia"},
+                    {"key": "premium", "label": "Prima total (UF)", "money": True},
+                ],
+                "rows": policies_rows,
+                "totals": True,
+            }
+        )
+    else:
+        inner = _pending_callout(data.get("policies_pending"))
+    parts.append(_matrix_section("Pólizas", number, inner))
+
+    # 08 Índice de documentos
+    number += 1
+    parts.append(
+        _matrix_section(
+            "Índice de documentos",
+            number,
+            _render_table(
+                {
+                    "kind": "table",
+                    "columns": [
+                        {"key": "name", "label": "Documento"},
+                        {"key": "category", "label": "Tipo"},
+                        {"key": "section", "label": "Sub-expediente"},
+                        {"key": "date", "label": "Fecha"},
+                    ],
+                    "rows": data.get("documents_rows") or [],
+                }
+            ),
+        )
+    )
+
+    # 09 Dinero
+    number += 1
+    money_rows = data.get("money_rows") or []
+    if money_rows:
+        inner = _render_table(
+            {
+                "kind": "table",
+                "columns": [
+                    {"key": "label", "label": "Concepto"},
+                    {"key": "value", "label": "UF", "money": True},
+                ],
+                "rows": money_rows,
+            }
+        )
+    else:
+        inner = _pending_callout(data.get("money_pending"))
+    parts.append(_matrix_section("Resumen económico (UF)", number, inner))
+
+    return _wrap_document(title=title, branding=branding, body_html="".join(parts))
+
+
+# ---------------------------------------------------------------------------
+# Table report composer (the Datos / Analítica export)
+# ---------------------------------------------------------------------------
+
+_REPORT_OVERRIDES = """
+/* Landscape, no cover: a data export is a running table, not an expediente.
+   These rules come AFTER the shared stylesheet, so they win the cascade. */
+@page{ size:A4 landscape; margin:12mm 12mm 14mm; }
+@page:first{ margin:12mm 12mm 14mm; }
+.rep-filters{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;}
+.rep-chip{display:inline-block;font-size:9px;font-weight:600;letter-spacing:0.02em;
+  color:var(--accent-ink);background:var(--accent-2);padding:4px 9px;border-radius:999px;}
+.rep-chip .k{color:var(--muted);font-weight:600;text-transform:uppercase;
+  letter-spacing:0.08em;margin-right:4px;}
+.rep-title{font-size:16px;font-weight:600;letter-spacing:-0.01em;margin-bottom:2px;}
+.rep-sub{font-size:9.5px;color:var(--muted);margin-bottom:12px;}
+table.data{font-size:8.5px;}
+table.data thead th{font-size:7.5px;padding:6px 7px;}
+table.data tbody td{padding:5px 7px;}
+.rep-foot{margin-top:12px;padding-top:7px;border-top:1px solid var(--line);
+  font-size:9px;color:var(--muted);}
+"""
+
+
+def render_table_report_html(
+    *,
+    title: str,
+    branding: dict,
+    columns: list[dict],
+    rows: list[list],
+    filters: list[dict] | None = None,
+    subtitle: str | None = None,
+    row_count: int | None = None,
+    footer_note: str | None = None,
+) -> str:
+    """Compose a landscape, branded, one-table report for the data exports.
+
+    Deliberately reuses the expediente stylesheet, the running header
+    (broker left, Radal isotype right) and the ``@page`` footer, then overrides
+    the page box to landscape and drops the cover — an export is a working
+    document, not a client-facing expediente, so there is exactly ONE PDF stack
+    in this codebase, not two.
+
+    Args:
+        title: the report heading (e.g. "Pólizas").
+        branding: same dict as :func:`render_expediente_html`.
+        columns: ``[{"label": str, "num": bool}]`` — ``num`` right-aligns.
+        rows: the already-formatted cell strings, one list per row.
+        filters: ``[{"label": str, "value": str}]`` printed as chips in the head.
+        row_count: printed in the footer; falls back to ``len(rows)``.
+    """
+    columns = columns or []
+    rows = rows or []
+    count = len(rows) if row_count is None else row_count
+    footer_left = str(branding.get("broker_name") or "Radal.")
+
+    chips = "".join(
+        f'<span class="rep-chip"><span class="k">{_esc(f.get("label"))}</span>'
+        f'{_esc(f.get("value"))}</span>'
+        for f in (filters or [])
+    )
+    filters_html = f'<div class="rep-filters">{chips}</div>' if chips else ""
+
+    head_cells = "".join(
+        f'<th class="num">{_esc(c.get("label"))}</th>'
+        if c.get("num")
+        else f"<th>{_esc(c.get('label'))}</th>"
+        for c in columns
+    )
+    body_rows = []
+    for row in rows:
+        cells = []
+        for index, value in enumerate(row):
+            num = bool(columns[index].get("num")) if index < len(columns) else False
+            rendered = _esc(value) if value not in (None, "") else MISSING_OPTIONAL
+            cells.append(f'<td class="num">{rendered}</td>' if num else f"<td>{rendered}</td>")
+        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+    if not body_rows:
+        body_rows.append(
+            f'<tr><td colspan="{max(len(columns), 1)}" class="table-empty muted">'
+            "Sin resultados para los filtros aplicados.</td></tr>"
+        )
+
+    table_html = (
+        '<table class="data"><thead><tr>'
+        + head_cells
+        + "</tr></thead><tbody>"
+        + "".join(body_rows)
+        + "</tbody></table>"
+    )
+    foot = footer_note or f"{count} fila(s) exportada(s)."
+
+    body = (
+        f'<div class="rep-title">{_esc(title)}</div>'
+        + (f'<div class="rep-sub">{_esc(subtitle)}</div>' if subtitle else "")
+        + filters_html
+        + table_html
+        + f'<div class="rep-foot">{_esc(foot)}</div>'
+    )
+
+    return (
+        '<!doctype html><html lang="es"><head><meta charset="utf-8"/>'
+        f"<style>{_stylesheet(footer_left)}{_REPORT_OVERRIDES}</style>"
+        f"<title>{_esc(title)}</title></head><body>"
+        '<table class="report"><thead><tr><td>'
+        f"{_run_head(branding)}"
+        "</td></tr></thead><tbody><tr><td>"
+        f'<main class="content">{body}</main>'
+        "</td></tr></tbody></table>"
+        "</body></html>"
+    )

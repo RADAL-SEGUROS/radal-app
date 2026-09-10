@@ -19,6 +19,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    group_by_query,
+    grouped_or_none,
+    scope_filters,
+    scope_predicates,
+)
 from app.models.enums import CoverageKind, Priority
 from app.models.insurer import Insurer
 from app.models.placement import Placement, PlacementStatus
@@ -172,11 +179,21 @@ def get_quotes_summary(
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Quotes", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
 ) -> QuoteRequestSummary:
-    """The quotes board: status split plus the sent / overdue clocks."""
+    """The quotes board: status split plus the sent / overdue clocks.
+
+    Scope: ``account_group_id`` resolves through ``quote_request.case_file_id ->
+    case_file.account_group_id``; the date window sits on ``created_at`` (when
+    the request entered Radal — ``sent_at`` is a clock, not the entity's date).
+    ``group_by`` accepts ``status | priority | account_group | month``; anything
+    else is a 422.
+    """
+    scoped = [QuoteRequest.broker_id == broker_id, *scope_predicates("quotes", scope, broker_id)]
     rows = db.execute(
         select(QuoteRequest.status, func.count(QuoteRequest.id))
-        .where(QuoteRequest.broker_id == broker_id)
+        .where(*scoped)
         .group_by(QuoteRequest.status)
     ).all()
     by_status = {str(key): int(value) for key, value in rows}
@@ -185,7 +202,7 @@ def get_quotes_summary(
     sent_last_30d = int(
         db.scalar(
             select(func.count(QuoteRequest.id)).where(
-                QuoteRequest.broker_id == broker_id,
+                *scoped,
                 QuoteRequest.sent_at.is_not(None),
                 QuoteRequest.sent_at >= now - timedelta(days=30),
             )
@@ -195,7 +212,7 @@ def get_quotes_summary(
     overdue = int(
         db.scalar(
             select(func.count(QuoteRequest.id)).where(
-                QuoteRequest.broker_id == broker_id,
+                *scoped,
                 QuoteRequest.due_at.is_not(None),
                 QuoteRequest.due_at < now,
                 QuoteRequest.status.in_(_OPEN_QUOTE_STATUSES),
@@ -208,6 +225,9 @@ def get_quotes_summary(
         by_status={s.value: by_status.get(s.value, 0) for s in QuoteRequestStatus},
         sent_last_30d=sent_last_30d,
         overdue=overdue,
+        grouped=grouped_or_none(
+            db, "quotes", group_by=group_by, broker_id=broker_id, extra_filters=scoped
+        ),
     )
 
 
@@ -218,23 +238,27 @@ def list_quote_requests(
     _user: User = Depends(require_permission("Quotes", "View")),
     placement_id: int | None = None,
     client_id: int | None = None,
-    case_file_id: int | None = Query(
-        default=None, description="Only quote requests filed under this expediente"
-    ),
+    scope: ScopeFilters = Depends(scope_filters),
     quote_status: QuoteRequestStatus | None = Query(default=None, alias="status"),
     priority: Priority | None = None,
     search: str | None = Query(default=None, min_length=1, max_length=120),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> QuoteRequestPage:
-    """List the broker's quote requests, newest first."""
-    filters = [QuoteRequest.broker_id == broker_id]
+    """List the broker's quote requests, newest first.
+
+    Scope params: ``account_group_id`` (grupo, resolved through
+    ``case_file.account_group_id``), ``case_file_id`` (grupo-cuenta) and
+    ``date_from`` / ``date_to`` on ``created_at``. ``broker_id`` is always in the
+    filter list, so a foreign group or expediente yields an empty page rather
+    than confirming that it exists.
+    """
+    filters = [
+        QuoteRequest.broker_id == broker_id,
+        *scope_predicates("quotes", scope, broker_id),
+    ]
     if placement_id is not None:
         filters.append(QuoteRequest.placement_id == placement_id)
-    if case_file_id is not None:
-        # ``broker_id`` is already in ``filters``; a foreign case file just
-        # yields an empty page rather than confirming that it exists.
-        filters.append(QuoteRequest.case_file_id == case_file_id)
     if quote_status is not None:
         filters.append(QuoteRequest.status == quote_status)
     if priority is not None:

@@ -19,9 +19,10 @@ import type {
   LeadSummary,
   LeadUpdate,
   OffsetPage,
+  ScopeParams,
 } from "@/api/types";
 
-export interface LeadListParams {
+export interface LeadListParams extends ScopeParams {
   status?: LeadStatus[];
   owner_id?: number;
   insurance_line_id?: number;

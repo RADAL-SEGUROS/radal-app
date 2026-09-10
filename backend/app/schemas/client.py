@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.models.client import ClientStatus
 from app.models.enums import PersonType
+from app.schemas.analytics import GroupedSummary
 from app.services.identifiers import validate_rut
 
 # --- Shared aliases ----------------------------------------------------------
@@ -155,6 +156,12 @@ class ClientListItem(BaseModel):
     insured: InsuredSummary
     account_manager: UserSummary | None = None
 
+    #: The broker-private group this company belongs to, or ``None``. A company
+    #: belongs to at most ONE group, so the pickers need this to tell "free to
+    #: attach" from "already spoken for" instead of offering a row that can only
+    #: come back as 422 ``client_in_other_group``.
+    account_group_id: int | None = None
+
     assets_count: int = 0
     placements_count: int = 0
     active_placements_count: int = 0
@@ -184,6 +191,10 @@ class ClientSummary(BaseModel):
     by_status: dict[str, int]
     with_active_placements: int
     unassigned: int = Field(description="Clients with no account manager")
+    grouped: GroupedSummary | None = Field(
+        default=None,
+        description="Buckets listos para el gráfico cuando se pide ?group_by=.",
+    )
 
 
 __all__ = [

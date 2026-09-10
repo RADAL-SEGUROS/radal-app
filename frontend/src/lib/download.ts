@@ -67,3 +67,20 @@ export async function previewDocument(documentId: number): Promise<void> {
   window.open(url, "_blank", "noopener,noreferrer");
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
+
+/**
+ * Fetch any authenticated endpoint that STREAMS bytes and save the result.
+ *
+ * `downloadDocument` above is for the stored-`document` route; this is for the
+ * endpoints that render on demand and return the file itself — the expediente
+ * completo PDF, the comparison and propuesta packs. Same reason it exists:
+ * those routes are auth-gated, so a plain link 401s.
+ */
+export async function downloadFrom(
+  path: string,
+  filename: string,
+): Promise<void> {
+  const res = await api.get<Blob>(path, { responseType: "blob" });
+  const disposition = res.headers?.["content-disposition"] as string | undefined;
+  saveBlob(res.data, filenameFromDisposition(disposition) || filename);
+}

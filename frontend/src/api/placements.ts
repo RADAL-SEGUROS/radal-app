@@ -18,17 +18,16 @@ import type {
   PlacementSummary,
   PlacementTransitionOptions,
   PlacementUpdate,
+  ScopeParams,
 } from "@/api/types";
 
-export interface PlacementListParams {
+export interface PlacementListParams extends ScopeParams {
   client_id?: number;
   asset_id?: number;
   insurance_line_id?: number;
   status?: PlacementStatus[];
   period?: string;
   open_only?: boolean;
-  /** Groups & accounts (spec v3 §4.3) — the broker-private Group. */
-  account_group_id?: number;
   q?: string;
   page?: number;
   page_size?: number;

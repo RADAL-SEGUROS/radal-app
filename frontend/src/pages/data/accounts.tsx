@@ -41,6 +41,7 @@ import {
   useSetUrlParams,
   useUrlParam,
 } from "./shared";
+import { useScopeParams } from "@/components/common/ScopeFilter";
 
 // =============================================================================
 // Macro-phase map — LOCAL copy of spec §3.2 for the board columns only.
@@ -103,7 +104,12 @@ export default function AccountsTab() {
   const setStatus = (value: string | null) => setParams({ status: value, page: null });
   const setLine = (value: string | null) => setParams({ line: value, page: null });
 
+  const scope = useScopeParams();
   const list = useCaseFiles({
+    // The page-level scope (grupo · grupo-cuenta · fechas) is applied
+    // SERVER-side, exactly like the export, so the table and the file the
+    // broker downloads can never disagree about what was filtered.
+    ...scope,
     kind: ["account", "renewal"],
     stage: stage ? [stage as CaseStage] : undefined,
     status: status ? [status as CaseFileStatus] : undefined,

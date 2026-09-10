@@ -245,11 +245,12 @@
       "submit": "Create the group",
       "success": "Group created",
       "error": "We could not create the group",
-      "clientsHint": "A company belongs to at most one group; those already in another group are not listed here."
+      "clientsHint": "A company can belong to only one group; the ones already in another are shown disabled."
     },
     "detach": {
       "confirm": "Remove this company from the group?",
-      "success": "Company removed from the group"
+      "success": "Company removed from the group",
+      "confirmNamed": "Remove {{name}} from the group? The company still exists in Clients."
     },
     "search": "Search groups",
     "notFound": "We could not find this group",
@@ -288,6 +289,16 @@
     "edit": {
       "title": "Edit group",
       "subtitle": "Change the group's icon, name and notes."
+    },
+    "inOtherGroup": "In another group",
+    "createClient": {
+      "action": "Create company",
+      "withRut": "Create company {{rut}}"
+    },
+    "addClient": {
+      "subtitle": "Search the company by legal name or RUT; if it does not exist yet, create it right here.",
+      "submit_one": "Add 1 company",
+      "submit_other": "Add {{count}} companies"
     }
   },
   "account": {
@@ -516,7 +527,8 @@
     "periods": "No validity periods recorded",
     "history": "No previous validity period",
     "clients": "The group has no companies attached",
-    "lines": "This validity period has no lines yet"
+    "lines": "This validity period has no lines yet",
+    "clientsHint": "Add the companies that make up the account; each one brings its RUT."
   },
   "policy": {
     "current": "This policy",
@@ -573,6 +585,61 @@
       "comparison": "Comparison",
       "proposal": "Proposal",
       "policies": "Policies"
+    }
+  },
+  "expediente": {
+    "title": "Full case file",
+    "backToAccount": "Back to the account",
+    "downloadPdf": "Download PDF",
+    "pdfFailed": "We could not generate the case file PDF",
+    "notFound": "We could not find this case file",
+    "generatedAt": "Up to date as of {{at}}",
+    "identity": "Identification",
+    "reference": "Reference",
+    "line": "Line",
+    "status": "Status",
+    "journey": "Journey",
+    "journeyHint": "Each milestone with the date it closed; what is missing says what unblocks it.",
+    "inProgress": "In progress",
+    "required": "Required",
+    "antecedentesHint": "{{documents}} documents · {{extractions}} extractions",
+    "quotesCompared": "Quotes compared",
+    "recommendation": "Recommendation",
+    "openComparison": "Open the comparison",
+    "insurer": "Insurer",
+    "insured": "Insured",
+    "premium": "Premium",
+    "ratified": "Ratified",
+    "pendingPolicies": "Coming once the first policy is issued.",
+    "policyNoNumber": "Policy with no number",
+    "money": "Amounts",
+    "taxable": "Taxable",
+    "exempt": "Exempt",
+    "net": "Net",
+    "vat": "VAT",
+    "total": "Total",
+    "documents": "Documents",
+    "documentsHint_one": "{{count}} document in the case file",
+    "documentsHint_other": "{{count}} documents in the case file",
+    "slotsFilled": "{{filled}} of {{total}} recommended files",
+    "freeUploads_one": "{{count}} free upload",
+    "freeUploads_other": "{{count}} free uploads",
+    "recommended": "Recommended",
+    "wrongFile": "Wrong file",
+    "moneySource": "Amounts sourced from: {{source}}",
+    "role": {
+      "policyholder": "Policyholder",
+      "insured": "Insured"
+    },
+    "comparisonStatus": {
+      "draft": "Draft",
+      "aligned": "Aligned",
+      "superseded": "Superseded"
+    },
+    "moneySourceValue": {
+      "policy": "the policy",
+      "broker_proposal": "the proposal",
+      "proposal": "the awarded quote"
     }
   }
 }

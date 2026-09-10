@@ -20,6 +20,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.placement import PlacementStatus
+from app.schemas.analytics import GroupedSummary
 
 Period = Annotated[str, Field(min_length=1, max_length=32)]
 
@@ -152,6 +153,10 @@ class PlacementSummary(BaseModel):
     in_market: int = Field(description="quoting or negotiating")
     awaiting_inspection: int
     expiring_within_60_days: int
+    grouped: GroupedSummary | None = Field(
+        default=None,
+        description="Buckets listos para el gráfico cuando se pide ?group_by=.",
+    )
 
 
 __all__ = [

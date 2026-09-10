@@ -270,6 +270,93 @@ export interface MeResponse {
   organization: Organization | null;
 }
 
+// --- Analysis scope: filters + group-by --------------------------------------
+
+/**
+ * The scope every list, summary and export endpoint understands.
+ *
+ * `account_group_id` narrows to one grupo, `case_file_id` to one grupo-cuenta
+ * inside it — the two questions the broker actually asks of the dashboard.
+ * Comparing several groups is NOT expressed here on purpose: that is the
+ * agent's job, and a multi-group filter would invite a chart nobody can read.
+ */
+export interface ScopeParams {
+  account_group_id?: number;
+  case_file_id?: number;
+  date_from?: string;
+  date_to?: string;
+}
+
+/** A `/summary` call: the scope plus the dimension to bucket by. */
+export interface SummaryParams extends ScopeParams {
+  group_by?: string;
+}
+
+/** One bar/slice of a `group_by` answer. */
+export interface SummaryBucket {
+  /** Stable: the enum value, an id as string, `"2026-09"`, or `"unassigned"`. */
+  key: string;
+  /**
+   * Display text, DATA-derived server-side (group name, insurer name, "Sin
+   * asignar") — not a translation key. Enum-ish dimensions still translate in
+   * the frontend; identities cannot, because they are rows.
+   */
+  label: string;
+  count: number;
+  /** Decimal-as-string; `null` for entities with no money column. */
+  total_uf?: string | null;
+}
+
+/** The `grouped` envelope a `/summary?group_by=` answer carries. */
+export interface GroupedSummary {
+  group_by: string;
+  /** Every dimension THIS entity can answer — the picker's source of truth. */
+  dimensions: string[];
+  money_field: string | null;
+  total: number;
+  total_uf: string | null;
+  buckets: SummaryBucket[];
+}
+
+/** Any summary may carry `grouped` once `?group_by=` is asked for. */
+export interface WithGroupedSummary {
+  grouped?: GroupedSummary | null;
+}
+
+// --- Exports -----------------------------------------------------------------
+
+export type ExportColumnKind = "string" | "number" | "date" | "datetime" | "uf" | "bool";
+
+export interface ExportColumn {
+  key: string;
+  label: string;
+  kind: ExportColumnKind | string;
+}
+
+/** One row of `GET /exports/entities` — what this entity can filter and emit. */
+export interface ExportEntityInfo {
+  entity: string;
+  label: string;
+  /**
+   * The RBAC module gating this entity — a `PermissionModule` value. Typed as
+   * `string` because that union lives in `lib/permissions`, which imports THIS
+   * file; naming it here would close the cycle.
+   */
+  module: string;
+  /** The column `date_from`/`date_to` filter on; differs per entity. */
+  date_field: string | null;
+  money_field: string | null;
+  group_by: string[];
+  columns: ExportColumn[];
+  row_cap: number;
+}
+
+export interface ExportCatalog {
+  formats: string[];
+  row_cap: number;
+  entities: ExportEntityInfo[];
+}
+
 // --- Clients -----------------------------------------------------------------
 
 /** The canonical, cross-broker insured behind every client row. */
@@ -312,6 +399,12 @@ export interface ClientListItem {
   updated_at: IsoDateTime | null;
   insured: InsuredSummary;
   account_manager: AccountManagerSummary | null;
+  /**
+   * The broker-private group this company belongs to, or `null`. A company
+   * belongs to at most ONE group — the pickers use this to disable a row that
+   * is already spoken for rather than offer one that can only 422.
+   */
+  account_group_id: number | null;
   assets_count: number;
   placements_count: number;
   active_placements_count: number;
@@ -3380,6 +3473,245 @@ export interface GroupTree {
   group: TreeGroup;
   /** `period_start` desc; the first one is `is_latest`. */
   periods: TreePeriodNode[];
+}
+
+// --- Expediente completo: the grupo-cuenta super-overview --------------------
+//
+// Mirrors `backend/app/schemas/expediente.py` exactly. Two conventions from
+// that file matter here:
+//   - **Decimals arrive as STRINGS** (repo-wide, so no float rounds a premium).
+//   - **Absence is a null block plus a sibling `*_pending_reason`.** The reason
+//     is Spanish ("Pronto, al cerrar Comparación") and is what the page prints
+//     instead of an empty section, so the broker can always tell "not yet"
+//     from "broken".
+
+/** Decimal-as-string, as every money field crosses the wire. */
+export type UfString = string;
+
+export type ExpedienteMilestoneKey =
+  | "antecedentes"
+  | "technical_basis"
+  | "comparison"
+  | "proposal"
+  | "policies";
+
+export type ExpedienteStepStatus = "complete" | "in_progress" | "pending";
+
+/**
+ * One milestone of Antecedentes → Bases Técnicas → Comparación → Propuesta →
+ * Pólizas.
+ *
+ * `completed_at` is the real `case_file_stage_event` that crossed past the
+ * milestone — never inferred. A force-moved or imported folder can therefore be
+ * `complete` with `completed_at: null`, and the UI must render that rather than
+ * invent a date.
+ */
+export interface ExpedienteJourneyStep {
+  key: ExpedienteMilestoneKey;
+  label: string;
+  stage: CaseStage;
+  stages: CaseStage[];
+  status: ExpedienteStepStatus;
+  completed_at: IsoDateTime | null;
+  summary: string | null;
+  /** Spanish; null exactly when the step is complete. */
+  pending_reason: string | null;
+}
+
+export interface ExpedienteCaseFile {
+  id: number;
+  reference: string | null;
+  title: string;
+  kind: CaseFileKind;
+  stage: CaseStage;
+  status: CaseFileStatus;
+  origin: CaseOrigin;
+  period_start: IsoDate | null;
+  period_end: IsoDate | null;
+  period_label: string | null;
+  period_locked: boolean;
+  opened_at: IsoDateTime | null;
+  closed_at: IsoDateTime | null;
+  due_at: IsoDateTime | null;
+  insurance_line_id: number | null;
+  insurance_line_name: string | null;
+  ramo_name: string | null;
+  summary: string | null;
+}
+
+export interface ExpedienteGroup {
+  id: number;
+  name: string;
+  slug: string | null;
+  status: AccountGroupStatus | null;
+  icon: AccountGroupIcon | null;
+}
+
+export interface ExpedienteClient {
+  id: number;
+  rut: string | null;
+  legal_name: string | null;
+  trade_name: string | null;
+  role: string;
+  /** The contratante sorts first in `clients`. */
+  is_contratante: boolean;
+}
+
+export interface ExpedienteAntecedentesSlot {
+  key: string;
+  label: string;
+  category: string | null;
+  doc_type: string | null;
+  format: string | null;
+  required: boolean;
+  filled: boolean;
+  documents_count: number;
+  document_ids: number[];
+  description: string | null;
+}
+
+export interface ExpedienteAntecedentes {
+  ramo_name: string | null;
+  record_status: string;
+  registered_at: IsoDateTime | null;
+  slots: ExpedienteAntecedentesSlot[];
+  recommended_total: number;
+  recommended_filled: number;
+  free_uploads_count: number;
+  documents_count: number;
+  extractions_count: number;
+  complete: boolean;
+  missing_required: string[];
+}
+
+export interface ExpedienteRecommendation {
+  pick_label: string | null;
+  rationale: string | null;
+  caveats: string[];
+}
+
+export interface ExpedienteComparisonColumn {
+  label: string;
+  recommended: boolean;
+  wrong_file: boolean;
+  total_premium_uf: UfString | null;
+}
+
+export interface ExpedienteComparison {
+  id: number;
+  status: string;
+  canonical_version: number;
+  entry_count: number;
+  columns: ExpedienteComparisonColumn[];
+  recommendation: ExpedienteRecommendation | null;
+  pdf_document_id: number | null;
+  updated_at: IsoDateTime | null;
+}
+
+export interface ExpedienteProposal {
+  id: number;
+  status: string;
+  is_ratified: boolean;
+  ratified_at: IsoDateTime | null;
+  content_hash: string | null;
+  insurer_id: number | null;
+  insurer_name: string | null;
+  insured_name: string | null;
+  insured_rut: string | null;
+  coverage_start: string | null;
+  coverage_end: string | null;
+  net_premium_uf: UfString | null;
+  vat_uf: UfString | null;
+  total_premium_uf: UfString | null;
+  commission_pct: UfString | null;
+  pdf_document_id: number | null;
+}
+
+export interface ExpedientePolicy {
+  id: number;
+  policy_number: string;
+  status: string;
+  insurer_id: number | null;
+  insurer_name: string | null;
+  start_date: IsoDate | null;
+  end_date: IsoDate | null;
+  insured_amount_uf: UfString | null;
+  net_premium_uf: UfString | null;
+  vat_uf: UfString | null;
+  total_premium_uf: UfString | null;
+  issued_at: IsoDate | null;
+}
+
+export interface ExpedienteDocument {
+  id: number;
+  filename: string;
+  category: string;
+  category_label: string;
+  section: string | null;
+  section_label: string | null;
+  document_code: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  created_at: IsoDateTime | null;
+}
+
+/**
+ * The account's money, from the best source available: Σ pólizas → propuesta →
+ * the accepted insurer cotización.
+ *
+ * `net = taxable + exempt`, `vat = 0.19 × taxable` (NOT on net — earthquake
+ * cover is exempt), `total = net + vat`. `derived_fields` names what the server
+ * computed rather than read, and `warnings` carries invariant mismatches: a
+ * READ never 422s over them, so the UI must surface them instead of hiding a
+ * disagreement.
+ */
+export interface ExpedienteMoney {
+  source: string;
+  currency: string;
+  taxable_premium_uf: UfString | null;
+  exempt_premium_uf: UfString | null;
+  net_premium_uf: UfString | null;
+  vat_uf: UfString | null;
+  total_premium_uf: UfString | null;
+  commission_pct: UfString | null;
+  derived_fields: string[];
+  warnings: string[];
+}
+
+export interface ExpedienteActivity {
+  kind: "stage" | "activity" | "note";
+  occurred_at: IsoDateTime | null;
+  title: string;
+  detail: string | null;
+  user_id: number | null;
+  user_name: string | null;
+  from_stage: string | null;
+  to_stage: string | null;
+  meta: Record<string, unknown> | null;
+}
+
+export interface AccountExpediente {
+  case_file: ExpedienteCaseFile;
+  group: ExpedienteGroup | null;
+  group_pending_reason: string | null;
+  clients: ExpedienteClient[];
+  journey: ExpedienteJourneyStep[];
+  antecedentes: ExpedienteAntecedentes | null;
+  antecedentes_pending_reason: string | null;
+  comparison: ExpedienteComparison | null;
+  comparison_pending_reason: string | null;
+  proposal: ExpedienteProposal | null;
+  proposal_pending_reason: string | null;
+  policies: ExpedientePolicy[];
+  policies_pending_reason: string | null;
+  documents: ExpedienteDocument[];
+  documents_count: number;
+  money: ExpedienteMoney | null;
+  money_pending_reason: string | null;
+  /** Newest first. */
+  activity: ExpedienteActivity[];
+  /** When the server computed this view; the PDF carries the same stamp. */
+  generated_at: IsoDateTime;
 }
 
 // --- Accounts: renew / reperiod / clients / history --------------------------

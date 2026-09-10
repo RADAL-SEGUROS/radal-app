@@ -12,7 +12,7 @@ import {
   Plus,
   Timer,
 } from "lucide-react";
-import { PageHeader } from "@/components/common/PageHeader";
+import { PageHeader, type EmbeddablePageProps } from "@/components/common/PageHeader";
 import { KpiCard } from "@/components/common/KpiCard";
 import { DataTable } from "@/components/common/DataTable";
 import { FadeUp, Stagger } from "@/components/common/motion";
@@ -62,7 +62,7 @@ import { InspectionFormDialog } from "./components/InspectionFormDialog";
 
 const ALL = "__all__";
 
-export default function InspectionsPage() {
+export default function InspectionsPage({ embedded }: EmbeddablePageProps = {}) {
   const { t } = useTranslation("inspections");
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
@@ -292,6 +292,7 @@ export default function InspectionsPage() {
   return (
     <>
       <PageHeader
+        embedded={embedded}
         title={t("title")}
         subtitle={t("subtitle")}
         actions={

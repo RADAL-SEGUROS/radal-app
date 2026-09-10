@@ -1,7 +1,7 @@
 {
   "eyebrow": "Portfolio",
   "title": "Analytics",
-  "subtitle": "The whole book at a glance: indicators, distribution and the consolidated lists",
+  "subtitle": "The shape of the portfolio: indicators and distribution. The tables live in Data.",
   "noModules": "Your role has no access to any of the modules on this page.",
   "count_one": "{{count}} result",
   "count_many": "{{count}} results",
@@ -45,6 +45,14 @@
       "unit": "proposals",
       "others": "Other insurers",
       "centerLabel": "proposals"
+    },
+    "casesBy": {
+      "title": "Case files by {{dimension}}",
+      "subtitle": "How many folders sit in each value of the chosen dimension."
+    },
+    "premiumBy": {
+      "title": "Premium by {{dimension}}",
+      "subtitle": "Total premium in UF, grouped by the chosen dimension."
     }
   },
   "tabs": {
@@ -53,7 +61,12 @@
     "proposals": "Proposals",
     "policies": "Policies",
     "postsale": "Post-sale",
-    "documents": "Documents"
+    "documents": "Documents",
+    "clients": "Clients",
+    "placements": "Placements",
+    "inspections": "Inspections",
+    "offerings": "Offerings",
+    "leads": "Leads"
   },
   "filters": {
     "all": "All",
@@ -134,5 +147,51 @@
     "policies": "Policies issued from an accepted proposal will show up here.",
     "postsale": "Endorsements, collections and claims on your policies will show up here.",
     "documents": "Files uploaded to case files and entities will show up here."
+  },
+  "data": {
+    "eyebrow": "Portfolio",
+    "title": "Data",
+    "subtitle": "Every table in the brokerage, filtered by group, account and date."
+  },
+  "scope": {
+    "group": "Group",
+    "account": "Group account",
+    "dateRange": "Dates",
+    "from": "From",
+    "to": "To",
+    "clearDates": "Clear the dates",
+    "filtered": "Filtered view"
+  },
+  "export": {
+    "action": "Export",
+    "xlsx": "Excel (.xlsx)",
+    "pdf": "PDF",
+    "png": "Image (.png)",
+    "done": "Export ready",
+    "failed": "We could not generate the export",
+    "noChart": "There is no chart to capture yet",
+    "pickOneEntity": "Post-sale bundles endorsements, collections and claims: pick one of those tabs to export."
+  },
+  "dimensions": {
+    "label": "Dimension",
+    "stage": "Stage",
+    "status": "Status",
+    "insurer": "Insurer",
+    "insurance_line": "Line",
+    "account_group": "Group",
+    "month": "Month",
+    "kind": "Kind",
+    "origin": "Origin",
+    "priority": "Priority",
+    "outcome": "Outcome",
+    "payment_mode": "Payment mode",
+    "coverage_ruling": "Coverage ruling",
+    "category": "Category",
+    "section": "Section",
+    "entity_type": "Entity",
+    "risk_classification": "Risk classification",
+    "sent_via": "Sent via",
+    "source": "Source",
+    "sector": "Sector"
   }
 }

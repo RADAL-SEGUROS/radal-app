@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import WarrantySource, WarrantyStatus
 from app.models.policy import PolicyStatus
+from app.schemas.analytics import GroupedSummary
 
 
 # --- Policy --------------------------------------------------------------------
@@ -215,6 +216,10 @@ class PolicySummary(BaseModel):
     active_count: int
     total_premium_uf: Decimal
     expiring_within_60_days: int
+    grouped: GroupedSummary | None = Field(
+        default=None,
+        description="Buckets listos para el gráfico cuando se pide ?group_by=.",
+    )
 
 
 # --- Mirror-diff ----------------------------------------------------------------

@@ -30,9 +30,11 @@ import type {
   CaseSection,
   CaseStage,
   Page,
+  SummaryParams,
+  ScopeParams,
 } from "@/api/types";
 
-export interface CaseFileListParams {
+export interface CaseFileListParams extends ScopeParams {
   kind?: CaseFileKind[];
   stage?: CaseStage[];
   status?: CaseFileStatus[];
@@ -46,7 +48,6 @@ export interface CaseFileListParams {
   page_size?: number;
 
   // --- Groups & accounts (spec v3 §4.3) -----------------------------------
-  account_group_id?: number;
   /** The vigencia LABEL (`"2026-2027"`), not a date range. */
   period_label?: string;
   origin?: CaseOrigin;
@@ -65,12 +66,22 @@ export function useCaseFiles(params: CaseFileListParams = {}, enabled = true) {
   });
 }
 
-export function useCaseFilesSummary(enabled = true) {
+export function useCaseFilesSummary(
+  enabled = true,
+  /**
+   * Scope: `account_group_id` / `case_file_id` / `date_from` / `date_to`, and
+   * `group_by` for the bucket shape the charts consume. The params are part of
+   * the cache key, so two scopes never share a cached answer.
+   */
+  params: SummaryParams = {},
+) {
   return useQuery({
-    queryKey: qk.caseFiles.summary(),
+    queryKey: qk.caseFiles.summary(params),
     enabled,
     queryFn: async () => {
-      const { data } = await api.get<CaseFileSummary>("/case-files/summary");
+      const { data } = await api.get<CaseFileSummary>("/case-files/summary", {
+        params: clean(params),
+      });
       return data;
     },
   });

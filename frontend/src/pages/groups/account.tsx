@@ -243,8 +243,12 @@ export default function GroupAccountPage() {
         }
         actions={
           <>
+            {/* The super-overview, INSIDE the group. This used to point at
+                /cases/:id — a row in the deprecated flat Expedientes table,
+                which answered a different question than "show me everything
+                about this account". */}
             <Button variant="secondary" size="sm" asChild>
-              <Link to={`/cases/${caseId}`}>
+              <Link to={`/groups/${groupId}/accounts/${caseId}/expediente`}>
                 <ExternalLink className="h-4 w-4" />
                 {t("account.openCase")}
               </Link>

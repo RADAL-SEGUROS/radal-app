@@ -24,15 +24,15 @@ import type {
   ProposalStatus,
   ProposalSummary,
   ProposalUpdate,
+  SummaryParams,
+  ScopeParams,
 } from "@/api/types";
 
-export interface ProposalListParams {
+export interface ProposalListParams extends ScopeParams {
   quote_request_id?: number;
   placement_id?: number;
   insurer_id?: number;
   status?: ProposalStatus;
-  /** Groups & accounts (spec v3 §4.3) — the account folder. */
-  case_file_id?: number;
   limit?: number;
   offset?: number;
 }
@@ -53,12 +53,22 @@ export function useProposals(params: ProposalListParams = {}, enabled = true) {
 /** `GET /proposals/summary` — broker-scoped counts + money for the analytics
  *  dashboard. Gate on `Proposals.View` via `enabled`; the server 403s without
  *  it. Decimal fields are `DecimalString` — parse with `num()`. */
-export function useProposalsSummary(enabled = true) {
+export function useProposalsSummary(
+  enabled = true,
+  /**
+   * Scope: `account_group_id` / `case_file_id` / `date_from` / `date_to`, and
+   * `group_by` for the bucket shape the charts consume. The params are part of
+   * the cache key, so two scopes never share a cached answer.
+   */
+  params: SummaryParams = {},
+) {
   return useQuery({
-    queryKey: qk.proposals.summary(),
+    queryKey: qk.proposals.summary(params),
     enabled,
     queryFn: async () => {
-      const { data } = await api.get<ProposalSummary>("/proposals/summary");
+      const { data } = await api.get<ProposalSummary>("/proposals/summary", {
+        params: clean(params),
+      });
       return data;
     },
   });

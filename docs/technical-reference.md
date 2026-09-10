@@ -2973,6 +2973,46 @@ pre-confirmed, so `GET /policies/{id}/mirror-diff` renders without ever calling 
 > entry states what was added, what changed in existing behaviour, and the verified state at the
 > end of the pass — with the commands and the numbers, so the next reader can re-run them.
 
+### 2026-09-09 — v9 corrections + first deploy to dev
+
+The v8 build (entry below) missed the spec in several places; this pass corrected them, hardened the
+AI layer to tool-calling, added expedient PDFs, and deployed the whole v2→v9 arc to dev. Full as-built
+journey + a candid **errors-made-and-corrected** log: `docs/handoff-2026-09-09-v9.md`.
+
+**Corrected (vs the v8 entry below):**
+- **Ramo is recommended-files + context only, not a field/section schema** — removed the schema editor
+  from Configuración; ramo is chosen at account creation via a dropdown or a "Crear ramo" drawer
+  (`frontend/src/pages/groups/account-new.tsx`); `line_record_schema.definition` is now nullable and
+  vestigial; `recommended_files:[{key,label,doc_type,category,format,required,description}]` is the
+  ramo's content; `seed_line_templates` self-prunes stale global ramos.
+- **Journey only on the Resumen tab** (restyled), not above every tab; the **vigencia sidebar expands**
+  into a journey submenu (`GroupSidebar.tsx`); account **tabs de-duplicated** to the essential journey
+  (Resumen · Antecedentes · Bases Técnicas · Comparación · Propuesta · Pólizas · …) — the legacy
+  Cotizaciones/Propuestas tabs removed (`account.tsx`).
+- **Antecedentes reworked** (`AntecedentesFiles.tsx`): recommended-file slots + free upload, two subtabs
+  (Archivos / Extracción = per-document extraction), **cotizaciones scoped out** (frontend list mirrors
+  `ai._antecedentes_documents`), **PDF/Word-only upload** (Excel → 415; vision fallback flagged in
+  `consolidate_antecedentes`, not implemented). Bases Técnicas **downloads the PDF** (authenticated
+  blob, `src/lib/download.ts`), not a route change.
+- **Stage-guard reasons translated to Spanish** (`services/case_files.py`).
+
+**AI hardening:** tool-calling structured output on GLM-5.3 (the §8.1 note claiming DeepInfra lacks
+tool-calling was stale — for the retired Llama model); `tool_call` helper + `model_for(AITask)`
+registry; `submit_comparison` with `AI_COMPARE_MAX_TOKENS`/`AI_COMPARE_MAX_INPUT_CHARS` budgets, a hard
+guard against empty/truncated tables (block, never a 200 empty commit), and a **named** recommendation;
+`verbatim` required in the budget-proposal tool schema; rate additivity softened to a warning
+(premium invariants stay hard); account-aware `submit_propuesta` + policy insurer resolution.
+
+**Expedient PDFs:** `GET /comparisons/{id}/pdf` (`comparison_pack`) + `GET /broker-proposals/{id}/pdf`
+(`proposal_pack`) via the branded Playwright pipeline; `backend/Dockerfile` now installs Chromium.
+
+**Deploy:** dev RDS reset to the v9 schema + blank baseline (fresh `create_all`, no by-hand ALTER);
+S3 `deploy/backend.env` updated with the v9 AI/media keys; CI (OIDC) fires on push to `dev`.
+
+**Verified:** 643 backend tests; `tsc -b`/`build`/`check:locales` clean; the account view verified
+**live in a real browser** (Chrome extension) — tabs, journey-on-Resumen, sidebar submenu, antecedentes
+(cotizaciones excluded), Bases Técnicas download, ramo dropdown/drawer, Spanish guard reasons.
+
 ### 2026-09-08 — v8 broker-journey redesign (ramos advisory · dynamic comparison · propuesta · validate-then-dynamic policies)
 
 One session, following a product meeting that re-derived the broker journey against

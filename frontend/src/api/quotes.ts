@@ -21,15 +21,15 @@ import type {
   QuoteRequestStatus,
   QuoteRequestUpdate,
   QuoteSummary,
+  SummaryParams,
+  ScopeParams,
 } from "@/api/types";
 
-export interface QuoteListParams {
+export interface QuoteListParams extends ScopeParams {
   placement_id?: number;
   client_id?: number;
   status?: QuoteRequestStatus;
   search?: string;
-  /** Groups & accounts (spec v3 §4.3) — the account folder. */
-  case_file_id?: number;
   limit?: number;
   offset?: number;
 }
@@ -49,12 +49,22 @@ export function useQuotes(params: QuoteListParams = {}, enabled = true) {
 
 /** `GET /quotes/summary` — broker-scoped counts for the analytics dashboard.
  *  Gate on `Quotes.View` via `enabled`; the server 403s without it. */
-export function useQuotesSummary(enabled = true) {
+export function useQuotesSummary(
+  enabled = true,
+  /**
+   * Scope: `account_group_id` / `case_file_id` / `date_from` / `date_to`, and
+   * `group_by` for the bucket shape the charts consume. The params are part of
+   * the cache key, so two scopes never share a cached answer.
+   */
+  params: SummaryParams = {},
+) {
   return useQuery({
-    queryKey: qk.quotes.summary(),
+    queryKey: qk.quotes.summary(params),
     enabled,
     queryFn: async () => {
-      const { data } = await api.get<QuoteSummary>("/quotes/summary");
+      const { data } = await api.get<QuoteSummary>("/quotes/summary", {
+        params: clean(params),
+      });
       return data;
     },
   });

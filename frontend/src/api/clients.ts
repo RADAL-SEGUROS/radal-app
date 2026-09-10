@@ -19,17 +19,16 @@ import type {
   ClientSummary,
   ClientUpdate,
   Page,
+  ScopeParams,
 } from "@/api/types";
 
-export interface ClientListParams {
+export interface ClientListParams extends ScopeParams {
   q?: string;
   /** Repeatable — sent as `?status=a&status=b`. */
   status?: ClientStatus[];
   account_manager_id?: number;
   sector?: string;
   source?: string;
-  /** Groups & accounts (spec v3 §4.3) — the broker-private Group. */
-  account_group_id?: number;
   page?: number;
   page_size?: number;
 }

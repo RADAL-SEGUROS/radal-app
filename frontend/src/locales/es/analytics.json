@@ -1,7 +1,7 @@
 {
   "eyebrow": "Portafolio",
   "title": "Analítica",
-  "subtitle": "El estado de toda la cartera: indicadores, distribución y las listas consolidadas",
+  "subtitle": "La forma de la cartera: indicadores y distribución. Las tablas están en Datos.",
   "noModules": "Tu rol no tiene acceso a ninguno de los módulos de esta página.",
   "count_one": "{{count}} resultado",
   "count_many": "{{count}} resultados",
@@ -45,6 +45,14 @@
       "unit": "propuestas",
       "others": "Otras compañías",
       "centerLabel": "propuestas"
+    },
+    "casesBy": {
+      "title": "Expedientes por {{dimension}}",
+      "subtitle": "Cuántas carpetas hay en cada valor de la dimensión elegida."
+    },
+    "premiumBy": {
+      "title": "Prima por {{dimension}}",
+      "subtitle": "Prima total en UF, agrupada por la dimensión elegida."
     }
   },
   "tabs": {
@@ -53,7 +61,12 @@
     "proposals": "Propuestas",
     "policies": "Pólizas",
     "postsale": "Post-venta",
-    "documents": "Documentos"
+    "documents": "Documentos",
+    "clients": "Clientes",
+    "placements": "Colocaciones",
+    "inspections": "Inspecciones",
+    "offerings": "Ofertas",
+    "leads": "Leads"
   },
   "filters": {
     "all": "Todas",
@@ -134,5 +147,51 @@
     "policies": "Las pólizas emitidas desde una propuesta aceptada aparecerán aquí.",
     "postsale": "Los endosos, cobranzas y siniestros de tus pólizas aparecerán aquí.",
     "documents": "Los archivos que subas a expedientes y entidades aparecerán aquí."
+  },
+  "data": {
+    "eyebrow": "Cartera",
+    "title": "Datos",
+    "subtitle": "Todas las tablas de la corredora, filtradas por grupo, cuenta y fecha."
+  },
+  "scope": {
+    "group": "Grupo",
+    "account": "Grupo-cuenta",
+    "dateRange": "Fechas",
+    "from": "Desde",
+    "to": "Hasta",
+    "clearDates": "Quitar las fechas",
+    "filtered": "Vista filtrada"
+  },
+  "export": {
+    "action": "Exportar",
+    "xlsx": "Excel (.xlsx)",
+    "pdf": "PDF",
+    "png": "Imagen (.png)",
+    "done": "Exportación lista",
+    "failed": "No pudimos generar la exportación",
+    "noChart": "No hay un gráfico que capturar todavía",
+    "pickOneEntity": "Post-venta reúne endosos, cobranzas y siniestros: elige una de esas pestañas para exportar."
+  },
+  "dimensions": {
+    "label": "Dimensión",
+    "stage": "Etapa",
+    "status": "Estado",
+    "insurer": "Compañía",
+    "insurance_line": "Ramo",
+    "account_group": "Grupo",
+    "month": "Mes",
+    "kind": "Tipo",
+    "origin": "Origen",
+    "priority": "Prioridad",
+    "outcome": "Resultado",
+    "payment_mode": "Forma de pago",
+    "coverage_ruling": "Cobertura",
+    "category": "Categoría",
+    "section": "Sección",
+    "entity_type": "Entidad",
+    "risk_classification": "Clasificación de riesgo",
+    "sent_via": "Canal de envío",
+    "source": "Fuente",
+    "sector": "Sector"
   }
 }

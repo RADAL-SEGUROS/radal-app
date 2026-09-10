@@ -37,6 +37,7 @@ import {
   useSetUrlParams,
   useUrlParam,
 } from "./shared";
+import { useScopeParams } from "@/components/common/ScopeFilter";
 
 /** "1,2 MB" — compact size with the app's decimal comma. */
 function formatBytes(bytes: number | null | undefined): string {
@@ -98,7 +99,12 @@ export default function DocumentsTab() {
   const [pageIndex, setPageIndex] = usePageIndex();
   const setParams = useSetUrlParams();
 
+  const scope = useScopeParams();
   const list = useDocuments({
+    // The page-level scope (grupo · grupo-cuenta · fechas) is applied
+    // SERVER-side, exactly like the export, so the table and the file the
+    // broker downloads can never disagree about what was filtered.
+    ...scope,
     entity_type: (entityType as EntityType) || undefined,
     category: (category as DocumentCategory) || undefined,
     limit: PAGE_SIZE,

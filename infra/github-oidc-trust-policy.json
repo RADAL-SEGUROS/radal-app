@@ -1,0 +1,33 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::185011028331:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": [
+            "repo:RADAL-SEGUROS/radal-app:ref:refs/heads/dev",
+            "repo:RADAL-SEGUROS/radal-app:ref:refs/heads/main",
+            "repo:RADAL-SEGUROS/radal-app:ref:refs/heads/master",
+            "repo:radal-seguros/radal-app:ref:refs/heads/dev",
+            "repo:radal-seguros/radal-app:ref:refs/heads/main",
+            "repo:radal-seguros/radal-app:ref:refs/heads/master",
+            "repo:RADAL-SEGUROS@292186426/radal-app@1294636242:ref:refs/heads/dev",
+            "repo:RADAL-SEGUROS@292186426/radal-app@1294636242:ref:refs/heads/main",
+            "repo:RADAL-SEGUROS@292186426/radal-app@1294636242:ref:refs/heads/master",
+            "repo:RADAL-SEGUROS@*/radal-app@*:ref:refs/heads/dev",
+            "repo:RADAL-SEGUROS@*/radal-app@*:ref:refs/heads/main",
+            "repo:RADAL-SEGUROS@*/radal-app@*:ref:refs/heads/master"
+          ]
+        }
+      }
+    }
+  ]
+}

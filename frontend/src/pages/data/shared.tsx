@@ -1,6 +1,6 @@
 /**
- * Analytics shared bits — the filter chip row and the URL-param helpers every
- * tab uses (spec v4 §4.3).
+ * Datos shared bits — the filter chip row, pagination and the URL-param
+ * re-exports every table tab uses.
  *
  * Rules encoded here, once:
  *  - a filter chip exists ONLY for a parameter the list endpoint honours
@@ -10,9 +10,12 @@
  *    solid brand-soft;
  *  - every piece of tab state lives in the URL (`?tab=`, `?view=`, filter
  *    params), so a filtered view is a shareable link.
+ *
+ * The URL helpers themselves now live in `@/lib/urlParams` — Analítica needs
+ * the same ones, and it must not have to import out of the Datos page to get
+ * them. They are re-exported here so the tab call sites keep compiling.
  */
 import * as React from "react";
-import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown } from "lucide-react";
 import {
@@ -22,64 +25,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useUrlParam, useSetUrlParams } from "@/lib/urlParams";
 
-// =============================================================================
-// URL param helpers
-// =============================================================================
-
-/**
- * One URL search param as state. Setting `null` removes the key; every other
- * param in the URL survives, so tab + filters + view compose freely.
- */
-export function useUrlParam(
-  key: string,
-): [string | null, (value: string | null) => void] {
-  const [params, setParams] = useSearchParams();
-  const value = params.get(key);
-  const set = React.useCallback(
-    (next: string | null) => {
-      setParams(
-        (prev) => {
-          const out = new URLSearchParams(prev);
-          if (next === null || next === "") out.delete(key);
-          else out.set(key, next);
-          return out;
-        },
-        { replace: true },
-      );
-    },
-    [key, setParams],
-  );
-  return [value, set];
-}
-
-/**
- * Batched form of {@link useUrlParam}: apply several key changes in ONE
- * `setSearchParams` call. Two consecutive single-key setters in the same tick
- * both read the same stale `prev` (react-router resolves the functional
- * updater against the params captured at render), so the second call silently
- * drops the first one's change — clearing three filters used to clear one.
- * `null`/`""` removes the key.
- */
-export function useSetUrlParams(): (updates: Record<string, string | null>) => void {
-  const [, setParams] = useSearchParams();
-  return React.useCallback(
-    (updates: Record<string, string | null>) => {
-      setParams(
-        (prev) => {
-          const out = new URLSearchParams(prev);
-          for (const [key, next] of Object.entries(updates)) {
-            if (next === null || next === "") out.delete(key);
-            else out.set(key, next);
-          }
-          return out;
-        },
-        { replace: true },
-      );
-    },
-    [setParams],
-  );
-}
+export { useUrlParam, useSetUrlParams } from "@/lib/urlParams";
 
 // =============================================================================
 // Pagination — every consolidated table pages by 50, position in `?page=`

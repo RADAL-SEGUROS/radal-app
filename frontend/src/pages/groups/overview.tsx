@@ -11,7 +11,9 @@
  *      shows the line name, the Journey COMPACT rail (render-only — the
  *      transitions live on the account page) and quiet stat chips linking
  *      straight into the account's tabs (`?tab=records|quotes|proposals|policies`).
- *   3. Underline tabs: Bitácora / Vigencias / Empresas.
+ *   3. Underline tabs: Bitácora / Vigencias / Empresas. The Empresas tab is
+ *      where membership is EDITED (add + remove) — group creation is not the
+ *      only door, or a group created empty could never be filled.
  *
  * Data notes that survive the restyle:
  *   - The Bitácora is cursor-paged (`next_before`), newest first, GROUPED BY
@@ -35,10 +37,18 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
-import { FadeUp } from "@/components/common/motion";
+import { FadeUp, Swap } from "@/components/common/motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -57,6 +67,7 @@ import {
 } from "@/components/common/kit";
 import { ClientStatusBadge } from "@/pages/clients/status";
 import {
+  accountErrorMessage,
   CaseStatusBadge,
   GroupCrumbs,
   OriginChip,
@@ -65,10 +76,12 @@ import {
 } from "@/pages/groups/shared";
 import { Journey, nextForwardStage } from "@/components/groups/Journey";
 import { GroupAvatar } from "@/components/groups/GroupAvatar";
+import { ClientPicker } from "@/components/groups/ClientPicker";
 import { EditGroupDialog } from "@/pages/groups/GroupForm";
 import { DownloadArchiveButton } from "@/components/groups/DownloadArchiveButton";
 import {
   useAccountGroup,
+  useAttachGroupClient,
   useDetachGroupClient,
   useGroupTimeline,
   useGroupTree,
@@ -373,41 +386,49 @@ function GroupHero({
             <span className="text-label font-medium text-ink">{period.label}</span>
           )}
 
-          <span className="flex flex-wrap items-center gap-2 text-caption text-ink-3">
-            <span className="tabular-nums">{periodDates(period.start, period.end)}</span>
-            {!period.is_latest ? (
-              <Badge variant="muted">{t("tree.historic")}</Badge>
-            ) : null}
-            <Link
-              to={`/groups/${groupId}/periods/${encodeURIComponent(period.label)}`}
-              className="no-underline transition-colors duration-150 hover:text-brand-deep"
-            >
-              {t("tree.goToPeriod", { label: period.label })}
-            </Link>
-          </span>
+          {/* Keyed on the vigencia so the dates/badge cross-fade with the cards
+              below instead of snapping to the new period's values. */}
+          <Swap swapKey={period.label} distance={4}>
+            <span className="flex flex-wrap items-center gap-2 text-caption text-ink-3">
+              <span className="tabular-nums">{periodDates(period.start, period.end)}</span>
+              {!period.is_latest ? (
+                <Badge variant="muted">{t("tree.historic")}</Badge>
+              ) : null}
+              <Link
+                to={`/groups/${groupId}/periods/${encodeURIComponent(period.label)}`}
+                className="no-underline transition-colors duration-150 hover:text-brand-deep"
+              >
+                {t("tree.goToPeriod", { label: period.label })}
+              </Link>
+            </span>
+          </Swap>
         </div>
 
-        {period.lines.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={<Layers className="h-6 w-6" />}
-              title={t("empty.lines")}
-              hint={t("empty.accountsHint")}
-              action={newAccountCta}
-            />
-          </Card>
-        ) : (
-          <div className="grid gap-4 xl:grid-cols-2">
-            {period.lines.map((line) => (
-              <GroupLineCard
-                key={line.account.case_file_id}
-                groupId={groupId}
-                line={line}
-                linkCard
+        {/* Switching vigencia replaces the whole ramo grid in place — without
+            this it blinked from one period's cards to another's. */}
+        <Swap swapKey={period.label}>
+          {period.lines.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={<Layers className="h-6 w-6" />}
+                title={t("empty.lines")}
+                hint={t("empty.accountsHint")}
+                action={newAccountCta}
               />
-            ))}
-          </div>
-        )}
+            </Card>
+          ) : (
+            <div className="grid gap-4 xl:grid-cols-2">
+              {period.lines.map((line) => (
+                <GroupLineCard
+                  key={line.account.case_file_id}
+                  groupId={groupId}
+                  line={line}
+                  linkCard
+                />
+              ))}
+            </div>
+          )}
+        </Swap>
       </section>
     </FadeUp>
   );
@@ -925,26 +946,207 @@ function PeriodLineRow({ groupId, node }: { groupId: number; node: TreeLineNode 
 // Empresas — the companies inside the group (they hold the RUTs, not the group)
 // =============================================================================
 
+/**
+ * "Agregar empresa" — the door that was missing. A group with no companies
+ * used to be unrecoverable: the creation picker was the ONLY place membership
+ * could be set, "Editar grupo" has no empresas section by design, and this tab
+ * had no add button. The endpoint (`POST /account-groups/{id}/clients`) existed
+ * the whole time; this dialog is what finally reaches it.
+ *
+ * Attaching is one call per company, so a partial success is real: whatever
+ * went in stays in, and the first refusal is shown with the rest still picked.
+ */
+function AddGroupClientsDialog({
+  groupId,
+  open,
+  onOpenChange,
+}: {
+  groupId: number;
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+}) {
+  const { t } = useTranslation("accounts");
+  const { t: tc } = useTranslation("common");
+  const attach = useAttachGroupClient(groupId);
+  const [picked, setPicked] = React.useState<number[]>([]);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setPicked([]);
+      setError(null);
+    }
+  }, [open]);
+
+  const submit = async () => {
+    setError(null);
+    for (const clientId of picked) {
+      try {
+        await attach.mutateAsync({ client_id: clientId });
+      } catch (err) {
+        setError(accountErrorMessage(err, (key, options) => t(key, options)));
+        setPicked((current) => current.filter((id) => id !== clientId));
+        return;
+      }
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-brand" />
+            {t("group.actions.addClient")}
+          </DialogTitle>
+          <DialogDescription>{t("group.addClient.subtitle")}</DialogDescription>
+        </DialogHeader>
+
+        {error ? <ErrorBanner error={error} /> : null}
+
+        <ClientPicker
+          groupId={groupId}
+          selectedIds={picked}
+          disabled={attach.isPending}
+          hint={t("group.create.clientsHint")}
+          onToggle={(client) =>
+            setPicked((current) =>
+              current.includes(client.id)
+                ? current.filter((id) => id !== client.id)
+                : [...current, client.id],
+            )
+          }
+        />
+
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={attach.isPending}
+            onClick={() => onOpenChange(false)}
+          >
+            {tc("actions.cancel")}
+          </Button>
+          <Button
+            size="sm"
+            disabled={picked.length === 0 || attach.isPending}
+            onClick={() => void submit()}
+          >
+            {t("group.addClient.submit", { count: picked.length })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Detach confirmation. A Dialog and not `window.confirm`: the native one blocks
+ * the whole page (and every automated driver) until it is dismissed.
+ */
+function DetachClientDialog({
+  clientName,
+  open,
+  onOpenChange,
+  onConfirm,
+  pending,
+}: {
+  clientName: string;
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  onConfirm: () => void;
+  pending: boolean;
+}) {
+  const { t } = useTranslation("accounts");
+  const { t: tc } = useTranslation("common");
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("group.actions.removeClient")}</DialogTitle>
+          <DialogDescription>
+            {t("group.detach.confirmNamed", { name: clientName })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={pending}
+            onClick={() => onOpenChange(false)}
+          >
+            {tc("actions.cancel")}
+          </Button>
+          <Button variant="destructive" size="sm" disabled={pending} onClick={onConfirm}>
+            {t("group.actions.removeClient")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ClientsPane({ groupId }: { groupId: number }) {
   const { t } = useTranslation("accounts");
   const group = useAccountGroup(groupId);
   const detach = useDetachGroupClient(groupId);
   const canEdit = useCan("Groups", "Edit");
+  const [adding, setAdding] = React.useState(false);
+  const [detaching, setDetaching] = React.useState<{ id: number; name: string } | null>(
+    null,
+  );
+
+  const addButton = (
+    <DisabledHint hint={canEdit.allowed ? null : t("group.noEditPermission")}>
+      <Button size="sm" disabled={!canEdit.allowed} onClick={() => setAdding(true)}>
+        <Plus className="h-4 w-4" />
+        {t("group.actions.addClient")}
+      </Button>
+    </DisabledHint>
+  );
+
+  const dialogs = (
+    <>
+      <AddGroupClientsDialog groupId={groupId} open={adding} onOpenChange={setAdding} />
+      <DetachClientDialog
+        clientName={detaching?.name ?? ""}
+        open={detaching !== null}
+        pending={detach.isPending}
+        onOpenChange={(next) => {
+          if (!next) setDetaching(null);
+        }}
+        onConfirm={() => {
+          if (!detaching) return;
+          detach.mutate(detaching.id, { onSuccess: () => setDetaching(null) });
+        }}
+      />
+    </>
+  );
 
   if (group.isLoading) return <Skeleton className="h-40 w-full" />;
 
   const clients = group.data?.clients ?? [];
   if (clients.length === 0) {
     return (
-      <Card>
-        <EmptyState icon={<Users className="h-6 w-6" />} title={t("empty.clients")} />
-      </Card>
+      <>
+        <Card>
+          <EmptyState
+            icon={<Users className="h-6 w-6" />}
+            title={t("empty.clients")}
+            hint={t("empty.clientsHint")}
+            action={addButton}
+          />
+        </Card>
+        {dialogs}
+      </>
     );
   }
 
   return (
     <div className="flex flex-col gap-3">
       {detach.isError ? <ErrorBanner error={detach.error} /> : null}
+      <div className="flex justify-end">{addButton}</div>
       <Card className="overflow-hidden">
         <ul className="divide-y divide-line">
           {clients.map((client) => (
@@ -965,9 +1167,9 @@ function ClientsPane({ groupId }: { groupId: number }) {
                   variant="ghost"
                   size="sm"
                   disabled={!canEdit.allowed || detach.isPending}
-                  onClick={() => {
-                    if (window.confirm(t("group.detach.confirm"))) detach.mutate(client.id);
-                  }}
+                  onClick={() =>
+                    setDetaching({ id: client.id, name: client.legal_name })
+                  }
                 >
                   {t("group.actions.removeClient")}
                 </Button>
@@ -976,6 +1178,7 @@ function ClientsPane({ groupId }: { groupId: number }) {
           ))}
         </ul>
       </Card>
+      {dialogs}
     </div>
   );
 }

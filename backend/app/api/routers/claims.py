@@ -14,6 +14,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    build_entity_summary,
+    group_by_query,
+    scope_filters,
+    scope_predicates,
+)
 from app.api.routers.clients import record_activity
 from app.api.routers.policies import get_policy_or_404
 from app.models.client import Client
@@ -21,6 +28,7 @@ from app.models.enums import ClaimRuling, EntityType
 from app.models.insured import Insured
 from app.models.policy import Claim, ClaimItem, ClaimStatus, Policy
 from app.models.user import User
+from app.schemas.analytics import EntitySummary
 from app.schemas.claim import (
     ClaimClose,
     ClaimCreate,
@@ -75,6 +83,29 @@ def _totals(items) -> ClaimItemTotals:
 
 # --- Endpoints -------------------------------------------------------------------
 
+# NOTE: registered before ``/{claim_id}`` so the literal path wins.
+@router.get("/summary", response_model=EntitySummary)
+def get_claims_summary(
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    _user: User = Depends(require_permission("Claims", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
+) -> EntitySummary:
+    """The siniestros board: status split and the Σ of the estimated amounts.
+
+    Scope: ``account_group_id`` resolves through the claim's case file OR its
+    client; the date window sits on ``event_date`` — the date of loss, the
+    honest analytic date for siniestralidad (a claim with no event date is
+    excluded while a bound is present). ``group_by`` accepts
+    ``status | coverage_ruling | account_group | month``.
+    """
+    scoped = [Claim.broker_id == broker_id, *scope_predicates("claims", scope, broker_id)]
+    return build_entity_summary(
+        db, "claims", broker_id=broker_id, scoped=scoped, group_by=group_by
+    )
+
+
 @router.get("", response_model=ClaimPage)
 def list_claims(
     db: Session = Depends(get_db),
@@ -82,19 +113,25 @@ def list_claims(
     _user: User = Depends(require_permission("Claims", "View")),
     policy_id: int | None = Query(default=None, gt=0),
     client_id: int | None = Query(default=None, gt=0),
-    case_file_id: int | None = Query(default=None, gt=0),
+    scope: ScopeFilters = Depends(scope_filters),
     status_filter: list[ClaimStatus] | None = Query(default=None, alias="status"),
     q: str | None = Query(default=None, description="claim number or insured"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> ClaimPage:
-    stmt = select(Claim).where(Claim.broker_id == broker_id)
+    """List the broker's siniestros, newest first.
+
+    Scope params: ``account_group_id`` (the grupo — via the claim's expediente
+    or its client), ``case_file_id`` (the grupo-cuenta) and ``date_from`` /
+    ``date_to`` on ``event_date``.
+    """
+    stmt = select(Claim).where(
+        Claim.broker_id == broker_id, *scope_predicates("claims", scope, broker_id)
+    )
     if policy_id is not None:
         stmt = stmt.where(Claim.policy_id == policy_id)
     if client_id is not None:
         stmt = stmt.where(Claim.client_id == client_id)
-    if case_file_id is not None:
-        stmt = stmt.where(Claim.case_file_id == case_file_id)
     if status_filter:
         stmt = stmt.where(Claim.status.in_(status_filter))
     if q:

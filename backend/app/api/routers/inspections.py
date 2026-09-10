@@ -24,6 +24,13 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_broker_id, get_db
 from app.core.permissions import require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    build_entity_summary,
+    group_by_query,
+    scope_filters,
+    scope_predicates,
+)
 from app.models import (
     Asset,
     Document,
@@ -37,6 +44,7 @@ from app.models import (
     User,
 )
 from app.models.enums import UserType
+from app.schemas.analytics import EntitySummary
 from app.schemas.inspection import (
     InspectionAssign,
     InspectionBoundaryCreate,
@@ -371,10 +379,36 @@ def create_inspection(
     return inspection
 
 
+# NOTE: registered before ``/{inspection_id}`` so the literal path wins.
+@router.get("/summary", response_model=EntitySummary)
+def get_inspections_summary(
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    _user: User = Depends(require_permission("Inspections", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
+) -> EntitySummary:
+    """The inspecciones board: status split.
+
+    Scope: ``account_group_id`` resolves through the inspection's case file OR
+    its asset's client; the date window sits on ``visit_date`` (the visit is the
+    event — ``report_date`` is downstream paperwork). ``group_by`` accepts
+    ``status | risk_classification | account_group | month``.
+    """
+    scoped = [
+        Inspection.broker_id == broker_id,
+        *scope_predicates("inspections", scope, broker_id),
+    ]
+    return build_entity_summary(
+        db, "inspections", broker_id=broker_id, scoped=scoped, group_by=group_by
+    )
+
+
 @router.get("", response_model=InspectionListResponse)
 def list_inspections(
     asset_id: int | None = Query(default=None, gt=0),
     inspection_request_id: int | None = Query(default=None, gt=0),
+    scope: ScopeFilters = Depends(scope_filters),
     inspector_id: int | None = Query(default=None, gt=0),
     inspection_status: InspectionStatus | None = Query(default=None, alias="status"),
     min_overall_score: float | None = Query(default=None, ge=0, le=100),
@@ -389,7 +423,16 @@ def list_inspections(
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Inspections", "View")),
 ) -> InspectionListResponse:
-    filters = [Inspection.broker_id == broker_id]
+    """List the broker's inspections.
+
+    Scope params: ``account_group_id`` (the grupo — via the inspection's
+    expediente or the asset's client), ``case_file_id`` (the grupo-cuenta) and
+    ``date_from`` / ``date_to`` on ``visit_date``.
+    """
+    filters = [
+        Inspection.broker_id == broker_id,
+        *scope_predicates("inspections", scope, broker_id),
+    ]
     if asset_id is not None:
         filters.append(Inspection.asset_id == asset_id)
     if inspection_request_id is not None:

@@ -13,6 +13,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import LeadStatus
+from app.schemas.analytics import GroupedSummary
 from app.services.identifiers import InvalidRut, validate_rut
 
 
@@ -115,6 +116,10 @@ class LeadSummary(BaseModel):
     by_status: dict[str, int]
     due_this_week: int
     overdue: int
+    grouped: GroupedSummary | None = Field(
+        default=None,
+        description="Buckets listos para el gráfico cuando se pide ?group_by=.",
+    )
 
 
 class LeadAssetInput(BaseModel):

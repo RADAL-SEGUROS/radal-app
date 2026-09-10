@@ -17,9 +17,10 @@ import type {
   EntityType,
   ListResponse,
   RadalDocument,
+  ScopeParams,
 } from "@/api/types";
 
-export interface DocumentListParams {
+export interface DocumentListParams extends ScopeParams {
   entity_type?: EntityType;
   entity_id?: number;
   category?: DocumentCategory;

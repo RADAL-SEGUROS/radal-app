@@ -16,6 +16,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    group_by_query,
+    grouped_or_none,
+    scope_filters,
+    scope_predicates,
+)
 from app.api.routers.clients import record_activity
 from app.models.account_client import AccountClient, AccountClientRole
 from app.models.activity import Note
@@ -100,11 +107,20 @@ def get_leads_summary(
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Leads", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
 ) -> LeadSummary:
-    """Totals, the status split and the two follow-up counters the board shows."""
+    """Totals, the status split and the two follow-up counters the board shows.
+
+    Scope: ``account_group_id`` is ``sales_lead.account_group_id`` itself (a lead
+    is filed under the grupo before it ever has a client); ``case_file_id``
+    matches ``converted_case_file_id``. The date window sits on ``created_at``.
+    ``group_by`` accepts ``status | source | insurance_line | account_group | month``.
+    """
+    scoped = [SalesLead.broker_id == broker_id, *scope_predicates("leads", scope, broker_id)]
     rows = db.execute(
         select(SalesLead.status, func.count(SalesLead.id))
-        .where(SalesLead.broker_id == broker_id)
+        .where(*scoped)
         .group_by(SalesLead.status)
     ).all()
     by_status = {str(key): int(value) for key, value in rows}
@@ -114,7 +130,7 @@ def get_leads_summary(
     live = (LeadStatus.NEW, LeadStatus.CONTACTED, LeadStatus.QUALIFIED)
     due_this_week = db.scalar(
         select(func.count(SalesLead.id)).where(
-            SalesLead.broker_id == broker_id,
+            *scoped,
             SalesLead.follow_up_on.is_not(None),
             SalesLead.follow_up_on >= today,
             SalesLead.follow_up_on <= week,
@@ -123,7 +139,7 @@ def get_leads_summary(
     )
     overdue = db.scalar(
         select(func.count(SalesLead.id)).where(
-            SalesLead.broker_id == broker_id,
+            *scoped,
             SalesLead.follow_up_on.is_not(None),
             SalesLead.follow_up_on < today,
             SalesLead.status.in_(live),
@@ -134,6 +150,9 @@ def get_leads_summary(
         by_status={s.value: by_status.get(s.value, 0) for s in LeadStatus},
         due_this_week=int(due_this_week or 0),
         overdue=int(overdue or 0),
+        grouped=grouped_or_none(
+            db, "leads", group_by=group_by, broker_id=broker_id, extra_filters=scoped
+        ),
     )
 
 
@@ -145,12 +164,21 @@ def list_leads(
     status_filter: list[LeadStatus] | None = Query(default=None, alias="status"),
     owner_id: int | None = Query(default=None, gt=0),
     insurance_line_id: int | None = Query(default=None, gt=0),
+    scope: ScopeFilters = Depends(scope_filters),
     follow_up_before: date | None = Query(default=None),
     q: str | None = Query(default=None, description="name, RUT or contact"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> LeadListResponse:
-    stmt = select(SalesLead).where(SalesLead.broker_id == broker_id)
+    """List the broker's prospects, newest first.
+
+    Scope params: ``account_group_id`` (the grupo, read straight off the lead),
+    ``case_file_id`` (``converted_case_file_id`` — the grupo-cuenta the lead
+    became) and ``date_from`` / ``date_to`` on ``created_at``.
+    """
+    stmt = select(SalesLead).where(
+        SalesLead.broker_id == broker_id, *scope_predicates("leads", scope, broker_id)
+    )
     if status_filter:
         stmt = stmt.where(SalesLead.status.in_(status_filter))
     if owner_id is not None:

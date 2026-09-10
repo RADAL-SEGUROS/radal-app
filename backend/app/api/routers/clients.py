@@ -26,6 +26,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    group_by_query,
+    grouped_or_none,
+    scope_filters,
+    scope_predicates,
+)
 from app.models.activity import Activity
 from app.models.asset import Asset
 from app.models.client import Client, ClientStatus
@@ -196,11 +203,21 @@ def get_clients_summary(
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Clients", "View")),
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
 ) -> ClientSummary:
-    """Counters the clients list header needs, in one round trip."""
+    """Counters the clients list header needs, in one round trip.
+
+    Scope: ``account_group_id`` is ``client.account_group_id`` itself;
+    ``case_file_id`` uses the account-membership rule (rule 6) —
+    ``account_client`` rows UNION ``placement.case_file_id``, plus the folder's
+    contratante. The date window sits on ``created_at``. ``group_by`` accepts
+    ``status | sector | account_group | month``.
+    """
+    scoped = [Client.broker_id == broker_id, *scope_predicates("clients", scope, broker_id)]
     by_status_rows = db.execute(
         select(Client.status, func.count(Client.id))
-        .where(Client.broker_id == broker_id)
+        .where(*scoped)
         .group_by(Client.status)
     ).all()
     by_status = {str(key): value for key, value in by_status_rows}
@@ -210,11 +227,12 @@ def get_clients_summary(
         select(func.count(func.distinct(Placement.client_id))).where(
             Placement.broker_id == broker_id,
             Placement.status.in_(OPEN_PLACEMENT_STATUSES),
+            Placement.client_id.in_(select(Client.id).where(*scoped)),
         )
     ).scalar_one()
     unassigned = db.execute(
         select(func.count(Client.id)).where(
-            Client.broker_id == broker_id, Client.account_manager_id.is_(None)
+            *scoped, Client.account_manager_id.is_(None)
         )
     ).scalar_one()
 
@@ -223,6 +241,9 @@ def get_clients_summary(
         by_status={s.value: by_status.get(s.value, 0) for s in ClientStatus},
         with_active_placements=with_active,
         unassigned=unassigned,
+        grouped=grouped_or_none(
+            db, "clients", group_by=group_by, broker_id=broker_id, extra_filters=scoped
+        ),
     )
 
 
@@ -233,9 +254,7 @@ def list_clients(
     _user: User = Depends(require_permission("Clients", "View")),
     q: str | None = Query(None, description="Search legal/trade name or RUT"),
     status_filter: list[ClientStatus] | None = Query(None, alias="status"),
-    account_group_id: int | None = Query(
-        None, description="Only clients attached to this broker-private group"
-    ),
+    scope: ScopeFilters = Depends(scope_filters),
     account_manager_id: int | None = None,
     sector: str | None = None,
     source: str | None = None,
@@ -244,11 +263,17 @@ def list_clients(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
 ) -> ClientPage:
-    """List the broker's clients, filtered and paginated."""
+    """List the broker's clients, filtered and paginated.
+
+    Scope params: ``account_group_id`` (the broker-private grupo, read straight
+    off the row), ``case_file_id`` (membership of a grupo-cuenta: the
+    ``account_client`` rows UNION ``placement.case_file_id``, plus the folder's
+    contratante) and ``date_from`` / ``date_to`` on ``created_at``.
+    """
     stmt = (
         select(Client)
         .join(Insured, Insured.id == Client.insured_id)
-        .where(Client.broker_id == broker_id)
+        .where(Client.broker_id == broker_id, *scope_predicates("clients", scope, broker_id))
     )
 
     if q:
@@ -263,10 +288,6 @@ def list_clients(
         )
     if status_filter:
         stmt = stmt.where(Client.status.in_(status_filter))
-    if account_group_id is not None:
-        # The group is broker-private; the ``broker_id`` filter above already
-        # scopes it, so a foreign group id simply yields an empty page.
-        stmt = stmt.where(Client.account_group_id == account_group_id)
     if account_manager_id is not None:
         stmt = stmt.where(Client.account_manager_id == account_manager_id)
     if sector:

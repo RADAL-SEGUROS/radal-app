@@ -19,6 +19,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.services.analytics import (
+    ScopeFilters,
+    group_by_query,
+    grouped_or_none,
+    scope_filters,
+    scope_predicates,
+)
 from app.api.routers.clients import (
     OPEN_PLACEMENT_STATUSES,
     count_total,
@@ -359,15 +366,27 @@ def get_placements_summary(
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Placements", "View")),
     client_id: int | None = None,
+    scope: ScopeFilters = Depends(scope_filters),
+    group_by: str | None = group_by_query(),
 ) -> PlacementSummary:
-    """Every counter the placements list view needs, in one round trip."""
-    scope = [Placement.broker_id == broker_id]
+    """Every counter the placements list view needs, in one round trip.
+
+    Scope: ``account_group_id`` resolves through the placement's folder OR — for
+    the ones with no folder yet — its client; the date window sits on
+    ``created_at`` (``period_start`` is the placement's *subject*, not the date
+    it entered the pipeline). ``group_by`` accepts
+    ``status | insurance_line | account_group | month``.
+    """
+    scoped = [
+        Placement.broker_id == broker_id,
+        *scope_predicates("placements", scope, broker_id),
+    ]
     if client_id is not None:
-        scope.append(Placement.client_id == client_id)
+        scoped.append(Placement.client_id == client_id)
 
     by_status_rows = db.execute(
         select(Placement.status, func.count(Placement.id))
-        .where(*scope)
+        .where(*scoped)
         .group_by(Placement.status)
     ).all()
     by_status = {str(key): value for key, value in by_status_rows}
@@ -375,14 +394,14 @@ def get_placements_summary(
     by_line_rows = db.execute(
         select(InsuranceLine.name, func.count(Placement.id))
         .join(InsuranceLine, InsuranceLine.id == Placement.insurance_line_id)
-        .where(*scope)
+        .where(*scoped)
         .group_by(InsuranceLine.name)
     ).all()
 
     horizon = date.today() + timedelta(days=60)
     expiring = db.execute(
         select(func.count(Placement.id)).where(
-            *scope,
+            *scoped,
             Placement.period_end.is_not(None),
             Placement.period_end <= horizon,
             Placement.period_end >= date.today(),
@@ -402,6 +421,9 @@ def get_placements_summary(
         in_market=sum(by_status.get(s.value, 0) for s in IN_MARKET_STATUSES),
         awaiting_inspection=by_status.get(PlacementStatus.INSPECTION.value, 0),
         expiring_within_60_days=expiring,
+        grouped=grouped_or_none(
+            db, "placements", group_by=group_by, broker_id=broker_id, extra_filters=scoped
+        ),
     )
 
 
@@ -413,7 +435,7 @@ def list_placements(
     client_id: int | None = None,
     asset_id: int | None = None,
     insurance_line_id: int | None = None,
-    account_group_id: int | None = Query(None, gt=0),
+    scope: ScopeFilters = Depends(scope_filters),
     status_filter: list[PlacementStatus] | None = Query(None, alias="status"),
     period: str | None = None,
     open_only: bool = Query(False, description="Exclude closed placements"),
@@ -423,8 +445,17 @@ def list_placements(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
 ) -> PlacementPage:
-    """List the broker's placements, filtered and paginated."""
-    stmt = select(Placement).where(Placement.broker_id == broker_id)
+    """List the broker's placements, filtered and paginated.
+
+    Scope params: ``account_group_id`` (the grupo — through the folder, or
+    through the client for the placements that have no folder yet, an honest
+    empty state per spec §3.2), ``case_file_id`` (the grupo-cuenta) and
+    ``date_from`` / ``date_to`` on ``created_at``.
+    """
+    stmt = select(Placement).where(
+        Placement.broker_id == broker_id,
+        *scope_predicates("placements", scope, broker_id),
+    )
 
     if client_id is not None:
         stmt = stmt.where(Placement.client_id == client_id)
@@ -432,26 +463,6 @@ def list_placements(
         stmt = stmt.where(Placement.asset_id == asset_id)
     if insurance_line_id is not None:
         stmt = stmt.where(Placement.insurance_line_id == insurance_line_id)
-    if account_group_id is not None:
-        # A placement belongs to a group through its folder, or — for the ones
-        # that have no folder yet (an honest empty state, spec §3.2) — through
-        # its client.
-        stmt = stmt.where(
-            or_(
-                Placement.case_file_id.in_(
-                    select(CaseFile.id).where(
-                        CaseFile.broker_id == broker_id,
-                        CaseFile.account_group_id == account_group_id,
-                    )
-                ),
-                Placement.client_id.in_(
-                    select(Client.id).where(
-                        Client.broker_id == broker_id,
-                        Client.account_group_id == account_group_id,
-                    )
-                ),
-            )
-        )
     if status_filter:
         stmt = stmt.where(Placement.status.in_(status_filter))
     if open_only:

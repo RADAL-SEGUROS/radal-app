@@ -266,6 +266,37 @@ def test_attaching_a_foreign_broker_client_is_404(client, world, db, headers_a):
     assert response.status_code == 404
 
 
+def test_clients_list_exposes_the_group_a_company_belongs_to(
+    client, world, db, headers_a
+):
+    """The empresa pickers need this to tell "free" from "already spoken for".
+
+    Without it the group picker can only offer every company and let the wrong
+    pick come back as 422 ``client_in_other_group`` — a dead button by another
+    name.
+    """
+    group = make_group(db, world.a)
+    db.commit()
+
+    before = client.get(f"{API}/clients", headers=headers_a)
+    assert before.status_code == 200
+    row = next(
+        item for item in before.json()["items"] if item["id"] == world.a.client.id
+    )
+    assert row["account_group_id"] is None
+
+    attached = client.post(
+        f"{API}/account-groups/{group.id}/clients",
+        headers=headers_a,
+        json={"client_id": world.a.client.id},
+    )
+    assert attached.status_code == 200
+
+    after = client.get(f"{API}/clients/{world.a.client.id}", headers=headers_a)
+    assert after.status_code == 200
+    assert after.json()["account_group_id"] == group.id
+
+
 def test_a_client_in_another_group_is_422(client, world, db, headers_a):
     first = make_group(db, world.a, "La Favorita")
     second = make_group(db, world.a, "Coccolino")

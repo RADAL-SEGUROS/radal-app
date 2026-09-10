@@ -24,6 +24,7 @@ import type {
   EndorsementIssueResult,
   EndorsementStatus,
   EndorsementUpdate,
+  ScopeParams,
 } from "@/api/types";
 
 export interface EndorsementPage {
@@ -33,9 +34,8 @@ export interface EndorsementPage {
   offset: number;
 }
 
-export interface EndorsementListParams {
+export interface EndorsementListParams extends ScopeParams {
   policy_id?: number;
-  case_file_id?: number;
   /** Single value — see the note in `api/policies.ts`. */
   status?: EndorsementStatus;
   /** The N members of one prórroga (spec v3 §4.3). */

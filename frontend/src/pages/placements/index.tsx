@@ -18,7 +18,7 @@ import {
   type PlacementListItem,
   type PlacementStatus,
 } from "@/api/types";
-import { PageHeader } from "@/components/common/PageHeader";
+import { PageHeader, type EmbeddablePageProps } from "@/components/common/PageHeader";
 import { KpiCard } from "@/components/common/KpiCard";
 import { DataTable } from "@/components/common/DataTable";
 import { FadeUp, Stagger } from "@/components/common/motion";
@@ -64,7 +64,7 @@ function numberParam(value: string | null): number | undefined {
  * (`q`, `status`, `client_id`, `asset_id`, `insurance_line_id`, `open_only`).
  * Deep links from the dashboard and the client page arrive as search params.
  */
-export default function PlacementsPage() {
+export default function PlacementsPage({ embedded }: EmbeddablePageProps = {}) {
   const { t } = useTranslation(["placements", "common"]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -199,6 +199,7 @@ export default function PlacementsPage() {
   return (
     <div className="flex flex-col gap-[22px]">
       <PageHeader
+        embedded={embedded}
         title={t("placements:title")}
         subtitle={t("placements:subtitle")}
         actions={

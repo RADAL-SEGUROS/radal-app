@@ -245,11 +245,12 @@
       "submit": "Crear el grupo",
       "success": "Grupo creado",
       "error": "No pudimos crear el grupo",
-      "clientsHint": "Una empresa sólo puede pertenecer a un grupo; las que ya están en otro no aparecen aquí."
+      "clientsHint": "Una empresa sólo puede pertenecer a un grupo; las que ya están en otro aparecen deshabilitadas."
     },
     "detach": {
       "confirm": "¿Quitar esta empresa del grupo?",
-      "success": "Empresa quitada del grupo"
+      "success": "Empresa quitada del grupo",
+      "confirmNamed": "¿Quitar a {{name}} del grupo? La empresa sigue existiendo en Clientes."
     },
     "search": "Buscar grupos",
     "notFound": "No encontramos este grupo",
@@ -288,6 +289,16 @@
     "edit": {
       "title": "Editar grupo",
       "subtitle": "Cambia el ícono, el nombre y las notas del grupo."
+    },
+    "inOtherGroup": "En otro grupo",
+    "createClient": {
+      "action": "Crear empresa",
+      "withRut": "Crear empresa {{rut}}"
+    },
+    "addClient": {
+      "subtitle": "Busca la empresa por razón social o RUT; si todavía no existe, créala aquí mismo.",
+      "submit_one": "Agregar 1 empresa",
+      "submit_other": "Agregar {{count}} empresas"
     }
   },
   "account": {
@@ -516,7 +527,8 @@
     "periods": "Sin vigencias registradas",
     "history": "Sin vigencia anterior",
     "clients": "El grupo no tiene empresas asociadas",
-    "lines": "Esta vigencia todavía no tiene ramos"
+    "lines": "Esta vigencia todavía no tiene ramos",
+    "clientsHint": "Agrega las empresas que componen la cuenta; cada una aporta su RUT."
   },
   "policy": {
     "current": "Esta póliza",
@@ -573,6 +585,61 @@
       "comparison": "Comparación",
       "proposal": "Propuesta",
       "policies": "Pólizas"
+    }
+  },
+  "expediente": {
+    "title": "Expediente completo",
+    "backToAccount": "Volver a la cuenta",
+    "downloadPdf": "Descargar PDF",
+    "pdfFailed": "No pudimos generar el PDF del expediente",
+    "notFound": "No encontramos este expediente",
+    "generatedAt": "Actualizado al {{at}}",
+    "identity": "Identificación",
+    "reference": "Referencia",
+    "line": "Ramo",
+    "status": "Estado",
+    "journey": "Recorrido",
+    "journeyHint": "Cada hito con la fecha en que se cerró; lo que falta indica qué lo desbloquea.",
+    "inProgress": "En curso",
+    "required": "Obligatorio",
+    "antecedentesHint": "{{documents}} documentos · {{extractions}} extracciones",
+    "quotesCompared": "Cotizaciones comparadas",
+    "recommendation": "Recomendación",
+    "openComparison": "Abrir la comparación",
+    "insurer": "Compañía",
+    "insured": "Asegurado",
+    "premium": "Prima",
+    "ratified": "Ratificada",
+    "pendingPolicies": "Pronto, al emitirse la primera póliza.",
+    "policyNoNumber": "Póliza sin número",
+    "money": "Montos",
+    "taxable": "Afecto",
+    "exempt": "Exento",
+    "net": "Neto",
+    "vat": "IVA",
+    "total": "Total",
+    "documents": "Documentos",
+    "documentsHint_one": "{{count}} documento en el expediente",
+    "documentsHint_other": "{{count}} documentos en el expediente",
+    "slotsFilled": "{{filled}} de {{total}} archivos recomendados",
+    "freeUploads_one": "{{count}} archivo libre",
+    "freeUploads_other": "{{count}} archivos libres",
+    "recommended": "Recomendada",
+    "wrongFile": "Archivo equivocado",
+    "moneySource": "Origen de los montos: {{source}}",
+    "role": {
+      "policyholder": "Contratante",
+      "insured": "Asegurado"
+    },
+    "comparisonStatus": {
+      "draft": "Borrador",
+      "aligned": "Alineada",
+      "superseded": "Reemplazada"
+    },
+    "moneySourceValue": {
+      "policy": "la póliza",
+      "broker_proposal": "la propuesta",
+      "proposal": "la cotización adjudicada"
     }
   }
 }

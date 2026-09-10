@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Login from "@/pages/auth/Login";
 import DashboardPage from "@/pages/dashboard";
 import AnalyticsPage from "@/pages/analytics";
+import DataPage from "@/pages/data";
 import ClientsPage from "@/pages/clients";
 import ClientDetailPage from "@/pages/clients/detail";
 import PlacementsPage from "@/pages/placements";
@@ -70,6 +71,7 @@ const deferredPages = import.meta.glob([
   "./pages/groups/period.tsx",
   "./pages/groups/account-new.tsx",
   "./pages/groups/account.tsx",
+  "./pages/groups/expediente.tsx",
   "./pages/groups/renew.tsx",
   "./pages/groups/reperiod.tsx",
   "./pages/groups/policy.tsx",
@@ -165,9 +167,12 @@ export default function App() {
             {/* The front door is the group list, not the dashboard. */}
             <Route index element={<Navigate to="/groups" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
-            {/* The portfolio view: dashboard KPIs + the consolidated tables.
-                Without this route the sidebar link fell through to the
-                catch-all and bounced to /groups. */}
+            {/* The portfolio, split in two: Datos holds every consolidated
+                table, Analítica holds the visuals. They used to be one page.
+                The old entity routes below stay alive for the deep links that
+                point at them from inside a group — they just lost their nav
+                rows when MÁS was removed. */}
+            <Route path="data" element={<DataPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
 
             <Route path="clients" element={<ClientsPage />} />
@@ -291,6 +296,13 @@ export default function App() {
             <Route
               path="accounts/:caseId"
               element={deferredRoute("./pages/groups/account.tsx", "nav.groups", "Grupos")}
+            />
+            {/* El expediente completo: the super-overview + its PDF. This is
+                where "Ver expediente completo" points now — it used to leave
+                the group entirely for the deprecated flat /cases/:id table. */}
+            <Route
+              path="accounts/:caseId/expediente"
+              element={deferredRoute("./pages/groups/expediente.tsx", "nav.groups", "Grupos")}
             />
             <Route
               path="accounts/:caseId/renew"

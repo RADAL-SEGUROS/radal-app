@@ -115,20 +115,31 @@ export function CreateClientDialog({
   open,
   onOpenChange,
   onCreated,
+  initial,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: (client: Client) => void;
+  /**
+   * Seeds the identity fields when the dialog is opened from somewhere that
+   * already knows them — the group picker hands over whatever the broker had
+   * typed into the search box, so a fruitless search flows straight into the
+   * creation instead of restarting it.
+   */
+  initial?: { rut?: string; legal_name?: string };
 }) {
   const { t } = useTranslation(["clients", "common"]);
   const create = useCreateClient();
   const managers = useAccountManagers();
 
+  const initialRut = initial?.rut ?? "";
+  const initialName = initial?.legal_name ?? "";
+
   const form = useForm<CreateValues>({
     resolver: zodResolver(createSchema),
     defaultValues: {
-      rut: "",
-      legal_name: "",
+      rut: initialRut,
+      legal_name: initialName,
       person_type: "legal",
       status: "prospect",
       account_manager_id: NONE,
@@ -137,14 +148,14 @@ export function CreateClientDialog({
 
   React.useEffect(() => {
     if (open) form.reset({
-      rut: "",
-      legal_name: "",
+      rut: initialRut,
+      legal_name: initialName,
       person_type: "legal",
       status: "prospect",
       account_manager_id: NONE,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, initialRut, initialName]);
 
   const onSubmit = async (values: CreateValues) => {
     const payload: ClientCreate = {

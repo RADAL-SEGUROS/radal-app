@@ -6,14 +6,14 @@
  *
  * A group is a broker-private LABEL: it carries no money, no stage — and no RUT
  * of its own (the companies inside it hold those). The form is a name, optional
- * notes, and the companies (empresas) that move into it. A company belongs to
- * at most one group, which is why the picker only offers ones not in a group
- * already — attaching one that is returns 422 `client_in_other_group`, and the
- * honest fix is to not offer it.
+ * notes, and the companies (empresas) that move into it, picked with the shared
+ * `ClientPicker` — which disables the ones already in a group (attaching one
+ * returns 422 `client_in_other_group`) and can create an empresa by RUT inline,
+ * so arriving with a RUT and no client row is no longer a dead end.
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Building2, Check } from "lucide-react";
+import { Building2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,13 +26,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { ErrorBanner } from "@/components/common/kit";
 import { IconPicker } from "@/components/groups/IconPicker";
-import { accountErrorMessage, useDebounced } from "@/pages/groups/shared";
-import { useClients } from "@/api/clients";
+import { ClientPicker } from "@/components/groups/ClientPicker";
+import { accountErrorMessage } from "@/pages/groups/shared";
 import { useCreateGroup, useUpdateGroup } from "@/api/accountGroups";
 import type {
   AccountGroupDetail,
@@ -55,15 +53,7 @@ export const EMPTY_GROUP_FORM: GroupFormState = {
   icon: null,
 };
 
-/**
- * Name + notes + the company picker.
- *
- * The picker lists the broker's clients and marks the ones already in a group
- * as unavailable, using `client.account_group_id` when the server sends it. It
- * is not sent today (`ClientRead` has no such field yet), so until it is, every
- * client is offered and a wrong pick surfaces as the translated 422 rather than
- * as a silent no-op.
- */
+/** Name + notes + the shared company picker. */
 export function GroupFormFields({
   value,
   onChange,
@@ -77,9 +67,6 @@ export function GroupFormFields({
   currentIcon?: AccountGroupIcon | null;
 }) {
   const { t } = useTranslation("accounts");
-  const [term, setTerm] = React.useState("");
-  const debounced = useDebounced(term);
-  const clients = useClients({ q: debounced || undefined, page_size: 25 });
 
   const toggle = (id: number) => {
     const has = value.clientIds.includes(id);
@@ -133,64 +120,15 @@ export function GroupFormFields({
 
       <div>
         <Label htmlFor="group-clients">{t("group.create.clients")}</Label>
-        <Input
-          id="group-clients"
-          value={term}
-          disabled={disabled}
-          placeholder={t("group.searchClients")}
-          onChange={(e) => setTerm(e.target.value)}
-          className="mt-1.5"
-        />
-
-        <div className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-line">
-          {clients.isLoading ? (
-            <div className="flex flex-col gap-1.5 p-2">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-            </div>
-          ) : (clients.data?.items ?? []).length === 0 ? (
-            <p className="px-3 py-4 text-caption text-ink-3">
-              {t("group.noClients")}
-            </p>
-          ) : (
-            <ul className="divide-y divide-line">
-              {(clients.data?.items ?? []).map((client) => {
-                const selected = value.clientIds.includes(client.id);
-                return (
-                  <li key={client.id}>
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => toggle(client.id)}
-                      className={cn(
-                        "flex w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-paper-2/60 disabled:opacity-60",
-                        selected && "bg-paper-2",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                          selected ? "border-brand bg-brand text-cta-foreground" : "border-line",
-                        )}
-                      >
-                        {selected ? <Check className="h-3 w-3" /> : null}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-body text-ink">
-                        {client.insured.legal_name}
-                      </span>
-                      <span className="text-caption tabular-nums text-ink-3">
-                        {client.insured.rut}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+        <div className="mt-1.5">
+          <ClientPicker
+            inputId="group-clients"
+            selectedIds={value.clientIds}
+            onToggle={(client) => toggle(client.id)}
+            disabled={disabled}
+            hint={t("group.create.clientsHint")}
+          />
         </div>
-        <p className="mt-1.5 text-caption text-ink-3">
-          {t("group.create.clientsHint")}
-        </p>
       </div>
     </div>
   );

@@ -26,6 +26,7 @@ import type {
   CollectionPlanStatus,
   CollectionPlanUpdate,
   CollectionStatus,
+  ScopeParams,
 } from "@/api/types";
 
 export interface CollectionPlanPage {
@@ -35,9 +36,8 @@ export interface CollectionPlanPage {
   offset: number;
 }
 
-export interface CollectionPlanListParams {
+export interface CollectionPlanListParams extends ScopeParams {
   policy_id?: number;
-  case_file_id?: number;
   /** Single value — see the note in `api/policies.ts`. */
   status?: CollectionPlanStatus;
   limit?: number;

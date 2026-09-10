@@ -27,6 +27,7 @@ import {
   useSetUrlParams,
   useUrlParam,
 } from "./shared";
+import { useScopeParams } from "@/components/common/ScopeFilter";
 
 export default function QuotesTab() {
   const { t } = useTranslation("analytics");
@@ -38,7 +39,12 @@ export default function QuotesTab() {
   const setParams = useSetUrlParams();
   const setStatus = (value: string | null) => setParams({ status: value, page: null });
 
+  const scope = useScopeParams();
   const list = useQuotes({
+    // The page-level scope (grupo · grupo-cuenta · fechas) is applied
+    // SERVER-side, exactly like the export, so the table and the file the
+    // broker downloads can never disagree about what was filtered.
+    ...scope,
     status: (status as QuoteRequestStatus) || undefined,
     limit: PAGE_SIZE,
     offset: pageIndex * PAGE_SIZE,

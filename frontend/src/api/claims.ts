@@ -19,6 +19,7 @@ import type {
   ClaimItems,
   ClaimStatus,
   ClaimUpdate,
+  ScopeParams,
 } from "@/api/types";
 
 export interface ClaimPage {
@@ -28,10 +29,9 @@ export interface ClaimPage {
   offset: number;
 }
 
-export interface ClaimListParams {
+export interface ClaimListParams extends ScopeParams {
   policy_id?: number;
   client_id?: number;
-  case_file_id?: number;
   /** Single value — see the note in `api/policies.ts`. */
   status?: ClaimStatus;
   q?: string;

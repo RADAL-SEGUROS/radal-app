@@ -24,6 +24,11 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # `allow_headers` governs the REQUEST; a browser can only read a
+        # RESPONSE header that is explicitly exposed. Without these two, an
+        # export downloaded cross-origin loses the server's filename and its
+        # row count — the file still arrives, so the loss is silent.
+        expose_headers=["Content-Disposition", "X-Radal-Row-Count"],
     )
 
     @app.on_event("startup")
@@ -105,9 +110,13 @@ def create_app() -> FastAPI:
     app.include_router(offerings.public_router, prefix=prefix)
 
     # --- Expedientes: case files, leads, notes/activity, packs --------------
-    from app.api.routers import case_files, leads, notes, packs
+    from app.api.routers import case_files, expediente, leads, notes, packs
 
     app.include_router(case_files.router, prefix=prefix)
+    # El expediente completo: the account super-overview + its on-demand PDF.
+    # Its own module (not case_files.py) so the aggregate never tangles with
+    # the folder CRUD; it renders per request, so there is no pack row.
+    app.include_router(expediente.router, prefix=prefix)
     app.include_router(leads.router, prefix=prefix)
     app.include_router(notes.router, prefix=prefix)
     app.include_router(notes.activities_router, prefix=prefix)
@@ -115,9 +124,12 @@ def create_app() -> FastAPI:
     app.include_router(packs.packs_router, prefix=prefix)
 
     # --- Groups & the navigator (v3): the folder above the expediente -------
-    from app.api.routers import account_groups, navigator
+    from app.api.routers import account_groups, exports, navigator
 
     app.include_router(account_groups.router, prefix=prefix)
+    # Datos/Analítica exports: XLSX + branded PDF over the SAME filters the
+    # list endpoints honour, streamed (never written to `document`).
+    app.include_router(exports.router, prefix=prefix)
     # A router of its own: a literal path on a collection that also owns
     # ``/{id}`` is a route-order trap.
     app.include_router(navigator.router, prefix=prefix)

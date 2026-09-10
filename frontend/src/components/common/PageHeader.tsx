@@ -10,6 +10,16 @@ interface PageHeaderProps {
   /** Optional back link / breadcrumb slot rendered above the title. */
   eyebrow?: React.ReactNode;
   className?: string;
+  /**
+   * The page is rendered INSIDE another page — as a tab of Datos, say — so it
+   * must not print a second `<h1>` under the host's own. The actions survive:
+   * "Nuevo cliente" is the reason the broker opened the tab, and dropping it
+   * with the title would be a feature quietly lost in a layout change.
+   *
+   * Threaded as a prop rather than sniffed from the route so a page can be
+   * embedded twice, in different hosts, without either guessing.
+   */
+  embedded?: boolean;
 }
 
 export function PageHeader({
@@ -18,7 +28,17 @@ export function PageHeader({
   actions,
   eyebrow,
   className,
+  embedded,
 }: PageHeaderProps) {
+  if (embedded) {
+    if (!actions) return null;
+    return (
+      <div className={cn("flex flex-wrap items-center justify-end gap-2.5", className)}>
+        {actions}
+      </div>
+    );
+  }
+
   return (
     <FadeUp
       delay={0}
@@ -49,4 +69,10 @@ export function PageHeader({
       ) : null}
     </FadeUp>
   );
+}
+
+/** Props a list page accepts so it can render standalone or inside Datos. */
+export interface EmbeddablePageProps {
+  /** Suppresses the page's own title block; see {@link PageHeader}. */
+  embedded?: boolean;
 }
