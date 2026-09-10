@@ -1,0 +1,175 @@
+name: 🐞 Error (bug)
+description: Algo no funciona como debería — un botón que no responde, un dato equivocado, una pantalla en blanco.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportarlo. **Lo más útil de todo son los tres primeros campos**
+        (versión, ambiente y URL): sin ellos no podemos saber contra qué build ocurrió
+        y hay que investigar desde cero.
+
+        La versión la copias en **Configuración → abajo a la derecha** (un clic la copia).
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión
+      description: Ve a Configuración, abajo a la derecha, y haz clic en la línea de versión para copiarla. Luego pégala aquí.
+      placeholder: Radal · dev · 08d0293 · 10 sep 2026 03:41
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Ambiente
+      options:
+        - dev.radalseguros.cl
+        - Local (localhost:5500)
+        - Otro (explícalo abajo)
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: URL donde ocurrió
+      description: Copia la barra de direcciones completa. En Radal los filtros viajan en la URL, así que esta línea sola suele reproducir la vista exacta que estabas viendo.
+      placeholder: https://dev.radalseguros.cl/data?tab=policies&group=1&account=5
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: ¿Dónde ocurrió?
+      options:
+        - Grupos / Empresas
+        - Cuenta — Resumen
+        - Cuenta — Antecedentes
+        - Cuenta — Bases Técnicas
+        - Cuenta — Comparación
+        - Cuenta — Propuesta
+        - Cuenta — Pólizas
+        - Expediente completo (o su PDF)
+        - Datos (tablas)
+        - Analítica (gráficos)
+        - Exportar (Excel / PDF / imagen)
+        - Renovación · Endoso · Cobranza · Siniestro
+        - Agente
+        - Compañías y apetito
+        - Configuración
+        - Inicio de sesión / permisos
+        - Otro
+    validations:
+      required: true
+
+  - type: input
+    id: tenant
+    attributes:
+      label: Corredora y usuario
+      description: Radal es multi-tenant y los permisos cambian por rol, así que el mismo paso puede fallar para un usuario y no para otro. **Nunca pegues contraseñas.**
+      placeholder: Fuenzalida SR — usuario11@fuenzalidasr.cl (administrador de la corredora)
+    validations:
+      required: true
+
+  - type: input
+    id: record
+    attributes:
+      label: Grupo, cuenta o referencia afectada
+      description: Si el problema ocurre sobre un expediente concreto, dinos cuál. Nos ahorra reproducir con datos que no se parecen.
+      placeholder: GRUPO VIÑA INDOMITA · Incendio y Sismo · 2026-2027 · EXP-2026-0001
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducirlo
+      description: Numéralos desde donde empezaste. Si no lograste repetirlo, dilo — igual sirve, pero avísanos.
+      placeholder: |
+        1. Entro a Datos → pestaña Pólizas
+        2. Filtro por Grupo = GRUPO VIÑA INDOMITA
+        3. Hago clic en Exportar → Excel
+        4. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Qué esperabas que pasara
+      placeholder: Que el Excel trajera solo las pólizas de ese grupo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Qué pasó en realidad
+      description: Si el dato salió equivocado, dinos **qué número viste y cuál debería ser** — un dato incorrecto se ve normal y es lo más fácil de que se nos pase.
+      placeholder: Trajo todas las pólizas de la corredora (38 filas en vez de 2).
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Imagen o video
+      description: Arrastra el archivo a este cuadro. Una captura de pantalla completa (con la URL visible) vale más que una descripción larga. Tapa cualquier dato sensible antes de subirla.
+      placeholder: Arrastra aquí la imagen o el video…
+    validations:
+      required: false
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Mensaje de error
+      description: |
+        Pega el texto que salió en pantalla. Si sabes abrir la consola del navegador (F12 → Console), pega también lo que aparezca en rojo.
+      render: text
+      placeholder: |
+        No pudimos generar la exportación
+        GET /api/v1/exports/policies 422
+    validations:
+      required: false
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Navegador
+      options:
+        - Chrome
+        - Safari
+        - Edge
+        - Firefox
+        - Otro / no estoy seguro
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: ¿Qué tan grave es?
+      description: Tu criterio basta; lo ajustamos en la revisión.
+      options:
+        - Bloqueante — no puedo seguir trabajando
+        - Grave — hay una vuelta larga, pero se puede
+        - Molesto — funciona, pero mal
+        - Cosmético — se ve raro, no afecta el trabajo
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: context
+    attributes:
+      label: Contexto adicional
+      description: Marca lo que corresponda. Nos dice dónde mirar primero.
+      options:
+        - label: Involucra lectura con IA (procesar antecedentes, alinear comparación, leer una póliza)
+        - label: Fue lento — esperé más de un minuto
+        - label: Antes funcionaba y dejó de funcionar
+        - label: Me pasa siempre que lo intento
+        - label: Me pasó una sola vez y no lo pude repetir

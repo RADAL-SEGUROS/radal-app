@@ -1,0 +1,93 @@
+name: ✨ Funcionalidad nueva (feature)
+description: Algo que Radal todavía no hace y que necesitas para trabajar.
+title: "[feature] "
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cuéntanos **el problema antes que la solución**. La forma exacta la definimos
+        después; lo que no podemos adivinar es qué te está costando trabajo hoy.
+
+        Si esto ya existe pero está incómodo, usa *Mejora (improvement)*.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Qué problema resuelve?
+      description: Descríbelo desde tu trabajo, no desde la pantalla. Qué necesitas lograr y por qué importa.
+      placeholder: |
+        Cuando la compañía pide antecedentes adicionales a mitad de la colocación,
+        no tengo dónde registrar qué pidió ni cuándo, y termino en el correo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: ¿Cómo lo resuelves hoy?
+      description: Aunque sea fuera de Radal — Excel, WhatsApp, correo, papel. Es la mejor pista de lo que la funcionalidad tiene que reemplazar.
+      placeholder: Lo anoto en un Excel aparte y le mando un WhatsApp al ejecutivo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Cómo te lo imaginas
+      description: Opcional. Si ya tienes una idea de la pantalla o el flujo, cuéntala; si no, déjalo en blanco sin problema.
+      placeholder: Una lista dentro de la cuenta donde anotar lo que pide cada compañía, con fecha y estado.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: ¿Dónde viviría?
+      description: Tu mejor apuesta basta.
+      options:
+        - Grupos / Empresas
+        - Cuenta — Antecedentes
+        - Cuenta — Bases Técnicas
+        - Cuenta — Comparación
+        - Cuenta — Propuesta
+        - Cuenta — Pólizas
+        - Expediente completo
+        - Datos (tablas)
+        - Analítica (gráficos)
+        - Renovación · Endoso · Cobranza · Siniestro
+        - Agente
+        - Configuración
+        - No estoy seguro
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: ¿Qué pasa si no existe?
+      options:
+        - No puedo hacer parte de mi trabajo en Radal
+        - Lo hago, pero por fuera (Excel, correo, WhatsApp)
+        - Lo hago dentro, pero me toma mucho más tiempo
+        - Es algo que ayudaría, sin ser urgente
+    validations:
+      required: true
+
+  - type: input
+    id: who
+    attributes:
+      label: ¿Quién lo necesita?
+      description: Roles, o la corredora o el cliente que lo pidió.
+      placeholder: Los ejecutivos de colocación; lo pidió Viña Indómita en la última renovación.
+    validations:
+      required: false
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: Ejemplos o referencias
+      description: Arrastra imágenes, un Excel de ejemplo, o el correo donde se pidió. Un ejemplo real vale más que una descripción.
+      placeholder: Arrastra aquí archivos o pega enlaces…
+    validations:
+      required: false

@@ -356,5 +356,9 @@
       "fromScratch": "From scratch",
       "fromScratchHint": "Create an empty line and define its sections and fields."
     }
+  },
+  "version": {
+    "copyHint": "Copy the version to report a problem",
+    "copied": "Copied"
   }
 }

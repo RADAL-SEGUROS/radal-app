@@ -56,6 +56,8 @@ jobs:
           platforms: linux/amd64
           build-args: |
             VITE_API_URL=/api/v1
+            VITE_APP_VERSION=${{ github.sha }}
+            VITE_APP_ENV=dev
           tags: |
             ${{ env.ECR_REGISTRY }}/radal-frontend:${{ env.IMAGE_TAG }}
             ${{ env.ECR_REGISTRY }}/radal-frontend:dev

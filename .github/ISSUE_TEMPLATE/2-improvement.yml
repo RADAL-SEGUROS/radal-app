@@ -1,0 +1,105 @@
+name: 🔧 Mejora (improvement)
+description: Algo ya funciona, pero es confuso, lento o da más vueltas de las necesarias.
+title: "[improvement] "
+labels: ["improvement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Una mejora es sobre algo que **ya existe y funciona**. Si algo está roto,
+        usa *Error (bug)*; si no existe todavía, usa *Funcionalidad nueva (feature)*.
+
+        Lo más valioso acá es **cuántas veces al día te topas con esto**: eso es lo
+        que decide el orden en que las tomamos.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: ¿Qué parte de Radal?
+      options:
+        - Grupos / Empresas
+        - Cuenta — Resumen
+        - Cuenta — Antecedentes
+        - Cuenta — Bases Técnicas
+        - Cuenta — Comparación
+        - Cuenta — Propuesta
+        - Cuenta — Pólizas
+        - Expediente completo (o su PDF)
+        - Datos (tablas)
+        - Analítica (gráficos)
+        - Exportar (Excel / PDF / imagen)
+        - Renovación · Endoso · Cobranza · Siniestro
+        - Agente
+        - Compañías y apetito
+        - Configuración
+        - Transversal (varias partes)
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: Cómo se hace hoy
+      description: Descríbelo paso a paso, tal como lo haces ahora. Si el camino es largo, escríbelo largo — es justamente el punto.
+      placeholder: |
+        Para ver las pólizas de una cuenta entro a Datos, filtro por grupo,
+        después filtro por cuenta, cambio a la pestaña Pólizas y recién ahí…
+    validations:
+      required: true
+
+  - type: textarea
+    id: friction
+    attributes:
+      label: Qué es lo molesto
+      description: Lo concreto — cuántos clics, cuánto se espera, qué se te olvida, qué se entiende mal.
+      placeholder: Son cinco clics cada vez, y si me equivoco de pestaña pierdo el filtro y hay que empezar de nuevo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Cómo te gustaría que fuera
+      description: No necesitas una solución técnica. Describe el resultado que buscas; nosotros vemos el cómo.
+      placeholder: Que desde la cuenta hubiera un acceso directo a sus pólizas ya filtradas.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: ¿Cada cuánto te topas con esto?
+      options:
+        - Varias veces al día
+        - Una vez al día
+        - Algunas veces por semana
+        - De vez en cuando
+    validations:
+      required: true
+
+  - type: input
+    id: who
+    attributes:
+      label: ¿A quién más le pasa?
+      description: Roles o personas, no solo tú. Algo que frena a todo el equipo pesa distinto que una preferencia personal.
+      placeholder: A los tres ejecutivos que cargan antecedentes.
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Imagen o video
+      description: Arrastra el archivo a este cuadro. Un video corto mostrando la vuelta larga explica esto mejor que cualquier texto.
+      placeholder: Arrastra aquí la imagen o el video…
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión
+      description: Configuración → abajo a la derecha (un clic la copia). Nos dice si ya lo cambiamos desde entonces.
+      placeholder: Radal · dev · 08d0293 · 10 sep 2026 03:41
+    validations:
+      required: false

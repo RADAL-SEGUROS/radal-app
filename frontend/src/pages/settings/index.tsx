@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { BuildVersion } from "@/components/common/BuildVersion";
 import { FadeUp } from "@/components/common/motion";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -73,6 +74,12 @@ export default function SettingsPage() {
             <DocumentsTab />
           </TabsContent>
         </Tabs>
+
+        {/* The build stamp the bug-report form asks for. Quiet, but one click
+            copies it — see components/common/BuildVersion.tsx. */}
+        <div className="mt-8 flex justify-end border-t border-line pt-3">
+          <BuildVersion />
+        </div>
       </FadeUp>
     </>
   );

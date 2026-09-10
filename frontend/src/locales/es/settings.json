@@ -356,5 +356,9 @@
       "fromScratch": "Desde cero",
       "fromScratchHint": "Crea un ramo vacío y define sus secciones y campos."
     }
+  },
+  "version": {
+    "copyHint": "Copiar la versión para reportar un problema",
+    "copied": "Copiado"
   }
 }
