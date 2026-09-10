@@ -1,0 +1,62 @@
+name: Deploy Frontend (dev)
+
+# Builds the frontend container image, pushes to ECR, updates the frontend
+# Lambda (buffered), and invalidates the whole distribution (static assets).
+# Runs ONLY when frontend code (or this workflow) changes.
+#
+# Required GitHub secrets:
+#   AWS_ROLE_ARN            -> arn:aws:iam::185011028331:role/radal-github-actions-role (OIDC)
+#   AWS_REGION             -> us-east-1
+#   ECR_REGISTRY           -> 185011028331.dkr.ecr.us-east-1.amazonaws.com
+#   FRONTEND_LAMBDA        -> radal-frontend-dev
+#   CLOUDFRONT_DISTRIBUTION_ID -> the dev distribution id
+
+on:
+  push:
+    branches: ["dev"]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend-dev.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-dev
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  IMAGE_TAG: dev-${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push frontend image (Lambda-compatible)
+        run: |
+          docker buildx build --provenance=false --platform linux/amd64 --build-arg VITE_API_URL=/api/v1 \
+            -t $ECR_REGISTRY/radal-frontend:$IMAGE_TAG -t $ECR_REGISTRY/radal-frontend:dev --push ./frontend
+
+      - name: Update frontend Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ secrets.FRONTEND_LAMBDA }} \
+            --image-uri $ECR_REGISTRY/radal-frontend:$IMAGE_TAG --region $AWS_REGION
+          aws lambda wait function-updated --function-name ${{ secrets.FRONTEND_LAMBDA }} --region $AWS_REGION
+          aws lambda update-function-url-config \
+            --function-name ${{ secrets.FRONTEND_LAMBDA }} --region $AWS_REGION --invoke-mode BUFFERED
+
+      - name: Invalidate CloudFront (/*)
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
