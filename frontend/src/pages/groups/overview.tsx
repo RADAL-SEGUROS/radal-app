@@ -28,6 +28,7 @@ import {
   ChevronDown,
   Layers,
   Lock,
+  Pencil,
   Plus,
   TimerReset,
   Users,
@@ -62,7 +63,9 @@ import {
   periodDates,
   useGroupId,
 } from "@/pages/groups/shared";
-import { Journey } from "@/components/groups/Journey";
+import { Journey, nextForwardStage } from "@/components/groups/Journey";
+import { GroupAvatar } from "@/components/groups/GroupAvatar";
+import { EditGroupDialog } from "@/pages/groups/GroupForm";
 import { DownloadArchiveButton } from "@/components/groups/DownloadArchiveButton";
 import {
   useAccountGroup,
@@ -131,6 +134,8 @@ export default function GroupOverviewPage() {
 
   const canCreateCase = useCan("CaseFiles", "Create");
   const canEndorse = useCan("Endorsements", "Create");
+  const canEditGroup = useCan("Groups", "Edit");
+  const [editOpen, setEditOpen] = React.useState(false);
 
   const tab = params.get("tab") ?? "timeline";
   const setTab = (value: string) => {
@@ -170,7 +175,16 @@ export default function GroupOverviewPage() {
             ]}
           />
         }
-        title={g ? g.name : <Skeleton className="h-7 w-56" />}
+        title={
+          g ? (
+            <span className="inline-flex items-center gap-2.5">
+              <GroupAvatar name={g.name} icon={g.icon} size="lg" />
+              {g.name}
+            </span>
+          ) : (
+            <Skeleton className="h-7 w-56" />
+          )
+        }
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <span>
@@ -188,6 +202,18 @@ export default function GroupOverviewPage() {
         }
         actions={
           <>
+            {canEditGroup.allowed ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!g}
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="h-4 w-4" />
+                {t("group.actions.edit")}
+              </Button>
+            ) : null}
+
             <DownloadArchiveButton
               groupId={groupId}
               periodLabel={g?.latest_period_label ?? null}
@@ -256,6 +282,10 @@ export default function GroupOverviewPage() {
       </Tabs>
 
       {tree.isError ? <ErrorBanner error={tree.error} className="mt-2" /> : null}
+
+      {g ? (
+        <EditGroupDialog group={g} open={editOpen} onOpenChange={setEditOpen} />
+      ) : null}
     </div>
   );
 }
@@ -402,6 +432,7 @@ export function GroupLineCard({
   children?: React.ReactNode;
 }) {
   const { t } = useTranslation("accounts");
+  const { t: tCases } = useTranslation("cases");
   const navigate = useNavigate();
 
   const account = line.account;
@@ -413,6 +444,12 @@ export function GroupLineCard({
     { tab: "proposals", label: t("tree.proposals"), count: account.proposals_count },
     { tab: "policies", label: t("tree.policies"), count: line.policies.length },
   ];
+
+  // A LIGHT "next step" caption derived purely from the stage — no per-account
+  // pending-actions request (kept cheap on the overview). The account page
+  // loads the full pending list; this is orientation only.
+  const nextStage =
+    account.stage === "closed" ? null : nextForwardStage(account.kind, account.stage);
 
   return (
     <Card
@@ -448,6 +485,13 @@ export function GroupLineCard({
         </div>
 
         <Journey kind={account.kind} stage={account.stage} variant="compact" />
+
+        {nextStage ? (
+          <p className="text-caption text-ink-3">
+            <span className="font-medium text-ink-2">{tCases("journey.whatNext")}:</span>{" "}
+            {tCases(`journey.next.${nextStage}`, { defaultValue: nextStage })}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap gap-1.5">
           {stats.map((stat) => (
@@ -789,31 +833,7 @@ function PeriodsPane({
             ) : (
               <ul className="divide-y divide-line">
                 {lines.map((node) => (
-                  <li key={node.account.case_file_id}>
-                    <Link
-                      to={`/groups/${groupId}/accounts/${node.account.case_file_id}`}
-                      className="flex flex-wrap items-center gap-3 px-5 py-3 no-underline transition-colors duration-150 hover:bg-paper-2/60"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-body font-medium text-ink">
-                          {node.name}
-                        </span>
-                        <span className="mt-0.5 block text-caption tabular-nums text-ink-3">
-                          {periodDates(node.account.period_start, node.account.period_end)}
-                        </span>
-                      </span>
-                      <OriginChip origin={node.account.origin} t={t} />
-                      <Journey
-                        kind={node.account.kind}
-                        stage={node.account.stage}
-                        variant="compact"
-                        className="w-56 shrink-0 max-sm:hidden"
-                      />
-                      <span className="text-caption tabular-nums text-ink-3">
-                        {t("tree.policies")} {node.policies.length}
-                      </span>
-                    </Link>
-                  </li>
+                  <PeriodLineRow key={node.account.case_file_id} groupId={groupId} node={node} />
                 ))}
               </ul>
             )}
@@ -821,6 +841,83 @@ function PeriodsPane({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * One vigencia row with the AGILE SHORTCUT: the line, its compact Journey rail
+ * (animations off in the list), and an expand chevron that reveals quick-jump
+ * chips deep-linking straight into the account's essential desks (`?tab=`).
+ * The chips are the "expand the vigencia" affordance the broker asked for.
+ */
+function PeriodLineRow({ groupId, node }: { groupId: number; node: TreeLineNode }) {
+  const { t } = useTranslation("accounts");
+  const [open, setOpen] = React.useState(false);
+  const accountPath = `/groups/${groupId}/accounts/${node.account.case_file_id}`;
+
+  const quick: { key: string; tab: string }[] = [
+    { key: "records", tab: "records" },
+    { key: "technical", tab: "antecedentes" },
+    { key: "comparison", tab: "comparison" },
+    { key: "proposal", tab: "propuesta" },
+    { key: "policies", tab: "policies" },
+  ];
+
+  return (
+    <li>
+      <div className="flex flex-wrap items-center gap-3 px-5 py-3 transition-colors duration-150 hover:bg-paper-2/60">
+        <Link
+          to={accountPath}
+          className="flex min-w-0 flex-1 items-center gap-3 no-underline"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body font-medium text-ink transition-colors duration-150 hover:text-brand-deep">
+              {node.name}
+            </span>
+            <span className="mt-0.5 block text-caption tabular-nums text-ink-3">
+              {periodDates(node.account.period_start, node.account.period_end)}
+            </span>
+          </span>
+        </Link>
+        <OriginChip origin={node.account.origin} t={t} />
+        <Journey
+          kind={node.account.kind}
+          stage={node.account.stage}
+          variant="compact"
+          className="w-56 shrink-0 max-sm:hidden"
+        />
+        <span className="text-caption tabular-nums text-ink-3">
+          {t("tree.policies")} {node.policies.length}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          aria-expanded={open}
+          aria-label={t("overview.shortcut.toggle")}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <ChevronDown
+            className={`h-4 w-4 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+          />
+        </Button>
+      </div>
+
+      {open ? (
+        <div className="flex flex-wrap items-center gap-2 border-t border-line bg-paper-2/40 px-5 py-2.5">
+          <span className="text-caption text-ink-3">{t("overview.shortcut.jumpTo")}</span>
+          {quick.map((item) => (
+            <Link
+              key={item.key}
+              to={`${accountPath}?tab=${item.tab}`}
+              className="inline-flex items-center rounded-md border border-line bg-bone px-2.5 py-1 text-caption font-medium text-ink-2 no-underline transition-[border-color,background-color,color] duration-150 hover:border-line-strong hover:bg-paper-2/60 hover:text-ink"
+            >
+              {t(`summary.quickLinks.${item.key}`)}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </li>
   );
 }
 

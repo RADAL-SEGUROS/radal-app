@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DisabledHint, EmptyState, ErrorBanner } from "@/components/common/kit";
+import { GroupAvatar } from "@/components/groups/GroupAvatar";
 import { NewGroupDialog } from "@/pages/groups/GroupForm";
 import { useDebounced } from "@/pages/groups/shared";
 import { useAccountGroups } from "@/api/accountGroups";
@@ -74,12 +75,15 @@ export default function GroupsPage() {
         header: t("group.fields.name"),
         accessorFn: (row) => row.name,
         cell: ({ row }) => (
-          <div className="min-w-0">
-            <div className="truncate text-body font-medium text-ink">
-              {row.original.name}
-            </div>
-            <div className="mt-0.5 text-caption text-ink-3">
-              {row.original.slug}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <GroupAvatar name={row.original.name} icon={row.original.icon} size="md" />
+            <div className="min-w-0">
+              <div className="truncate text-body font-medium text-ink">
+                {row.original.name}
+              </div>
+              <div className="mt-0.5 text-caption text-ink-3">
+                {row.original.slug}
+              </div>
             </div>
           </div>
         ),

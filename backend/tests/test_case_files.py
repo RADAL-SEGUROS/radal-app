@@ -141,7 +141,7 @@ def test_transition_two_steps_forward_is_422(client, world, db, headers_a):
         json={"to_stage": "quotes_received"},
     )
     assert response.status_code == 422
-    assert "Cannot move" in response.json()["detail"]
+    assert "No se puede mover" in response.json()["detail"]
 
 
 def test_transitions_endpoint_reports_reasons(client, world, db, headers_a):
@@ -150,7 +150,7 @@ def test_transitions_endpoint_reports_reasons(client, world, db, headers_a):
     body = client.get(f"{API}/case-files/{case.id}/transitions", headers=headers_a).json()
     market = next(o for o in body["options"] if o["to_stage"] == "market_submission")
     assert market["allowed"] is False
-    assert "technical_brief" in market["reason"]
+    assert "bases técnicas" in market["reason"]
 
 
 # --- The seven guards ---------------------------------------------------------
@@ -164,7 +164,7 @@ def test_market_submission_guard_needs_a_technical_brief(client, world, db, head
         json={"to_stage": "market_submission"},
     )
     assert response.status_code == 422
-    assert "technical_brief" in response.json()["detail"]
+    assert "bases técnicas" in response.json()["detail"]
 
 
 def test_market_submission_guard_passes_with_brief_and_recipients(
@@ -216,7 +216,7 @@ def test_comparison_guard_needs_a_confirmed_proposal(client, world, db, headers_
         json={"to_stage": "comparison"},
     )
     assert blocked.status_code == 422
-    assert "confirmed proposal" in blocked.json()["detail"]
+    assert "cotización confirmada" in blocked.json()["detail"]
 
     proposal.is_confirmed = True
     db.commit()
@@ -239,7 +239,7 @@ def test_proposal_issued_guard_needs_at_least_one_accepted(client, world, db, he
         json={"to_stage": "proposal_issued"},
     )
     assert response.status_code == 422
-    assert "At least one accepted proposal" in response.json()["detail"]
+    assert "al menos una cotización aceptada" in response.json()["detail"]
 
 
 def test_proposal_issued_refuses_two_winners_on_one_placement(
@@ -267,7 +267,7 @@ def test_proposal_issued_refuses_two_winners_on_one_placement(
         json={"to_stage": "proposal_issued"},
     )
     assert blocked.status_code == 422
-    assert "At most one accepted proposal per placement" in blocked.json()["detail"]
+    assert "como máximo una cotización aceptada por placement" in blocked.json()["detail"]
 
 
 def test_proposal_issued_passes_with_one_winner(client, world, db, headers_a):
@@ -309,7 +309,7 @@ def test_claim_final_guard_needs_the_final_report(client, world, db, headers_a, 
         json={"to_stage": "claim_final"},
     )
     assert blocked.status_code == 422
-    assert "claim_final_report" in blocked.json()["detail"]
+    assert "informe final" in blocked.json()["detail"]
 
     db.add(
         Document(

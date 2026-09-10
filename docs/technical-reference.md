@@ -46,12 +46,15 @@ of orientation and current state, nothing more.** When a pass adds detail, it go
 | 13 | [Handoff prompts](#13-handoff-prompts) | ready-to-paste prompts to start the next task |
 | 14 | [v3 — Groups & Accounts](#14-v3--groups--accounts-as-built) | the group layer, the Account, the navigator, the binary rules |
 | 15 | [v4 — Agent & Porcelana UI](#15-v4--agent--porcelana-ui-as-built) | the tool-using agent and the current UI direction |
+| 16 | [v5·v6·v7 — Signal UI · Antecedentes → Bases Técnicas · broker Lines](#16-v5--v6--v7--signal-ui-antecedentes--bases-técnicas-broker-defined-lines-as-built) | **the latest arc** — the current UI, the expediente/bases-técnicas builder, and broker-defined lines |
 
-**Current state (verified 2026-09-06):** **521 backend tests passing in ~114 s** · `npx tsc
---noEmit` and `npm run build` clean · demo import green against the team's 168-document corpus ·
-**189 files uncommitted on branch `dev`**, still sitting on commit `ed8b8a1` · **the dev RDS
-migration has not been run and nothing is on S3** — see §4 and §12. Three passes have landed since
-the v2 rebuild: v2 case files, **v3 groups & accounts (§14)** and **v4 agent + Porcelana UI (§15)**.
+**Current state (verified 2026-09-08):** **564 backend tests passing in ~125 s** · `npx tsc -b
+--noEmit`, `npm run build` and `npm run check:locales` (19 namespaces) clean · live GLM extraction
+green on the demo account. **~270 files uncommitted on branch `dev`** (v2→v7), still on commit
+`ed8b8a1` · **the dev RDS migration has not been run and nothing is on S3** — see §4 and §12. Passes
+since the v2 rebuild: v2 case files, **v3 groups & accounts (§14)**, **v4 agent + Porcelana (§15)**,
+and **v5 Signal UI · v6 Antecedentes → Bases Técnicas · v7 broker-defined Lines (§16 — Porcelana is
+now deprecated)**. The short "what changed + backlog" companion is `docs/handoff-2026-09-08.md`.
 
 ---
 
@@ -420,7 +423,7 @@ long-lived access keys. ECR keeps the last 5 images; RDS is the main idle cost, 
 
 ## 5. Data model reference
 
-The schema is **41 tables** on SQLAlchemy 2.x declarative (`app/models/`, aggregated by
+The schema is **50 tables** on SQLAlchemy 2.x declarative (`app/models/`, aggregated by
 `app/db/base.py`; `Base.metadata.sorted_tables` is the authoritative list). Three of them —
 `insured`, `insurer`, `cmf_line` — are **canonical**: one row per real-world identity, shared
 across every tenant, no `broker_id`. Everything else is **workspace** and carries
@@ -876,7 +879,10 @@ Indexes: `ix_proposal_coverage_kind(proposal_id, kind, sort_order)`, `ix_proposa
 | `id` | INTEGER | PK |
 | `broker_id` | INTEGER | FK→broker.id CASCADE, NN, IX |
 | `quote_request_id` | INTEGER | FK→quote_request.id CASCADE, NN, IX |
-| `selected_proposal_id` | INTEGER | FK→proposal.id SET NULL, IX |
+| `selected_proposal_id` | INTEGER | FK→proposal.id SET NULL, IX — the broker's **recommendation** |
+| `decided_proposal_id` | INTEGER | **v8** — FK→proposal.id SET NULL, IX — what the **insured** chose on the public share surface |
+| `decided_note` | TEXT | **v8** — the insured's reason for the choice |
+| `decided_at` | DATETIME | **v8** — when the insured decided |
 | `share_token` | VARCHAR(64) | NN, **UQ**, IX — public link key |
 | `pdf_document_id` | INTEGER | FK→document.id SET NULL, IX |
 | `sent_via` | VARCHAR(20) | enum `OfferingChannel` |
@@ -1030,9 +1036,14 @@ Indexes: `ix_case_pack_case_kind(case_file_id, kind)`, `ix_case_pack_broker_stat
 | `commission_pct` | NUMERIC(6,3) | |
 | `deductibles` | JSON | per peril |
 | `notes` | TEXT | |
+| `payload` | JSON | **v8** — the full dynamic parse; every field NOT promoted to a typed column above (the columns-plus-JSON-tail split of `asset`). Never re-stores the money/vigencia columns (no double-sourcing). |
+| `is_core_valid` | BOOLEAN | **v8** — the fixed minimal-core verdict (corredor / datos asegurado / vigencia / desglose de prima present). **NULLable**: NULL = not yet validated. |
+| `core_validation` | JSON | **v8** — per-field present/missing detail behind the verdict; rendered, not filtered. |
+| `extraction_id` | INTEGER | **v8** — FK→extraction.id SET NULL, IX. The dynamic parse this payload was read from (mirrors `proposal.extraction_id`). |
 
 Constraints: `uq_policy_broker_number(broker_id, policy_number)`. Indexes:
-`ix_policy_broker_client`, `ix_policy_broker_status`, `ix_policy_broker_end(broker_id, end_date)`.
+`ix_policy_broker_client`, `ix_policy_broker_status`, `ix_policy_broker_end(broker_id, end_date)`,
+`ix_policy_extraction_id`.
 
 #### `policy_location` — one insured location, with its share of the insured amount.
 
@@ -1235,6 +1246,90 @@ Indexes: `ix_warranty_policy_code(policy_id, code)`, `ix_warranty_broker_due(bro
 | `note` | TEXT | |
 
 Indexes: `ix_claim_item_claim_order(claim_id, sort_order)`, `ix_claim_item_broker_kind`.
+
+---
+
+### 5.4b Comparison & outbound propuesta (v8)
+
+The comparison and the outbound *propuesta* follow the `record_expediente` satellite pattern:
+a thin container linked to `case_file` by a **plain SET NULL FK** (no `use_alter` — each points
+*down* and nothing points back), typed columns for what we sort/filter, a JSON payload for the
+dynamic tail, provenance FKs. Child rows only where a comparator aligns row-by-row. **Terminology
+trap:** `Proposal` is the insurer's *inbound* offer; `broker_proposal` is the broker's *outbound*
+artifact — never conflate them.
+
+#### `comparison_source` — LAYER 1: the per-proposal dynamic-extraction cache (one live row per proposal, survives re-runs).
+
+| column | type | notes |
+|---|---|---|
+| `id` | INTEGER | PK |
+| `broker_id` | INTEGER | FK→broker.id CASCADE, NN, IX |
+| `proposal_id` | INTEGER | FK→proposal.id SET NULL, IX |
+| `source_extraction_id` | INTEGER | FK→extraction.id SET NULL, IX |
+| `facets` | JSON | the compact dynamic facet list re-aligned across comparisons (the fixed money/period core stays on the typed `proposal` columns — no double-sourcing) |
+| `is_wrong_file` | BOOLEAN | NN, def=`false` — wrong-file detection verdict |
+| `wrong_file_reason` | TEXT | |
+| `extracted_at` | DATETIME | |
+
+Constraints: `uq_comparison_source_proposal(broker_id, proposal_id)`. Indexes: `ix_comparison_source_broker`.
+
+#### `comparison` — LAYER 2: one aligned comparison RE-RUN of an account. **1:N per case_file**, history preserved.
+
+| column | type | notes |
+|---|---|---|
+| `id` | INTEGER | PK |
+| `broker_id` | INTEGER | FK→broker.id CASCADE, NN, IX |
+| `case_file_id` | INTEGER | FK→case_file.id SET NULL, IX |
+| `placement_id` | INTEGER | FK→placement.id SET NULL, IX |
+| `status` | VARCHAR(22) | NN, enum `ComparisonStatus`, def=`draft` |
+| `canonical_version` | INTEGER | NN, def=`1` — **monotonic** re-alignment version, the snapshot key of `dictionary` |
+| `dictionary` | JSON | the canonical facet dictionary **snapshotted** at this version (a later edit never reshapes a stored comparison) |
+| `aligned_matrix` | JSON | the rendered aligned result (rows × proposals); rendered only, never joined |
+| `pdf_document_id` | INTEGER | FK→document.id SET NULL, IX |
+| `source_extraction_id` | INTEGER | FK→extraction.id SET NULL, IX |
+
+Indexes: `ix_comparison_broker_case(broker_id, case_file_id)`, `ix_comparison_broker_status`.
+
+#### `comparison_entry` — one proposal column of a comparison run. A **pure child** — no `broker_id` (scope from `comparison`), like `proposal_coverage`.
+
+| column | type | notes |
+|---|---|---|
+| `id` | INTEGER | PK |
+| `comparison_id` | INTEGER | FK→comparison.id CASCADE, NN, IX |
+| `proposal_id` | INTEGER | FK→proposal.id SET NULL, IX |
+| `comparison_source_id` | INTEGER | FK→comparison_source.id SET NULL, IX |
+| `is_recommended` | BOOLEAN | NN, def=`false` |
+| `sort_order` | INTEGER | NN, def=`0` |
+
+Indexes: `ix_comparison_entry_comparison(comparison_id, sort_order)`.
+
+#### `broker_proposal` — the outbound *propuesta* artifact, built from a comparison snapshot (**not** `Proposal`).
+
+| column | type | notes |
+|---|---|---|
+| `id` | INTEGER | PK |
+| `broker_id` | INTEGER | FK→broker.id CASCADE, NN, IX |
+| `case_file_id` | INTEGER | FK→case_file.id SET NULL, IX |
+| `comparison_id` | INTEGER | FK→comparison.id SET NULL, IX — the source snapshot (mandatory at the **service layer**; a plain SET NULL FK per the v8 new-table convention) |
+| `winning_proposal_id` | INTEGER | FK→proposal.id SET NULL, IX — the selected inbound insurer offer |
+| `content_hash` | VARCHAR(64) | IX — a fixed scalar compared for tamper/version detection |
+| `payload` | JSON | the assembled outbound content snapshot; rendered only |
+| `pdf_document_id` | INTEGER | FK→document.id SET NULL, IX |
+| `status` | VARCHAR(22) | NN, enum `BrokerProposalStatus`, def=`draft` |
+| `is_ratified` | BOOLEAN | NN, def=`false` |
+| `ratified_at` | DATETIME | |
+| `ratified_by_id` | INTEGER | FK→user.id SET NULL, IX |
+
+Indexes: `ix_broker_proposal_broker_status(broker_id, status)`, `ix_broker_proposal_case(case_file_id)`.
+
+**Ramo repurpose (v8):** `line_record_schema` is the user-facing *ramo* (`insurance_line` stays the
+pure CMF classifier). It gains `recommended_files` (JSON — the recommended antecedentes documents,
+`[{category, label, explanation, required}]`) and `explanation` (TEXT — a ramo-level blurb priming
+the AI); per-field `ai_hint` lives **inside** the `definition` JSON, not a column.
+`line_record_schema.insurance_line_id` is now **NULLable** (NULL = a custom ramo not mapped to any
+CMF line). Ramos remain advisory-only — comparison and policy extraction are dynamic and never read
+this table. New enums: `ComparisonStatus` (`draft|aligned|superseded`), `BrokerProposalStatus`
+(`draft|issued|ratified|superseded`).
 
 ---
 
@@ -2355,17 +2450,32 @@ non-streaming chat turn.
 
 One `ChatOpenAI` covers everything, built by `_chat_model()` against
 `settings.AI_BASE_URL` / `settings.AI_MODEL` (defaults: DeepInfra's OpenAI-compatible endpoint
-`https://api.deepinfra.com/v1/openai`, `meta-llama/Llama-3.3-70B-Instruct`,
-`AI_TIMEOUT_SECONDS = 120`) with **`max_retries=0`** — an SDK-level retry would hide the
-failure from the extraction row, and every call here is user-triggered and re-runnable.
+`https://api.deepinfra.com/v1/openai`, `zai-org/GLM-5.3-Flash`, `AI_TIMEOUT_SECONDS = 120`)
+with **`max_retries=0`** — an SDK-level retry would hide the failure from the extraction row,
+and every call here is user-triggered and re-runnable. (The `tool_call` path owns its own
+backoff-retry instead, so a flaky DeepInfra call is recovered without hiding the outcome.)
 
-- **Structured extraction**: `llm.with_structured_output(spec.schema, method="json_mode",
-  include_raw=True)`. `json_mode` because DeepInfra's endpoint supports JSON mode but **not**
-  OpenAI's `strict` tool-calling schema. `include_raw=True` keeps the raw text and token usage
+- **Structured extraction (registry categories)**: `llm.with_structured_output(spec.schema,
+  method="json_mode", include_raw=True)`. `include_raw=True` keeps the raw text and token usage
   in the audit trail even when the structured parse succeeds; when it fails, the
   fence-tolerant `_extract_json_object` (balanced-brace scan) is the fallback before giving up,
   and `_coerce_payload` then drops (and reports) individual fields that will not coerce — one
   unreadable date must not throw away an otherwise reviewable extraction.
+- **Tool/function calling is supported and is the structured-output mechanism going forward.**
+  `zai-org/GLM-5.3-Flash` on DeepInfra **supports tool/function calling** (verified live
+  2026-09): the arguments arrive as a JSON string on
+  `resp.choices[0].message.tool_calls[0].function.arguments`, `finish_reason == "tool_calls"`,
+  and `reasoning_content` (interleaved thinking) may accompany it. The earlier claim that
+  DeepInfra lacks tool-calling was **stale** — it was true only for the retired
+  `meta-llama/Llama-3.3-70B-Instruct`. The reliable path is `ai.tool_call(...)`: it forces the
+  call with `tool_choice`, parses + `_coerce_payload`-validates the arguments, keeps
+  `reasoning_content` out of the payload, and **retries with exponential backoff** on transient
+  failures (timeout, 5xx/429, connection error, empty/malformed/no-`tool_calls` answer) before
+  raising a typed `AIError`. `extract_budget_proposal` uses it with a deliberately **slim** tool
+  schema (`budget_proposal_tool_schema()` — no 10-leaf value object, no lenient-number regex;
+  numeric coercion is a Python concern), which shed the ~5.6 KB prompt bloat that drove the
+  Stage-5 timeouts. Models are chosen per task through `ai_models.model_for(AITask.*)`
+  (all tasks default to `AI_MODEL`; override via `AI_MODEL_TIERS`).
 - **Streaming chat**: `llm.astream()` behind `POST /ai/threads/{id}/stream`, emitting
   `event: start | token | done | error` over `text/event-stream`. ⚠️ **Behind CloudFront this
   does not truly stream**: the OAC contract requires both the Function URL invoke mode and the
@@ -2863,6 +2973,121 @@ pre-confirmed, so `GET /policies/{id}/mirror-diff` renders without ever calling 
 > entry states what was added, what changed in existing behaviour, and the verified state at the
 > end of the pass — with the commands and the numbers, so the next reader can re-run them.
 
+### 2026-09-08 — v8 broker-journey redesign (ramos advisory · dynamic comparison · propuesta · validate-then-dynamic policies)
+
+One session, following a product meeting that re-derived the broker journey against
+`docs/jose-feedback-raw-2026-09-07.md` and `RADAL_Viaje_del_Riesgo.html`. Companion handoff:
+`docs/handoff-2026-09-08-v8.md`. **All additive** — no route renamed, no column dropped, no enum member
+removed. The prior v6/v7 framing of ramos as binding extraction contracts is reframed to **advisory
+templates**; §5/§16 were updated in place for the new tables/columns (cross-referenced, not repeated here).
+
+**Data model (repurpose — one new migrate pass).** `backend/scripts/migrate_case_files.py`
+`REPURPOSE_MANIFEST`: 4 new tables + 12 nullable columns.
+- `line_record_schema` (the ramo, now advisory): `+recommended_files` JSON, `+explanation` Text; per-field
+  `ai_hint` rides inside `definition` JSON (no column); **`insurance_line_id` relaxed to NULLable** (a
+  custom ramo with no CMF anchor). `insurance_line` stays the CMF classifier — deliberately NOT merged.
+- New `comparison` (header, 1:N per case_file, monotonic `canonical_version` + snapshot `dictionary`/
+  `aligned_matrix` JSON), `comparison_entry` (pure child), `comparison_source` (per-proposal dynamic-
+  extraction cache, keyed by proposal); new `broker_proposal` (the outbound propuesta: `comparison_id`,
+  `winning_proposal_id`, `content_hash`, `payload`, ratification). All 4 use plain SET NULL FKs. Enums
+  `ComparisonStatus`, `BrokerProposalStatus` (`app/models/comparison.py`, `broker_proposal.py`).
+- `policy`: `+payload` JSON (the dynamic remainder — nothing dropped now), `+is_core_valid`,
+  `+core_validation` JSON, `+extraction_id`. `offering`: `+decided_proposal_id`/`decided_note`/`decided_at`
+  (the insured's selection; `selected_proposal_id` stays the broker's recommendation). `account_group`:
+  `+icon_kind` (enum `AccountGroupIconKind` emoji|glyph|image), `+icon_value`, `+icon_document_id`.
+- **By-hand on dev RDS** (the script never alters nullability): `ALTER TABLE line_record_schema MODIFY
+  COLUMN insurance_line_id BIGINT NULL`. Local dev applies it via `import_fixtures --reset`.
+
+**AI core (`app/services/ai.py`, `app/schemas/extraction/budget_proposal.py`,
+`app/services/policy_validation.py`).**
+- `extract_budget_proposal(...)` + `BudgetProposalExtraction`: a fixed money/period core (reuses
+  `insurer_quotation` field names + `reconcile_money`) + a dynamic `facets` list + a `document_type`
+  discriminator that folds **wrong-file detection** (`not_a_proposal`) into the same call. Writes exactly
+  one `extraction` row per attempt; a wrong-file outcome is SUCCEEDED-but-flagged, never raises.
+- `align_comparison(...)`: one structured call over the cached compact facets, a **monotonic canonical
+  dictionary that only grows** (version-snapshotted), and a **deterministic `coverage_key` slug-match
+  fallback** used when the provider is unreachable — this keeps the suite hermetic (conftest blanks
+  `AI_API_KEY`). `validate_policy_core(...)`: pure fixed-core check (corredor/vigencia/prima via
+  `reconcile_money`; asegurado conditionally skipped when the account already has identity).
+  `_account_extraction_context(...)`: token-budgeted system-prepend of prior antecedentes/accepted-proposal
+  for POLICY extraction (context-aware, target schema unchanged). Generic antecedentes fallback in
+  `consolidate_antecedentes` so a no-template ramo still extracts (a no-template `process` is now 200, not 422).
+- Registry: `DocumentCategory.BUDGET_PROPOSAL` (value fits, no VARCHAR widening); `extraction_kind` reuses
+  `PROPOSAL`. `insurer_quotation` left byte-identical.
+
+**Routers (all reuse existing RBAC modules — no matrix change).**
+`app/api/routers/comparisons.py` (create-or-get, add-entry→extract→cache, align, patch/delete entry,
+promote-entry→Proposal via `derive_money`) — each column now carries a display-only `premium` block read
+from the source extraction. `app/api/routers/broker_proposals.py` (mint from `{comparison_id,
+winning_proposal_id}`, get, **list-by-case `GET /broker-proposals?case_file_id=`**, ratify). `case_files.py`
+`GET /{id}/pending-actions` (typed `[{code, severity, tab, reason, count}]`). `policies.py` `POST
+/policies/upload` (validate-then-dynamic; `not_a_policy` → 422 unless `override:true`; full parse persisted
+to `policy.payload`), and `_commit_policy` in `extraction_commit.py` gained the same gate + payload retention.
+`antecedentes.py` **warn-not-block** (`GET …/pdf` renders DRAFT/incomplete at 200; cross-ramo template
+allowed with a soft warning; generic schema surfaced). `offerings.py` public: projects **all** open proposals
+(commission stripped) + unauthenticated idempotent `POST /public/offerings/{token}/decision`. `account_groups.py`
+icon create/update/read.
+
+**Frontend (Signal system; `check:locales` 22 namespaces, es==en).** Comparison board
+`src/pages/comparisons/index.tsx` (`/comparisons/:caseId`: incremental dropzone, COMMON/EXTRAS facet grid
+with description+verbatim, premium highlight row-group, wrong-file rejection cards, recommend/realign/promote).
+Public insured page `src/pages/public/offering-decision.tsx` (`/o/:token`, own body-hash axios instance, no
+auth header). Policies overview/inspector/upload dialog (`src/components/policies/*`), propuesta panel
+(`src/components/proposals/PropuestaPanel.tsx`, now discovers via the list endpoint — the `localStorage`
+workaround was removed). `account.tsx` gained `summary` (default), `comparison`, `propuesta` tabs +
+`?tab=` sync; Pólizas tab is the overview. `Journey.tsx` enlarged to a **7-node** account rail
+(records/technical/market/comparison/proposal/policy/active) fed by pending-actions;
+`AccountSummary.tsx`; group `IconPicker`/`GroupAvatar` (emoji/glyph/image + initials fallback);
+`overview.tsx` vigencia expand-shortcut with `?tab=` quick-jumps.
+
+**Verified state.** `MEDIA_BACKEND=local pytest tests/ -q` → **596 passed**, no regressions, hermetic (the
+deterministic alignment/validation fallbacks run with `AI_API_KEY` blanked). Frontend `npx tsc -b --noEmit`
++ `npm run build` clean (only the pre-existing ~2 MB main-chunk warning); `npm run check:locales` clean, 22
+namespaces. **Still owed before push/demo:** the dev RDS migration + the by-hand nullability ALTER; nothing
+on S3; corpus extraction run through the new comparison/policy paths to validate end-to-end (user's named
+backlog); browser QA; the ~2 MB chunk; empty-state demo (comparison/propuesta seed intentionally skipped).
+
+### 2026-09-07 → 2026-09-08 — v5 Signal UI · v6 Antecedentes → Bases Técnicas · v7 broker Lines
+
+One long session, three arcs. **Full as-built detail: §16**; specs `docs/v5-signal-ui-spec.md`,
+`docs/v6-antecedentes-expediente-spec.md`, `docs/v7-lines-and-bases-tecnicas-spec.md`; companion
+`docs/handoff-2026-09-08.md`.
+
+**Added**
+
+- **UI: the "Signal" system** (§16.1) — Inter, pine accent primaries, hairline borders, de-mono'd
+  badges/tables, 11 new shadcn primitives; resizable/collapsible sidebar (tree removed from the
+  rail); Journey hero on the account page; `/analytics` routed (dashboard + recharts + paginated
+  tabs + documents explorer) with new `GET /quotes|proposals|policies/summary` aggregates. **Porcelana
+  is deprecated.**
+- **v6 Antecedentes Expediente** (§16.2) — 2 tables (`line_record_schema`, `record_expediente`),
+  enum `RecordExpedienteStatus`, category `ANTECEDENTES_PACK`; `consolidate_antecedentes` + a
+  **dynamically-built** per-ramo Pydantic model; process/get/register/pdf endpoints + ramo-schema
+  CRUD; the **Playwright HTML/CSS PDF pipeline** (`app/services/pdf.py` + `pdf_templates.py`,
+  replacing reportlab for expedientes; Chromium is a new prerequisite).
+- **v7 broker-defined Lines + Bases Técnicas** (§16.3) — `line_record_schema.is_template` +
+  `case_file.line_record_schema_id`; lines list with `usage {accounts, groups}`; clone-from-template;
+  `POST /case-files/{id}/line` assignment; `AntecedentesRead` gains `line_name`/`required_fields`/
+  `missing_required`/`complete`; `GET …/pdf` 409 when incomplete; the Settings **"Líneas"** manager
+  + the **Bases Técnicas** view; PDF reformatted per the insurance expert (materias matrix + totals,
+  sublímites/deducibles tables, vigencia/comisión numerals).
+
+**Changed**
+
+- **AI model → `zai-org/GLM-5.3-Flash`** (a reasoning model); `ai.py` hardened for empty-content /
+  `reasoning_content` / `<think>` stripping and `AI_EXTRACTION_MAX_TOKENS`.
+- **`line_record_schema` per-ramo unique constraint dropped** → `UniqueConstraint(broker_id, name)`
+  (a broker may hold several lines per ramo). **The migrate script never drops constraints — drop the
+  old unique BY HAND on dev RDS.**
+- **Derived values are code-computed, never AI-extracted** — `monto total asegurado` is now the code
+  sum of the materias matrix (§16.4).
+- `tailwind-merge` fixed to preserve custom font sizes (§16.1 trap) — keep `FONT_SIZES` in
+  `frontend/src/lib/utils.ts` in sync with `tailwind.config.ts`.
+
+**Verified state:** 564 backend tests (~125 s); `tsc -b` / `build` / `check:locales` clean; live GLM
+extraction `complete=True` (~95%) → 5-page Bases Técnicas PDF. Uncommitted on `dev`; dev RDS + S3
+untouched. Open items in §16.5 / §12.
+
 ### 2026-08-19 → 2026-08-20 — Case-files pass (docs refreshed 2026-09-04)
 
 Turned the v2 broker workspace into an **expediente-centric** application. One multi-agent pass on
@@ -2937,6 +3162,13 @@ branch `dev`, plus a fix round. Authoritative as-built detail: `docs/v2-case-fil
 
 Consolidated from `docs/v2-case-files-as-built.md` §3 and re-verified against the tree.
 Ordered by what will hurt soonest.
+
+> **v5/v6/v7 open items are in §16.5** (prefill known account data; convention→explicit PDF flags;
+> retire stale `line_record_schema` id 1; extraction tuning; line-at-creation; **dev RDS migration +
+> hand-drop the old `line_record_schema` unique constraint**; browser QA not done). New traps:
+> keep `FONT_SIZES` in `frontend/src/lib/utils.ts` synced with `tailwind.config.ts`; GLM-5.3-Flash is
+> a reasoning model (handled in `ai.py`); Chromium is a new backend prerequisite (`playwright install
+> chromium`).
 
 ### 12.1 The dev RDS migration has NOT been run — **blocker before the first push to `dev`**
 
@@ -3226,7 +3458,7 @@ dates on every ramo and policy node.
 
 | Table | Shape |
 |---|---|
-| `account_group` | `id · broker_id (CASCADE, idx) · name · slug · status (AccountGroupStatus) · notes` — carries **no money and no stage**; archiving or deleting it detaches (SET NULL), never cascades |
+| `account_group` | `id · broker_id (CASCADE, idx) · name · slug · status (AccountGroupStatus) · notes` — carries **no money and no stage**; archiving or deleting it detaches (SET NULL), never cascades. **v8 avatar:** `icon_kind` (nullable enum `AccountGroupIconKind` = `emoji｜glyph｜image`) · `icon_value VARCHAR(64)` (emoji char / curated glyph name) · `icon_document_id` (FK→document.id SET NULL, IX — uploaded image, rule 8) |
 | `account_client` | `id · broker_id · case_file_id (CASCADE) · client_id · role (AccountClientRole) · is_primary` — the N-RUT membership of an Account |
 
 ### 14.3 Added columns
@@ -3380,3 +3612,172 @@ stage is its own node. It replaces `JourneyStrip` at its mount points.
 tabs for `accounts`, `quotes`, `proposals`, `policies` and `postsale`, each with table modes and
 server-gated. They were removed from the sidebar deliberately: the broker works inside a group most
 of the time, and cross-group questions go through the agent.
+
+---
+
+## 16. v5 · v6 · v7 — Signal UI, Antecedentes → Bases Técnicas, Broker-defined Lines (as built)
+
+> Three passes landed 2026-09-07/08 in one session. Full designs:
+> [`docs/v5-signal-ui-spec.md`](v5-signal-ui-spec.md),
+> [`docs/v6-antecedentes-expediente-spec.md`](v6-antecedentes-expediente-spec.md),
+> [`docs/v7-lines-and-bases-tecnicas-spec.md`](v7-lines-and-bases-tecnicas-spec.md). The short
+> "what changed + backlog" companion is [`docs/handoff-2026-09-08.md`](handoff-2026-09-08.md); the
+> **raw broker feedback** (José's WhatsApp thread + 7-min audio) that drove the Bases-Técnicas format
+> — with the note that **the derived idea was wrong and must be revisited with the user** — is
+> [`docs/jose-feedback-raw-2026-09-07.md`](jose-feedback-raw-2026-09-07.md).
+> All additive: no route renamed, no column dropped, no enum member removed (one **constraint was
+> relaxed** — see 16.3). **Porcelana (§15) is deprecated**; the UI direction is now "Signal".
+
+### 16.1 v5 — the "Signal" UI system + structural rebuild
+
+The Porcelana execution was rejected; the app now follows a disciplined **Signal** system:
+**Inter** everywhere (Space Grotesk only in the "Radal." wordmark; DM Mono/Instrument Sans removed),
+**pine accent primary buttons** (never ink/black), **hairline borders** (not shadow rings),
+normal-case badges with status dots, de-mono'd tables, purposeful framer-motion, real shadcn
+components. Tokens live in `frontend/src/index.css` + `tailwind.config.ts`; 11 new primitives were
+added (`popover`, `command`, `resizable`, `collapsible`, `switch`, `checkbox`, `progress`,
+`breadcrumb`, `separator`, `scroll-area`, `textarea`).
+
+Structural changes shipped with it:
+- **Sidebar** is resizable + collapsible (localStorage `radal.sidebar.width` / `.collapsed`); the
+  **group tree was removed from the rail** (`TreeNode`/`PolicyNode`/`RecordFolderRow` deleted) —
+  stage navigation now lives in the central account view.
+- **Journey hero** mounted on the account page; `JourneyStrip` deleted.
+- **Group has no RUT** — list/overview relabelled Contratante/Empresas.
+- **`/analytics` is finally routed** (App.tsx had no route before) with a new `analytics` i18n
+  namespace, a dashboard (KPIs + two recharts charts), and paginated entity tabs + a documents
+  explorer. New tenant-scoped aggregates back it: `GET /quotes/summary`, `GET /proposals/summary`,
+  `GET /policies/summary` (mirroring `GET /case-files/summary`).
+- **TRAP (fixed):** `tailwind-merge` treats a custom font-size class (`text-body`, `text-caption`…)
+  as a colour and drops it when a colour is also set — invisible button labels + a collapsed type
+  scale. Fixed in `frontend/src/lib/utils.ts` with `extendTailwindMerge` + an explicit `font-size`
+  group. **Any name added to `fontSize` in `tailwind.config.ts` MUST be added to `FONT_SIZES` in
+  `utils.ts`.**
+
+### 16.2 v6 — the Antecedentes Expediente (extract → validate → register → view + PDF)
+
+The **first** of the standardised expedientes. For one **account** the broker gathers everything the
+insured communicated, the AI **consolidates** it into a per-ramo schema, the broker **validates and
+completes** it (nothing auto-writes), **registers** it, then views it in-app and exports a branded
+PDF. Doctrine = CLAUDE.md rule 6 (suggest → confirm → commit).
+
+**New tables** (`create_all` on a fresh local DB; the migrate script ALTERs an existing one):
+- **`line_record_schema`** — the per-ramo antecedentes schema; **the user-facing *ramo*** (v8). `id`,
+  `broker_id` (nullable — NULL = global template/seed), `insurance_line_id` (**v8: NULLable** — the
+  optional CMF classifier anchor; NULL = a custom ramo not mapped to any CMF line), `name`, `version`,
+  `is_active`, **`is_template`** (v7), `definition` (JSON), **`recommended_files`** (v8, JSON — the
+  recommended antecedentes documents, `[{category,label,explanation,required}]`), **`explanation`**
+  (v8, TEXT — a ramo-level blurb priming the AI), `created_by_id`, timestamps. The `definition` is
+  `{sections:[{key,label,fields:[{key,label,type,required,description?,ai_hint?,options?,unit?,
+  repeatable?,totals?,fields?}]}]}` — v8 adds an optional per-field **`ai_hint`** (inside the JSON, no
+  column); `type ∈ text|number|integer|boolean|date|money_uf|percent|select|list|group`. English keys;
+  Spanish labels/descriptions are data. Ramos are advisory-only: comparison and policy extraction are
+  dynamic and never read this table.
+- **`record_expediente`** — the registered instance, one per account. `broker_id`, `case_file_id`,
+  `insurance_line_id`, `line_record_schema_id`, `schema_version`, `status`
+  (`RecordExpedienteStatus`: draft/processing/review/registered), `payload` (JSON, human-validated),
+  `source_extraction_id`, **`pdf_document_id`** (the generated PDF is a `document`, category
+  `ANTECEDENTES_PACK` — rule 8), `ai_confidence`, `registered_at/by`. `UniqueConstraint(broker_id,
+  case_file_id)`.
+- **Enum** `RecordExpedienteStatus`; **DocumentCategory** `ANTECEDENTES_PACK`.
+
+**AI (§8 addendum).** Model switched to **`zai-org/GLM-5.3-Flash`** (DeepInfra) — a **reasoning
+model** that returns `reasoning_content` separately and leaves `content` empty when `max_tokens` is
+too small. `app/services/ai.py` was hardened: `AI_EXTRACTION_MAX_TOKENS` (~12000) passed into the
+structured call, a `reasoning_content` fallback in `_message_text`, and `<think>…</think>` stripping
+before JSON parse. `consolidate_antecedentes(db, *, case_file_id, broker_id, user)` reads every
+antecedentes doc (sections `root_prospect` + `submission`, broker-scoped) via `load_document_text`,
+resolves the line, **builds a Pydantic model dynamically** (`build_dynamic_schema` → `create_model`
+over the `common.py` Annotated helpers), calls the LLM (json-mode), and persists **one `Extraction`
+row per attempt** (suggest-only). No new list-extractions endpoint exists.
+
+**Endpoints** (`app/api/routers/antecedentes.py`): `POST /case-files/{id}/antecedentes/process`,
+`GET /case-files/{id}/antecedentes`, `POST …/register`, `GET …/pdf`; ramo-schema CRUD under
+`/line-record-schemas`.
+
+**PDF pipeline (replaces reportlab for expedientes).** `app/services/pdf.py` renders a
+self-contained HTML string to A4 bytes with **async Playwright/Chromium** (`render_html_to_pdf`;
+shared browser launched in `main.py` lifespan, lazy fallback); `app/services/pdf_templates.py`
+composes it (`render_expediente_html(title, branding, sections)`). Fonts (Inter, Space Grotesk 700,
+Sora 700) + logos are **embedded as `data:` URIs** — no network at render. Provisioning:
+`playwright install chromium` (installed in `backend/.venv`; NEW prerequisite — see `deployment.md`).
+`render_expediente_html` is a pure string builder (unit-tested, Chromium-free); the true render is
+stubbed/opt-in in tests. Frontend: `AntecedentesReview`, `ExpedienteView`, the `antecedentes` i18n
+namespace, and the account "Bases Técnicas" tab.
+
+### 16.3 v7 — broker-defined Lines + Bases Técnicas
+
+Clarified model: **a line (ramo) is broker-defined.** The broker authors a *line* (the ramo + the
+antecedentes data it requires) and **assigns it to an account**; the same ramo can differ per
+insured. Radal ships **recommended global templates** (2 seeded; the team is preparing a full list)
+that a broker adopts and then edits freely.
+
+- **`line_record_schema.is_template`** added; the per-ramo unique constraint was **dropped and
+  replaced with `UniqueConstraint(broker_id, name)`** so a broker may hold several lines per ramo.
+  (**The migrate script never drops constraints — the old unique must be dropped BY HAND on dev
+  RDS.**)
+- **`case_file.line_record_schema_id`** (FK SET NULL) — the line **assigned** to an account.
+  Resolution order (`resolve_account_line_record_schema`): the assigned line → else the broker's
+  line for that ramo → else the global template.
+- **Lines API** (`/line-record-schemas`, writes gated `Settings.Manage`): list returns `is_template`
+  + **`usage {accounts, groups}`**; `POST` accepts `from_template_id` (clone a template into a broker
+  line); `DELETE` → 409 when in use; **`POST /case-files/{id}/line`** assigns a line (gated
+  `CaseFiles.Edit`; 422 on ramo mismatch).
+- **`AntecedentesRead`** gained `line_name`, **`required_fields`**, **`missing_required`**,
+  **`complete`**. **"Bases Técnicas" = the completed antecedentes rendered to PDF — no middle step.**
+  `GET …/pdf` returns **409 when `complete` is False** (can't send an incomplete file); the UI gates
+  "Descargar Bases Técnicas" on `complete`. Renamed across UI + PDF (eyebrow / running header /
+  filename `bases-tecnicas-{id}.pdf`).
+- **Frontend.** Settings 4th tab **"Líneas"** (`value="schemas"`, `RamoSchemasTab.tsx`, gated
+  `Settings.Manage`/broker_admin): lists the broker's lines + templates (Plantilla badge) with usage,
+  create-from-template or scratch, a field editor with mandatory toggles, delete-blocked-when-in-use.
+  The **Bases Técnicas view** (`ExpedienteView.tsx`) shows a **requisitos checklist** (the line's
+  `required_fields`, ticking `missing_required`), a **"Cambiar línea"** control, and the gated
+  download. Overview cards show the assigned line name.
+
+### 16.4 PDF formatting (insurance-expert feedback) + the "code computes" principle
+
+The Property template was redefined per José Francisco's feedback and the generic engine extended:
+**dirección comercial**; the **ubicaciones × materias aseguradas** merged into **one matrix with a
+code-summed Total row + grand total** (term **"materias aseguradas"**, not "partidas"); **sublímites**
+and **deducibles** as **two separate tables** (PxP split across them); **vigencia** rendered "desde
+las 12:00 h del X hasta las 12:00 h del Y"; **comisión %** as its own numeral; **siniestralidad**
+merged (has_claims + a detalle sub-table under one number); **medidas de protección** as a table;
+observaciones dropped. Branding: cover = Radal logo lockup; content-page running header = **broker
+logo LEFT** (or the broker name in a display font when there is no logo — never a monogram) + **Radal
+isotype RIGHT**; footer = broker legal name + page n/N (`@page` margin boxes). Pagination **flows**
+(a `<table><thead>` running header — `position:fixed` is unreliable in headless Chromium).
+
+**Principle (user correction — binding):** the expediente is assembled by **code** from structured,
+categorised data; the AI **only** extracts/fills the category fields (a human validates). Any
+**derived/aggregate value is computed by code, never AI-extracted** — `monto total asegurado` is now
+`_matrix_grand_total(...)` over the materias matrix (`_with_derived_totals`), removed from
+`required_fields`, applied in `_antecedentes_read` and the PDF. A related, not-yet-done improvement:
+**prefill known account data** (insured RUT/razón social from the contratante client; vigencia from
+the account period) so they stop being AI-extracted mandatory blockers.
+
+### 16.5 Open items (carry into the next session — see also §12)
+
+1. **Prefill known account data** (insured identity + vigencia) so they're code-filled, not
+   completeness blockers. (This is why an *unprocessed* account shows "missing: RUT …".)
+2. **Turn PDF conventions into explicit per-field flags.** The vigencia prose + derived total key off
+   the section names `vigencia` / `total_insured`; drive them off flags (`"computed": "matrix_total"`,
+   a render directive) and expose them in the line editor so custom lines are predictable.
+3. **Retire the stale v6 global schema `line_record_schema` id 1** (old section structure; can win
+   resolution for a broker with no own line on ramo 1).
+4. **Extraction tuning:** make PxP land in its materia column automatically; trim the
+   "Límite de indemnización" over-extraction.
+5. **Line assignment at account creation** (`account-new.tsx`) — today it lives on the account page.
+6. **dev RDS migration** (`--apply` + hand-drop the old `line_record_schema` unique) before push.
+7. **Browser QA not done** (Chrome extension kept dropping): verify the Líneas manager, the Bases
+   Técnicas view + assignment, and the overview line display end-to-end.
+8. **Team's full ramo list** → add as more global templates.
+
+### 16.6 Verified state (2026-09-08)
+
+**564 backend tests passing (~125 s)** · `tsc -b`, `npm run build`, `check:locales` (19 namespaces)
+clean · live GLM extraction of the Viña Santa Alicia account returns `complete=True` at ~95%
+confidence and renders a 5-page Bases Técnicas PDF. Demo: `usuario11@fuenzalidasr.cl` (broker 3) →
+group 6 → account `case_file 4`. Seed: `line_record_schema` ids 2/3 (global templates), id 4
+(Fuenzalida Property line) assigned to case 4 & 6; id 1 is the stale v6 schema to retire.
+**Everything uncommitted on `dev`; nothing on dev RDS or S3.**

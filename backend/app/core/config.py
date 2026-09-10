@@ -52,6 +52,23 @@ class Settings(BaseSettings):
     # budget is too small. The extraction / consolidation calls therefore need a
     # generous ceiling — far above the 4000 that the chat agent gets by default.
     AI_EXTRACTION_MAX_TOKENS: int = 12000
+    # Optional per-task model tiering (app.services.ai_models). Comma-separated
+    # `TASK=model` pairs, e.g. "COMPARE=zai-org/GLM-4.6,PROPUESTA=zai-org/GLM-4.6".
+    # Blank => every task uses AI_MODEL. A seam, not a behaviour change.
+    AI_MODEL_TIERS: str = ""
+    # The holistic comparison sees ALL cotización readings at once. Above this
+    # assembled-input size the readings are split into batches, each run then
+    # merged into one standardized table. Sized so a batch is ~1-2 DENSE quotes:
+    # each batch must re-emit its dimensions × cells WITH verbatim, which is a
+    # large output, and both that output AND the 360s timeout have to fit. A
+    # dense 3-quote comparison (~90k chars) therefore batches (correct); a small
+    # or sparse comparison still fits one call. (Keep backend.env aligned.)
+    AI_COMPARE_MAX_INPUT_CHARS: int = 45000
+    # The comparison OUTPUT budget — SEPARATE from and LARGER than the extraction
+    # budget, because standardizing a batch re-emits every dimension's cells with
+    # verbatim. Too small and GLM (a reasoning model) spends the budget thinking,
+    # then truncates the tool arguments to an empty dict — the bug this fixes.
+    AI_COMPARE_MAX_TOKENS: int = 24000
 
     # --- Storage (S3) ---
     # One bucket holds both `media/` (logos, avatars) and `documents/` (files).
@@ -94,6 +111,8 @@ class Settings(BaseSettings):
         "REFRESH_TOKEN_EXPIRE_DAYS",
         "AI_TIMEOUT_SECONDS",
         "AI_EXTRACTION_MAX_TOKENS",
+        "AI_COMPARE_MAX_INPUT_CHARS",
+        "AI_COMPARE_MAX_TOKENS",
         "MEDIA_MAX_UPLOAD_MB",
         "DOCUMENT_MAX_UPLOAD_MB",
         "PACK_MAX_MB",

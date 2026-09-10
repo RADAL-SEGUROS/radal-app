@@ -49,14 +49,24 @@ from app.models import (
 )
 from app.models.enums import EntityType
 from app.schemas.document import DocumentDownload
+from app.models.proposal import ProposalStatus
 from app.schemas.offering import (
     OfferingCreate,
+    OfferingDecisionRequest,
     OfferingListResponse,
     OfferingPublicProposal,
     OfferingPublicRead,
     OfferingRead,
     OfferingSend,
     OfferingUpdate,
+)
+
+#: A proposal the insured may still choose from the public surface: everything
+#: that has not been rejected/withdrawn/expired.
+_OPEN_PROPOSAL_STATUSES = (
+    ProposalStatus.DRAFT,
+    ProposalStatus.SUBMITTED,
+    ProposalStatus.ACCEPTED,
 )
 
 router = APIRouter(prefix="/offerings", tags=["offerings"])
@@ -484,27 +494,37 @@ def get_offering_by_token(
 
     quote = db.get(QuoteRequest, offering.quote_request_id)
     broker = db.get(Broker, offering.broker_id)
-    proposal = (
-        db.get(Proposal, offering.selected_proposal_id)
-        if offering.selected_proposal_id is not None
+
+    recommended = None
+    if offering.selected_proposal_id is not None:
+        recommended = db.get(Proposal, offering.selected_proposal_id)
+
+    # EVERY open proposal of the quote, in clear language, so the insured can
+    # compare and choose. Commission and broker-internal fields never appear.
+    open_proposals = (
+        db.scalars(
+            select(Proposal)
+            .where(
+                Proposal.quote_request_id == offering.quote_request_id,
+                Proposal.broker_id == offering.broker_id,
+                Proposal.status.in_(_OPEN_PROPOSAL_STATUSES),
+            )
+            .order_by(Proposal.total_premium_uf.is_(None), Proposal.total_premium_uf.asc())
+        ).all()
+        if quote is not None
+        else []
+    )
+    public_proposals = [
+        _public_proposal(
+            db, prop, recommended=(prop.id == offering.selected_proposal_id)
+        )
+        for prop in open_proposals
+    ]
+    public_proposal = (
+        _public_proposal(db, recommended, recommended=True)
+        if recommended is not None
         else None
     )
-
-    public_proposal = None
-    if proposal is not None:
-        insurer = db.get(Insurer, proposal.insurer_id)
-        public_proposal = OfferingPublicProposal(
-            insurer_name=(insurer.trade_name or insurer.legal_name) if insurer else None,
-            insurer_cmf_code=insurer.cmf_code if insurer else None,
-            modality=proposal.modality,
-            total_premium_uf=proposal.total_premium_uf,
-            net_premium_uf=proposal.net_premium_uf,
-            vat_uf=proposal.vat_uf,
-            comprehensive_rate_permille=proposal.comprehensive_rate_permille,
-            validity_business_days=proposal.validity_business_days,
-            coverage_start=proposal.coverage_start,
-            coverage_end=proposal.coverage_end,
-        )
 
     pdf_url = None
     if offering.pdf_document_id is not None:
@@ -522,8 +542,93 @@ def get_offering_by_token(
         insured_object=quote.insured_object if quote else None,
         declared_value_uf=quote.declared_value_uf if quote else None,
         proposal=public_proposal,
+        proposals=public_proposals,
+        decided_proposal_id=offering.decided_proposal_id,
+        decided_note=offering.decided_note,
+        decided_at=offering.decided_at,
         pdf_url=pdf_url,
     )
 
 
+@public_router.post("/{share_token}/decision", response_model=OfferingPublicRead)
+def record_offering_decision(
+    share_token: str,
+    payload: OfferingDecisionRequest,
+    db: Session = Depends(get_db),
+) -> OfferingPublicRead:
+    """Record the insured's choice. UNAUTHENTICATED — the token IS the credential.
+
+    This is a PUBLIC WRITE path, so the narrow projection is the only guard: the
+    body may only name a ``proposal_id`` that belongs to THIS offering's quote
+    (else 422), and the response never carries a broker-internal field. It is
+    IDEMPOTENT — re-posting the same choice is a 200 no-op; changing it is
+    allowed until the broker acts on the decision. It does NOT advance the case
+    stage: the broker picks the decision up and mints the broker_proposal.
+    """
+    offering = db.scalar(select(Offering).where(Offering.share_token == share_token))
+    if offering is None or offering.status is OfferingStatus.DRAFT:
+        raise HTTPException(status_code=404, detail="Offering not found")
+
+    expires_at = _as_aware(offering.expires_at)
+    if expires_at is not None and expires_at <= _utcnow():
+        if offering.status is not OfferingStatus.EXPIRED:
+            offering.status = OfferingStatus.EXPIRED
+            db.commit()
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="This offering has expired")
+
+    # The chosen proposal must belong to this offering's quote (tenant + quote
+    # scoped). A foreign or unrelated proposal is a 422, never a silent accept.
+    proposal = db.scalar(
+        select(Proposal).where(
+            Proposal.id == payload.proposal_id,
+            Proposal.broker_id == offering.broker_id,
+            Proposal.quote_request_id == offering.quote_request_id,
+        )
+    )
+    if proposal is None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Proposal {payload.proposal_id} does not belong to this offering's "
+                "quote"
+            ),
+        )
+
+    already = (
+        offering.decided_proposal_id == proposal.id
+        and (offering.decided_note or None) == (payload.note or None)
+    )
+    if not already:
+        offering.decided_proposal_id = proposal.id
+        offering.decided_note = payload.note
+        offering.decided_at = _utcnow()
+        if offering.status is not OfferingStatus.ACCEPTED:
+            offering.status = OfferingStatus.ACCEPTED
+        db.commit()
+        db.refresh(offering)
+
+    return get_offering_by_token(share_token, db=db)
+
+
 __all__ = ["router", "public_router", "build_offering_pdf"]
+
+
+def _public_proposal(
+    db: Session, proposal: Proposal, *, recommended: bool
+) -> OfferingPublicProposal:
+    """One proposal's headline figures for the public surface — no commission."""
+    insurer = db.get(Insurer, proposal.insurer_id)
+    return OfferingPublicProposal(
+        id=proposal.id,
+        insurer_name=(insurer.trade_name or insurer.legal_name) if insurer else None,
+        insurer_cmf_code=insurer.cmf_code if insurer else None,
+        modality=proposal.modality,
+        is_recommended=recommended,
+        total_premium_uf=proposal.total_premium_uf,
+        net_premium_uf=proposal.net_premium_uf,
+        vat_uf=proposal.vat_uf,
+        comprehensive_rate_permille=proposal.comprehensive_rate_permille,
+        validity_business_days=proposal.validity_business_days,
+        coverage_start=proposal.coverage_start,
+        coverage_end=proposal.coverage_end,
+    )

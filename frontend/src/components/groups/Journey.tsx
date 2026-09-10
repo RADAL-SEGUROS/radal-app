@@ -20,7 +20,7 @@
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, Info, Loader2 } from "lucide-react";
+import { Check, ChevronDown, Info, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ import {
   type CaseFileKind,
   type CaseStage,
   type CaseTransitionOption,
+  type PendingAction,
 } from "@/api/types";
 
 export interface JourneyProps {
@@ -47,12 +48,32 @@ export interface JourneyProps {
   /** From `GET /case-files/{id}/transitions` — omit/[] on compact cards. */
   transitions?: CaseTransitionOption[];
   variant: "hero" | "compact";
+  /**
+   * The account's actionable gaps (`GET /case-files/{id}/pending-actions`),
+   * hero only. Surfaced as a "N pendientes" chip on the current stage so the
+   * hero says not just WHERE the case is but WHAT the broker must still do.
+   */
+  pendingActions?: PendingAction[];
   /** Gate + mutation wiring, hero only (the contract the old `JourneyStrip` had). */
   canTransition?: boolean;
   isPending?: boolean;
   pendingStage?: CaseStage | null;
   onTransition?: (stage: CaseStage) => void;
   className?: string;
+}
+
+/**
+ * The first forward stage of the rail after `stage` (server flow order), or
+ * `null` when the case is already at the end / closed. Used by the overview
+ * cards to print a light "next step" caption WITHOUT a per-account transitions
+ * request — the caption is orientation, the account page owns the real guard.
+ */
+export function nextForwardStage(kind: CaseFileKind, stage: CaseStage): CaseStage | null {
+  if (stage === "closed") return null;
+  const flow = CASE_STAGE_FLOW[kind] ?? [];
+  const idx = flow.indexOf(stage);
+  if (idx < 0 || idx >= flow.length - 1) return null;
+  return flow[idx + 1];
 }
 
 // -----------------------------------------------------------------------------
@@ -70,13 +91,19 @@ interface RailNode {
   stages: readonly CaseStage[];
 }
 
+// The seven milestones the broker actually names (v8): records/intake ·
+// technical spec (bases técnicas) · market/quotes · comparison · proposal ·
+// policy · active. Splitting the old "mercado" node into "technical" (the
+// bases técnicas) and "market" (submission + quotes) is what lets the rail read
+// like the real journey the account travels.
 const ACCOUNT_PHASES: readonly RailNode[] = [
-  { id: "antecedentes", stages: ["lead", "intake", "pre_underwriting"] },
-  { id: "mercado", stages: ["technical_basis", "market_submission", "quotes_received"] },
-  { id: "comparacion", stages: ["comparison", "insured_decision"] },
-  { id: "propuesta", stages: ["proposal_issued", "ratified"] },
-  { id: "poliza", stages: ["policy_issued", "mirror_validation"] },
-  { id: "vigente", stages: ["active"] },
+  { id: "records", stages: ["lead", "intake", "pre_underwriting"] },
+  { id: "technical", stages: ["technical_basis"] },
+  { id: "market", stages: ["market_submission", "quotes_received"] },
+  { id: "comparison", stages: ["comparison", "insured_decision"] },
+  { id: "proposal", stages: ["proposal_issued", "ratified"] },
+  { id: "policy", stages: ["policy_issued", "mirror_validation"] },
+  { id: "active", stages: ["active"] },
 ];
 
 /**
@@ -94,7 +121,7 @@ const COLLECTION_RAIL: readonly CaseStage[] = [
 
 const NODES_BY_KIND: Record<CaseFileKind, readonly RailNode[]> = {
   account: ACCOUNT_PHASES,
-  renewal: [{ id: "renovacion", stages: ["renewal_review"] }, ...ACCOUNT_PHASES],
+  renewal: [{ id: "renewal", stages: ["renewal_review"] }, ...ACCOUNT_PHASES],
   endorsement: ENDORSEMENT_STAGES.map((s) => ({ id: s, stages: [s] })),
   collection: COLLECTION_RAIL.map((s) => ({ id: s, stages: [s] })),
   claim: CLAIM_STAGES.map((s) => ({ id: s, stages: [s] })),
@@ -169,18 +196,19 @@ function NodeDot({
   hero: boolean;
   animate: boolean;
 }) {
-  // done 10 / current 14 / upcoming 8 (hero); 6 / 10 / 6 (compact) — spec §3.3.
+  // done 16 / current 24 / upcoming 14 (hero, a legible stepper); 6 / 10 / 6
+  // (compact) — enlarged from spec §3.3 for the restyle.
   const size =
     state === "current"
       ? hero
-        ? "h-3.5 w-3.5"
+        ? "h-6 w-6"
         : "h-2.5 w-2.5"
       : state === "upcoming"
         ? hero
-          ? "h-2 w-2"
+          ? "h-3.5 w-3.5"
           : "h-1.5 w-1.5"
         : hero
-          ? "h-2.5 w-2.5"
+          ? "h-4 w-4"
           : "h-1.5 w-1.5";
 
   const style: React.CSSProperties =
@@ -189,16 +217,16 @@ function NodeDot({
           background: TONE_COLOR[tone],
           // pine fill + panel-gap ring + soft brand ring (spec's exact recipe).
           boxShadow: hero
-            ? `0 0 0 2px var(--bone), 0 0 0 5px ${TONE_RING[tone]}`
+            ? `0 0 0 3px var(--bone), 0 0 0 7px ${TONE_RING[tone]}`
             : `0 0 0 1.5px var(--bone), 0 0 0 3px ${TONE_RING[tone]}`,
         }
       : state === "done"
-        ? { background: TONE_COLOR[tone] }
+        ? { background: TONE_COLOR[tone], boxShadow: hero ? "0 0 0 3px var(--bone)" : undefined }
         : state === "muted"
           ? { background: "var(--line)" }
           : {
-              background: "var(--bone)",
-              boxShadow: "0 0 0 1.5px var(--line)",
+              background: "var(--paper)",
+              boxShadow: hero ? "0 0 0 2px var(--line)" : "0 0 0 1.5px var(--line)",
             };
 
   // The current node breathes: an expanding, fading halo behind the dot
@@ -213,9 +241,27 @@ function NodeDot({
           />
         ) : null}
         <span
-          className={cn("relative block h-full w-full rounded-full", animate && "rj-pop")}
+          className={cn(
+            "relative flex h-full w-full items-center justify-center rounded-full",
+            animate && "rj-pop",
+          )}
           style={style}
-        />
+        >
+          {hero ? <span className="h-2 w-2 rounded-full bg-white/90" /> : null}
+        </span>
+      </span>
+    );
+  }
+
+  // Done hero nodes carry a check — the rail reads as a real stepper.
+  if (state === "done" && hero) {
+    return (
+      <span
+        className={cn("flex shrink-0 items-center justify-center rounded-full", size)}
+        style={style}
+        aria-hidden
+      >
+        <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
       </span>
     );
   }
@@ -232,6 +278,7 @@ export function Journey({
   stage,
   transitions = [],
   variant,
+  pendingActions = [],
   canTransition = false,
   isPending = false,
   pendingStage = null,
@@ -338,8 +385,8 @@ export function Journey({
   // ---------------------------------------------------------------------------
   // The rail (shared by both variants)
   // ---------------------------------------------------------------------------
-  const nodeRowH = hero ? "h-5" : "h-3";
-  const svgTop = hero ? 6 : 2;
+  const nodeRowH = hero ? "h-8" : "h-3";
+  const svgTop = hero ? 12 : 2;
 
   const rail = (
     <div className="relative">
@@ -360,7 +407,7 @@ export function Journey({
           x2={last}
           y2="4"
           stroke="var(--line)"
-          strokeWidth={hero ? 2.5 : 2}
+          strokeWidth={hero ? 3 : 2}
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
         />
@@ -415,7 +462,7 @@ export function Journey({
                 : "upcoming";
           const hint = nodeHint(node, state);
           const column = (
-            <div className="flex min-w-0 flex-col items-center gap-1.5 px-1">
+            <div className="flex min-w-0 flex-col items-center gap-2 px-1">
               <span className={cn("flex items-center justify-center", nodeRowH)}>
                 <NodeDot
                   state={state}
@@ -427,17 +474,17 @@ export function Journey({
               {hero ? (
                 <span
                   className={cn(
-                    "whitespace-nowrap text-caption",
+                    "whitespace-nowrap text-center text-caption leading-tight",
                     state === "current"
-                      ? "font-medium text-ink"
+                      ? "font-semibold text-ink"
                       : state === "done"
-                        ? "text-ink-3"
-                        : "text-ink-3 opacity-70",
+                        ? "font-medium text-ink-2"
+                        : "text-ink-3",
                   )}
                 >
                   {nodeLabel(node)}
                   {state === "current" && microTotal > 1 ? (
-                    <span className="ml-1 text-caption tabular-nums text-ink-3">
+                    <span className="ml-1 tabular-nums text-ink-3">
                       {t("journey.progress", { done: microIdx + 1, total: microTotal })}
                     </span>
                   ) : null}
@@ -519,21 +566,33 @@ export function Journey({
   const advancing = isPending && pendingStage != null && pendingStage !== "closed";
   const noPermissionHint = !canTransition ? t("journey.noPermission") : null;
 
+  // The account's open gaps, folded to one glanceable chip on the current
+  // stage: total count + whether any is a hard blocker (recolors the chip).
+  const pendingCount = pendingActions.reduce((sum, a) => sum + (a.count || 1), 0);
+  const hasBlocker = pendingActions.some((a) => a.severity === "blocker");
+
   return (
-    <div className={cn("flex flex-col gap-1", className)}>
+    <div className={cn("flex flex-col gap-2", className)}>
       <style>{JOURNEY_CSS}</style>
 
       <div className="overflow-x-auto pb-1">
-        <div className={cn("pt-1", n >= 6 ? "min-w-[560px]" : "min-w-[420px]")}>{rail}</div>
+        <div className={cn("pt-2", n >= 7 ? "min-w-[720px]" : n >= 6 ? "min-w-[620px]" : "min-w-[480px]")}>
+          {rail}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1 basis-64">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-h3 font-semibold tracking-tight text-ink">
+            <h3 className="text-h2 font-semibold tracking-tight text-ink">
               {closed ? t("stages.closed") : stageLabel}
             </h3>
             {closed ? <Badge variant="muted">{t("journey.closedChip")}</Badge> : null}
+            {!closed && pendingCount > 0 ? (
+              <Badge variant={hasBlocker ? "danger" : "warn"} dot>
+                {t("journey.pending", { count: pendingCount })}
+              </Badge>
+            ) : null}
           </div>
 
           {/* Qué sigue — the first allowed forward step, or the server's

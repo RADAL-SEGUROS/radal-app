@@ -110,6 +110,58 @@ _MIME_TO_EXT = {
 _IMAGE_MIME_PREFIX = "image/"
 _SAFE_EXT_RE = re.compile(r"^[A-Za-z0-9]{1,12}$")
 
+# --- Antecedentes upload format policy ---------------------------------------
+# Antecedentes are read by the AI: the FORMAT must be PDF, Word or an image (the
+# vision path). Excel is rejected — a spreadsheet must be exported to PDF first.
+# The sections that make up the antecedentes intake area.
+_ANTECEDENTES_SECTIONS = frozenset({CaseSection.ROOT_PROSPECT, CaseSection.SUBMISSION})
+_WORD_MIMES = frozenset(
+    {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+    }
+)
+_EXCEL_MIMES = frozenset(
+    {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+        "application/vnd.ms-excel.sheet.macroenabled.12",
+    }
+)
+_EXCEL_EXTENSIONS = (".xlsx", ".xls", ".xlsm")
+_ANTECEDENTES_ALLOWED_MIMES = frozenset({"application/pdf"}) | _WORD_MIMES
+_ANTECEDENTES_ALLOWED_EXTENSIONS = (".pdf", ".docx", ".doc")
+
+
+def _guard_antecedentes_format(
+    section: CaseSection | None, mime_type: str | None, original_name: str
+) -> None:
+    """Reject an antecedentes upload that is not PDF, Word or an image.
+
+    Excel is called out with an explicit, actionable message (rule: no silent
+    failures). Anything else that is neither a document nor an image is a 415."""
+    if section not in _ANTECEDENTES_SECTIONS:
+        return
+    mime = (mime_type or "").lower()
+    name = (original_name or "").lower()
+    is_excel = mime in _EXCEL_MIMES or name.endswith(_EXCEL_EXTENSIONS)
+    if is_excel:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Sube PDF o Word — para Excel, expórtalo a PDF.",
+        )
+    is_image = mime.startswith(_IMAGE_MIME_PREFIX) or name.endswith(
+        (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp")
+    )
+    is_doc = mime in _ANTECEDENTES_ALLOWED_MIMES or name.endswith(
+        _ANTECEDENTES_ALLOWED_EXTENSIONS
+    )
+    if not (is_image or is_doc):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Formato no soportado para antecedentes: sube PDF, Word o una imagen.",
+        )
+
 
 # =============================================================================
 # Entity resolution — a document may only be attached inside the caller's broker
@@ -482,6 +534,10 @@ def upload_document(
 
     original_name = (file.filename or "upload").strip()[:255]
     mime_type = (file.content_type or "").split(";")[0].strip().lower() or None
+
+    # Antecedentes must arrive as PDF / Word / image (Excel is rejected). Applies
+    # only when the upload is filed inside the antecedentes intake sections.
+    _guard_antecedentes_format(section, mime_type, original_name)
 
     is_logo_image = (
         category is DocumentCategory.LOGO

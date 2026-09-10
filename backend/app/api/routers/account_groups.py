@@ -27,12 +27,18 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
 from app.api.routers.clients import count_total, paginate, record_activity
+from app.api.routers.documents import get_document_url
 from app.models.account_client import AccountClient
-from app.models.account_group import AccountGroup, AccountGroupStatus
+from app.models.account_group import (
+    AccountGroup,
+    AccountGroupIconKind,
+    AccountGroupStatus,
+)
 from app.models.activity import Activity, Note
 from app.models.case_file import CaseFile, CaseFileStageEvent
 from app.models.client import Client
 from app.models.collection import CollectionPlan
+from app.models.document import Document
 from app.models.endorsement import Endorsement
 from app.models.enums import CaseFileStatus, EntityType
 from app.models.insured import Insured
@@ -43,6 +49,8 @@ from app.schemas.account_group import (
     AccountGroupClientRead,
     AccountGroupCreate,
     AccountGroupDetail,
+    AccountGroupIconInput,
+    AccountGroupIconRead,
     AccountGroupPage,
     AccountGroupRead,
     AccountGroupUpdate,
@@ -94,6 +102,42 @@ def _unique_slug(db: Session, broker_id: int, name: str) -> str:
         slug = f"{base[: max(1, 80 - len(suffix))]}{suffix}"
         n += 1
     return slug
+
+
+def _apply_icon(
+    db: Session, group: AccountGroup, icon: AccountGroupIconInput, broker_id: int
+) -> None:
+    """Persist the group avatar. An image resolves its ``document`` in the
+    broker's own scope — a foreign-tenant document id is a 404 (rule 2)."""
+    if icon.kind is AccountGroupIconKind.IMAGE:
+        doc = db.scalars(
+            select(Document).where(
+                Document.id == icon.document_id, Document.broker_id == broker_id
+            )
+        ).first()
+        if doc is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Icon document not found"
+            )
+        group.icon_kind = AccountGroupIconKind.IMAGE
+        group.icon_value = None
+        group.icon_document_id = doc.id
+    else:
+        group.icon_kind = icon.kind
+        group.icon_value = icon.value
+        group.icon_document_id = None
+
+
+def _icon_read(db: Session, group: AccountGroup) -> AccountGroupIconRead | None:
+    """The resolved avatar; a scoped URL for an image icon, null otherwise."""
+    if group.icon_kind is None:
+        return None
+    url = None
+    if group.icon_kind is AccountGroupIconKind.IMAGE and group.icon_document_id is not None:
+        doc = db.get(Document, group.icon_document_id)
+        if doc is not None and doc.broker_id == group.broker_id:
+            url = get_document_url(doc)
+    return AccountGroupIconRead(kind=group.icon_kind, value=group.icon_value, url=url)
 
 
 def _resolve_client(db: Session, client_id: int, broker_id: int) -> Client:
@@ -225,6 +269,7 @@ def _clients_of(db: Session, broker_id: int, group_ids: list[int]) -> dict[int, 
 
 
 def _read(
+    db: Session,
     group: AccountGroup,
     *,
     aggregates: dict[str, Any],
@@ -240,6 +285,7 @@ def _read(
         name=group.name,
         slug=group.slug,
         status=group.status,
+        icon=_icon_read(db, group),
         primary_client=GroupClientRef(**{
             k: primary[k] for k in ("id", "rut", "legal_name")
         })
@@ -264,7 +310,7 @@ def _detail(
         list({*member_ids, *( [aggregates["primary_client_id"]]
                               if aggregates.get("primary_client_id") else [] )}),
     )
-    base = _read(group, aggregates=aggregates, member_ids=member_ids, refs=refs)
+    base = _read(db, group, aggregates=aggregates, member_ids=member_ids, refs=refs)
     return AccountGroupDetail(
         **base.model_dump(),
         notes=group.notes,
@@ -344,6 +390,7 @@ def list_account_groups(
     return AccountGroupPage(
         items=[
             _read(
+                db,
                 row,
                 aggregates=aggregates.get(row.id, {}),
                 member_ids=members.get(row.id, []),
@@ -379,6 +426,9 @@ def create_account_group(
             status_code=status.HTTP_409_CONFLICT,
             detail="A group with that name already exists for this broker",
         ) from exc
+
+    if payload.icon is not None:
+        _apply_icon(db, group, payload.icon, broker_id)
 
     for client_id in payload.client_ids or []:
         client = _resolve_client(db, client_id, broker_id)
@@ -438,6 +488,8 @@ def update_account_group(
         group.status = data["status"]
     if "notes" in data:
         group.notes = data["notes"]
+    if payload.icon is not None:
+        _apply_icon(db, group, payload.icon, broker_id)
     record_activity(
         db,
         broker_id=broker_id,

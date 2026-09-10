@@ -88,8 +88,12 @@ from app.models import (
     Activity,
     Asset,
     Broker,
+    BrokerProposal,
     Client,
     CmfLine,
+    Comparison,
+    ComparisonEntry,
+    ComparisonSource,
     CmfLineKind,
     Document,
     Inspection,
@@ -882,8 +886,14 @@ class FixtureImporter:
         the ``document`` row is retained as the upload's provenance — preserving
         the exact 66-file ↔ 66-row correspondence the package guarantees.
         """
-        self.log.section("Documents (66 files -> v2 S3 layout)")
+        self.log.section("Documents (identity + catalog files -> v2 S3 layout)")
+        # v8 blank-demo baseline: only the identity/catalog document set is
+        # seeded (broker + insurer + insured files). Every workspace-owned file
+        # — those tied to the starter client/asset/placement/proposal/inspection
+        # — is skipped, because those entities are no longer created.
+        seed_document_entities = {"corredora", "aseguradora_entidad", "asegurado"}
         ordinals: Counter = Counter()
+        kept = 0
         table_by_entity = {
             EntityType.BROKER: "broker",
             EntityType.CLIENT: "client",
@@ -907,6 +917,8 @@ class FixtureImporter:
 
         for row in self.load("documento"):
             entity_key = row["entidad"]
+            if entity_key not in seed_document_entities:
+                continue
             entity_type = ENTITY_TYPE.get(entity_key)
             if entity_type is None:
                 raise FixtureError(f"Unmapped document entity: {entity_key!r}")
@@ -956,10 +968,11 @@ class FixtureImporter:
             if not local.exists():
                 raise FixtureError(f"Fixture file missing on disk: {local}")
             self.uploader.put(local, key, _mime_of(name, row.get("mime_type")))
+            kept += 1
 
         self.db.flush()
         verb = "uploaded" if self.uploader.enabled else "skipped (--no-upload)"
-        self.log.ok(f"{len(self.load('documento'))} document rows, {len(self.load('documento'))} files {verb}")
+        self.log.ok(f"{kept} document rows (identity + catalog), {kept} files {verb}")
 
     def _size_of(self, relative_key: str) -> int | None:
         path = self.files / relative_key
@@ -970,7 +983,7 @@ class FixtureImporter:
     # =========================================================================
 
     def import_insureds(self) -> None:
-        self.log.section("Insureds (canonical) + clients + assets")
+        self.log.section("Insureds (canonical registry)")
         sector_by_insured = {
             c["asegurado_id"]: c.get("sector") for c in self.load("cliente") if c.get("asegurado_id")
         }
@@ -1560,16 +1573,27 @@ class FixtureImporter:
         self.import_insurers()
         self.import_native_profiles()
         self.import_insureds()
-        self.import_account_groups()
-        self.import_clients()
-        self.import_assets()
-        self.import_placements()
-        self.import_quotes()
-        self.import_proposals()
-        self.import_inspections()
-        self.import_activity()
         self.import_line_templates()
-        self.verify_external_scenario()
+        # v8 blank-demo baseline: the per-broker STARTER ACCOUNT is intentionally
+        # NOT seeded, so a fresh tenant starts with zero groups/accounts/clients
+        # and the user builds the whole broker journey live during a demo. Only
+        # the identity (brokers/users), catalog (insurers/cmf_line/insurance_line,
+        # native profiles) and ramo templates (line_record_schema) baseline is
+        # written, plus the canonical insured registry and the identity/catalog
+        # document set (broker + insurer + insured files; import_documents filters
+        # out every workspace-owned file).
+        #
+        # To restore the sample workspace, re-enable the ordered block below —
+        # each unit is still defined and self-contained:
+        #     self.import_account_groups()
+        #     self.import_clients()
+        #     self.import_assets()
+        #     self.import_placements()
+        #     self.import_quotes()
+        #     self.import_proposals()
+        #     self.import_inspections()
+        #     self.import_activity()
+        #     self.verify_external_scenario()
 
     def import_line_templates(self) -> None:
         """Seed the v7 global line templates + the Fuenzalida demo line (§C)."""
@@ -1696,10 +1720,23 @@ TEMPLATE_INCENDIO_SISMO = {
                     "repeatable": True,
                     "totals": True,
                     "fields": [
-                        {"key": "location", "label": "Ubicación", "type": "text", "required": True},
+                        {
+                            "key": "location",
+                            "label": "Ubicación",
+                            "type": "text",
+                            "required": True,
+                            # v8: per-field ``ai_hint`` primes extraction; lives
+                            # inside ``definition`` JSON, never a column.
+                            "ai_hint": "Dirección o nombre de la ubicación asegurada; una fila por ubicación.",
+                        },
                         {"key": "commune", "label": "Comuna", "type": "text"},
                         {"key": "description", "label": "Descripción", "type": "text"},
-                        {"key": "building_uf", "label": "Edificio", "type": "money_uf"},
+                        {
+                            "key": "building_uf",
+                            "label": "Edificio",
+                            "type": "money_uf",
+                            "ai_hint": "Valor asegurado del edificio en UF; no incluir maquinaria ni existencias.",
+                        },
                         {"key": "machinery_uf", "label": "Maquinaria y equipos", "type": "money_uf"},
                         {"key": "vessels_uf", "label": "Cubas y estanques", "type": "money_uf"},
                         {"key": "furniture_uf", "label": "Muebles y útiles", "type": "money_uf"},
@@ -1718,6 +1755,7 @@ TEMPLATE_INCENDIO_SISMO = {
                     "label": "Monto total asegurado",
                     "type": "money_uf",
                     "required": True,
+                    "ai_hint": "Suma de todas las materias aseguradas de todas las ubicaciones (gran total de la matriz).",
                 },
             ],
         },
@@ -1770,10 +1808,119 @@ TEMPLATE_RC = {
     ]
 }
 
-# The two global templates, keyed for the seed (name, insurance_line_id, definition).
+# v9 corrected model: a ramo IS its recommended-files list + context. Each entry
+# is ``{key, label, doc_type, category, format, required, description}`` —
+# ``category`` maps to a :class:`DocumentCategory` value where one fits; ``format``
+# is the expected upload format ("word" | "pdf" | "pdf/word" | "image").
+INCENDIO_RECOMMENDED_FILES = [
+    {
+        "key": "terms_slip",
+        "label": "Slip de términos y condiciones",
+        "doc_type": "slip de términos y condiciones",
+        "category": DocumentCategory.TECHNICAL_BRIEF.value,
+        "format": "word",
+        "required": True,
+        "description": (
+            "Las bases técnicas del riesgo (el slip): coberturas, sublímites, "
+            "deducibles y condiciones solicitadas. Normalmente en Word."
+        ),
+    },
+    {
+        "key": "amounts_by_location",
+        "label": "Desglose de montos por ubicación",
+        "doc_type": "desglose de montos por ubicación",
+        "category": DocumentCategory.INSURED_VALUES_SCHEDULE.value,
+        "format": "pdf/word",
+        "required": True,
+        "description": (
+            "Planilla de ubicaciones y materias aseguradas con los montos en UF. "
+            "Si viene en Excel, expórtalo a PDF."
+        ),
+    },
+    {
+        "key": "loss_history",
+        "label": "Siniestralidad",
+        "doc_type": "siniestralidad",
+        "category": DocumentCategory.LOSS_HISTORY.value,
+        "format": "pdf/word",
+        "required": True,
+        "description": "Siniestralidad de los últimos 3-5 años (o carta de cero siniestros).",
+    },
+    {
+        "key": "inspection_report",
+        "label": "Informe de inspección",
+        "doc_type": "informe de inspección",
+        "category": DocumentCategory.INSPECTION_REPORT.value,
+        "format": "pdf",
+        "required": False,
+        "description": "Informe de inspección del riesgo, cuando esté disponible.",
+    },
+]
+INCENDIO_EXPLANATION = (
+    "Incendio y sismo para bienes físicos (Todo Riesgo de Bienes Físicos). Reúne el "
+    "slip de términos y condiciones, el desglose de montos por ubicación y la "
+    "siniestralidad antes de emitir las bases técnicas."
+)
+RC_RECOMMENDED_FILES = [
+    {
+        "key": "terms_slip",
+        "label": "Slip de términos y condiciones",
+        "doc_type": "slip de términos y condiciones",
+        "category": DocumentCategory.TECHNICAL_BRIEF.value,
+        "format": "word",
+        "required": True,
+        "description": (
+            "Las bases técnicas del riesgo (el slip): límites, sublímites, "
+            "deducibles y condiciones de responsabilidad civil solicitadas."
+        ),
+    },
+    {
+        "key": "risk_questionnaire",
+        "label": "Cuestionario / formulario de riesgo",
+        "doc_type": "cuestionario / formulario de riesgo",
+        "category": DocumentCategory.BUSINESS_QUESTIONNAIRE.value,
+        "format": "pdf/word",
+        "required": True,
+        "description": (
+            "Cuestionario de actividad: operación, territorialidad, ventas "
+            "anuales y dotación."
+        ),
+    },
+    {
+        "key": "loss_history",
+        "label": "Siniestralidad",
+        "doc_type": "siniestralidad",
+        "category": DocumentCategory.LOSS_HISTORY.value,
+        "format": "pdf/word",
+        "required": True,
+        "description": "Reclamos de responsabilidad civil de los últimos años, si los hubiera.",
+    },
+]
+RC_EXPLANATION = (
+    "Responsabilidad civil, ingeniería y transporte para la actividad de la empresa. "
+    "Reúne el slip de términos y condiciones, el cuestionario / formulario de riesgo "
+    "y la siniestralidad."
+)
+
+# The two global ramos, keyed for the seed. ``definition`` is DEPRECATED (kept for
+# the backward-compatible register path); the FIRST-CLASS content is
+# ``recommended_files``. Tuple: (name, insurance_line_id, definition,
+# recommended_files, explanation).
 LINE_TEMPLATES = [
-    ("Incendio y Sismo (TRBF)", 1, TEMPLATE_INCENDIO_SISMO),
-    ("Responsabilidad Civil", 2, TEMPLATE_RC),
+    (
+        "Incendio y Sismo (TRBF)",
+        1,
+        TEMPLATE_INCENDIO_SISMO,
+        INCENDIO_RECOMMENDED_FILES,
+        INCENDIO_EXPLANATION,
+    ),
+    (
+        "RC / Ingeniería / Transporte",
+        2,
+        TEMPLATE_RC,
+        RC_RECOMMENDED_FILES,
+        RC_EXPLANATION,
+    ),
 ]
 
 # The demo broker line cloned from Template 1 and assigned to the Viña accounts.
@@ -1806,7 +1953,7 @@ def seed_line_templates(
     seeded: dict[str, int] = {}
 
     # 1. The global templates (broker_id NULL, is_template=True). Upsert by name.
-    for name, line_id, definition in LINE_TEMPLATES:
+    for name, line_id, definition, recommended_files, explanation in LINE_TEMPLATES:
         row = db.scalars(
             select(LineRecordSchema).where(
                 LineRecordSchema.broker_id.is_(None),
@@ -1822,6 +1969,8 @@ def seed_line_templates(
                 is_active=True,
                 is_template=True,
                 definition=definition,
+                recommended_files=recommended_files,
+                explanation=explanation,
             )
             db.add(row)
         else:
@@ -1829,9 +1978,30 @@ def seed_line_templates(
             row.is_active = True
             row.is_template = True
             row.definition = definition
+            row.recommended_files = recommended_files
+            row.explanation = explanation
         db.flush()
         seeded[name] = row.id
         _emit(f"line template '{name}' (id={row.id}, ramo {line_id})")
+
+    # 1b. Deactivate stale GLOBAL templates left over from earlier versions
+    #     (e.g. the old v6 "Responsabilidad Civil"). Upserting by name never
+    #     prunes, so any global whose name is not in the current LINE_TEMPLATES
+    #     set lingered as active and polluted the ramo dropdown. We deactivate
+    #     rather than hard-delete — old rows may still be referenced by history.
+    current_names = {name for name, *_ in LINE_TEMPLATES}
+    stale_globals = db.scalars(
+        select(LineRecordSchema).where(
+            LineRecordSchema.broker_id.is_(None),
+            LineRecordSchema.is_active.is_(True),
+            LineRecordSchema.name.notin_(current_names),
+        )
+    ).all()
+    for stale in stale_globals:
+        stale.is_active = False
+        _emit(f"deactivated stale global line template '{stale.name}' (id={stale.id})")
+    if stale_globals:
+        db.flush()
 
     # 2. Clone Template 1 into a Fuenzalida (broker 3) line. Upsert by (broker, name).
     fz_line = None
@@ -1852,6 +2022,8 @@ def seed_line_templates(
                 is_active=True,
                 is_template=False,
                 definition=TEMPLATE_INCENDIO_SISMO,
+                recommended_files=INCENDIO_RECOMMENDED_FILES,
+                explanation=INCENDIO_EXPLANATION,
             )
             db.add(fz_line)
         else:
@@ -1859,6 +2031,8 @@ def seed_line_templates(
             fz_line.is_active = True
             fz_line.is_template = False
             fz_line.definition = TEMPLATE_INCENDIO_SISMO
+            fz_line.recommended_files = INCENDIO_RECOMMENDED_FILES
+            fz_line.explanation = INCENDIO_EXPLANATION
         db.flush()
         seeded[FUENZALIDA_PROPERTY_LINE_NAME] = fz_line.id
         _emit(f"Fuenzalida line '{FUENZALIDA_PROPERTY_LINE_NAME}' (id={fz_line.id})")
@@ -1908,6 +2082,10 @@ COUNTED_MODELS = [
     ("quote_line_item", QuoteLineItem),
     ("proposal", Proposal),
     ("proposal_coverage", ProposalCoverage),
+    ("comparison", Comparison),
+    ("comparison_entry", ComparisonEntry),
+    ("comparison_source", ComparisonSource),
+    ("broker_proposal", BrokerProposal),
     ("inspection_request", InspectionRequest),
     ("inspection", Inspection),
     ("inspection_boundary", InspectionBoundary),

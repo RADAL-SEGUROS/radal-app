@@ -29,6 +29,8 @@ import InsurersPage from "@/pages/insurers";
 import InsurerDetailPage from "@/pages/insurers/detail";
 import OfferingsPage from "@/pages/offerings";
 import OfferingDetailPage from "@/pages/offerings/detail";
+import ComparisonPage from "@/pages/comparisons";
+import OfferingDecisionPage from "@/pages/public/offering-decision";
 
 // Case files, leads and the agent — the v2 expediente pass.
 import CasesPage from "@/pages/cases";
@@ -139,6 +141,9 @@ export default function App() {
     <Routes>
       {/* Public */}
       <Route path="/login" element={<Login />} />
+      {/* The insured-decision surface. Unauthenticated by design — the share
+          token IS the credential — and outside the app shell entirely. */}
+      <Route path="/o/:token" element={<OfferingDecisionPage />} />
       {/* Style lab: the three candidate visual directions for the restart.
           Public and outside the shell on purpose — it must render with ZERO
           inheritance from the deprecated theme, and the team opens it without
@@ -195,6 +200,10 @@ export default function App() {
             <Route path="quotes" element={<QuotesPage />} />
             <Route path="quotes/:quoteId" element={<QuoteDetailPage />} />
             <Route path="quotes/:quoteId/comparison" element={<ProposalComparisonPage />} />
+            {/* The account's COMPARISON-stage worktable: incremental cotización
+                columns aligned over a monotonic dictionary. Standalone so the
+                account page only has to link out to it. */}
+            <Route path="comparisons/:caseId" element={<ComparisonPage />} />
             <Route path="proposals" element={<ProposalsPage />} />
             <Route path="proposals/upload" element={<ProposalUploadPage />} />
             <Route path="proposals/:proposalId" element={<ProposalDetailPage />} />

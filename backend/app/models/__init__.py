@@ -50,7 +50,11 @@ from app.models.insurer import (
 )
 
 # --- Broker workspace --------------------------------------------------------
-from app.models.account_group import AccountGroup, AccountGroupStatus
+from app.models.account_group import (
+    AccountGroup,
+    AccountGroupIconKind,
+    AccountGroupStatus,
+)
 from app.models.client import Client, ClientStatus
 from app.models.asset import Asset, AssetStatus
 from app.models.insurance_line import (
@@ -84,6 +88,13 @@ from app.models.policy import (
     PolicyLocation,
     PolicyStatus,
 )
+from app.models.comparison import (
+    Comparison,
+    ComparisonEntry,
+    ComparisonSource,
+    ComparisonStatus,
+)
+from app.models.broker_proposal import BrokerProposal, BrokerProposalStatus
 from app.models.offering import Offering, OfferingChannel, OfferingStatus
 from app.models.document import Document, DocumentCategory
 from app.models.activity import Activity, Note
@@ -158,6 +169,7 @@ __all__ = [
     # workspace
     "AccountGroup",
     "AccountGroupStatus",
+    "AccountGroupIconKind",
     "Client",
     "ClientStatus",
     "Asset",
@@ -188,6 +200,13 @@ __all__ = [
     "Claim",
     "ClaimStatus",
     "ClaimItem",
+    # comparison + outbound propuesta (v8)
+    "Comparison",
+    "ComparisonEntry",
+    "ComparisonSource",
+    "ComparisonStatus",
+    "BrokerProposal",
+    "BrokerProposalStatus",
     # case files + post-sale
     "CaseFile",
     "CaseFileStageEvent",

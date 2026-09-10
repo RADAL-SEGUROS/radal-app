@@ -413,17 +413,37 @@ def _mismatch(field: str, expected: Decimal, actual: Decimal, rule: str, toleran
     }
 
 
-def reconcile_money(values: dict[str, Any]) -> tuple[dict[str, Decimal], list[dict[str, Any]]]:
-    """Derive the missing premium fields and validate the supplied ones.
+def reconcile_money_verbose(
+    values: dict[str, Any],
+) -> tuple[dict[str, Decimal], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Derive missing premium fields; validate the supplied ones; return warnings.
 
     ``values`` is the MERGED state of the proposal (existing row + incoming
     patch), so a partial update is checked against what the row will actually
     look like after the write.
 
-    Returns ``(derived, errors)``: ``derived`` holds fields that were absent and
-    could be computed from the invariants, ``errors`` holds one entry per broken
-    invariant, ready to be returned as a ``422`` detail.
+    Returns ``(derived, errors, warnings)``:
+
+      * ``derived`` — fields that were absent and could be computed from the
+        invariants;
+      * ``errors`` — one entry per broken HARD invariant (the premium arithmetic
+        ``net = taxable + exempt`` · ``vat = 0.19 × taxable`` · ``total = net +
+        vat``); these stay a ``422`` because they are true arithmetic;
+      * ``warnings`` — SOFT invariants, currently only rate additivity.
+
+    **APPROVED DEVIATION from CLAUDE.md rule 5.** ``comprehensive_rate =
+    taxable_rate + exempt_rate`` is NO LONGER a hard error: real insurers (HDI)
+    quote ``comprehensive`` as a weighted "tasa media" that is genuinely NOT the
+    sum of the per-peril rates (verified: HDI reads 2,357‰ directly from the
+    document). ``comprehensive_rate_permille`` is therefore accepted as an
+    INDEPENDENT read; a non-additive value is surfaced as a warning, never a
+    block. When ``comprehensive_rate`` is ABSENT it is still DERIVED from the sum
+    (a convenience, not a constraint). The premium invariants remain HARD.
+
+    :func:`reconcile_money` is the back-compatible ``(derived, errors)`` wrapper
+    over this — every existing caller keeps its 2-tuple contract.
     """
+    warnings: list[dict[str, Any]] = []
     taxable = values.get("taxable_premium_uf")
     exempt = values.get("exempt_premium_uf")
     net = values.get("net_premium_uf")
@@ -489,19 +509,35 @@ def reconcile_money(values: dict[str, Any]) -> tuple[dict[str, Decimal], list[di
                 )
             )
 
-    # comprehensive_rate = taxable_rate + exempt_rate
+    # comprehensive_rate ~= taxable_rate + exempt_rate — a SOFT check (see docstring).
     if taxable_rate is not None and exempt_rate is not None:
         expected_rate = _q(Decimal(taxable_rate) + Decimal(exempt_rate))
         if comprehensive_rate is None:
+            # Absent: derive from the sum (a convenience, not a constraint).
             derived["comprehensive_rate_permille"] = expected_rate
         elif abs(Decimal(comprehensive_rate) - expected_rate) > RATE_TOLERANCE:
-            errors.append(
+            # Present but non-additive (e.g. HDI's weighted "tasa media"): warn,
+            # never block. The read stands as an independent value.
+            warnings.append(
                 _mismatch(
                     "comprehensive_rate_permille", expected_rate, Decimal(comprehensive_rate),
-                    "comprehensive_rate = taxable_rate + exempt_rate", RATE_TOLERANCE,
+                    "comprehensive_rate ~= taxable_rate + exempt_rate (soft: weighted tasa media)",
+                    RATE_TOLERANCE,
                 )
             )
 
+    return derived, errors, warnings
+
+
+def reconcile_money(values: dict[str, Any]) -> tuple[dict[str, Decimal], list[dict[str, Any]]]:
+    """Back-compatible ``(derived, errors)`` view of :func:`reconcile_money_verbose`.
+
+    The premium arithmetic stays HARD (``errors``); rate additivity is now a SOFT
+    warning that this 2-tuple wrapper drops, so a non-additive comprehensive rate
+    no longer blocks a promote / proposal write. Callers that want the warning use
+    :func:`reconcile_money_verbose`.
+    """
+    derived, errors, _warnings = reconcile_money_verbose(values)
     return derived, errors
 
 
@@ -552,5 +588,6 @@ __all__ = [
     "CoverageRow",
     "CoverageCell",
     "reconcile_money",
+    "reconcile_money_verbose",
     "coverage_key",
 ]

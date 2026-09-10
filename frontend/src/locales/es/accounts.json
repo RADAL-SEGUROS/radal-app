@@ -259,20 +259,53 @@
       "allStatuses": "Todos los estados"
     },
     "noCreatePermission": "No tienes permiso para crear grupos.",
-    "noEditPermission": "No tienes permiso para editar este grupo."
+    "noEditPermission": "No tienes permiso para editar este grupo.",
+    "icon": {
+      "label": "Ícono",
+      "emoji": "Emoji",
+      "glyph": "Símbolo",
+      "image": "Imagen",
+      "upload": "Subir imagen",
+      "uploading": "Subiendo…",
+      "imageHint": "PNG o JPG cuadrado; se recorta a 512×512.",
+      "uploadNoBroker": "Solo disponible para usuarios de una corredora.",
+      "search": "Buscar…",
+      "noResults": "Sin resultados",
+      "categories": {
+        "property": "Propiedad",
+        "vehicles": "Vehículos",
+        "agro": "Agro y viñas",
+        "industry": "Industria",
+        "health": "Salud y personas",
+        "liability": "Responsabilidad civil",
+        "commerce": "Comercio",
+        "finance": "Finanzas y garantías",
+        "engineering": "Ingeniería y tecnología",
+        "marine": "Naval y marítimo",
+        "general": "General"
+      }
+    },
+    "edit": {
+      "title": "Editar grupo",
+      "subtitle": "Cambia el ícono, el nombre y las notas del grupo."
+    }
   },
   "account": {
     "one": "Cuenta",
     "title": "{{line}} · {{period}}",
     "tabs": {
       "records": "Antecedentes",
-      "antecedentes": "Bases Técnicas",
+      "antecedentes": "Antecedentes",
       "quotes": "Cotizaciones",
       "proposals": "Propuestas",
       "policies": "Pólizas",
       "renewal": "Renovación",
       "notes": "Notas",
-      "timeline": "Bitácora"
+      "timeline": "Bitácora",
+      "comparison": "Comparación",
+      "propuesta": "Propuesta",
+      "summary": "Resumen",
+      "bases-tecnicas": "Bases Técnicas"
     },
     "meta": "{{accounts}} · {{policies}}",
     "period": "Vigencia",
@@ -297,7 +330,45 @@
       "noLines": "La corredora todavía no tiene ramos activos.",
       "linesRequired": "Elige al menos un ramo.",
       "willCreate_one": "Se creará {{count}} carpeta, una por ramo.",
-      "willCreate_other": "Se crearán {{count}} carpetas, una por ramo."
+      "willCreate_other": "Se crearán {{count}} carpetas, una por ramo.",
+      "ramos": "Ramos",
+      "ramosHint": "Se abre una carpeta por ramo, con su plantilla de Bases Técnicas ya asignada.",
+      "noRamos": "Todavía no hay ramos disponibles. Crea uno o adopta una plantilla recomendada.",
+      "ramosRequired": "Elige al menos un ramo.",
+      "ramoTemplate": "Plantilla",
+      "ramoCreate": "Crear ramo",
+      "ramoCreateTitle": "Nuevo ramo",
+      "ramoCreateHint": "Crea un ramo con los archivos que recomiendas reunir y asígnalo a la cuenta.",
+      "ramoName": "Nombre del ramo",
+      "ramoNamePlaceholder": "Incendio y Sismo",
+      "ramoLine": "Categoría de ramo",
+      "ramoLinePlaceholder": "Elige una categoría",
+      "ramoNoLines": "No hay categorías de ramo disponibles todavía.",
+      "ramoNeedName": "Ponle un nombre al ramo.",
+      "ramoNeedLine": "Elige una categoría de ramo.",
+      "ramoCreated": "Ramo creado",
+      "ramoNoCreatePermission": "Tu rol no permite crear ramos; puedes adoptar una plantilla existente.",
+      "ramoAssignFailed": "La cuenta se creó, pero no pudimos asignar el ramo.",
+      "ramo": "Ramo",
+      "ramoHint": "Elige el ramo de la cuenta. Se abre una carpeta con su plantilla de Bases Técnicas ya asignada.",
+      "ramoPlaceholder": "Elige un ramo",
+      "ramoFileCount_one": "· {{count}} archivo recomendado",
+      "ramoFileCount_other": "· {{count}} archivos recomendados",
+      "ramoRequired": "Elige un ramo.",
+      "ramoLineOptional": "Categoría de ramo (opcional)",
+      "ramoFiles": "Archivos recomendados",
+      "ramoFilesHint": "Los documentos que se sugerirán al reunir los antecedentes.",
+      "ramoAddFile": "Agregar archivo",
+      "ramoFileLabel": "Nombre del archivo",
+      "ramoFileType": "Tipo de documento",
+      "ramoFileRequired": "Obligatorio",
+      "ramoFileDescription": "Descripción o contexto (opcional)",
+      "ramoFormat": {
+        "pdf": "PDF",
+        "word": "Word",
+        "pdf/word": "PDF o Word",
+        "image": "Imagen"
+      }
     },
     "noCreatePermission": "No tienes permiso para crear cuentas.",
     "openCase": "Ver expediente completo",
@@ -307,7 +378,17 @@
       "folderHint": "Incluye: {{categories}}",
       "upload": "Subir documento",
       "uploading": "Subiendo…",
-      "noUploadPermission": "No tienes permiso para subir documentos."
+      "noUploadPermission": "No tienes permiso para subir documentos.",
+      "uploadTitle": "Subir antecedente",
+      "labelRequired": "Indica qué documento es antes de subirlo.",
+      "category": "¿Qué documento es?",
+      "categoryPlaceholder": "Elige el tipo de documento",
+      "otherOption": "Otro (especificar)",
+      "otherName": "Nombre del documento",
+      "otherNamePlaceholder": "Describe el documento",
+      "file": "Archivo",
+      "pickFile": "Selecciona un archivo",
+      "noRamoHint": "Asigna un ramo a la cuenta para ver los documentos sugeridos."
     },
     "quotes": {
       "empty": "Esta cuenta todavía no tiene cotizaciones.",
@@ -320,6 +401,36 @@
       "no": "No",
       "empty": "Esta cuenta todavía no tiene propuestas.",
       "noPermission": "No tienes permiso para ver propuestas."
+    },
+    "comparison": {
+      "title": "Comparación de cotizaciones",
+      "description": "El comparador incremental de las ofertas recibidas para esta cuenta.",
+      "hint": "Sube cada cotización y compáralas lado a lado antes de emitir la propuesta.",
+      "open": "Abrir comparador",
+      "noPermission": "No tienes permiso para ver la comparación."
+    },
+    "policies": {
+      "noCreatePermission": "No tienes permiso para registrar pólizas."
+    },
+    "antecedentesFiles": {
+      "tabs": {
+        "files": "Archivos",
+        "extraction": "Extracción"
+      },
+      "required": "Obligatorio",
+      "optional": "Opcional",
+      "upload": "Subir",
+      "uploadOther": "Otro archivo",
+      "noRecommended": "Este ramo no tiene archivos recomendados",
+      "noRecommendedHint": "Sube los antecedentes con «Otro archivo» o edita el ramo.",
+      "otherTitle": "Otros archivos",
+      "otherHint": "Documentos que no corresponden a un archivo recomendado.",
+      "otherEmpty": "Sin otros archivos.",
+      "uploadHint": "Se aceptan PDF, Word e imágenes.",
+      "extractionEmpty": "Todavía no hay extracciones",
+      "extractionEmptyHint": "Genera las Bases Técnicas para extraer los datos de cada documento.",
+      "extractionNoPayload": "Sin datos extraídos de este documento.",
+      "needsVision": "Requiere visión"
     }
   },
   "period": {
@@ -348,6 +459,10 @@
       "insurer": "Compañía",
       "owner": "Ejecutivo",
       "soon": "Este filtro todavía no está disponible."
+    },
+    "shortcut": {
+      "toggle": "Mostrar accesos rápidos",
+      "jumpTo": "Ir a"
     }
   },
   "archive": {
@@ -411,5 +526,53 @@
     "notInTreeHint": "Puede pertenecer a otro grupo o no estar asociada a una cuenta.",
     "noChildren": "Sin registros",
     "noChildPermission": "No tienes permiso para ver este detalle."
+  },
+  "summary": {
+    "pending": {
+      "title": "Acciones pendientes",
+      "count_one": "{{count}} acción",
+      "count_other": "{{count}} acciones",
+      "empty": "Todo al día",
+      "emptyHint": "No hay acciones pendientes en esta cuenta.",
+      "goTo": "Ir",
+      "itemsChip_one": "{{count}} elemento",
+      "itemsChip_other": "{{count}} elementos"
+    },
+    "codes": {
+      "antecedentes_missing": "Faltan antecedentes",
+      "antecedentes_unregistered": "Antecedentes sin registrar",
+      "proposals_unconfirmed": "Cotizaciones sin confirmar",
+      "comparison_unaligned": "Comparación sin alinear",
+      "propuesta_missing": "Falta la propuesta",
+      "stage_blocked": "Avance bloqueado"
+    },
+    "reasons": {
+      "antecedentes_missing": "La cuenta aún no tiene un expediente de antecedentes.",
+      "antecedentes_unregistered": "El expediente de antecedentes está en borrador, falta registrarlo.",
+      "proposals_unconfirmed": "Hay cotizaciones sin confirmar (sugerir → confirmar → registrar).",
+      "comparison_unaligned": "La comparación tiene columnas sin alinear.",
+      "propuesta_missing": "La cuenta está en decisión pero no tiene una propuesta emitida.",
+      "stage_blocked": "Faltan requisitos para avanzar a la siguiente etapa (por ejemplo, las bases técnicas). Revisa la Ruta para ver el detalle."
+    },
+    "severity": {
+      "info": "Informativo",
+      "warning": "Atención",
+      "blocker": "Bloqueante"
+    },
+    "kpi": {
+      "records": "Antecedentes",
+      "quotes": "Cotizaciones",
+      "proposals": "Propuestas",
+      "policies": "Pólizas",
+      "completeness": "{{filled}}/{{total}} carpetas con archivos"
+    },
+    "quickLinks": {
+      "title": "Accesos rápidos",
+      "records": "Antecedentes",
+      "technical": "Bases técnicas",
+      "comparison": "Comparación",
+      "proposal": "Propuesta",
+      "policies": "Pólizas"
+    }
   }
 }

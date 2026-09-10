@@ -4,8 +4,7 @@
   "tabs": {
     "profile": "Profile",
     "team": "Team & roles",
-    "documents": "Documents",
-    "schemas": "Lines"
+    "documents": "Documents"
   },
   "noPermission": {
     "title": "No access",

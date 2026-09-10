@@ -8,7 +8,6 @@ import { useCan } from "@/lib/permissions";
 import { ProfileTab } from "./components/ProfileTab";
 import { TeamTab } from "./components/TeamTab";
 import { DocumentsTab } from "./components/DocumentsTab";
-import { RamoSchemasTab } from "./components/RamoSchemasTab";
 
 /**
  * Settings: broker profile + logo, team & roles, and the document library.
@@ -23,7 +22,6 @@ export default function SettingsPage() {
   const canViewSettings = useCan("Settings", "View");
   const canViewUsers = useCan("Users", "View");
   const canViewDocuments = useCan("Documents", "View");
-  const canManageSettings = useCan("Settings", "Manage");
 
   const loading =
     canViewSettings.isLoading || canViewUsers.isLoading || canViewDocuments.isLoading;
@@ -63,9 +61,6 @@ export default function SettingsPage() {
             <TabsTrigger value="documents" disabled={!loading && !canViewDocuments.allowed}>
               {t("tabs.documents")}
             </TabsTrigger>
-            <TabsTrigger value="schemas" disabled={!loading && !canManageSettings.allowed}>
-              {t("tabs.schemas")}
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile" className="mt-5">
@@ -76,9 +71,6 @@ export default function SettingsPage() {
           </TabsContent>
           <TabsContent value="documents" className="mt-5">
             <DocumentsTab />
-          </TabsContent>
-          <TabsContent value="schemas" className="mt-5">
-            <RamoSchemasTab />
           </TabsContent>
         </Tabs>
       </FadeUp>

@@ -69,6 +69,14 @@ export const qk = {
     ...scope("offerings"),
     pdf: (id: number) => ["offerings", "detail", String(id), "pdf"] as const,
   },
+  /** The unauthenticated share-link view, keyed by token. */
+  publicOfferings: {
+    all: ["public-offerings"] as const,
+    detail: (token: string) => ["public-offerings", "detail", token] as const,
+  },
+  comparisons: scope("comparisons"),
+  /** The outbound broker propuesta. No list endpoint exists — only `detail(id)`. */
+  brokerProposals: scope("broker-proposals"),
   documents: {
     ...scope("documents"),
     download: (id: number) => ["documents", "detail", String(id), "download"] as const,
@@ -112,6 +120,9 @@ export const qk = {
     recipients: (id: number) => ["case-files", "detail", String(id), "recipients"] as const,
     /** `GET /case-files/{id}/history` — the origin chain + the prior vigencia. */
     history: (id: number) => ["case-files", "detail", String(id), "history"] as const,
+    /** `GET /case-files/{id}/pending-actions` — the account's actionable gaps. */
+    pendingActions: (id: number) =>
+      ["case-files", "detail", String(id), "pending-actions"] as const,
   },
   leads: scope("leads"),
   notes: {

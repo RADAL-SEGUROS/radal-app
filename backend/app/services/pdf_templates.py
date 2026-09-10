@@ -40,7 +40,13 @@ from typing import Any
 
 from app.schemas.extraction.common import parse_uf
 
-__all__ = ["render_expediente_html", "MISSING_OPTIONAL", "MISSING_REQUIRED"]
+__all__ = [
+    "render_expediente_html",
+    "render_comparison_html",
+    "render_propuesta_html",
+    "MISSING_OPTIONAL",
+    "MISSING_REQUIRED",
+]
 
 _ASSETS_DIR = Path(__file__).with_name("pdf_assets")
 
@@ -246,6 +252,27 @@ table.data tbody tr.total td{border-top:1.5px solid var(--line);
 .badge{display:inline-block;font-size:9px;font-weight:600;letter-spacing:0.04em;
   padding:2px 7px;border-radius:999px;text-transform:uppercase;}
 .badge.warn{color:var(--warn);background:var(--warn-bg);}
+.badge.ok{color:var(--accent-ink);background:var(--accent-2);}
+.badge.no{color:var(--warn);background:var(--warn-bg);}
+
+/* Comparison matrix — one dimension per row, one insurer per column. */
+table.data th.dimcol,table.data td.dimcol{text-align:left;min-width:38mm;}
+table.data th.rec,table.data td.rec-col{color:var(--accent-ink);}
+.dim-k{font-size:10.5px;color:var(--ink);font-weight:500;}
+.dim-g{font-size:8px;letter-spacing:0.06em;text-transform:uppercase;
+  color:var(--muted);margin-top:2px;}
+.cell-val{font-size:10.5px;color:var(--ink);}
+.verb{margin-top:3px;font-size:8.5px;color:var(--muted);line-height:1.35;font-style:italic;}
+
+/* AI recommendation — the prominent pick block. */
+.rec{border:1px solid var(--accent);border-left:3px solid var(--accent);
+  border-radius:6px;padding:13px 15px;background:var(--accent-2);
+  break-inside:avoid;margin-bottom:18px;}
+.rec .rh2{font-size:9px;font-weight:700;letter-spacing:0.12em;
+  text-transform:uppercase;color:var(--accent-ink);}
+.rec .rpick{margin-top:5px;font-size:15px;font-weight:600;color:var(--ink);}
+.rec .rrat{margin-top:6px;font-size:10.5px;color:var(--ink-2);}
+.rec .rcav{margin-top:7px;font-size:9.5px;color:var(--warn);}
 """
     )
 
@@ -542,8 +569,16 @@ def render_expediente_html(*, title: str, branding: dict, sections: list[dict]) 
             num = numbered
         body_parts.append(_render_section(sec, number=num))
 
-    footer_left = str(branding.get("broker_name") or "Radal.")
+    return _wrap_document(title=title, branding=branding, body_html="".join(body_parts))
 
+
+def _wrap_document(*, title: str, branding: dict, body_html: str) -> str:
+    """The shared self-contained document shell: cover + repeating running header
+    + flowing content, with the footer (broker legal name + page n/N) as a
+    ``@page`` margin box. Every branded expediente PDF (antecedentes, comparison,
+    propuesta) is wrapped by this one composer, so cover/header/footer stay
+    identical across artifacts."""
+    footer_left = str(branding.get("broker_name") or "Radal.")
     return (
         '<!doctype html><html lang="es"><head><meta charset="utf-8"/>'
         f"<style>{_stylesheet(footer_left)}</style>"
@@ -552,7 +587,291 @@ def render_expediente_html(*, title: str, branding: dict, sections: list[dict]) 
         '<table class="report"><thead><tr><td>'
         f"{_run_head(branding)}"
         '</td></tr></thead><tbody><tr><td>'
-        f'<main class="content">{"".join(body_parts)}</main>'
+        f'<main class="content">{body_html}</main>'
         "</td></tr></tbody></table>"
         "</body></html>"
     )
+
+
+# ---------------------------------------------------------------------------
+# Comparison composer (the aligned proposal-comparison matrix)
+# ---------------------------------------------------------------------------
+
+def _recommendation_block(rec: dict | None) -> str:
+    """The AI recommendation: named pick + rationale + caveats, rendered
+    prominently at the head of the comparison."""
+    rec = rec or {}
+    pick = rec.get("pick_label")
+    rationale = rec.get("rationale")
+    caveats = rec.get("caveats") or []
+    if _is_empty(pick) and _is_empty(rationale) and not caveats:
+        return ""
+    pick_html = (
+        f'<div class="rpick">{_esc(pick)}</div>'
+        if not _is_empty(pick)
+        else '<div class="rpick">Sin recomendación</div>'
+    )
+    rat_html = (
+        f'<div class="rrat">{_esc(rationale)}</div>' if not _is_empty(rationale) else ""
+    )
+    cav_html = ""
+    if caveats:
+        joined = " · ".join(_esc(c) for c in caveats if not _is_empty(c))
+        if joined:
+            cav_html = f'<div class="rcav">Advertencias · {joined}</div>'
+    return (
+        '<div class="rec"><div class="rh2">Recomendación</div>'
+        f"{pick_html}{rat_html}{cav_html}</div>"
+    )
+
+
+def _comparison_column_headers(columns: list[dict]) -> str:
+    ths = ['<th class="dimcol">Dimensión</th>']
+    for col in columns:
+        label = col.get("label") or "—"
+        rec = " rec" if col.get("recommended") else ""
+        suffix = " · archivo inválido" if col.get("wrong_file") else ""
+        ths.append(f'<th class="num{rec}">{_esc(label)}{_esc(suffix)}</th>')
+    return "".join(ths)
+
+
+def _premium_cell(value: Any) -> str:
+    if _is_empty(value):
+        return f'<td class="num">{MISSING_OPTIONAL}</td>'
+    return f'<td class="num">{_esc(value)}</td>'
+
+
+def _dimension_cell(cell: dict | None) -> str:
+    """One insurer's cell for a standardized dimension: present/excluded/absent
+    marker + the value, with the verbatim wording compactly below it."""
+    if cell is None:
+        return f"<td>{MISSING_OPTIONAL}</td>"
+    present = cell.get("present")
+    value = cell.get("value")
+    verbatim = cell.get("verbatim")
+    inner: list[str] = []
+    if present is False:
+        inner.append('<span class="badge no">excluido</span>')
+    elif present is True and _is_empty(value):
+        inner.append('<span class="badge ok">incluido</span>')
+    if not _is_empty(value):
+        inner.append(f'<span class="cell-val">{_esc(value)}</span>')
+    if not inner:
+        inner.append(MISSING_OPTIONAL)
+    body = " ".join(inner)
+    if not _is_empty(verbatim):
+        body += f'<div class="verb">{_esc(verbatim)}</div>'
+    return f"<td>{body}</td>"
+
+
+def _render_premium_matrix(columns: list[dict], premium_rows: list[dict]) -> str:
+    """The premium/rate highlight row-group: one metric per row, one insurer per
+    column, values right-aligned."""
+    if not premium_rows:
+        return f'<div class="table-empty">{MISSING_OPTIONAL}</div>'
+    head = _comparison_column_headers(columns)
+    body: list[str] = []
+    for row in premium_rows:
+        cells = [f'<td class="dimcol"><span class="dim-k">{_esc(row.get("label"))}</span></td>']
+        for value in row.get("values") or []:
+            cells.append(_premium_cell(value))
+        body.append(f"<tr>{''.join(cells)}</tr>")
+    return (
+        '<table class="data"><thead><tr>'
+        f"{head}</tr></thead><tbody>{''.join(body)}</tbody></table>"
+    )
+
+
+def _render_dimension_matrix(columns: list[dict], dimensions: list[dict]) -> str:
+    """A standardized-dimensions matrix: one dimension per row (label + group),
+    one insurer per column, each cell value + marker + verbatim."""
+    if not dimensions:
+        return f'<div class="table-empty">{MISSING_OPTIONAL}</div>'
+    head = _comparison_column_headers(columns)
+    body: list[str] = []
+    for dim in dimensions:
+        group = dim.get("group")
+        group_html = (
+            f'<div class="dim-g">{_esc(group)}</div>' if not _is_empty(group) else ""
+        )
+        cells = [
+            '<td class="dimcol">'
+            f'<span class="dim-k">{_esc(dim.get("label") or dim.get("key"))}</span>'
+            f"{group_html}</td>"
+        ]
+        for cell in dim.get("cells") or []:
+            cells.append(_dimension_cell(cell))
+        body.append(f"<tr>{''.join(cells)}</tr>")
+    return (
+        '<table class="data"><thead><tr>'
+        f"{head}</tr></thead><tbody>{''.join(body)}</tbody></table>"
+    )
+
+
+def _matrix_section(heading: str, number: int, inner: str) -> str:
+    label = f'<span class="seclabel">{number:02d}</span>'
+    head = (
+        f'<div class="sec-head">{label}'
+        f'<span class="sec-title">{_esc(heading)}</span></div>'
+    )
+    return f'<div class="section tbl">{head}{inner}</div>'
+
+
+def render_comparison_html(*, title: str, branding: dict, data: dict) -> str:
+    """Compose the aligned comparison PDF HTML string (a PURE string builder).
+
+    Args:
+        title: the display title shown on the cover.
+        branding: the same cover + running-frame identity dict
+            :func:`render_expediente_html` takes.
+        data: the rendered comparison, a plain dict (no DB):
+            ``columns`` — ordered list of ``{label, recommended?, wrong_file?}``;
+            ``premium_rows`` — ordered ``{label, values:[per-column]}`` for the
+            premium/rate highlight; ``common_dimensions`` / ``extra_dimensions`` —
+            standardized dimension rows ``{label, key?, group?, cells:[per-column
+            {present, value, verbatim} | None]}``; ``recommendation`` —
+            ``{pick_label, rationale, caveats:[...]}``.
+
+    Content flows across as many A4 pages as needed; no http(s) img src is emitted.
+    """
+    data = data or {}
+    columns = data.get("columns") or []
+    parts: list[str] = [_recommendation_block(data.get("recommendation"))]
+
+    number = 0
+    number += 1
+    parts.append(
+        _matrix_section(
+            "Primas y tasa", number, _render_premium_matrix(columns, data.get("premium_rows") or [])
+        )
+    )
+    common = data.get("common_dimensions") or []
+    if common:
+        number += 1
+        parts.append(
+            _matrix_section("Coberturas comunes", number, _render_dimension_matrix(columns, common))
+        )
+    extras = data.get("extra_dimensions") or []
+    if extras:
+        number += 1
+        parts.append(
+            _matrix_section("Coberturas adicionales", number, _render_dimension_matrix(columns, extras))
+        )
+
+    return _wrap_document(title=title, branding=branding, body_html="".join(parts))
+
+
+# ---------------------------------------------------------------------------
+# Propuesta composer (the outbound broker→insurer document)
+# ---------------------------------------------------------------------------
+
+def _state_callout(content_hash: str | None, ratified: bool) -> str:
+    state = "Ratificada" if ratified else "Borrador"
+    hash_html = (
+        f'<div class="ct">Hash de contenido · {_esc(content_hash)}</div>'
+        if not _is_empty(content_hash)
+        else ""
+    )
+    return (
+        f'<div class="callout"><div class="ch">Estado · {state}</div>{hash_html}</div>'
+    )
+
+
+def render_propuesta_html(*, title: str, branding: dict, data: dict) -> str:
+    """Compose the outbound propuesta PDF HTML string (a PURE string builder).
+
+    Args:
+        title: the display title shown on the cover.
+        branding: the same cover + running-frame identity dict.
+        data: the rendered propuesta, a plain dict (no DB):
+            ``identity_rows`` — ``{label, value, required?}`` (insurer + insured +
+            vigencia); ``money_rows`` — the premium core ``{label, value}`` money
+            table; ``winning_rows`` — the winning-quote summary ``{label, value}``;
+            ``additional_groups`` — ``{group, items:[{label, value, verbatim}]}``;
+            ``content_hash`` and ``ratified`` (rendered in the state callout, and
+            reflected in the running header via ``branding``).
+    """
+    data = data or {}
+    parts: list[str] = [
+        _state_callout(data.get("content_hash"), bool(data.get("ratified")))
+    ]
+
+    number = 0
+    identity = data.get("identity_rows") or []
+    number += 1
+    parts.append(
+        _render_section(
+            {
+                "kind": "fields",
+                "heading": "Identificación",
+                "fields": [
+                    {
+                        "label": r.get("label"),
+                        "value": r.get("value"),
+                        "required": bool(r.get("required")),
+                    }
+                    for r in identity
+                ],
+            },
+            number=number,
+        )
+    )
+
+    money = data.get("money_rows") or []
+    number += 1
+    parts.append(
+        _render_section(
+            {
+                "kind": "table",
+                "heading": "Núcleo de prima (UF)",
+                "columns": [
+                    {"key": "label", "label": "Concepto"},
+                    {"key": "value", "label": "UF", "money": True},
+                ],
+                "rows": [
+                    {"label": r.get("label"), "value": r.get("value")} for r in money
+                ],
+            },
+            number=number,
+        )
+    )
+
+    winning = data.get("winning_rows") or []
+    if winning:
+        number += 1
+        parts.append(
+            _render_section(
+                {
+                    "kind": "fields",
+                    "heading": "Cotización adjudicada",
+                    "fields": [
+                        {"label": r.get("label"), "value": r.get("value")}
+                        for r in winning
+                    ],
+                },
+                number=number,
+            )
+        )
+
+    for group in data.get("additional_groups") or []:
+        items = group.get("items") or []
+        if not items:
+            continue
+        number += 1
+        parts.append(
+            _render_section(
+                {
+                    "kind": "table",
+                    "heading": group.get("group") or "Adicional",
+                    "columns": [
+                        {"key": "label", "label": "Detalle"},
+                        {"key": "value", "label": "Valor"},
+                        {"key": "verbatim", "label": "Textual"},
+                    ],
+                    "rows": items,
+                },
+                number=number,
+            )
+        )
+
+    return _wrap_document(title=title, branding=branding, body_html="".join(parts))

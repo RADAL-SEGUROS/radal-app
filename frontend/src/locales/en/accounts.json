@@ -259,20 +259,53 @@
       "allStatuses": "All statuses"
     },
     "noCreatePermission": "You do not have permission to create groups.",
-    "noEditPermission": "You do not have permission to edit this group."
+    "noEditPermission": "You do not have permission to edit this group.",
+    "icon": {
+      "label": "Icon",
+      "emoji": "Emoji",
+      "glyph": "Glyph",
+      "image": "Image",
+      "upload": "Upload image",
+      "uploading": "Uploading…",
+      "imageHint": "Square PNG or JPG; cropped to 512×512.",
+      "uploadNoBroker": "Only available for brokerage users.",
+      "search": "Search…",
+      "noResults": "No results",
+      "categories": {
+        "property": "Property",
+        "vehicles": "Vehicles",
+        "agro": "Agriculture & vineyards",
+        "industry": "Industry",
+        "health": "Health & people",
+        "liability": "Liability",
+        "commerce": "Commerce",
+        "finance": "Finance & bonds",
+        "engineering": "Engineering & tech",
+        "marine": "Marine",
+        "general": "General"
+      }
+    },
+    "edit": {
+      "title": "Edit group",
+      "subtitle": "Change the group's icon, name and notes."
+    }
   },
   "account": {
     "one": "Account",
     "title": "{{line}} · {{period}}",
     "tabs": {
       "records": "Records",
-      "antecedentes": "Bases Técnicas",
+      "antecedentes": "Antecedentes",
       "quotes": "Quote requests",
       "proposals": "Proposals",
       "policies": "Policies",
       "renewal": "Renewal",
       "notes": "Notes",
-      "timeline": "Activity log"
+      "timeline": "Activity log",
+      "comparison": "Comparison",
+      "propuesta": "Propuesta",
+      "summary": "Summary",
+      "bases-tecnicas": "Technical basis"
     },
     "meta": "{{accounts}} · {{policies}}",
     "period": "Validity period",
@@ -297,7 +330,45 @@
       "noLines": "The broker has no active insurance lines yet.",
       "linesRequired": "Pick at least one insurance line.",
       "willCreate_one": "{{count}} folder will be created, one per line.",
-      "willCreate_other": "{{count}} folders will be created, one per line."
+      "willCreate_other": "{{count}} folders will be created, one per line.",
+      "ramos": "Insurance lines",
+      "ramosHint": "One folder opens per line, with its Bases Técnicas template already assigned.",
+      "noRamos": "No lines available yet. Create one or adopt a recommended template.",
+      "ramosRequired": "Pick at least one line.",
+      "ramoTemplate": "Template",
+      "ramoCreate": "Create line",
+      "ramoCreateTitle": "New line",
+      "ramoCreateHint": "Create a line with the files you recommend gathering and assign it to the account.",
+      "ramoName": "Line name",
+      "ramoNamePlaceholder": "Fire & Earthquake",
+      "ramoLine": "Line category",
+      "ramoLinePlaceholder": "Choose a category",
+      "ramoNoLines": "No line categories available yet.",
+      "ramoNeedName": "Give the line a name.",
+      "ramoNeedLine": "Choose a line category.",
+      "ramoCreated": "Line created",
+      "ramoNoCreatePermission": "Your role cannot create lines; you can adopt an existing template.",
+      "ramoAssignFailed": "The account was created, but we could not assign the line.",
+      "ramo": "Line",
+      "ramoHint": "Pick the account's line. A folder opens with its Technical Basis template already assigned.",
+      "ramoPlaceholder": "Choose a line",
+      "ramoFileCount_one": "· {{count}} recommended file",
+      "ramoFileCount_other": "· {{count}} recommended files",
+      "ramoRequired": "Choose a line.",
+      "ramoLineOptional": "Line category (optional)",
+      "ramoFiles": "Recommended files",
+      "ramoFilesHint": "The documents suggested when gathering the antecedentes.",
+      "ramoAddFile": "Add file",
+      "ramoFileLabel": "File name",
+      "ramoFileType": "Document type",
+      "ramoFileRequired": "Required",
+      "ramoFileDescription": "Description or context (optional)",
+      "ramoFormat": {
+        "pdf": "PDF",
+        "word": "Word",
+        "pdf/word": "PDF or Word",
+        "image": "Image"
+      }
     },
     "noCreatePermission": "You do not have permission to create accounts.",
     "openCase": "Open the full case file",
@@ -307,7 +378,17 @@
       "folderHint": "Includes: {{categories}}",
       "upload": "Upload document",
       "uploading": "Uploading…",
-      "noUploadPermission": "You do not have permission to upload documents."
+      "noUploadPermission": "You do not have permission to upload documents.",
+      "uploadTitle": "Upload record",
+      "labelRequired": "Tell us what the document is before uploading it.",
+      "category": "What document is this?",
+      "categoryPlaceholder": "Choose the document type",
+      "otherOption": "Other (specify)",
+      "otherName": "Document name",
+      "otherNamePlaceholder": "Describe the document",
+      "file": "File",
+      "pickFile": "Choose a file",
+      "noRamoHint": "Assign a line to the account to see suggested documents."
     },
     "quotes": {
       "empty": "This account has no quote requests yet.",
@@ -320,6 +401,36 @@
       "no": "No",
       "empty": "This account has no proposals yet.",
       "noPermission": "You do not have permission to view proposals."
+    },
+    "comparison": {
+      "title": "Quote comparison",
+      "description": "The incremental comparator of the offers received for this account.",
+      "hint": "Upload each quote and compare them side by side before issuing the propuesta.",
+      "open": "Open comparator",
+      "noPermission": "You don't have permission to view the comparison."
+    },
+    "policies": {
+      "noCreatePermission": "You don't have permission to register policies."
+    },
+    "antecedentesFiles": {
+      "tabs": {
+        "files": "Files",
+        "extraction": "Extraction"
+      },
+      "required": "Required",
+      "optional": "Optional",
+      "upload": "Upload",
+      "uploadOther": "Other file",
+      "noRecommended": "This line has no recommended files",
+      "noRecommendedHint": "Upload antecedentes with \"Other file\" or edit the line.",
+      "otherTitle": "Other files",
+      "otherHint": "Documents that do not match a recommended file.",
+      "otherEmpty": "No other files.",
+      "uploadHint": "PDF, Word and images are accepted.",
+      "extractionEmpty": "No extractions yet",
+      "extractionEmptyHint": "Generate the Technical Basis to extract data from each document.",
+      "extractionNoPayload": "No data extracted from this document.",
+      "needsVision": "Needs vision"
     }
   },
   "period": {
@@ -348,6 +459,10 @@
       "insurer": "Insurer",
       "owner": "Account manager",
       "soon": "This filter is not available yet."
+    },
+    "shortcut": {
+      "toggle": "Show quick links",
+      "jumpTo": "Jump to"
     }
   },
   "archive": {
@@ -411,5 +526,53 @@
     "notInTreeHint": "It may belong to another group or not be attached to an account.",
     "noChildren": "No records",
     "noChildPermission": "You do not have permission to view this detail."
+  },
+  "summary": {
+    "pending": {
+      "title": "Pending actions",
+      "count_one": "{{count}} action",
+      "count_other": "{{count}} actions",
+      "empty": "All caught up",
+      "emptyHint": "This account has no pending actions.",
+      "goTo": "Go",
+      "itemsChip_one": "{{count}} item",
+      "itemsChip_other": "{{count}} items"
+    },
+    "codes": {
+      "antecedentes_missing": "Records missing",
+      "antecedentes_unregistered": "Records not registered",
+      "proposals_unconfirmed": "Quotes not confirmed",
+      "comparison_unaligned": "Comparison not aligned",
+      "propuesta_missing": "Proposal missing",
+      "stage_blocked": "Stage blocked"
+    },
+    "reasons": {
+      "antecedentes_missing": "The account has no antecedentes record yet.",
+      "antecedentes_unregistered": "The antecedentes record is a draft and still needs to be registered.",
+      "proposals_unconfirmed": "There are unconfirmed quotes (suggest → confirm → commit).",
+      "comparison_unaligned": "The comparison has unaligned columns.",
+      "propuesta_missing": "The account is in decision but has no issued proposal.",
+      "stage_blocked": "Requirements to advance to the next stage are not yet met (for example, the technical brief). Check the Journey for details."
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Attention",
+      "blocker": "Blocker"
+    },
+    "kpi": {
+      "records": "Records",
+      "quotes": "Quotes",
+      "proposals": "Proposals",
+      "policies": "Policies",
+      "completeness": "{{filled}}/{{total}} folders with files"
+    },
+    "quickLinks": {
+      "title": "Quick links",
+      "records": "Records",
+      "technical": "Technical spec",
+      "comparison": "Comparison",
+      "proposal": "Proposal",
+      "policies": "Policies"
+    }
   }
 }

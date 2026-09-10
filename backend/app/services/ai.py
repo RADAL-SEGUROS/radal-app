@@ -32,6 +32,7 @@ import io
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -58,6 +59,7 @@ from app.models.client import Client
 from app.models.document import Document, DocumentCategory
 from app.models.enums import (
     CaseFileKind,
+    CaseOrigin,
     CaseSection,
     CoverageKind,
     EntityType,
@@ -72,6 +74,8 @@ from app.models.quote import QuoteRequest
 from app.models.record_expediente import RecordExpediente
 from app.models.user import User
 from app.schemas.ai import ProposalSuggestion
+from app.schemas.proposal import coverage_key, reconcile_money, reconcile_money_verbose
+from app.services.ai_models import AITask, model_for
 from app.schemas.extraction.common import (
     UF as _CommonUF,
     ExtractionModel as _CommonExtractionModel,
@@ -107,12 +111,30 @@ __all__ = [
     "AI_ERROR_CODES",
     "ai_error_code",
     "ensure_ai_configured",
+    # tool-calling structured-output path (Phase 1)
+    "AITask",
+    "model_for",
+    "ToolCallResult",
+    "tool_call",
+    "optional_validator_for",
     "PROMPT_VERSION",
     "SUMMARY_PROMPT_VERSION",
     "DocumentExtractionResult",
     "ExtractionResult",
     "SummaryResult",
     "extract_document",
+    # v8 dynamic comparison + policy core
+    "BUDGET_PROPOSAL_PROMPT_VERSION",
+    "BudgetProposalResult",
+    "extract_budget_proposal",
+    # v9 holistic comparison + outbound propuesta (tool-calling)
+    "COMPARE_PROMPT_VERSION",
+    "RECOMMEND_PROMPT_VERSION",
+    "PROPUESTA_PROMPT_VERSION",
+    "ComparisonResult",
+    "PropuestaResult",
+    "submit_comparison",
+    "submit_propuesta",
     # v6 antecedentes expediente (multi-doc consolidation, suggest-only)
     "ANTECEDENTES_PROMPT_VERSION",
     "AntecedentesConsolidation",
@@ -364,6 +386,249 @@ def _run_completion(
         completion_tokens=getattr(usage, "completion_tokens", None) if usage else None,
         raw=raw,
     )
+
+
+# --- Tool-calling structured output (Phase 1) --------------------------------
+#
+# GLM-5.3-Flash on DeepInfra SUPPORTS tool/function calling (verified live): the
+# arguments arrive as a JSON string on ``tool_calls[0].function.arguments`` and
+# ``finish_reason == "tool_calls"``; ``reasoning_content`` may be present. This is
+# the new, more reliable structured-output path — a slim tool schema forces a
+# well-formed object instead of hoping JSON-mode prose parses. DeepInfra is
+# flaky, so this helper RETRIES with exponential backoff on transient failures
+# and never lets an LLM hiccup surface as anything but a typed :class:`AIError`.
+
+# Retry backoff base (seconds). Only slept between attempts, never on success, so
+# the hermetic suite (which fakes ``tool_call`` or the client) never sleeps.
+_TOOL_CALL_BACKOFF_BASE = 0.5
+
+
+@dataclass
+class ToolCallResult:
+    """A normalised tool/function-call answer.
+
+    ``parsed`` is the raw JSON object from ``function.arguments``; ``payload`` is
+    the validated Pydantic model when a ``schema`` was given (``None`` otherwise,
+    or when the drop-bad-fields coercion could not build even an empty model);
+    ``raw`` is the audit blob for the extraction row; ``usage`` carries the token
+    counts; ``reasoning`` keeps the GLM interleaved-thinking trace (never folded
+    into the payload).
+    """
+
+    parsed: dict[str, Any] | None
+    payload: Any | None
+    raw: dict[str, Any]
+    usage: dict[str, Any] | None = None
+    reasoning: str | None = None
+    warnings: list[str] = field(default_factory=list)
+    model: str | None = None
+    # The provider's stop reason. ``"length"`` means the output budget was
+    # exhausted and the tool arguments were TRUNCATED — a silent-empty-table trap.
+    finish_reason: str | None = None
+
+
+def _tool_call_client(*, timeout: int):
+    """Build a fresh OpenAI client for a tool call.
+
+    Separate from :func:`_ai_client` so it takes an explicit ``timeout`` and sets
+    ``max_retries=0`` — this helper owns retrying, and an SDK-level retry would
+    hide the failure. A clean monkeypatch seam for hermetic tests.
+    """
+    if not settings.AI_API_KEY:
+        raise AINotConfigured(
+            "AI_API_KEY is not set — configure it in backend/.env to enable AI features"
+        )
+    try:
+        from openai import OpenAI
+    except ImportError as exc:  # pragma: no cover - dependency is pinned
+        raise AINotConfigured("The `openai` package is not installed") from exc
+
+    return OpenAI(
+        api_key=settings.AI_API_KEY,
+        base_url=settings.AI_BASE_URL,
+        timeout=float(timeout),
+        max_retries=0,
+    )
+
+
+def _read_tool_call(
+    response: Any,
+) -> tuple[str | None, str | None, dict[str, Any] | None, str | None, str | None]:
+    """Pull ``(arguments, reasoning, usage, model, finish_reason)`` out of a completion."""
+    choices = getattr(response, "choices", None) or []
+    arguments: str | None = None
+    reasoning: str | None = None
+    finish_reason: str | None = None
+    if choices:
+        finish_reason = getattr(choices[0], "finish_reason", None)
+        message = getattr(choices[0], "message", None)
+        if message is not None:
+            raw_reasoning = getattr(message, "reasoning_content", None) or getattr(
+                message, "reasoning", None
+            )
+            if isinstance(raw_reasoning, str) and raw_reasoning.strip():
+                reasoning = raw_reasoning
+            for call in getattr(message, "tool_calls", None) or []:
+                fn = getattr(call, "function", None)
+                candidate = getattr(fn, "arguments", None) if fn is not None else None
+                if isinstance(candidate, str) and candidate.strip():
+                    arguments = candidate
+                    break
+
+    usage_obj = getattr(response, "usage", None)
+    usage: dict[str, Any] | None = None
+    if usage_obj is not None:
+        usage = {
+            "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
+            "completion_tokens": getattr(usage_obj, "completion_tokens", None),
+        }
+    model_name = getattr(response, "model", None) or None
+    return arguments, reasoning, usage, model_name, finish_reason
+
+
+def tool_call(
+    *,
+    messages: Sequence[dict[str, str]],
+    tool_schema: dict[str, Any],
+    model: str,
+    timeout: int,
+    max_retries: int = 2,
+    max_tokens: int | None = None,
+    schema: "type | None" = None,
+) -> ToolCallResult:
+    """Force one function call against ``tool_schema`` and return its parsed args.
+
+    Builds an OpenAI client against ``AI_BASE_URL`` / ``AI_API_KEY``, calls
+    ``chat.completions`` with ``tools=[{type:function, function:tool_schema}]``
+    and ``tool_choice`` forced to that function, then parses
+    ``tool_calls[0].function.arguments`` (a JSON string). When ``schema`` is
+    given the parsed object is validated through the existing drop-bad-fields
+    :func:`_coerce_payload` leniency, so one unusable field never throws away a
+    reviewable read.
+
+    DeepInfra is unreliable: transient failures (timeout, 5xx / 429, connection
+    error, empty / malformed / no-``tool_calls`` answer) are RETRIED with
+    exponential backoff up to ``max_retries``, after which the last failure is
+    raised as a typed :class:`AIError` (``AITimeout`` / ``AIProviderError`` /
+    ``AIParseError``) — never a naked exception, never a 500. GLM
+    ``reasoning_content`` is captured but never folded into the payload.
+    """
+    ensure_ai_configured()
+    try:
+        from openai import (
+            APIConnectionError,
+            APIStatusError,
+            APITimeoutError,
+            OpenAIError,
+        )
+    except ImportError as exc:  # pragma: no cover - dependency is pinned
+        raise AINotConfigured("The `openai` package is not installed") from exc
+
+    tool_name = tool_schema.get("name")
+    client = _tool_call_client(timeout=timeout)
+    request: dict[str, Any] = {
+        "model": model,
+        "messages": list(messages),
+        "tools": [{"type": "function", "function": tool_schema}],
+        "temperature": 0.0,
+        "max_tokens": max_tokens if max_tokens is not None else settings.AI_EXTRACTION_MAX_TOKENS,
+    }
+    if tool_name:
+        request["tool_choice"] = {"type": "function", "function": {"name": tool_name}}
+
+    last_error: AIError | None = None
+    for attempt in range(max_retries + 1):
+        transient: AIError | None = None
+        response = None
+        try:
+            response = client.chat.completions.create(**request)
+        except APITimeoutError:
+            transient = AITimeout(
+                f"The AI provider timed out after {timeout}s"
+            )
+        except APIConnectionError:
+            transient = AIProviderError("Could not reach the AI provider")
+        except APIStatusError as exc:
+            status_code = getattr(exc, "status_code", None)
+            if status_code is not None and status_code < 500 and status_code != 429:
+                # A 4xx that is not rate-limiting will not fix itself on retry.
+                raise AIProviderError(f"The AI provider returned {status_code}") from exc
+            transient = AIProviderError(
+                f"The AI provider returned {status_code or 'a server error'}"
+            )
+        except AINotConfigured:
+            raise
+        except OpenAIError as exc:
+            transient = AIProviderError(f"AI provider error: {type(exc).__name__}")
+        except Exception as exc:  # noqa: BLE001 - last-resort; never a naked raise
+            transient = AIProviderError(
+                f"Unexpected AI provider failure: {type(exc).__name__}"
+            )
+
+        if response is not None:
+            arguments, reasoning, usage, model_name, finish_reason = _read_tool_call(response)
+            if finish_reason == "length":
+                # The output budget was exhausted mid-arguments: whatever JSON we
+                # got is TRUNCATED (an empty/near-empty dict at worst). Never let
+                # that commit silently — retry, then block as a provider error.
+                transient = AIProviderError(
+                    "The AI provider truncated the tool call (finish_reason=length); "
+                    "the output budget was too small"
+                )
+            elif not arguments:
+                transient = AIProviderError("The AI provider returned no tool_calls")
+            else:
+                try:
+                    parsed = json.loads(arguments)
+                except (json.JSONDecodeError, TypeError):
+                    transient = AIParseError(
+                        "The tool call arguments were not valid JSON"
+                    )
+                else:
+                    if not isinstance(parsed, dict):
+                        transient = AIParseError(
+                            "The tool call arguments were not a JSON object"
+                        )
+                    else:
+                        warnings: list[str] = []
+                        payload = None
+                        if schema is not None:
+                            payload, warnings = _coerce_payload(schema, parsed)
+                        raw: dict[str, Any] = {
+                            "content": arguments,
+                            "reasoning": reasoning,
+                            "parsed": parsed,
+                        }
+                        return ToolCallResult(
+                            parsed=parsed,
+                            payload=payload,
+                            raw=raw,
+                            usage=usage,
+                            reasoning=reasoning,
+                            warnings=warnings,
+                            model=model_name,
+                            finish_reason=finish_reason,
+                        )
+
+        last_error = transient
+        if attempt < max_retries:
+            time.sleep(_TOOL_CALL_BACKOFF_BASE * (2 ** attempt))
+
+    raise last_error or AIProviderError("The AI provider tool call failed")
+
+
+def optional_validator_for(ramo: str | None):
+    """Per-ramo minimum-data validator hook — a STUB, OFF by default.
+
+    Returns ``None`` today for every ``ramo``, so no flow validates. This is the
+    clean seam a future minimum-data validator plugs into (e.g. "a Todo Riesgo
+    offer must state earthquake deductible basis") WITHOUT touching the
+    extraction flow: a caller that wants the check does
+    ``validator = optional_validator_for(ramo)`` and skips when it is ``None``.
+    The signature a real validator will honour is ``Callable[[Any], list[str]]``
+    — payload in, list of human-readable gaps out.
+    """
+    return None
 
 
 # --- Document text -----------------------------------------------------------
@@ -1242,7 +1507,7 @@ NO RECONCILIES
 
 
 def _extraction_messages(
-    spec: "CategorySpec", document: Document, text: str
+    spec: "CategorySpec", document: Document, text: str, *, context_prepend: str = ""
 ) -> list[tuple[str, str]]:
     system = (
         f"{_GENERIC_EXTRACTION_SYSTEM}\n\n"
@@ -1250,6 +1515,13 @@ def _extraction_messages(
         f"ESQUEMA JSON DE SALIDA (respeta exactamente estos nombres de campo)\n"
         f"{_schema_hint(spec.schema)}"
     )
+    messages: list[tuple[str, str]] = [("system", system)]
+    # An OPTIONAL account-context system block, PREPENDED before the document.
+    # It never changes the target schema — it only enriches a policy read with
+    # what the account already knows (RecordExpediente, accepted offer, prior
+    # policy). Empty for a raw upload.
+    if context_prepend:
+        messages.append(("system", context_prepend))
     user = (
         f"Archivo: {document.original_name}\n"
         f"Categoría: {spec.category.value}"
@@ -1259,7 +1531,8 @@ def _extraction_messages(
         "--- FIN DEL DOCUMENTO ---\n\n"
         "Devuelve ahora el objeto JSON."
     )
-    return [("system", system), ("human", user)]
+    messages.append(("human", user))
+    return messages
 
 
 def _coerce_payload(schema: type, parsed: dict[str, Any]) -> tuple[Any | None, list[str]]:
@@ -1398,11 +1671,11 @@ def _invoke_structured_schema(
 
 
 def _invoke_structured(
-    spec: "CategorySpec", document: Document, text: str
+    spec: "CategorySpec", document: Document, text: str, *, context_prepend: str = ""
 ) -> tuple[Any | None, dict[str, Any], dict[str, Any], str, int | None, int | None, list[str]]:
     """One structured call for a single registry document. Thin wrapper over
     :func:`_invoke_structured_schema` that builds the per-category messages."""
-    messages = _extraction_messages(spec, document, text)
+    messages = _extraction_messages(spec, document, text, context_prepend=context_prepend)
     return _invoke_structured_schema(spec.schema, messages)
 
 
@@ -1528,6 +1801,15 @@ def extract_document(
     db.add(extraction)
     db.flush()
 
+    # A POLICY read is enriched with what the account already knows (rule 6 is
+    # untouched — this only PREPENDS a system block, the target schema is the
+    # same). Any other category, or no case file, gets a raw read.
+    context_prepend = ""
+    if spec.category is DocumentCategory.POLICY and document.case_file_id is not None:
+        case_file = db.get(CaseFile, document.case_file_id)
+        if case_file is not None and case_file.broker_id == broker_id:
+            context_prepend = _account_extraction_context(db, case_file, spec.category)
+
     def _fail(exc: AIError) -> None:
         extraction.status = ExtractionStatus.FAILED
         extraction.error = f"{type(exc).__name__}: {exc}"
@@ -1543,7 +1825,7 @@ def extract_document(
             prompt_tokens,
             completion_tokens,
             warnings,
-        ) = _invoke_structured(spec, document, text)
+        ) = _invoke_structured(spec, document, text, context_prepend=context_prepend)
     except AIError as exc:
         _fail(exc)
         raise
@@ -1616,10 +1898,175 @@ def extract_proposal(
     )
 
 
+# --- 1a. Context-aware extraction prompts (v8) -------------------------------
+
+# The account-context prepend is a system block, not a document: it is capped far
+# below ``MAX_DOCUMENT_CHARS`` so it enriches without crowding out the policy text
+# it accompanies.
+ACCOUNT_CONTEXT_MAX_CHARS = 8_000
+
+
+def _account_extraction_context(
+    db: Session, case_file: CaseFile, category: "DocumentCategory | str | None"
+) -> str:
+    """A token-budgeted, tenant-scoped system block for a POLICY extraction.
+
+    Modelled on the agent's ``build_context``: it assembles, ranked by relevance
+    and hard-capped like ``ANTECEDENTES_MAX_CHARS``, what the account already
+    knows — the consolidated ``RecordExpediente.payload``, the accepted
+    proposal / comparison snapshot, and (for a renewal) the prior-period policy.
+
+    Purely additive: the caller PREPENDS the result and the target schema is
+    unchanged. Defensive by construction — no prior data yields ``""`` and any
+    lookup failure is swallowed, never raised (a hiccup here must not fail the
+    extraction it was only meant to help).
+    """
+    if category not in (DocumentCategory.POLICY, DocumentCategory.POLICY.value):
+        return ""
+
+    broker_id = case_file.broker_id
+    blocks: list[str] = []
+
+    try:
+        # 1) The consolidated antecedentes the account registered (highest signal).
+        expediente = db.scalars(
+            select(RecordExpediente).where(
+                RecordExpediente.broker_id == broker_id,
+                RecordExpediente.case_file_id == case_file.id,
+            )
+        ).first()
+        if expediente is not None and expediente.payload:
+            rendered = json.dumps(expediente.payload, ensure_ascii=False)[
+                :ACCOUNT_CONTEXT_MAX_CHARS
+            ]
+            blocks.append(
+                "ANTECEDENTES CONSOLIDADOS DE LA CUENTA (revisados por el corredor):\n"
+                + rendered
+            )
+
+        # 2) The accepted inbound offer for this account, if one is marked.
+        accepted = db.scalars(
+            select(Proposal)
+            .where(
+                Proposal.broker_id == broker_id,
+                Proposal.case_file_id == case_file.id,
+                Proposal.status == ProposalStatus.ACCEPTED,
+            )
+            .order_by(Proposal.id.desc())
+        ).first()
+        if accepted is not None:
+            insurer = db.get(Insurer, accepted.insurer_id)
+            blocks.append(
+                "OFERTA ACEPTADA (línea base):\n"
+                f"- compañía: {insurer.legal_name if insurer else 'n/d'}"
+                f" (CMF {insurer.cmf_code if insurer else 'n/d'})"
+                f" | prima total UF {_fmt(accepted.total_premium_uf)}"
+                f" | vigencia {_fmt(accepted.coverage_start)} -> {_fmt(accepted.coverage_end)}"
+            )
+
+        # 3) A renewal reads its prior-period policy — the mirror to diff against.
+        if case_file.origin is CaseOrigin.RENEWAL and case_file.origin_case_file_id:
+            from app.models.policy import Policy as _Policy
+
+            prior = db.scalars(
+                select(_Policy)
+                .where(
+                    _Policy.broker_id == broker_id,
+                    _Policy.case_file_id == case_file.origin_case_file_id,
+                )
+                .order_by(_Policy.id.desc())
+            ).first()
+            if prior is not None:
+                blocks.append(
+                    "PÓLIZA DEL PERÍODO ANTERIOR (para renovación — compara, no copies):\n"
+                    f"- N° {prior.policy_number}"
+                    f" | vigencia {_fmt(prior.start_date)} -> {_fmt(prior.end_date)}"
+                    f" | prima total UF {_fmt(prior.total_premium_uf)}"
+                    f" | deducibles {json.dumps(prior.deductibles, ensure_ascii=False) if prior.deductibles else 'n/d'}"
+                )
+    except Exception:  # noqa: BLE001 - context is best-effort; never fail the extraction
+        logger.warning("account extraction context failed for case_file %s", case_file.id)
+        return ""
+
+    if not blocks:
+        return ""
+
+    header = (
+        "CONTEXTO DE LA CUENTA (solo apoyo — extrae SIEMPRE lo que dice el documento; "
+        "si la póliza difiere del contexto, transcribe la póliza, no reconcilies):\n\n"
+    )
+    body = "\n\n".join(blocks)
+    combined = header + body
+    if len(combined) > ANTECEDENTES_MAX_CHARS:
+        combined = combined[:ANTECEDENTES_MAX_CHARS] + "\n\n[...truncado...]"
+    return combined
+
+
 # --- 1b. Antecedentes expediente (v6): multi-document consolidation ----------
 
 # Bump when the consolidation prompt or the dynamic-schema contract changes.
 ANTECEDENTES_PROMPT_VERSION = "antecedentes-consolidate-v1"
+
+# The built-in GENERIC antecedentes shape. Used when no ramo template resolves
+# (a ramo is advisory and ``insurance_line_id`` is nullable), so a FREE upload
+# always yields an extraction instead of a dead end. Deliberately broad: four
+# open sections that fit any line.
+_GENERIC_ANTECEDENTES_DEFINITION: dict[str, Any] = {
+    "sections": [
+        {
+            "key": "asegurado",
+            "label": "Datos del asegurado",
+            "fields": [
+                {"key": "razon_social", "label": "Razón social", "type": "text"},
+                {"key": "rut", "label": "RUT", "type": "text"},
+                {"key": "giro", "label": "Giro / actividad", "type": "text"},
+                {"key": "direccion", "label": "Dirección", "type": "text"},
+                {"key": "contacto", "label": "Contacto", "type": "text"},
+            ],
+        },
+        {
+            "key": "materias",
+            "label": "Materias y coberturas",
+            "fields": [
+                {"key": "resumen", "label": "Resumen", "type": "text"},
+                {
+                    "key": "partidas",
+                    "label": "Partidas / coberturas",
+                    "type": "list",
+                    "fields": [
+                        {"key": "item", "label": "Ítem", "type": "text"},
+                        {"key": "detalle", "label": "Detalle", "type": "text"},
+                        {"key": "monto_uf", "label": "Monto UF", "type": "money_uf"},
+                    ],
+                },
+            ],
+        },
+        {
+            "key": "siniestralidad",
+            "label": "Siniestralidad",
+            "fields": [
+                {"key": "resumen", "label": "Resumen", "type": "text"},
+                {
+                    "key": "siniestros",
+                    "label": "Siniestros",
+                    "type": "list",
+                    "fields": [
+                        {"key": "fecha", "label": "Fecha", "type": "date"},
+                        {"key": "descripcion", "label": "Descripción", "type": "text"},
+                        {"key": "monto_uf", "label": "Monto UF", "type": "money_uf"},
+                    ],
+                },
+            ],
+        },
+        {
+            "key": "observaciones",
+            "label": "Observaciones",
+            "fields": [
+                {"key": "notas", "label": "Notas", "type": "text"},
+            ],
+        },
+    ]
+}
 
 # The aggregate provider budget for a consolidation: several source documents,
 # each already capped to ``MAX_DOCUMENT_CHARS`` on its own, are concatenated up
@@ -1765,9 +2212,36 @@ def get_account_case_file(
     ).first()
 
 
+# The COTIZACIÓN / insurer-quotation document types. These belong to the
+# COMPARISON, never to the antecedentes: an antecedentes consolidation reads only
+# what the INSURED communicated, so every insurer offer (03 Southbridge/HDI/Mapfre
+# and the comparison/propuesta artefacts) is excluded from the candidate set.
+_COTIZACION_CATEGORIES = frozenset(
+    {
+        DocumentCategory.INSURER_QUOTATION,
+        DocumentCategory.PROPOSAL,  # deprecated alias of INSURER_QUOTATION
+        DocumentCategory.DECLINATION,
+        DocumentCategory.CONDITIONAL_PRONOUNCEMENT,
+        DocumentCategory.QUOTE_COMPARISON,
+        DocumentCategory.BUDGET_PROPOSAL,
+        DocumentCategory.ISSUANCE_PROPOSAL,
+        DocumentCategory.TECHNICAL_RECOMMENDATION,
+        DocumentCategory.COMPARISON_PACK,
+        DocumentCategory.PROPOSAL_PACK,
+    }
+)
+
+
 def _antecedentes_documents(db: Session, case: CaseFile, broker_id: int) -> list[Document]:
-    """The candidate antecedentes documents of an account: everything filed
-    under ``root_prospect`` or ``submission`` (the RECORD_FOLDERS span)."""
+    """The candidate antecedentes documents of an account: everything the INSURED
+    communicated, filed under ``root_prospect`` or ``submission`` (the ramo
+    recommended files + free uploads in the intake sections).
+
+    EXCLUDES the cotización / insurer-quotation documents (03 Southbridge/HDI/
+    Mapfre, comparison, propuesta) — those belong to the comparison, never to the
+    antecedentes. Both the SECTION filter (no ``insurer_quotes``) and the CATEGORY
+    filter (no cotización type) enforce this, so a misfiled insurer offer under a
+    submission section still never leaks in."""
     return db.scalars(
         select(Document)
         .where(
@@ -1776,6 +2250,7 @@ def _antecedentes_documents(db: Session, case: CaseFile, broker_id: int) -> list
             Document.section.in_(
                 [CaseSection.ROOT_PROSPECT, CaseSection.SUBMISSION]
             ),
+            Document.category.notin_(_COTIZACION_CATEGORIES),
         )
         .order_by(Document.section, Document.id)
     ).all()
@@ -1812,15 +2287,87 @@ def _antecedentes_messages(
 
 @dataclass
 class AntecedentesConsolidation:
-    """What a consolidation SUGGEST returns: the audit row + the staged payload."""
+    """What a consolidation SUGGEST returns: the audit row + the staged payload.
+
+    ``document_extractions`` carries, PER SOURCE DOCUMENT, the pieces of data
+    extracted from THAT document (``{document_id, document_name, category,
+    section, payload, confidence, needs_vision, warnings}``) — the "Extracción"
+    subtab shows extractions per file. ``payload`` is the CONSOLIDATED Bases
+    Técnicas, merged from those per-document reads. Nothing auto-commits."""
 
     extraction: Extraction
     schema: type
-    line_record_schema: LineRecordSchema
+    # None when the account fell back to the built-in GENERIC definition.
+    line_record_schema: LineRecordSchema | None
     payload: dict[str, Any] | None
     parsed: dict[str, Any] | None
     confidence: Decimal | None
+    document_extractions: list[dict[str, Any]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+
+
+def _merge_antecedentes_payloads(
+    definition: dict[str, Any] | None, payloads: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Consolidate per-document extractions into ONE Bases Técnicas payload.
+
+    Walks the (fallback GENERIC) sectioned definition and, for each field, picks
+    the first non-empty scalar across the documents (document order), the union of
+    distinct rows for a ``list`` field, and the first non-empty value per subkey
+    for a ``group``. Deterministic and code-only — the model reads each document;
+    the CONSOLIDATION is arithmetic, never a second guess."""
+    merged: dict[str, Any] = {}
+    for section in (definition or {}).get("sections", []) or []:
+        skey = section.get("key")
+        if not skey:
+            continue
+        sec_out: dict[str, Any] = {}
+        for field_def in section.get("fields", []) or []:
+            fkey = field_def.get("key")
+            if not fkey:
+                continue
+            ftype = str(field_def.get("type") or "text").lower()
+            values = []
+            for payload in payloads:
+                secval = payload.get(skey) if isinstance(payload, dict) else None
+                if isinstance(secval, dict):
+                    values.append(secval.get(fkey))
+            if ftype == "list":
+                rows: list[Any] = []
+                for value in values:
+                    if isinstance(value, list):
+                        for row in value:
+                            if row not in rows:
+                                rows.append(row)
+                sec_out[fkey] = rows
+            elif ftype == "group":
+                group: dict[str, Any] = {}
+                for value in values:
+                    if isinstance(value, dict):
+                        for key, sub in value.items():
+                            if _filled(sub) and not _filled(group.get(key)):
+                                group[key] = sub
+                sec_out[fkey] = group or None
+            else:
+                chosen = None
+                for value in values:
+                    if _filled(value):
+                        chosen = value
+                        break
+                sec_out[fkey] = chosen
+        merged[skey] = sec_out
+    return merged
+
+
+def _antecedentes_needs_vision(document: Document, exc: "DocumentUnavailable") -> bool:
+    """True when a document could not be read as text because it is an IMAGE or a
+    SCANNED (image-only) PDF — the case a vision-model fallback would handle."""
+    mime = (document.mime_type or "").lower()
+    name = (document.original_name or "").lower()
+    if mime.startswith("image/") or name.endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff")):
+        return True
+    message = str(exc).lower()
+    return "scanned" in message or "no readable text" in message
 
 
 def consolidate_antecedentes(
@@ -1834,26 +2381,32 @@ def consolidate_antecedentes(
     per-ramo record. Writes exactly ONE ``extraction`` row in every outcome and
     NEVER the expediente itself — the review + register steps own that (rule 6).
 
-    Raises :class:`DocumentUnavailable` (no readable antecedentes) or
-    :class:`UnsupportedCategory` (the ramo has no schema) BEFORE any row is
-    written; other :class:`AIError` subclasses after the row exists and is marked
-    failed.
+    Raises :class:`DocumentUnavailable` (no readable antecedentes) BEFORE any row
+    is written; other :class:`AIError` subclasses after the row exists and is
+    marked failed. A ramo with no configured template does NOT raise — it falls
+    back to a built-in GENERIC antecedentes definition so a free upload always
+    yields an extraction (ramos are advisory; ``insurance_line_id`` is nullable).
     """
     case = get_account_case_file(db, case_file_id, broker_id)
     if case is None:
         raise DocumentUnavailable(
             f"Account {case_file_id} not found in this workspace"
         )
-    if case.insurance_line_id is None:
-        raise UnsupportedCategory(
-            "The account has no insurance line, so no antecedentes schema applies"
-        )
 
+    # v9: a ramo no longer owns a field schema. The GENERIC definition drives the
+    # consolidated Bases-Técnicas shape whenever the ramo has no (deprecated)
+    # ``definition``. Resolution order is unchanged; a NULL line falls back too.
     schema_row = resolve_account_line_record_schema(db, case, broker_id)
-    if schema_row is None:
-        raise UnsupportedCategory(
-            "El ramo de la cuenta no tiene un esquema de antecedentes configurado"
-        )
+    if schema_row is not None:
+        definition = schema_row.definition or _GENERIC_ANTECEDENTES_DEFINITION
+        schema_name = schema_row.name
+        schema_id: int | None = schema_row.id
+        schema_version = schema_row.version
+    else:
+        definition = _GENERIC_ANTECEDENTES_DEFINITION
+        schema_name = "Antecedentes (genérico)"
+        schema_id = None
+        schema_version = 0
 
     documents = _antecedentes_documents(db, case, broker_id)
     if not documents:
@@ -1863,12 +2416,23 @@ def consolidate_antecedentes(
 
     sources: list[tuple[Document, str]] = []
     load_warnings: list[str] = []
+    # Documents that could not be read as text because they are images / scans —
+    # a vision-model fallback would handle them. NOT yet implemented: they are
+    # surfaced as ``needs_vision`` per-document entries, never silently dropped.
+    vision_pending: list[Document] = []
     budget = ANTECEDENTES_MAX_CHARS
     for document in documents:
         try:
             text = load_document_text(document)
         except DocumentUnavailable as exc:
-            load_warnings.append(f"{document.original_name}: {exc}")
+            if _antecedentes_needs_vision(document, exc):
+                vision_pending.append(document)
+                load_warnings.append(
+                    f"{document.original_name}: requiere extracción por visión "
+                    "(imagen/escaneo) — aún no implementado"
+                )
+            else:
+                load_warnings.append(f"{document.original_name}: {exc}")
             continue
         if budget <= 0:
             load_warnings.append(
@@ -1880,15 +2444,14 @@ def consolidate_antecedentes(
         budget -= len(text)
         sources.append((document, text))
 
-    if not sources:
+    if not sources and not vision_pending:
         raise DocumentUnavailable(
             "Ningún antecedente de la cuenta pudo leerse (¿archivos escaneados?)"
         )
 
-    schema = build_dynamic_schema(schema_row.definition)
-    ramo_name = getattr(case.insurance_line, "name", None) or schema_row.name
-    messages = _antecedentes_messages(schema, sources, ramo_name=ramo_name)
-    primary_document = sources[0][0]
+    schema = build_dynamic_schema(definition)
+    ramo_name = getattr(case.insurance_line, "name", None) or schema_name
+    primary_document = (sources[0][0] if sources else documents[0])
 
     extraction = Extraction(
         broker_id=broker_id,
@@ -1911,36 +2474,96 @@ def consolidate_antecedentes(
         extraction.finished_at = datetime.now(timezone.utc)
         db.commit()
 
-    try:
-        (
-            payload,
-            parsed,
-            raw,
-            model_name,
-            prompt_tokens,
-            completion_tokens,
-            warnings,
-        ) = _invoke_structured_schema(schema, messages)
-    except AIError as exc:
-        _fail(exc)
-        raise
-    except Exception as exc:  # noqa: BLE001 - last-resort net; never a 500
-        wrapped = _wrap_provider_error(exc)
-        _fail(wrapped)
-        raise wrapped from exc
+    # PER-DOCUMENT extraction: read each source document on its own so the review
+    # UI can show the pieces extracted from THAT file; the consolidated Bases
+    # Técnicas is then MERGED from those reads in code (suggest-only, rule 6).
+    per_document: list[dict[str, Any]] = []
+    doc_payloads: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    model_name = settings.AI_MODEL
+    prompt_tokens = completion_tokens = 0
+    last_raw: dict[str, Any] = {}
+    for document, text in sources:
+        messages = _antecedentes_messages(
+            schema, [(document, text)], ramo_name=ramo_name
+        )
+        try:
+            (
+                payload,
+                parsed,
+                raw,
+                doc_model,
+                in_tokens,
+                out_tokens,
+                doc_warnings,
+            ) = _invoke_structured_schema(schema, messages)
+        except AIError as exc:
+            _fail(exc)
+            raise
+        except Exception as exc:  # noqa: BLE001 - last-resort net; never a 500
+            wrapped = _wrap_provider_error(exc)
+            _fail(wrapped)
+            raise wrapped from exc
 
+        doc_stored = payload.model_dump(mode="json") if payload is not None else parsed
+        doc_confidence = _payload_confidence(parsed, payload)
+        doc_payloads.append(doc_stored if isinstance(doc_stored, dict) else {})
+        per_document.append(
+            {
+                "document_id": document.id,
+                "document_name": document.original_name,
+                "category": document.category.value if document.category else None,
+                "section": document.section.value if document.section else None,
+                "payload": doc_stored,
+                "confidence": str(doc_confidence) if doc_confidence is not None else None,
+                "needs_vision": False,
+                "warnings": doc_warnings,
+            }
+        )
+        warnings.extend(doc_warnings)
+        model_name = doc_model or model_name
+        prompt_tokens += in_tokens or 0
+        completion_tokens += out_tokens or 0
+        last_raw = raw
+
+    # Image / scanned documents awaiting a vision-model fallback: surfaced as
+    # explicit per-document entries so nothing is silently lost.
+    for document in vision_pending:
+        per_document.append(
+            {
+                "document_id": document.id,
+                "document_name": document.original_name,
+                "category": document.category.value if document.category else None,
+                "section": document.section.value if document.section else None,
+                "payload": None,
+                "confidence": None,
+                "needs_vision": True,
+                "warnings": ["Requiere extracción por visión (aún no implementado)"],
+            }
+        )
+
+    # CONSOLIDATE the per-document reads into one Bases Técnicas payload, then
+    # normalise it through the dynamic schema (Chilean number/date parsing).
+    merged = _merge_antecedentes_payloads(definition, doc_payloads)
+    merged_payload, merge_warnings = _coerce_payload(schema, merged)
+    warnings.extend(merge_warnings)
+    if merged_payload is not None:
+        stored: dict[str, Any] | None = merged_payload.model_dump(mode="json")
+        confidence = _payload_confidence({}, merged_payload)
+    else:
+        stored = merged
+        confidence = None
     warnings = [*load_warnings, *warnings]
-    confidence = _payload_confidence(parsed, payload)
-    stored = payload.model_dump(mode="json") if payload is not None else parsed
 
     extraction.model = model_name
-    extraction.prompt_tokens = prompt_tokens
-    extraction.completion_tokens = completion_tokens
-    extraction.raw_output = raw
+    extraction.prompt_tokens = prompt_tokens or None
+    extraction.completion_tokens = completion_tokens or None
+    extraction.raw_output = {**last_raw, "per_document": per_document}
     extraction.parsed = stored
     extraction.confidence = confidence
     extraction.status = ExtractionStatus.SUCCEEDED
     extraction.finished_at = datetime.now(timezone.utc)
+    parsed = stored
 
     # Upsert the expediente to REVIEW holding the suggested payload (suggest-only:
     # the human validates & completes before register commits it).
@@ -1957,8 +2580,8 @@ def consolidate_antecedentes(
         expediente.payload = stored
     expediente.status = RecordExpedienteStatus.REVIEW
     expediente.insurance_line_id = case.insurance_line_id
-    expediente.line_record_schema_id = schema_row.id
-    expediente.schema_version = schema_row.version
+    expediente.line_record_schema_id = schema_id
+    expediente.schema_version = schema_version
     expediente.source_extraction_id = extraction.id
     expediente.ai_confidence = confidence
 
@@ -1972,8 +2595,1192 @@ def consolidate_antecedentes(
         payload=stored,
         parsed=parsed,
         confidence=confidence,
+        document_extractions=per_document,
         warnings=warnings,
     )
+
+
+# --- 1c. Dynamic budget-proposal extraction (v8) -----------------------------
+
+BUDGET_PROPOSAL_PROMPT_VERSION = "budget-proposal-v1"
+
+# The premium columns the fixed core carries — invariant-checked, never re-derived.
+_BUDGET_MONEY_KEYS = (
+    "taxable_premium_uf",
+    "exempt_premium_uf",
+    "net_premium_uf",
+    "vat_uf",
+    "total_premium_uf",
+    "taxable_rate_permille",
+    "exempt_rate_permille",
+    "comprehensive_rate_permille",
+)
+
+
+def _budget_proposal_messages(
+    spec: "CategorySpec", document: Document, text: str
+) -> list[dict[str, str]]:
+    """OpenAI-style messages for the tool-calling budget-proposal read.
+
+    Unlike ``_extraction_messages`` this does NOT inline the JSON schema hint —
+    the SLIM tool schema carries the shape, which is exactly what shed the
+    ~5.6 KB of prompt bloat that drove the Stage-5 timeouts. The Spanish guidance
+    stays (the source documents are Spanish; CLAUDE.md rule 1).
+    """
+    system = (
+        f"{_GENERIC_EXTRACTION_SYSTEM}\n\n"
+        f"GUÍA PARA ESTA CATEGORÍA ({spec.category.value})\n{spec.guidance}"
+    )
+    user = (
+        f"Archivo: {document.original_name}\n"
+        f"Categoría: {spec.category.value}\n\n"
+        "--- INICIO DEL DOCUMENTO ---\n"
+        f"{text}\n"
+        "--- FIN DEL DOCUMENTO ---\n\n"
+        "Llama a la función con los datos extraídos."
+    )
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+@dataclass
+class BudgetProposalResult:
+    """What the dynamic per-offer SUGGEST returns.
+
+    ``document_type`` is ``"not_a_proposal"`` for a wrong file — a SUCCEEDED-but-
+    flagged outcome that never raises, so a router can render a rejection card.
+    """
+
+    extraction: Extraction
+    payload: Any | None
+    parsed: dict[str, Any] | None
+    document_type: str
+    document_type_confidence: Decimal | None
+    rejection_reason: str | None
+    warnings: list[str] = field(default_factory=list)
+
+    @property
+    def extraction_id(self) -> int:
+        return self.extraction.id
+
+    @property
+    def is_wrong_file(self) -> bool:
+        return self.document_type == "not_a_proposal"
+
+
+def extract_budget_proposal(
+    db: Session,
+    *,
+    document_id: int,
+    broker_id: int,
+    user: User | None = None,
+) -> BudgetProposalResult:
+    """Read one insurer offer DYNAMICALLY: wrong-file verdict + fixed core + facets.
+
+    Writes exactly ONE ``extraction`` row in EVERY outcome — success, wrong-file
+    (SUCCEEDED-but-flagged), provider failure, unparsable — carrying the model,
+    the prompt version, the raw output, the parsed result and a confidence
+    (rule 6). It never writes a ``proposal`` or a ``comparison_source``: those are
+    the caller/confirm step's job.
+
+    The fixed money/period core is invariant-checked with the SHARED
+    :func:`reconcile_money`; a contradiction is recorded as a WARNING (SUGGEST
+    never raises on money — 422 belongs to the confirm step).
+    """
+    from app.schemas.extraction.budget_proposal import budget_proposal_tool_schema
+    from app.schemas.extraction.registry import spec_for
+
+    document = get_document(db, document_id, broker_id)
+    if document is None:
+        raise DocumentUnavailable(f"Document {document_id} not found in this workspace")
+
+    spec = spec_for(DocumentCategory.BUDGET_PROPOSAL)
+    # Fail before creating a row if there is nothing to read.
+    text = load_document_text(document)
+
+    extraction = Extraction(
+        broker_id=broker_id,
+        document_id=document.id,
+        case_file_id=document.case_file_id,
+        category=spec.category,
+        kind=spec.extraction_kind,
+        model=settings.AI_MODEL,
+        prompt_version=spec.prompt_version,
+        status=ExtractionStatus.RUNNING,
+        started_at=datetime.now(timezone.utc),
+        created_by_id=getattr(user, "id", None),
+    )
+    db.add(extraction)
+    db.flush()
+
+    def _fail(exc: AIError) -> None:
+        extraction.status = ExtractionStatus.FAILED
+        extraction.error = f"{type(exc).__name__}: {exc}"
+        extraction.finished_at = datetime.now(timezone.utc)
+        db.commit()
+
+    try:
+        result = tool_call(
+            messages=_budget_proposal_messages(spec, document, text),
+            tool_schema=budget_proposal_tool_schema(),
+            model=model_for(AITask.EXTRACT),
+            timeout=settings.AI_TIMEOUT_SECONDS,
+            schema=spec.schema,
+        )
+    except AIError as exc:
+        _fail(exc)
+        raise
+    except Exception as exc:  # noqa: BLE001 - last-resort net; never a 500
+        wrapped = _wrap_provider_error(exc)
+        _fail(wrapped)
+        raise wrapped from exc
+
+    payload = result.payload
+    parsed = result.parsed
+    raw = result.raw
+    model_name = result.model or settings.AI_MODEL
+    usage = result.usage or {}
+    prompt_tokens = usage.get("prompt_tokens")
+    completion_tokens = usage.get("completion_tokens")
+    warnings = list(result.warnings)
+
+    # Reconcile the fixed money core — best-effort, warnings only (SUGGEST).
+    if payload is not None:
+        money_values = {
+            key: getattr(payload, key, None)
+            for key in _BUDGET_MONEY_KEYS
+            if getattr(payload, key, None) is not None
+        }
+        if money_values:
+            try:
+                _derived, money_errors = reconcile_money(money_values)
+                for err in money_errors:
+                    warnings.append(
+                        f"Money inconsistency in {err.get('field')}: {err.get('rule')}"
+                    )
+            except Exception:  # noqa: BLE001 - a malformed figure is a warning, not a raise
+                warnings.append("Money core could not be reconciled")
+
+    document_type = "budget_proposal"
+    document_type_confidence: Decimal | None = None
+    rejection_reason: str | None = None
+    if payload is not None:
+        document_type = getattr(payload, "document_type", None) or "budget_proposal"
+        document_type_confidence = getattr(payload, "document_type_confidence", None)
+        rejection_reason = getattr(payload, "rejection_reason", None)
+    elif isinstance(parsed, dict):
+        document_type = parsed.get("document_type") or "budget_proposal"
+        rejection_reason = parsed.get("rejection_reason")
+
+    extraction.model = model_name
+    extraction.prompt_tokens = prompt_tokens
+    extraction.completion_tokens = completion_tokens
+    extraction.raw_output = raw
+    extraction.parsed = payload.model_dump(mode="json") if payload is not None else parsed
+    extraction.confidence = _payload_confidence(parsed, payload)
+    # A wrong file is a SUCCEEDED extraction — the read itself worked; the verdict
+    # is the payload, not a failure. Never raises.
+    extraction.status = ExtractionStatus.SUCCEEDED
+    extraction.finished_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(extraction)
+
+    return BudgetProposalResult(
+        extraction=extraction,
+        payload=payload,
+        parsed=parsed,
+        document_type=document_type,
+        document_type_confidence=document_type_confidence,
+        rejection_reason=rejection_reason,
+        warnings=warnings,
+    )
+
+
+# --- 1d. Holistic comparison + outbound propuesta (v9, tool-calling) ---------
+#
+# The comparison is NO LONGER an align-over-compact-facets pass. The model sees
+# ALL the cotización READINGS at once (money core + facets) PLUS the prior
+# comparison's established dimensions (so standardization is CARRIED FORWARD, not
+# re-derived) and produces, through the ``submit_comparison`` tool, a
+# standardized table (dimensions aligned across insurers: common + per-insurer
+# extras, each cell carrying value + verbatim) AND an AI recommendation.
+#
+# BLOCK-ON-PROVIDER-DOWN: DeepInfra is flaky and ``tool_call`` already retries
+# then raises a typed :class:`AIError`. Here that error PROPAGATES — there is NO
+# deterministic slug-match fallback. The step is BLOCKED (the router turns the
+# AIError into a clean 502/503/504), never silently degraded to a half-baked
+# comparison.
+
+COMPARE_PROMPT_VERSION = "comparison-submit-v1"
+RECOMMEND_PROMPT_VERSION = "comparison-recommend-v1"
+PROPUESTA_PROMPT_VERSION = "propuesta-submit-v1"
+
+# Cap each facet's label / verbatim in the ASSEMBLED INPUT so a wide programme
+# stays inside the window; the batching threshold splits when even that is large.
+COMPARE_LABEL_CHARS = 120
+COMPARE_VERBATIM_CHARS = 600
+
+# The money/period core each reading contributes (proposal column names).
+_COMPARE_CORE_KEYS = (
+    "insurer_name",
+    "insurer_rut",
+    "insurer_cmf_code",
+    "quotation_number",
+    "taxable_premium_uf",
+    "exempt_premium_uf",
+    "net_premium_uf",
+    "vat_uf",
+    "total_premium_uf",
+    "taxable_rate_permille",
+    "exempt_rate_permille",
+    "comprehensive_rate_permille",
+    "commission_pct",
+    "validity_business_days",
+    "period_start_at",
+    "period_end_at",
+    "coverage_start",
+    "coverage_end",
+)
+
+# The facet groups a standardized dimension can carry (mirrors the extraction).
+_COMPARE_GROUPS = (
+    "coverage",
+    "exclusion",
+    "deductible",
+    "sublimit",
+    "clause",
+    "warranty",
+    "other",
+)
+
+
+@dataclass
+class ComparisonResult:
+    """The holistic comparison: standardized table + AI recommendation + snapshot."""
+
+    extraction: Extraction | None
+    table: dict[str, Any]
+    recommendation: dict[str, Any] | None
+    dictionary: list[dict[str, Any]]
+    canonical_version: int
+    used_ai: bool
+    batched: bool
+    batch_count: int
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class PropuestaResult:
+    """The outbound propuesta: a validated minimum core + a free ``additional`` tail."""
+
+    extraction: Extraction | None
+    core: dict[str, Any]
+    additional: Any
+    is_core_valid: bool
+    money_errors: list[dict[str, Any]]
+    warnings: list[str] = field(default_factory=list)
+    raw: dict[str, Any] | None = None
+
+
+def _source_facets(source: "ComparisonSource") -> list[dict[str, Any]]:
+    """The cached facet list of a source, defensively normalised to dict rows."""
+    facets = source.facets
+    if isinstance(facets, dict):
+        facets = facets.get("facets") or list(facets.values())
+    if not isinstance(facets, list):
+        return []
+    return [f for f in facets if isinstance(f, dict)]
+
+
+def _canonical_key(facet: dict[str, Any]) -> str:
+    """A ``coverage_key``-style slug: the alignment key when the AI is unavailable."""
+    return coverage_key(None, str(facet.get("key") or facet.get("label") or "unnamed"))
+
+
+def _comparison_audit_document_id(db: Session, sources: list["ComparisonSource"]) -> int | None:
+    """A representative source document for the audit row (extraction needs one)."""
+    for source in sources:
+        if source.source_extraction_id is not None:
+            src_extraction = db.get(Extraction, source.source_extraction_id)
+            if src_extraction is not None and src_extraction.document_id is not None:
+                return src_extraction.document_id
+        proposal = getattr(source, "proposal", None)
+        if proposal is not None and getattr(proposal, "source_document_id", None):
+            return proposal.source_document_id
+    return None
+
+
+# New submit_comparison / submit_propuesta machinery (v9).
+
+
+def _short(value: Any, limit: int) -> str | None:
+    if value is None:
+        return None
+    text = str(value)
+    return text if len(text) <= limit else text[:limit] + "…"
+
+
+def _source_money_core(db: Session, source: "ComparisonSource") -> dict[str, Any]:
+    """The money/period core a column read, from its persisted extraction parse."""
+    if source.source_extraction_id is None:
+        return {}
+    extraction = db.get(Extraction, source.source_extraction_id)
+    if extraction is None or not isinstance(extraction.parsed, dict):
+        return {}
+    parsed = extraction.parsed
+    return {
+        key: parsed.get(key) for key in _COMPARE_CORE_KEYS if parsed.get(key) is not None
+    }
+
+
+def _source_reading(db: Session, source: "ComparisonSource") -> dict[str, Any]:
+    """One insurer's FULL reading: money core + facets, tagged by column id.
+
+    This is the holistic input — the model sees the whole offer, not a compacted
+    facet slug. Labels / verbatim are capped so a wide programme stays bounded.
+    """
+    reading: dict[str, Any] = {
+        "comparison_source_id": source.id,
+        "proposal_id": source.proposal_id,
+        "is_wrong_file": bool(source.is_wrong_file),
+        "money_core": _source_money_core(db, source),
+        "facets": [
+            {
+                "key": f.get("key"),
+                "group": f.get("group"),
+                "label": _short(f.get("label"), COMPARE_LABEL_CHARS),
+                "present": f.get("present"),
+                "value": f.get("value"),
+                "verbatim": _short(f.get("verbatim"), COMPARE_VERBATIM_CHARS),
+            }
+            for f in _source_facets(source)
+        ],
+    }
+    if source.is_wrong_file:
+        reading["wrong_file_reason"] = source.wrong_file_reason
+    return reading
+
+
+def _compare_input_blob(readings: list[dict[str, Any]], prior_structure: dict[str, Any]) -> str:
+    return json.dumps(
+        {"prior_structure": prior_structure, "readings": readings},
+        ensure_ascii=False,
+        default=str,
+    )
+
+
+def _batch_readings(
+    readings: list[dict[str, Any]], max_chars: int, prior_structure: dict[str, Any]
+) -> list[list[dict[str, Any]]]:
+    """Greedily pack readings into batches whose assembled input fits ``max_chars``.
+
+    A single oversized reading still gets its own batch (never dropped).
+    """
+    batches: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    for reading in readings:
+        trial = current + [reading]
+        if current and len(_compare_input_blob(trial, prior_structure)) > max_chars:
+            batches.append(current)
+            current = [reading]
+        else:
+            current = trial
+    if current:
+        batches.append(current)
+    return batches or [list(readings)]
+
+
+def _normalize_dimensions(value: Any) -> list[dict[str, Any]]:
+    """Defensively coerce the tool's ``dimensions`` into a list of dict rows."""
+    if isinstance(value, dict):
+        value = value.get("dimensions") or list(value.values())
+    if not isinstance(value, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for row in value:
+        if not isinstance(row, dict):
+            continue
+        group = row.get("group")
+        if not (isinstance(group, str) and group.strip().lower() in _COMPARE_GROUPS):
+            group = "other"
+        cells = row.get("cells")
+        cells = [c for c in cells if isinstance(c, dict)] if isinstance(cells, list) else []
+        out.append(
+            {
+                "key": row.get("key") or row.get("label") or "unnamed",
+                "group": group,
+                "label": row.get("label"),
+                "scope": row.get("scope") if row.get("scope") in {"common", "extra"} else None,
+                "cells": cells,
+            }
+        )
+    return out
+
+
+def _normalize_recommendation(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    caveats = value.get("caveats")
+    caveats = [str(c) for c in caveats] if isinstance(caveats, list) else []
+    return {
+        "recommended_comparison_source_id": value.get("recommended_comparison_source_id"),
+        "recommended_proposal_id": value.get("recommended_proposal_id"),
+        "rationale": value.get("rationale"),
+        "caveats": caveats,
+    }
+
+
+def _merge_dimensions(
+    existing: list[dict[str, Any]], new: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Union batched dimension lists by key, concatenating their cells.
+
+    Deterministic code merge (the user allows this): the standardized structure
+    is preserved and each insurer's cells accumulate under one canonical row.
+    """
+    by_key: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for row in existing:
+        key = str(row.get("key"))
+        by_key[key] = {**row, "cells": list(row.get("cells") or [])}
+        order.append(key)
+    for row in new:
+        key = str(row.get("key"))
+        if key in by_key:
+            by_key[key]["cells"] = by_key[key]["cells"] + list(row.get("cells") or [])
+        else:
+            by_key[key] = {**row, "cells": list(row.get("cells") or [])}
+            order.append(key)
+    return [by_key[key] for key in order]
+
+
+def _merge_dictionary(
+    prior_dictionary: list[dict[str, Any]],
+    dimensions: list[dict[str, Any]],
+    current_version: int | None,
+    prior_len: int,
+) -> tuple[list[dict[str, Any]], int]:
+    """Grow the MONOTONIC canonical dictionary from the standardized dimensions.
+
+    Same snapshot semantics as before: the dictionary only appends, and the
+    version bumps only when it actually grew on a re-run.
+    """
+    dictionary = [
+        dict(entry) for entry in prior_dictionary if isinstance(entry, dict) and entry.get("key")
+    ]
+    seen = {str(entry["key"]) for entry in dictionary}
+    for dim in dimensions:
+        key = dim.get("key")
+        if key and str(key) not in seen:
+            dictionary.append(
+                {"key": key, "group": dim.get("group") or "other", "label": dim.get("label") or key}
+            )
+            seen.add(str(key))
+
+    grew = len(dictionary) > prior_len
+    if prior_len == 0:
+        version = max(current_version or 0, 1)
+    elif grew:
+        version = (current_version or 1) + 1
+    else:
+        version = current_version or 1
+    return dictionary, version
+
+
+def _submit_comparison_tool_schema() -> dict[str, Any]:
+    """The tool that standardizes ALL readings into one table + a recommendation."""
+    cell = {
+        "type": "object",
+        "properties": {
+            "comparison_source_id": {"type": "integer", "description": "La columna a la que pertenece la celda."},
+            "present": {"type": "boolean", "description": "true si la oferta la ampara, false si la excluye."},
+            "value": {"type": ["string", "number"], "description": "Valor: límite UF, %, mínimo UF, días…"},
+            "verbatim": {"type": "string", "description": "La redacción EXACTA de esa oferta para esta dimensión."},
+        },
+        "required": ["comparison_source_id"],
+    }
+    dimension = {
+        "type": "object",
+        "properties": {
+            "key": {"type": "string", "description": "Slug canónico estable, p. ej. 'sismo'."},
+            "group": {"type": "string", "enum": list(_COMPARE_GROUPS)},
+            "label": {"type": "string", "description": "Etiqueta corta en español."},
+            "scope": {"type": "string", "enum": ["common", "extra"], "description": "common si todas las ofertas la tienen; extra si no."},
+            "cells": {"type": "array", "items": cell},
+        },
+        "required": ["key", "group"],
+    }
+    return {
+        "name": "submit_comparison",
+        "description": (
+            "Estandariza TODAS las lecturas de cotizaciones en UNA tabla comparativa "
+            "(dimensiones alineadas entre aseguradoras: comunes + extras por aseguradora, "
+            "cada celda con valor y redacción literal) y entrega una recomendación. "
+            "Reutiliza las dimensiones del diccionario previo para mantener la estandarización; "
+            "no inventes dimensiones ni valores."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "dimensions": {"type": "array", "items": dimension},
+                "recommendation": _recommendation_schema_props(),
+            },
+            "required": ["dimensions"],
+        },
+    }
+
+
+def _recommendation_schema_props(required: bool = False) -> dict[str, Any]:
+    schema: dict[str, Any] = {
+        "type": "object",
+        "description": "La oferta recomendada con su fundamento y salvedades.",
+        "properties": {
+            "recommended_comparison_source_id": {"type": "integer", "description": "La columna recomendada."},
+            "recommended_proposal_id": {"type": "integer", "description": "El proposal promovido, si existe."},
+            "rationale": {"type": "string", "description": "Fundamento de la recomendación, en español."},
+            "caveats": {"type": "array", "items": {"type": "string"}, "description": "Salvedades o riesgos a revisar."},
+        },
+    }
+    if required:
+        schema["required"] = ["recommended_comparison_source_id", "rationale", "caveats"]
+    return schema
+
+
+def _recommend_tool_schema() -> dict[str, Any]:
+    return {
+        "name": "recommend_comparison",
+        "description": (
+            "Dada la tabla comparativa estandarizada, entrega UNA recomendación: la oferta "
+            "recomendada, su fundamento y las salvedades. No inventes datos fuera de la tabla."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"recommendation": _recommendation_schema_props(required=True)},
+            "required": ["recommendation"],
+        },
+    }
+
+
+def _submit_comparison_messages(
+    readings: list[dict[str, Any]], prior_structure: dict[str, Any]
+) -> list[dict[str, str]]:
+    system = (
+        "Eres el estandarizador y recomendador de un comparador de ofertas de seguros en Chile. "
+        "Recibes las LECTURAS COMPLETAS de cada cotización (núcleo de prima/vigencia + facetas con "
+        "su redacción literal) y la ESTRUCTURA PREVIA del comparador (diccionario de dimensiones ya "
+        "establecidas). Estandariza todas las ofertas sobre esas dimensiones — AGREGA solo dimensiones "
+        "genuinamente nuevas, reutilizando las previas para que la estandarización se mantenga entre "
+        "cargas incrementales. Cada dimensión lleva sus celdas por columna (valor + redacción literal) "
+        "y su alcance (common/extra). Además entrega una recomendación con fundamento y salvedades. "
+        "Llama a la función submit_comparison. No inventes dimensiones ni valores."
+    )
+    user = _compare_input_blob(readings, prior_structure)
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+def _recommend_messages(
+    dimensions: list[dict[str, Any]], readings: list[dict[str, Any]]
+) -> list[dict[str, str]]:
+    money = [
+        {"comparison_source_id": r.get("comparison_source_id"), "money_core": r.get("money_core")}
+        for r in readings
+    ]
+    valid_ids = [m["comparison_source_id"] for m in money if m.get("comparison_source_id") is not None]
+    system = (
+        "Eres el recomendador de un comparador de ofertas de seguros en Chile. Recibes la tabla "
+        "comparativa estandarizada (dimensiones con celdas por columna) y los núcleos de prima de "
+        "cada oferta. Entrega UNA recomendación con la columna recomendada, su fundamento y las "
+        "salvedades. Llama a la función recommend_comparison. "
+        "OBLIGATORIO: DEBES elegir un pick concreto — 'recommended_comparison_source_id' tiene que "
+        "ser uno de los comparison_source_id presentes en el arreglo 'money' "
+        f"(valores válidos: {valid_ids or 'ver arreglo money'}), nunca null. "
+        "El 'rationale' DEBE ser un texto no vacío en español que justifique esa elección. "
+        "Aunque las ofertas sean parecidas o falten datos, elige la mejor opción disponible y "
+        "explica el porqué; usa 'caveats' para las salvedades, no para evitar elegir."
+    )
+    user = json.dumps({"dimensions": dimensions, "money": money}, ensure_ascii=False, default=str)
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+def submit_comparison(
+    db: Session,
+    *,
+    comparison: "Comparison",
+    sources: list["ComparisonSource"],
+    broker_id: int,
+    user: User | None = None,
+) -> ComparisonResult:
+    """Holistically standardize an account's offers into ONE comparison table.
+
+    The model sees ALL cotización readings at once + the prior comparison
+    structure (carried forward). Default is ONE ``submit_comparison`` tool call;
+    when the assembled input exceeds ``AI_COMPARE_MAX_INPUT_CHARS`` the readings
+    are split into batches, each run, then MERGED deterministically into one
+    table, with a final ``recommend_comparison`` call over the merged table.
+
+    BLOCK-ON-PROVIDER-DOWN: a typed :class:`AIError` from ``tool_call`` PROPAGATES
+    — there is no deterministic fallback. The router turns it into a clean
+    provider error (the step is blocked, never a half-baked comparison).
+    """
+    from app.models.comparison import ComparisonStatus
+
+    ensure_ai_configured()
+
+    prior_dictionary = comparison.dictionary if isinstance(comparison.dictionary, list) else []
+    prior_len = len(prior_dictionary)
+    prior_structure = {"dictionary": prior_dictionary}
+
+    readings = [_source_reading(db, source) for source in sources]
+    blob = _compare_input_blob(readings, prior_structure)
+
+    warnings: list[str] = []
+    batched = False
+    batch_count = 1
+    compare_model = model_for(AITask.COMPARE)
+    prompt_tokens = 0
+    completion_tokens = 0
+    model_name = compare_model
+
+    if len(blob) <= settings.AI_COMPARE_MAX_INPUT_CHARS:
+        result = tool_call(
+            messages=_submit_comparison_messages(readings, prior_structure),
+            tool_schema=_submit_comparison_tool_schema(),
+            model=compare_model,
+            timeout=settings.AI_TIMEOUT_SECONDS,
+            max_tokens=settings.AI_COMPARE_MAX_TOKENS,
+        )
+        parsed = result.parsed or {}
+        dimensions = _normalize_dimensions(parsed.get("dimensions"))
+        recommendation = _normalize_recommendation(parsed.get("recommendation"))
+        model_name = result.model or compare_model
+        prompt_tokens = (result.usage or {}).get("prompt_tokens") or 0
+        completion_tokens = (result.usage or {}).get("completion_tokens") or 0
+        # HARD GUARD: an empty table means a truncated / empty model answer.
+        # Block cleanly — NEVER commit an empty table with a 200 (the bug this fixes).
+        if not dimensions:
+            raise AIProviderError(
+                "The comparison produced no dimensions (truncated or empty model "
+                "answer); the step is blocked rather than committing an empty table"
+            )
+    else:
+        batched = True
+        batches = _batch_readings(readings, settings.AI_COMPARE_MAX_INPUT_CHARS, prior_structure)
+        batch_count = len(batches)
+        merged: list[dict[str, Any]] = []
+        for batch in batches:
+            r = tool_call(
+                messages=_submit_comparison_messages(batch, prior_structure),
+                tool_schema=_submit_comparison_tool_schema(),
+                model=compare_model,
+                timeout=settings.AI_TIMEOUT_SECONDS,
+                max_tokens=settings.AI_COMPARE_MAX_TOKENS,
+            )
+            batch_dimensions = _normalize_dimensions((r.parsed or {}).get("dimensions"))
+            # HARD GUARD per batch: a truncated batch would silently drop a whole
+            # insurer's dimensions from the merged table.
+            if not batch_dimensions:
+                raise AIProviderError(
+                    "A comparison batch produced no dimensions (truncated or empty "
+                    "model answer); the step is blocked"
+                )
+            merged = _merge_dimensions(merged, batch_dimensions)
+            prompt_tokens += (r.usage or {}).get("prompt_tokens") or 0
+            completion_tokens += (r.usage or {}).get("completion_tokens") or 0
+            model_name = r.model or compare_model
+        dimensions = merged
+        recommendation = None  # produced by the unified always-recommend step below
+        if not dimensions:
+            raise AIProviderError(
+                "The merged comparison produced no dimensions; the step is blocked"
+            )
+        warnings.append(
+            f"Comparison input exceeded {settings.AI_COMPARE_MAX_INPUT_CHARS} chars; "
+            f"ran in {batch_count} batches and merged."
+        )
+
+    # ALWAYS produce a recommendation: if the holistic / merged answer named no
+    # pick (or gave none at all), run the dedicated recommend call over the table.
+    if recommendation is None or recommendation.get("recommended_comparison_source_id") is None:
+        rec = tool_call(
+            messages=_recommend_messages(dimensions, readings),
+            tool_schema=_recommend_tool_schema(),
+            model=model_for(AITask.RECOMMEND),
+            timeout=settings.AI_TIMEOUT_SECONDS,
+            max_tokens=settings.AI_COMPARE_MAX_TOKENS,
+        )
+        rec_value = _normalize_recommendation((rec.parsed or {}).get("recommendation"))
+        if rec_value is not None:
+            recommendation = rec_value
+        prompt_tokens += (rec.usage or {}).get("prompt_tokens") or 0
+        completion_tokens += (rec.usage or {}).get("completion_tokens") or 0
+        # SOFT GUARD: the required-pick schema is model-steering, not a hard block.
+        # If the model still named no pick, degrade to a warning rather than 500 —
+        # the caveats/rationale (if any) are preserved and the table still commits.
+        if recommendation is None or recommendation.get("recommended_comparison_source_id") is None:
+            warnings.append(
+                "The AI recommendation named no pick "
+                "(recommended_comparison_source_id is null); review the caveats manually."
+            )
+
+    dictionary, canonical_version = _merge_dictionary(
+        prior_dictionary, dimensions, comparison.canonical_version, prior_len
+    )
+
+    columns = [
+        {
+            "comparison_source_id": source.id,
+            "proposal_id": source.proposal_id,
+            "is_wrong_file": bool(source.is_wrong_file),
+            "wrong_file_reason": source.wrong_file_reason,
+        }
+        for source in sources
+    ]
+    table = {
+        "dimensions": dimensions,
+        "columns": columns,
+        "recommendation": recommendation,
+        "used_ai": True,
+        "batched": batched,
+        "batch_count": batch_count,
+    }
+
+    extraction: Extraction | None = None
+    document_id = _comparison_audit_document_id(db, sources)
+    if document_id is not None:
+        extraction = Extraction(
+            broker_id=broker_id,
+            document_id=document_id,
+            case_file_id=comparison.case_file_id,
+            kind=ExtractionKind.OTHER,
+            model=model_name,
+            prompt_version=COMPARE_PROMPT_VERSION,
+            status=ExtractionStatus.SUCCEEDED,
+            started_at=datetime.now(timezone.utc),
+            finished_at=datetime.now(timezone.utc),
+            prompt_tokens=prompt_tokens or None,
+            completion_tokens=completion_tokens or None,
+            raw_output={"batched": batched, "batch_count": batch_count},
+            parsed=table,
+            created_by_id=getattr(user, "id", None),
+        )
+        db.add(extraction)
+        db.flush()
+    else:
+        warnings.append("No source document resolved; comparison audit row skipped")
+
+    comparison.dictionary = dictionary
+    comparison.canonical_version = canonical_version
+    comparison.aligned_matrix = table
+    comparison.status = ComparisonStatus.ALIGNED
+    if extraction is not None:
+        comparison.source_extraction_id = extraction.id
+    db.add(comparison)
+    db.commit()
+    if extraction is not None:
+        db.refresh(extraction)
+
+    return ComparisonResult(
+        extraction=extraction,
+        table=table,
+        recommendation=recommendation,
+        dictionary=dictionary,
+        canonical_version=canonical_version,
+        used_ai=True,
+        batched=batched,
+        batch_count=batch_count,
+        warnings=warnings,
+    )
+
+
+# --- 1e. Outbound propuesta (validated minimum core + free tail) -------------
+
+# The premium/period columns the propuesta core validates + carries.
+_PROPUESTA_CORE_KEYS = (
+    "taxable_premium_uf",
+    "exempt_premium_uf",
+    "net_premium_uf",
+    "vat_uf",
+    "total_premium_uf",
+    "taxable_rate_permille",
+    "exempt_rate_permille",
+    "comprehensive_rate_permille",
+    "commission_pct",
+    "validity_business_days",
+    "coverage_start",
+    "coverage_end",
+)
+_PROPUESTA_MONEY_KEYS = (
+    "taxable_premium_uf",
+    "exempt_premium_uf",
+    "net_premium_uf",
+    "vat_uf",
+    "total_premium_uf",
+    "taxable_rate_permille",
+    "exempt_rate_permille",
+    "comprehensive_rate_permille",
+)
+# The minimum a propuesta must state (missing => a warning, not a hard block —
+# the premium arithmetic is the only HARD gate). Insured identity + vigencia are
+# populated from the account antecedentes/period when the cotización omits them,
+# so these warnings SHRINK for a properly-registered account.
+_PROPUESTA_MINIMUM = (
+    "insurer_id",
+    "net_premium_uf",
+    "total_premium_uf",
+    "insured_name",
+    "coverage_start",
+    "coverage_end",
+)
+
+
+def _winner_core(db: Session, winner: "Proposal") -> dict[str, Any]:
+    """The authoritative minimum core from the committed winning proposal.
+
+    The premium columns were already reconciled at promote time, so they are the
+    trustworthy baseline; the tool's core is merged OVER this, never under it.
+    """
+    core: dict[str, Any] = {"insurer_id": winner.insurer_id}
+    for key in _PROPUESTA_CORE_KEYS:
+        value = getattr(winner, key, None)
+        if value is not None:
+            core[key] = value
+    return core
+
+
+def _winner_facets(db: Session, winner: "Proposal", broker_id: int) -> list[dict[str, Any]]:
+    """The winner's cached facets, if the column was sourced from a comparison."""
+    from app.models.comparison import ComparisonSource
+
+    source = db.scalars(
+        select(ComparisonSource).where(
+            ComparisonSource.proposal_id == winner.id,
+            ComparisonSource.broker_id == broker_id,
+        )
+    ).first()
+    return _source_facets(source) if source is not None else []
+
+
+def _submit_propuesta_tool_schema() -> dict[str, Any]:
+    return {
+        "name": "submit_propuesta",
+        "description": (
+            "Arma la PROPUESTA de salida (para la aseguradora) desde la cotización seleccionada y "
+            "el comparador: un NÚCLEO mínimo estandarizado (identidad de la aseguradora, asegurado, "
+            "vigencia y el núcleo de prima en UF: afecta, exenta, neta, IVA, total) y una cola libre "
+            "'additional' con todo lo demás que valga la pena llevar (coberturas, deducibles, cláusulas). "
+            "Copia las cifras de prima tal como vienen; no inventes montos."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "core": {
+                    "type": "object",
+                    "properties": {
+                        "insured_name": {"type": "string"},
+                        "insured_rut": {"type": "string"},
+                        "coverage_start": {"type": "string"},
+                        "coverage_end": {"type": "string"},
+                        "validity_business_days": {"type": "integer"},
+                        "taxable_premium_uf": {"type": "number"},
+                        "exempt_premium_uf": {"type": "number"},
+                        "net_premium_uf": {"type": "number"},
+                        "vat_uf": {"type": "number"},
+                        "total_premium_uf": {"type": "number"},
+                        "comprehensive_rate_permille": {"type": "number"},
+                        "commission_pct": {"type": "number"},
+                    },
+                },
+                "additional": {
+                    "type": "array",
+                    "description": "Cola libre: dimensiones heterogéneas que se anexan al final.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "group": {"type": "string"},
+                            "label": {"type": "string"},
+                            "value": {"type": ["string", "number"]},
+                            "verbatim": {"type": "string"},
+                        },
+                    },
+                },
+            },
+            "required": ["core"],
+        },
+    }
+
+
+# The account already KNOWS the insured's identity and the vigencia from its
+# registered antecedentes — the winning cotización rarely re-states them. The
+# antecedentes payload is a broker-defined, sectioned dict, so we LIFT those
+# facts by scanning well-known field keys rather than a fixed path.
+_ACCT_NAME_KEYS = (
+    "insured_name",
+    "razon_social",
+    "razonsocial",
+    "legal_name",
+    "nombre_asegurado",
+    "asegurado",
+    "contratante",
+    "nombre",
+)
+_ACCT_RUT_KEYS = ("insured_rut", "rut_asegurado", "rut")
+_ACCT_START_KEYS = (
+    "coverage_start",
+    "vigencia_inicio",
+    "vigencia_desde",
+    "inicio_vigencia",
+    "fecha_inicio",
+    "desde",
+)
+_ACCT_END_KEYS = (
+    "coverage_end",
+    "vigencia_fin",
+    "vigencia_hasta",
+    "termino_vigencia",
+    "fin_vigencia",
+    "fecha_termino",
+    "hasta",
+)
+
+
+def _scan_payload_for(payload: Any, keys: tuple[str, ...]) -> str | None:
+    """First non-empty SCALAR value whose key matches (case-insensitive) ``keys``.
+
+    Walks the sectioned antecedentes payload depth-first. The alias order in
+    ``keys`` is precedence: a match on an earlier alias wins over a later one at
+    the same depth, so a dedicated ``insured_name`` beats a generic ``nombre``.
+    """
+    if not isinstance(payload, (dict, list)):
+        return None
+
+    def _matches(k: str) -> int | None:
+        low = str(k).strip().lower()
+        for rank, alias in enumerate(keys):
+            if low == alias:
+                return rank
+        return None
+
+    best_rank: int | None = None
+    best_value: str | None = None
+    stack: list[Any] = [payload]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if isinstance(v, (str, int, float)) and not isinstance(v, bool):
+                    text = str(v).strip()
+                    rank = _matches(k)
+                    if text and rank is not None and (best_rank is None or rank < best_rank):
+                        best_rank, best_value = rank, text
+                elif isinstance(v, (dict, list)):
+                    stack.append(v)
+        elif isinstance(node, list):
+            for item in node:
+                if isinstance(item, (dict, list)):
+                    stack.append(item)
+    return best_value
+
+
+def _propuesta_account_context(
+    db: Session, comparison: "Comparison", broker_id: int
+) -> dict[str, Any]:
+    """What the ACCOUNT already knows: insured identity + vigencia defaults.
+
+    Sourced (best-effort, tenant-scoped) from the account's REGISTERED
+    ``record_expediente`` (the human-validated antecedentes) and, for the
+    vigencia, the ``case_file`` period as a fallback. Returns only the fields it
+    could resolve — a miss (no account, no antecedentes) yields ``{}`` and the
+    propuesta is unchanged. Never raises: a hiccup here must not fail the mint.
+    """
+    ctx: dict[str, Any] = {}
+    case_file_id = getattr(comparison, "case_file_id", None)
+    if case_file_id is None:
+        return ctx
+    try:
+        case_file = db.scalars(
+            select(CaseFile).where(
+                CaseFile.id == case_file_id,
+                CaseFile.broker_id == broker_id,
+            )
+        ).first()
+        if case_file is None:
+            return ctx
+
+        expediente = db.scalars(
+            select(RecordExpediente).where(
+                RecordExpediente.broker_id == broker_id,
+                RecordExpediente.case_file_id == case_file.id,
+                RecordExpediente.status == RecordExpedienteStatus.REGISTERED,
+            )
+        ).first()
+        if expediente is not None and isinstance(expediente.payload, (dict, list)):
+            name = _scan_payload_for(expediente.payload, _ACCT_NAME_KEYS)
+            if name:
+                ctx["insured_name"] = name
+            rut = _scan_payload_for(expediente.payload, _ACCT_RUT_KEYS)
+            if rut:
+                ctx["insured_rut"] = rut
+            start = _scan_payload_for(expediente.payload, _ACCT_START_KEYS)
+            if start:
+                ctx["coverage_start"] = start
+            end = _scan_payload_for(expediente.payload, _ACCT_END_KEYS)
+            if end:
+                ctx["coverage_end"] = end
+
+        # The registered account PERIOD is the authoritative vigencia fallback.
+        if "coverage_start" not in ctx and case_file.period_start is not None:
+            ctx["coverage_start"] = case_file.period_start.isoformat()
+        if "coverage_end" not in ctx and case_file.period_end is not None:
+            ctx["coverage_end"] = case_file.period_end.isoformat()
+    except Exception:  # noqa: BLE001 - context is best-effort; never fail the mint
+        logger.warning("propuesta account context failed for comparison %s", comparison.id)
+        return {}
+    return ctx
+
+
+def _submit_propuesta_messages(
+    winner_core: dict[str, Any],
+    facets: list[dict[str, Any]],
+    dimensions: Any,
+    account_context: dict[str, Any] | None = None,
+) -> list[dict[str, str]]:
+    system = (
+        "Eres el estandarizador de la PROPUESTA de salida de un corredor de seguros en Chile. "
+        "Recibes la cotización ganadora (núcleo de prima/vigencia) y la tabla comparativa. Devuelve "
+        "un núcleo mínimo validado (identidad de la aseguradora, asegurado, vigencia, núcleo de prima "
+        "en UF) y una cola libre 'additional' con lo demás. Copia las cifras de prima tal cual; la "
+        "estructura chilena es neta = afecta + exenta ; IVA = 0,19 x afecta ; total = neta + IVA. "
+        "Llama a la función submit_propuesta."
+    )
+    if account_context:
+        system += (
+            "\n\nCONTEXTO DE LA CUENTA (antecedentes ya registrados por el corredor): "
+            + json.dumps(account_context, ensure_ascii=False, default=str)
+            + ". Usa la identidad del asegurado y la vigencia de este contexto SOLO cuando la "
+            "cotización ganadora no las declare; la cotización siempre gana el núcleo de prima y "
+            "la identidad de la aseguradora."
+        )
+    payload = {
+        "winner_core": winner_core,
+        "winner_facets": facets,
+        "comparison_dimensions": dimensions,
+        "account_context": account_context or {},
+    }
+    user = json.dumps(payload, ensure_ascii=False, default=str)
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+def submit_propuesta(
+    db: Session,
+    *,
+    comparison: "Comparison",
+    winner: "Proposal",
+    broker_id: int,
+    user: User | None = None,
+) -> PropuestaResult:
+    """Standardize the outbound propuesta: a validated minimum core + a free tail.
+
+    ONE ``submit_propuesta`` tool call (``model_for(PROPUESTA)``) produces the
+    core + ``additional`` tail; the core's PREMIUM arithmetic is HARD-validated
+    with the SHARED ``reconcile_money_verbose`` (premium hard, rate soft). The
+    winner's already-reconciled columns are the authoritative baseline, so the
+    tool's core is merged OVER them — a tool that omits (or misreads) the premium
+    still yields a valid core from the committed proposal.
+
+    BLOCK-ON-PROVIDER-DOWN: a typed :class:`AIError` PROPAGATES (no fallback).
+    """
+    ensure_ai_configured()
+
+    winner_core = _winner_core(db, winner)
+    facets = _winner_facets(db, winner, broker_id)
+    account_context = _propuesta_account_context(db, comparison, broker_id)
+    dimensions = (
+        comparison.aligned_matrix.get("dimensions")
+        if isinstance(comparison.aligned_matrix, dict)
+        else None
+    )
+
+    result = tool_call(
+        messages=_submit_propuesta_messages(
+            winner_core, facets, dimensions, account_context=account_context
+        ),
+        tool_schema=_submit_propuesta_tool_schema(),
+        model=model_for(AITask.PROPUESTA),
+        timeout=settings.AI_TIMEOUT_SECONDS,
+    )
+    parsed = result.parsed or {}
+    tool_core = parsed.get("core") if isinstance(parsed.get("core"), dict) else {}
+    additional = parsed.get("additional")
+    if not isinstance(additional, (list, dict)):
+        additional = []
+
+    # The validated minimum core, layered by PRECEDENCE (lowest → highest):
+    #   account antecedentes/period  <  winning proposal  <  the tool's core.
+    # The winning cotización owns the PREMIUM core + the insurer identity; the
+    # account only FILLS the insured identity + vigencia the cotización omits.
+    core: dict[str, Any] = dict(account_context)
+    for key, value in winner_core.items():
+        if value is not None:
+            core[key] = value
+    for key, value in tool_core.items():
+        if value is not None:
+            core[key] = value
+
+    money = {key: core.get(key) for key in _PROPUESTA_MONEY_KEYS if core.get(key) is not None}
+    derived, errors, rate_warnings = reconcile_money_verbose(money)
+    for key, value in derived.items():
+        core.setdefault(key, value)
+
+    warnings: list[str] = list(result.warnings)
+    warnings += [
+        f"Rate additivity warning on {w.get('field')}: {w.get('rule')}" for w in rate_warnings
+    ]
+    warnings += [
+        f"Missing minimum propuesta field: {key}"
+        for key in _PROPUESTA_MINIMUM
+        if core.get(key) in (None, "")
+    ]
+    is_core_valid = not errors
+
+    extraction: Extraction | None = None
+    source_document_id = getattr(winner, "source_document_id", None)
+    if source_document_id is not None:
+        extraction = Extraction(
+            broker_id=broker_id,
+            document_id=source_document_id,
+            case_file_id=comparison.case_file_id,
+            kind=ExtractionKind.OTHER,
+            model=result.model or model_for(AITask.PROPUESTA),
+            prompt_version=PROPUESTA_PROMPT_VERSION,
+            status=ExtractionStatus.SUCCEEDED,
+            started_at=datetime.now(timezone.utc),
+            finished_at=datetime.now(timezone.utc),
+            prompt_tokens=(result.usage or {}).get("prompt_tokens"),
+            completion_tokens=(result.usage or {}).get("completion_tokens"),
+            raw_output=result.raw,
+            parsed={"core": _jsonable(core), "additional": additional},
+            created_by_id=getattr(user, "id", None),
+        )
+        db.add(extraction)
+        db.flush()
+        db.refresh(extraction)
+
+    return PropuestaResult(
+        extraction=extraction,
+        core=_jsonable(core),
+        additional=additional,
+        is_core_valid=is_core_valid,
+        money_errors=errors,
+        warnings=warnings,
+        raw=result.raw,
+    )
+
+
+def _jsonable(core: dict[str, Any]) -> dict[str, Any]:
+    """A JSON-safe view of the core (Decimals -> strings)."""
+    out: dict[str, Any] = {}
+    for key, value in core.items():
+        out[key] = str(value) if isinstance(value, Decimal) else value
+    return out
 
 
 # --- 2. Insurer resolution (by normalised code — NEVER by name) --------------

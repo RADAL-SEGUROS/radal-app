@@ -59,6 +59,12 @@ class OfferingRead(BaseModel):
     created_by_id: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # The insured's own choice from the public surface — surfaced to the broker
+    # next to ``selected_proposal_id`` (the broker's RECOMMENDATION). The broker
+    # picks it up and mints the broker_proposal (which advances the case stage).
+    decided_proposal_id: int | None = None
+    decided_note: str | None = None
+    decided_at: datetime | None = None
     # Derived, not stored: the public link the broker copies into WhatsApp/email.
     share_url: str | None = None
 
@@ -69,11 +75,16 @@ class OfferingListResponse(BaseModel):
 
 
 class OfferingPublicProposal(BaseModel):
-    """Headline figures of the recommended proposal, for the public page."""
+    """Headline figures of a proposal, for the public page.
 
+    ``id`` is the ``proposal.id`` — the insured posts it back to record a choice.
+    Commission and every broker-internal field are deliberately absent."""
+
+    id: int | None = None
     insurer_name: str | None = None
     insurer_cmf_code: str | None = None
     modality: str | None = None
+    is_recommended: bool = False
     total_premium_uf: Decimal | None = None
     net_premium_uf: Decimal | None = None
     vat_uf: Decimal | None = None
@@ -94,8 +105,27 @@ class OfferingPublicRead(BaseModel):
     broker_name: str | None = None
     insured_object: str | None = None
     declared_value_uf: Decimal | None = None
+    # The broker's recommendation (kept for back-compat) plus EVERY open proposal
+    # of the quote in clear language, so the insured can compare and choose.
     proposal: OfferingPublicProposal | None = None
+    proposals: list[OfferingPublicProposal] = Field(default_factory=list)
+    # The insured's recorded choice (once decided).
+    decided_proposal_id: int | None = None
+    decided_note: str | None = None
+    decided_at: datetime | None = None
     pdf_url: str | None = None
+
+
+class OfferingDecisionRequest(BaseModel):
+    """The insured's public choice: which proposal, plus an optional note.
+
+    This is a PUBLIC WRITE path — the narrow projection IS the only guard, so
+    nothing here (or in ``OfferingPublicRead``) may carry a broker-internal id."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    proposal_id: int = Field(gt=0)
+    note: str | None = Field(default=None, max_length=2000)
 
 
 __all__ = [
@@ -106,4 +136,5 @@ __all__ = [
     "OfferingListResponse",
     "OfferingPublicProposal",
     "OfferingPublicRead",
+    "OfferingDecisionRequest",
 ]

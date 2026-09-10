@@ -18,7 +18,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Check, Copy, Download, FileText, Layers, Minus, Sparkles } from "lucide-react";
+import { Check, Copy, Download, FileStack, FileText, Layers, Loader2, Minus, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,17 +42,22 @@ import {
   pct,
   uf,
 } from "@/components/common/kit";
+import { AntecedentesReview } from "@/components/common/AntecedentesReview";
 import {
   useAssignLine,
   useCreateRamoSchema,
   useExpediente,
   useExpedientePdf,
+  useProcessAntecedentes,
+  useRamoSchema,
   useRamoSchemas,
 } from "@/api/antecedentes";
 import { useCan } from "@/lib/permissions";
+import { downloadDocument } from "@/lib/download";
 import { formatDate } from "@/lib/format";
 import type {
   AntecedentesExpediente,
+  AntecedentesSuggestion,
   LineRecordSchema,
   RamoField,
   RamoRequiredField,
@@ -94,28 +99,39 @@ export interface ExpedienteViewProps {
   caseId: number;
 }
 
-/** A two-step PDF download button, mirroring DocumentsTab's DownloadButton. */
+/**
+ * Descargar Bases Técnicas — resolves the generated PDF Document via
+ * `GET …/antecedentes/pdf`, then fetches its bytes AUTHENTICATED and saves them
+ * (the content route 401s for a plain link). Not a route navigation.
+ */
 function DownloadPdfButton({ caseId, disabledHint }: { caseId: number; disabledHint: string | null }) {
   const { t } = useTranslation("antecedentes");
-  const [wanted, setWanted] = React.useState(false);
-  const { data, isFetching } = useExpedientePdf(caseId, wanted);
+  // Manual-trigger query: resolve the PDF Document only when the broker asks.
+  const { data, refetch } = useExpedientePdf(caseId, false);
+  const [busy, setBusy] = React.useState(false);
 
-  React.useEffect(() => {
-    if (wanted && data?.url) {
-      window.open(data.url, "_blank", "noopener,noreferrer");
-      setWanted(false);
+  const onClick = async () => {
+    setBusy(true);
+    try {
+      const doc = data?.id ? data : (await refetch()).data;
+      if (doc?.id) await downloadDocument(doc.id, doc.original_name);
+      else toast.error(t("basesTecnicas.download"));
+    } catch (error) {
+      toast.error(apiError(error, t("basesTecnicas.download")));
+    } finally {
+      setBusy(false);
     }
-  }, [wanted, data]);
+  };
 
   return (
     <DisabledHint hint={disabledHint}>
-      <Button
-        size="sm"
-        disabled={!!disabledHint || (wanted && isFetching)}
-        onClick={() => setWanted(true)}
-      >
-        <Download className="h-4 w-4" />
-        {wanted && isFetching ? t("basesTecnicas.generating") : t("basesTecnicas.download")}
+      <Button size="sm" disabled={!!disabledHint || busy} onClick={onClick}>
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        ) : (
+          <Download className="h-4 w-4" />
+        )}
+        {busy ? t("basesTecnicas.generating") : t("basesTecnicas.download")}
       </Button>
     </DisabledHint>
   );
@@ -127,6 +143,29 @@ export function ExpedienteView({ caseId }: ExpedienteViewProps) {
   const canView = useCan("CaseFiles", "View");
   const canEdit = useCan("CaseFiles", "Edit");
   const [changing, setChanging] = React.useState(false);
+
+  // Consolidate the account's antecedentes into this Bases-Técnicas expediente
+  // (suggest → the human validates & completes → register — CLAUDE.md rule 6).
+  const insuranceLineId = expediente.data?.insurance_line_id ?? null;
+  const ramoSchema = useRamoSchema(insuranceLineId);
+  const process = useProcessAntecedentes();
+  const [suggestion, setSuggestion] = React.useState<AntecedentesSuggestion | null>(null);
+
+  const processHint = !canEdit.allowed
+    ? t("process.noPermission")
+    : ramoSchema.isLoading
+      ? t("process.loadingSchema")
+      : !ramoSchema.data
+        ? t("process.noSchema")
+        : null;
+
+  const onProcess = () => {
+    setSuggestion(null);
+    process.mutate(
+      { case_file_id: caseId },
+      { onSuccess: (data) => setSuggestion(data) },
+    );
+  };
 
   if (expediente.isLoading) return <Skeleton className="h-64 w-full" />;
   if (expediente.isError) return <ErrorBanner error={expediente.error} />;
@@ -179,6 +218,21 @@ export function ExpedienteView({ caseId }: ExpedienteViewProps) {
                 {t("assign.change")}
               </Button>
             </DisabledHint>
+            <DisabledHint hint={processHint}>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!!processHint || process.isPending}
+                onClick={onProcess}
+              >
+                <FileStack className="h-4 w-4" />
+                {process.isPending
+                  ? t("process.processing")
+                  : registered || data.status === "review"
+                    ? t("process.reprocess")
+                    : t("process.cta")}
+              </Button>
+            </DisabledHint>
             <DownloadPdfButton caseId={caseId} disabledHint={pdfHint} />
           </div>
         }
@@ -205,6 +259,20 @@ export function ExpedienteView({ caseId }: ExpedienteViewProps) {
       </Section>
 
       <RequisitosPanel required={requiredFields} missing={missingRequired} />
+
+      {process.isError ? <ErrorBanner error={process.error} /> : null}
+
+      {suggestion ? (
+        <AntecedentesReview
+          caseId={caseId}
+          suggestion={suggestion}
+          canConfirm={canEdit.allowed}
+          onRegistered={() => {
+            setSuggestion(null);
+            void expediente.refetch();
+          }}
+        />
+      ) : null}
 
       {data.status === "review" ? (
         <Card className="flex flex-col gap-1 border-warn-line bg-warn-soft/40 p-4">

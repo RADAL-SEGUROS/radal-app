@@ -76,7 +76,8 @@
     "previous": "Anterior",
     "retry": "Reintentar",
     "logout": "Cerrar sesión",
-    "loading": "Cargando…"
+    "loading": "Cargando…",
+    "view": "Ver"
   },
   "export": {
     "label": "Exportar",

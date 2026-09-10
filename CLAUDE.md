@@ -30,28 +30,36 @@ unroutable port **before** any `app.*` import — delete those two lines and the
 calls and hangs. (10) There is **no Alembic**: `create_all` never ALTERs, so any new column must go
 through `backend/scripts/migrate_case_files.py` before the branch is pushed.
 
-**Where the work stands (verified 2026-09-06).** Three passes have landed on `dev` since the v2
-rebuild (`ed8b8a1`), all of them **still uncommitted — 189 changed/untracked files**: *v2 case
-files* (the expediente, the 29-stage journey machine, the 41-category extraction registry, packs,
-the whole post-sale half), *v3 groups & accounts* (`account_group` above the expediente,
-`case_file(kind=account)` as the Account = one line × one vigencia × N RUTs, the navigator tree,
-`reperiod`/`renew`/`endorsements/batch`), and *v4* (the single tool-using **agent** with typed
-READ/WRITE tools and `agent_action` confirm-cards, plus the **Porcelana** UI restyle, the single
-context-switching sidebar, the Journey visualization and `/analytics`), and *v5 Signal*
-(2026-09-06/07: **Porcelana's execution is deprecated too** — the binding spec is
-`docs/v5-signal-ui-spec.md`: Inter, pine-accent primaries, hairline borders, de-mono'd
-badges/tables; resizable/collapsible sidebar with the group tree REMOVED from the rail (tree
-components deleted — the central account view owns stage navigation); Journey hero mounted on the
-account page; group-has-no-RUT relabels (Contratante/Empresas); `/analytics` routed at last, with
-an `analytics` i18n namespace, dashboard KPIs + recharts, paginated entity tabs, and new
-tenant-scoped `GET /quotes|proposals|policies/summary` backend aggregates). Verified state: **531
-backend tests passing in ~101 s**, `tsc` and `npm run build` clean. Read the spec you need rather
-than re-deriving it — `docs/v2-architecture.md`, `docs/v2-case-files-spec.md` and its companion
-`docs/v2-case-files-as-built.md`, `docs/v2-data-modeling-decisions.md`,
-`docs/v3-groups-accounts-spec.md`, `docs/v4-agent-spec.md`, `docs/v4-porcelana-ui-spec.md`,
-`docs/deployment.md`, `docs/usuarios-de-prueba.md` — and delegate to the sub-prompts in
-`.claude/agents/` (`radal-data-model`, `radal-backend`, `radal-ai`, `radal-frontend`,
-`radal-infra`). **Three standing traps:** the dev RDS migration has **not** been run and CI fires on
-push to `dev`; nothing was ever uploaded to S3, so run the backend with `MEDIA_BACKEND=local` or
-every document 404s; and **Aqua Spectrum is deprecated** — `docs/design-system.md` is historical,
-Porcelana is the direction.
+**Where the work stands (verified 2026-09-08).** Every pass since the v2 rebuild (`ed8b8a1`) is
+**still uncommitted on `dev`**: *v2 case files* (the expediente, the 29-stage journey machine, the
+extraction registry, packs, the post-sale half), *v3 groups & accounts* (`account_group` above the
+expediente, `case_file(kind=account)` as the Account), *v4* (the tool-using **agent**; the deprecated
+Porcelana restyle), *v5 Signal* UI (`docs/v5-signal-ui-spec.md`: Inter, pine-accent primaries,
+hairline borders; group tree removed from the rail; `/analytics`), *v6/v7* (antecedentes → Bases
+Técnicas; broker-defined lines), and now **v8 — the broker-journey redesign** (this session). v8
+reframes **ramos as advisory antecedentes templates** (`line_record_schema` gains `recommended_files`
++ `explanation`, `insurance_line_id` is now nullable; antecedentes is **warn-not-block** — Bases
+Técnicas always renders, `GET …/pdf` no longer 409s) and makes the account milestones **antecedentes
+→ bases técnicas → comparación → propuesta → pólizas**: a new **incremental, dynamically-extracted
+`comparison`** expedient (`extract_budget_proposal` with a fixed money core + open facets + wrong-file
+detection; monotonic `align_comparison` with a deterministic fallback), the outbound **`broker_proposal`**
+(propuesta) built from the comparison, and **validate-then-dynamic policy** upload (`validate_policy_core`
+hard-gates the core, `override` forces it, the full parse is kept in `policy.payload`) with a policies
+overview. Extraction is **context-aware** (`_account_extraction_context` prepends prior antecedentes/
+proposal for policies). Frontend: the enlarged **overview-altitude 7-node Journey** + pending-actions +
+default **Summary** tab, group **icons** (emoji/glyph/image, styled-name fallback), the **vigencia
+shortcut**, the comparison board `/comparisons/:caseId`, and the public insured-decision page `/o/:token`.
+New tables `comparison`/`comparison_entry`/`comparison_source`, `broker_proposal`; new columns on
+`policy`, `offering`, `account_group`; routers reuse existing RBAC modules (no matrix change). Verified
+state: **596 backend tests passing**, `tsc -b` and `npm run build` clean, `check:locales` 22 namespaces
+(es==en). Read the spec you need rather than re-deriving it — `docs/handoff-2026-09-08-v8.md` is the v8
+companion; also `docs/v2-architecture.md`, `docs/v2-case-files-as-built.md`,
+`docs/v2-data-modeling-decisions.md`, `docs/v3-groups-accounts-spec.md`, `docs/v5-signal-ui-spec.md`,
+`docs/v6-antecedentes-expediente-spec.md`, `docs/v7-lines-and-bases-tecnicas-spec.md`,
+`docs/deployment.md`, `docs/usuarios-de-prueba.md` — and delegate to the sub-prompts in `.claude/agents/`.
+**Standing pre-push traps:** the dev RDS migration has **not** been run — run
+`backend/scripts/migrate_case_files.py --apply` **and** by-hand `ALTER TABLE line_record_schema MODIFY
+COLUMN insurance_line_id BIGINT NULL` (the script never alters nullability), before pushing (CI fires on
+push to `dev`); nothing was ever uploaded to S3, so run the backend with `MEDIA_BACKEND=local` or every
+document 404s; **corpus extraction has not been run through the new dynamic comparison/policy paths** and
+**browser QA is not done**; and **Aqua Spectrum + Porcelana are deprecated** — Signal is the direction.

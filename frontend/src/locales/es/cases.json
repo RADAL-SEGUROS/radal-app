@@ -79,6 +79,14 @@
     "blocked": "El servidor no permite este avance todavía.",
     "notReachable": "No alcanzable desde el hito actual.",
     "phases": {
+      "records": "Antecedentes",
+      "technical": "Bases técnicas",
+      "market": "Mercado",
+      "comparison": "Comparación",
+      "proposal": "Propuesta",
+      "policy": "Póliza",
+      "active": "Vigente",
+      "renewal": "Renovación",
       "antecedentes": "Antecedentes",
       "mercado": "Mercado",
       "comparacion": "Comparación",
@@ -91,6 +99,8 @@
       "siniestro": "Siniestro"
     },
     "whatNext": "Qué sigue",
+    "pending_one": "{{count}} pendiente",
+    "pending_other": "{{count}} pendientes",
     "advanceTo": "Avanzar a {{stage}}",
     "otherStages": "Otras etapas",
     "closedChip": "Cerrado",

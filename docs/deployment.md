@@ -149,6 +149,17 @@ python -m scripts.migrate_case_files --apply          # execute the plan, then v
 python -m scripts.migrate_case_files --dialect mysql  # OFFLINE: print the full MySQL plan, no DB
 ```
 
+> **By-hand drops/alters the script never emits (run them alongside `--apply`).** The script only
+> ADDs (tables, columns, indexes, FKs, VARCHAR widenings) — it never drops or alters nullability.
+> Two changes therefore need a manual statement on the dev RDS:
+> - **v7:** drop the stale `line_record_schema` per-ramo unique
+>   (`(broker_id, insurance_line_id, version)`), replaced by `(broker_id, name)`.
+> - **v8 (repurpose):** relax `line_record_schema.insurance_line_id` from NOT NULL to NULL —
+>   `ALTER TABLE line_record_schema MODIFY COLUMN insurance_line_id BIGINT NULL;` — so a custom
+>   ramo can exist unmapped to any CMF line. (Locally this rides along for free: an
+>   `import_fixtures --reset` recreates the schema from the models, which already declares it
+>   NULLable.) The v8 pass otherwise adds 4 tables + 6 NULLable columns (`--pass repurpose`).
+
 ### Option A — run the script against RDS (recommended for dev)
 
 Additive and idempotent: existing demo data survives, and re-running is a no-op. RDS is private,

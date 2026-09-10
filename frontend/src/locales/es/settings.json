@@ -4,8 +4,7 @@
   "tabs": {
     "profile": "Perfil",
     "team": "Equipo y roles",
-    "documents": "Documentos",
-    "schemas": "Líneas"
+    "documents": "Documentos"
   },
   "noPermission": {
     "title": "Sin acceso",
@@ -317,10 +316,10 @@
     "deleted": "Esquema eliminado"
   },
   "lines": {
-    "title": "Líneas",
-    "description": "Una línea es el ramo más los antecedentes que solicita. Define las tuyas o adopta una plantilla recomendada.",
-    "create": "Crear línea",
-    "empty": "Todavía no tienes líneas. Créala desde una plantilla o desde cero.",
+    "title": "Ramos",
+    "description": "Un ramo reúne los antecedentes que solicitas. Define los tuyos o adopta una plantilla recomendada.",
+    "create": "Crear ramo",
+    "empty": "Todavía no tienes ramos. Créalo desde una plantilla o desde cero.",
     "plantilla": "Plantilla",
     "ownScope": "Tu corredora",
     "usageLabel": "{{accounts}} cuentas · {{groups}} grupos",
@@ -338,24 +337,24 @@
       "status": "Estado",
       "actions": ""
     },
-    "deleteTitle": "Eliminar línea",
-    "deleteDescription": "Se eliminará la línea. Los expedientes ya registrados no cambian.",
-    "created": "Línea creada",
-    "updated": "Línea actualizada",
-    "deleted": "Línea eliminada",
+    "deleteTitle": "Eliminar ramo",
+    "deleteDescription": "Se eliminará el ramo. Los expedientes ya registrados no cambian.",
+    "created": "Ramo creado",
+    "updated": "Ramo actualizado",
+    "deleted": "Ramo eliminado",
     "form": {
-      "createTitle": "Nueva línea",
-      "editTitle": "Editar línea"
+      "createTitle": "Nuevo ramo",
+      "editTitle": "Editar ramo"
     },
     "picker": {
-      "title": "Crear línea",
-      "description": "Parte de una plantilla recomendada (podrás editarla) o crea la línea desde cero.",
+      "title": "Crear ramo",
+      "description": "Parte de una plantilla recomendada (podrás editarla) o crea el ramo desde cero.",
       "templatesTitle": "Plantillas recomendadas",
       "useTemplate": "Usar plantilla",
       "sectionsCount": "{{count}} secciones",
       "noTemplates": "No hay plantillas disponibles para adoptar.",
       "fromScratch": "Desde cero",
-      "fromScratchHint": "Crea una línea vacía y define sus secciones y campos."
+      "fromScratchHint": "Crea un ramo vacío y define sus secciones y campos."
     }
   }
 }

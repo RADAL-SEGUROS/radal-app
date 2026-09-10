@@ -68,6 +68,8 @@ from app.schemas.case_file import (
     CaseReperiodBody,
     ClaimSummary,
     OriginChainEntry,
+    PendingAction,
+    PendingActionsResponse,
     SectionCount,
     StageEventRead,
     TimelineEntry,
@@ -948,6 +950,146 @@ def get_case_file_transitions(
         ],
         is_terminal=not machine.allowed_stages(case),
     )
+
+
+def _forward_next_stage(case: CaseFile) -> CaseStage | None:
+    """The immediate next stage on the case's chain, or ``None`` at the end."""
+    chain = machine.CASE_STAGE_FLOW.get(case.kind, ())
+    if case.stage not in chain:
+        return None
+    index = chain.index(case.stage)
+    return chain[index + 1] if index + 1 < len(chain) else None
+
+
+@router.get("/{case_id}/pending-actions", response_model=PendingActionsResponse)
+def get_case_file_pending_actions(
+    case_id: int,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("CaseFiles", "View")),
+) -> PendingActionsResponse:
+    """The typed list of actionable gaps that feed the overview Journey.
+
+    Each item is ``{code, severity, tab, reason, count}`` with an English ``code``
+    token. Derived from: an incomplete antecedentes record, unconfirmed
+    proposals, the first BLOCKED forward transition (the real guard reason), a
+    comparison awaiting alignment, and a missing propuesta at the right stage.
+    Read-only; every query is tenant-scoped through ``_get_case``.
+    """
+    from app.models.broker_proposal import BrokerProposal
+    from app.models.comparison import Comparison, ComparisonStatus
+    from app.models.enums import RecordExpedienteStatus
+    from app.models.record_expediente import RecordExpediente
+
+    case = _get_case(db, case_id, broker_id, current_user)
+    actions: list[PendingAction] = []
+
+    account_kinds = machine.ACCOUNT_KINDS
+    is_account = case.kind in account_kinds
+
+    # (1) Record / antecedentes gap — a missing or not-yet-registered expediente.
+    if is_account:
+        record = db.scalars(
+            select(RecordExpediente).where(
+                RecordExpediente.broker_id == broker_id,
+                RecordExpediente.case_file_id == case.id,
+            )
+        ).first()
+        if record is None:
+            actions.append(
+                PendingAction(
+                    code="antecedentes_missing",
+                    severity="warning",
+                    tab="record",
+                    reason="La cuenta aún no tiene un expediente de antecedentes.",
+                )
+            )
+        elif record.status != RecordExpedienteStatus.REGISTERED:
+            actions.append(
+                PendingAction(
+                    code="antecedentes_unregistered",
+                    severity="warning",
+                    tab="record",
+                    reason="El expediente de antecedentes está en borrador, falta registrarlo.",
+                )
+            )
+
+    # (2) Unconfirmed proposals (suggest -> confirm -> commit not yet done).
+    unconfirmed = sum(
+        1 for p in machine.case_proposals(db, case) if not p.is_confirmed
+    )
+    if unconfirmed:
+        actions.append(
+            PendingAction(
+                code="proposals_unconfirmed",
+                severity="warning",
+                tab="comparison",
+                reason="Hay cotizaciones sin confirmar (suggest → confirmar → commit).",
+                count=unconfirmed,
+            )
+        )
+
+    # (3) A comparison awaiting alignment (has columns but is not ALIGNED).
+    comparison = db.scalars(
+        select(Comparison)
+        .where(
+            Comparison.broker_id == broker_id,
+            Comparison.case_file_id == case.id,
+            Comparison.status != ComparisonStatus.SUPERSEDED,
+        )
+        .order_by(Comparison.id.desc())
+    ).first()
+    if comparison is not None and comparison.status != ComparisonStatus.ALIGNED:
+        if comparison.entries:
+            actions.append(
+                PendingAction(
+                    code="comparison_unaligned",
+                    severity="warning",
+                    tab="comparison",
+                    reason="La comparación tiene columnas sin alinear.",
+                )
+            )
+
+    # (4) A missing propuesta once the account has reached the decision point.
+    if is_account and case.stage in machine.CASE_STAGE_FLOW.get(case.kind, ()):
+        chain = machine.CASE_STAGE_FLOW[case.kind]
+        decision_idx = (
+            chain.index(CaseStage.INSURED_DECISION)
+            if CaseStage.INSURED_DECISION in chain
+            else None
+        )
+        if decision_idx is not None and chain.index(case.stage) >= decision_idx:
+            has_bp = db.scalars(
+                select(BrokerProposal.id).where(
+                    BrokerProposal.broker_id == broker_id,
+                    BrokerProposal.case_file_id == case.id,
+                )
+            ).first()
+            if has_bp is None:
+                actions.append(
+                    PendingAction(
+                        code="propuesta_missing",
+                        severity="warning",
+                        tab="proposal",
+                        reason="La cuenta está en decisión pero no tiene una propuesta emitida.",
+                    )
+                )
+
+    # (5) The first BLOCKED forward transition — the real guard reason.
+    next_stage = _forward_next_stage(case)
+    if next_stage is not None:
+        reason = machine.guard_reason(db, case, next_stage)
+        if reason:
+            actions.append(
+                PendingAction(
+                    code="stage_blocked",
+                    severity="blocker",
+                    tab="journey",
+                    reason=reason,
+                )
+            )
+
+    return PendingActionsResponse(case_file_id=case.id, actions=actions)
 
 
 @router.post("/{case_id}/transition", response_model=CaseFileDetail)

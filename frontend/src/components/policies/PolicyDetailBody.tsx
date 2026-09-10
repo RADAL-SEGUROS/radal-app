@@ -91,6 +91,10 @@ import {
 import { SubFunnel } from "@/pages/policies/SubFunnel";
 import { MirrorDiffPanel } from "@/pages/policies/MirrorDiffPanel";
 import { WarrantyTracker } from "@/pages/policies/WarrantyTracker";
+import {
+  OpenSourceLink,
+  PolicyPayloadPanel,
+} from "@/components/policies/PolicyPayloadPanel";
 
 /** An `<input type="datetime-local">` value -> the ISO instant the API stores. */
 function toIso(value: string): string | null {
@@ -515,6 +519,8 @@ export function PolicyDetailBody({ policyId }: { policyId: number }) {
               </Button>
             ) : null}
 
+            <OpenSourceLink documentId={p.source_document_id} />
+
             <DisabledHint hint={canEndorse.allowed ? null : t("endorsement.noPermission")}>
               <Button
                 size="sm"
@@ -672,7 +678,14 @@ export function PolicyDetailBody({ policyId }: { policyId: number }) {
             </Section>
           </FadeUp>
 
-          <FadeUp delay={0.12}>
+          {/* v8 validate-then-dynamic: the FULL confirmed parse + core verdict. */}
+          {p.payload || p.is_core_valid != null || p.source_document_id ? (
+            <FadeUp delay={0.12}>
+              <PolicyPayloadPanel policy={p} />
+            </FadeUp>
+          ) : null}
+
+          <FadeUp delay={0.16}>
             <RelatedPanels policy={p} />
           </FadeUp>
         </TabsContent>

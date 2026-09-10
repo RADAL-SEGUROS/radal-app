@@ -198,6 +198,43 @@ ANTECEDENTES_ADDED_COLUMNS: dict[str, list[str]] = {
 
 ANTECEDENTES_WIDENED_COLUMNS: list[tuple[str, str]] = []
 
+# ---------------------------------------------------------------------------
+# Repurpose manifest (v8 — ramo repurpose + comparison/propuesta/policy payload).
+# Four brand-new tables (create_all handles them on boot) plus six additive
+# NULLable columns on two PRE-EXISTING tables:
+#   * ``line_record_schema`` (the ramo) gains ``recommended_files`` + ``explanation``,
+#   * ``policy`` gains ``payload`` + ``is_core_valid`` + ``core_validation`` +
+#     ``extraction_id`` (FK -> extraction, added on MySQL by the add_foreign_key path).
+# Every added column is NULLable, so ADD COLUMN works on MySQL and SQLite alike.
+# No enum-backed VARCHAR grows: ``ComparisonStatus`` / ``BrokerProposalStatus``
+# live only on the new tables, so there are no MODIFY statements.
+#
+# NOT expressible here (this script never drops/alters nullability): the v8
+# relaxation of ``line_record_schema.insurance_line_id`` from NOT NULL to NULL.
+# On a fresh boot ``create_all`` emits it NULLable; on the dev RDS it is a
+# by-hand ``ALTER TABLE line_record_schema MODIFY COLUMN insurance_line_id
+# BIGINT NULL`` alongside --apply (documented in deployment.md).
+# ---------------------------------------------------------------------------
+REPURPOSE_NEW_TABLES = [
+    "comparison",
+    "comparison_entry",
+    "comparison_source",
+    "broker_proposal",
+]
+
+REPURPOSE_ADDED_COLUMNS: dict[str, list[str]] = {
+    "line_record_schema": ["recommended_files", "explanation"],
+    "policy": ["payload", "is_core_valid", "core_validation", "extraction_id"],
+    # Insured decision on the public share surface (offering) + group avatar
+    # (account_group). All NULLable; the new ``AccountGroupIconKind`` enum lives
+    # only on ``account_group.icon_kind`` (a brand-new column), so no VARCHAR
+    # grows elsewhere and there is nothing to MODIFY.
+    "offering": ["decided_proposal_id", "decided_note", "decided_at"],
+    "account_group": ["icon_kind", "icon_value", "icon_document_id"],
+}
+
+REPURPOSE_WIDENED_COLUMNS: list[tuple[str, str]] = []
+
 
 @dataclass(frozen=True)
 class Manifest:
@@ -241,6 +278,12 @@ ANTECEDENTES_MANIFEST = Manifest(
     added_columns=ANTECEDENTES_ADDED_COLUMNS,
     widened_columns=ANTECEDENTES_WIDENED_COLUMNS,
 )
+REPURPOSE_MANIFEST = Manifest(
+    key="repurpose",
+    new_tables=REPURPOSE_NEW_TABLES,
+    added_columns=REPURPOSE_ADDED_COLUMNS,
+    widened_columns=REPURPOSE_WIDENED_COLUMNS,
+)
 
 # In application order. A later pass may add columns to a table an earlier
 # pass creates (``case_file`` is created by case_files and extended by groups):
@@ -251,6 +294,7 @@ MANIFESTS: list[Manifest] = [
     GROUPS_MANIFEST,
     AGENT_MANIFEST,
     ANTECEDENTES_MANIFEST,
+    REPURPOSE_MANIFEST,
 ]
 
 # Offline plans that make sense on their own. ``case_files`` alone is NOT one
@@ -258,7 +302,7 @@ MANIFESTS: list[Manifest] = [
 # so the case-files tables cannot be created without the groups tables. The
 # agent pass only touches pre-existing chat tables and its own new table, so
 # it stands alone for a database already carrying the earlier passes.
-OFFLINE_PASSES = ("all", "groups", "agent", "antecedentes")
+OFFLINE_PASSES = ("all", "groups", "agent", "antecedentes", "repurpose")
 
 
 class Plan:

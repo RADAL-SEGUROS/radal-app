@@ -20,7 +20,6 @@
     "soonExport": "La exportación llega pronto.",
     "soonRenewal": "La renovación se crea por API en esta versión."
   },
-
   "policy": {
     "title": "Pólizas",
     "subtitle": "El contrato vigente y todo lo que ocurre después de la emisión.",
@@ -115,9 +114,68 @@
       "newClaim": "Registrar siniestro",
       "renew": "Renovar",
       "exportPolicy": "Exportar póliza"
+    },
+    "upload": {
+      "title": "Registrar póliza",
+      "subtitle": "Sube el archivo emitido por la compañía y lo leemos automáticamente.",
+      "dropTitle": "Arrastra el PDF de la póliza o haz clic para elegirlo",
+      "dropHint": "Un solo archivo PDF.",
+      "working": "Procesando el archivo…",
+      "rejectTitle": "Este archivo no parece ser una póliza",
+      "rejectReasonFallback": "No se pudo validar el núcleo mínimo de la póliza.",
+      "missingLabel": "Faltan datos del núcleo:",
+      "coreField": {
+        "corredor": "Corredor",
+        "asegurado": "Asegurado",
+        "vigencia": "Vigencia",
+        "prima": "Desglose de prima"
+      },
+      "tryAnother": "Probar con otro archivo",
+      "overrideAction": "Registrar de todas formas",
+      "doneTitle": "Póliza {{number}} registrada",
+      "validated": "Validada",
+      "registeredOverride": "Registrada con confirmación",
+      "needsReview": "Revisar",
+      "inspect": "Ver póliza"
+    },
+    "overview": {
+      "upload": "Registrar póliza",
+      "uploadHint": "¿Ya tienes el archivo emitido? Súbelo para registrar la póliza.",
+      "empty": "Esta cuenta todavía no tiene pólizas.",
+      "emptyHint": "Una póliza nace del archivo emitido por la compañía.",
+      "opening": "Abriendo…",
+      "openSource": "Archivo original",
+      "noSource": "Sin archivo origen",
+      "columns": {
+        "number": "Póliza",
+        "insurer": "Compañía",
+        "period": "Vigencia",
+        "total": "Prima total",
+        "core": "Validación"
+      },
+      "core": {
+        "valid": "Validada",
+        "review": "Revisar"
+      },
+      "kpi": {
+        "total": "Pólizas",
+        "active": "Vigentes",
+        "expiring": "Por vencer",
+        "expiringHint": "Vigencia que termina dentro de 60 días",
+        "gross": "Prima vigente"
+      }
+    },
+    "extracted": {
+      "title": "Contenido extraído",
+      "subtitle": "La lectura confirmada completa del documento emitido.",
+      "openSource": "Abrir archivo original",
+      "coreValid": "Núcleo válido",
+      "coreInvalid": "Núcleo incompleto",
+      "noVerdict": "Sin validación",
+      "empty": "No hay contenido dinámico adicional.",
+      "extractionRef": "Extracción #{{id}}"
     }
   },
-
   "subFunnel": {
     "title": "Sub-expedientes de post-venta",
     "description": "Cada caso con su secuencia, su versión y sus fechas: el recorrido de pasado a presente.",
@@ -144,7 +202,6 @@
     },
     "openCase": "Abrir expediente"
   },
-
   "mirror": {
     "title": "Validación espejo",
     "description": "La póliza emitida contra la propuesta de emisión, campo por campo. Nada se corrige solo: cada diferencia se resuelve con un endoso.",
@@ -166,7 +223,6 @@
     "noSuggestion": "Sin tipo de endoso sugerido",
     "noPermission": "Necesitas permiso de creación de endosos."
   },
-
   "warranty": {
     "title": "Garantías y recomendaciones",
     "description": "El código R-n / G-n / M-n recorre inspección, póliza, cobranza y siniestro. Su estado decide la cobertura.",
@@ -209,7 +265,6 @@
     "compliance": "Cumplimiento",
     "noPermission": "Necesitas permiso de edición de pólizas."
   },
-
   "endorsement": {
     "title": "Endosos",
     "detail": {
@@ -287,7 +342,6 @@
     },
     "noPermission": "Necesitas permiso de edición de endosos."
   },
-
   "effectDiff": {
     "title": "Tabla de efecto",
     "description": "Una fila por dimensión que cambia: antes, después y variación.",
@@ -300,7 +354,6 @@
       "delta": "Variación"
     }
   },
-
   "premiumDelta": {
     "title": "Movimiento de prima",
     "description": "Los deltas conservan el signo: una exclusión o una rebaja son negativas.",
@@ -318,7 +371,6 @@
     "increase": "Aumenta la prima",
     "decrease": "Rebaja la prima"
   },
-
   "collection": {
     "title": "Cobranza",
     "detail": {
@@ -373,7 +425,6 @@
     "alerts": "Alertas",
     "noAlerts": "Sin alertas activas"
   },
-
   "installment": {
     "title": "Cartola de cuotas",
     "description": "Σ de las cuotas = prima bruta de la póliza + Σ de los deltas de endoso. La última cuota absorbe el redondeo.",
@@ -413,7 +464,6 @@
     "fromEndorsement": "Cuota originada por un endoso",
     "noPermission": "Necesitas permiso de edición de cobranzas."
   },
-
   "art528": {
     "title": "Artículo 528 — término y rehabilitación de cobertura",
     "description": "El no pago suspende la cobertura de pleno derecho; la rehabilitación tiene fecha y costo.",
@@ -428,7 +478,6 @@
     "eventKind": "Evento",
     "eventDetail": "Detalle"
   },
-
   "claim": {
     "title": "Siniestros",
     "subtitle": "Del denuncio a la liquidación final, con la causalidad de las garantías a la vista.",
@@ -518,7 +567,6 @@
     },
     "noPermission": "Necesitas permiso de aprobación de siniestros."
   },
-
   "claimItem": {
     "title": "Partidas del siniestro",
     "description": "El recorrido del liquidador por cada partida: denunciado, determinado, daño, deducible e indemnización.",
@@ -546,7 +594,6 @@
     "retention": "Retención del asegurado",
     "retentionHint": "Daño determinado menos indemnización: lo que finalmente soporta el asegurado."
   },
-
   "adjuster": {
     "title": "Informes de liquidación",
     "description": "Pre-informe y liquidación final, con el análisis de causalidad de las garantías.",
@@ -573,7 +620,6 @@
     "suggestionOnly": "Sugerencia de IA sin confirmar — revísala antes de usarla.",
     "aiUnavailable": "No pudimos leer el informe con IA."
   },
-
   "counterfactual": {
     "title": "Comparación con el programa anterior",
     "description": "Qué habría pasado con este mismo siniestro bajo el programa previo. Es el argumento de la renovación.",

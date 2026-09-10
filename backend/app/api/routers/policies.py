@@ -47,11 +47,15 @@ from app.schemas.policy import (
     PolicyRead,
     PolicySummary,
     PolicyUpdate,
+    PolicyUploadRequest,
+    PolicyUploadResponse,
     WarrantyCreate,
     WarrantyRead,
     WarrantyUpdate,
 )
 from app.schemas.proposal import reconcile_money
+from app.services import ai as ai_service
+from app.services import extraction_commit
 from app.services import mirror as mirror_service
 
 router = APIRouter(prefix="/policies", tags=["policies"])
@@ -381,6 +385,150 @@ def create_policy(
     db.commit()
     db.refresh(policy)
     return _read(db, policy)
+
+
+@router.post("/upload", response_model=PolicyUploadResponse, status_code=status.HTTP_201_CREATED)
+def upload_policy(
+    payload: PolicyUploadRequest,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("Policies", "Create")),
+) -> PolicyUploadResponse:
+    """Validate-then-dynamic policy ingestion (v8).
+
+    Points at an already-filed ``document``, runs the context-aware POLICY
+    extraction, checks the fixed minimal core and commits — persisting the FULL
+    parse on ``policy.payload``. A file that does not look like a policy is a
+    422 ``not_a_policy`` unless the broker sets ``override`` (the confirmed
+    "register it anyway"). suggest -> confirm -> commit: the extraction row is
+    always written first (rule 6), the entity only on this call.
+    """
+    from app.models.document import DocumentCategory
+
+    # The document must be in this workspace (a foreign row is a 404, never 403).
+    document = ai_service.get_document(db, payload.document_id, broker_id)
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {payload.document_id} not found",
+        )
+
+    # Attach the account folder when the caller names one and the document has
+    # none — extraction context + the committer both read ``case_file_id``.
+    if payload.case_file_id is not None:
+        from app.models.case_file import CaseFile
+
+        case = db.scalars(
+            select(CaseFile).where(
+                CaseFile.id == payload.case_file_id, CaseFile.broker_id == broker_id
+            )
+        ).first()
+        if case is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Case file {payload.case_file_id} not found",
+            )
+        if document.case_file_id is None:
+            document.case_file_id = case.id
+            db.commit()
+    if document.case_file_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "El documento no está asociado a una cuenta — indica case_file_id "
+                "para registrar la póliza en su expediente"
+            ),
+        )
+
+    # SUGGEST: writes exactly one extraction row in every outcome.
+    try:
+        result = ai_service.extract_document(
+            db,
+            document_id=document.id,
+            broker_id=broker_id,
+            user=current_user,
+            category=DocumentCategory.POLICY,
+        )
+    except ai_service.AIError as exc:
+        from app.api.routers.ai import _ai_http_error
+
+        raise _ai_http_error(exc) from exc
+
+    if result.payload is None:
+        # Nothing parsed at all — treat as "not a policy" (even override needs a
+        # payload to commit). The failed/empty read persists on the extraction.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "not_a_policy",
+                "reason": (
+                    "Este archivo no parece ser una póliza: no se pudo extraer "
+                    "ningún dato estructurado."
+                ),
+                "missing": ["corredor", "vigencia", "prima"],
+                "detail": {},
+            },
+        )
+
+    # COMMIT: the committer re-runs the fixed-core gate (with the same override)
+    # and persists the full payload + verdict + provenance.
+    try:
+        commit_result = extraction_commit.commit_extraction(
+            db,
+            extraction=result.extraction,
+            spec=result.spec,
+            payload=result.payload,
+            broker_id=broker_id,
+            user=current_user,
+            override=payload.override,
+        )
+    except extraction_commit.CommitError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.detail
+        ) from exc
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+
+    if commit_result.entity_id is not None:
+        record_activity(
+            db,
+            broker_id=broker_id,
+            user=current_user,
+            action="policy.uploaded",
+            entity_type=EntityType.POLICY,
+            entity_id=commit_result.entity_id,
+            description="Póliza registrada desde el archivo emitido",
+            meta={
+                "extraction_id": result.extraction.id,
+                "is_core_valid": commit_result.extra.get("is_core_valid"),
+                "overridden": commit_result.extra.get("overridden"),
+            },
+        )
+
+    # One transaction per upload: stage the reviewed payload + audit stamp and
+    # commit everything the committer flushed.
+    ai_service.record_confirmation(
+        db,
+        extraction=result.extraction,
+        payload=result.payload,
+        user=current_user,
+        target=result.spec.prefill_target,
+        applied=commit_result.applied,
+    )
+
+    policy = get_policy_or_404(db, commit_result.entity_id, broker_id)
+    return PolicyUploadResponse(
+        policy=_read(db, policy),
+        extraction_id=result.extraction.id,
+        is_core_valid=bool(commit_result.extra.get("is_core_valid")),
+        core_validation=policy.core_validation,
+        overridden=bool(commit_result.extra.get("overridden")),
+        warnings=[*result.warnings, *commit_result.warnings],
+    )
 
 
 @router.post("/from-proposal", response_model=PolicyRead, status_code=status.HTTP_201_CREATED)

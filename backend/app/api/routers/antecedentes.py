@@ -49,12 +49,15 @@ from app.schemas.ai import ExtractionRead
 from app.schemas.antecedentes import (
     AntecedentesRead,
     AntecedentesRegisterRequest,
+    DocumentExtraction,
     LineAssignmentRequest,
+    AntecedentesPdfResponse,
     LineRecordSchemaCreate,
     LineRecordSchemaRead,
     LineRecordSchemaUpdate,
     LineUsage,
     RamoSchema,
+    RecommendedFile,
     RequiredField,
 )
 from app.schemas.document import DocumentDownload
@@ -209,10 +212,14 @@ def _antecedentes_read(
 ) -> AntecedentesRead:
     if schema_row is None:
         schema_row = ai_service.resolve_account_line_record_schema(db, case, broker_id)
-    definition = (
-        RamoSchema.model_validate(schema_row.definition) if schema_row else None
-    )
-    raw_definition = schema_row.definition if schema_row else None
+    # v9: a ramo no longer carries a field schema — antecedentes is a FREE upload
+    # area. The GENERIC antecedentes definition drives the consolidated Bases
+    # Técnicas shape whenever the ramo has no (deprecated) ``definition`` of its
+    # own, so ``process``/``read`` always surface a real consolidated form.
+    raw_definition = (
+        schema_row.definition if schema_row else None
+    ) or ai_service._GENERIC_ANTECEDENTES_DEFINITION
+    definition = RamoSchema.model_validate(raw_definition or {"sections": []})
     # The monto total asegurado is DERIVED (code sum of the materias matrix), so
     # the response always shows the reconciled total, never a stored/AI number.
     payload = _with_derived_totals(raw_definition, expediente.payload if expediente else None)
@@ -233,6 +240,7 @@ def _antecedentes_read(
     # Embed the full source extraction (the audit trail) so the review UI can
     # render its provenance card. Broker-filtered — a foreign row never leaks.
     extraction_row = None
+    document_extractions: list[DocumentExtraction] = []
     if expediente and expediente.source_extraction_id is not None:
         extraction_row = db.scalars(
             select(Extraction).where(
@@ -240,6 +248,13 @@ def _antecedentes_read(
                 Extraction.broker_id == broker_id,
             )
         ).first()
+        # The per-document extraction cards live inside the source extraction's
+        # ``raw_output`` (no new column) — one entry per source antecedentes file.
+        raw_output = getattr(extraction_row, "raw_output", None)
+        if isinstance(raw_output, dict):
+            for item in raw_output.get("per_document") or []:
+                if isinstance(item, dict):
+                    document_extractions.append(DocumentExtraction.model_validate(item))
     return AntecedentesRead(
         case_file_id=case.id,
         status=status_val,
@@ -260,6 +275,7 @@ def _antecedentes_read(
         required_fields=required_fields,
         missing_required=missing_required,
         complete=complete,
+        document_extractions=document_extractions,
         warnings=warnings or [],
     )
 
@@ -339,7 +355,8 @@ def register_antecedentes(
 
     from pydantic import ValidationError
 
-    model = ai_service.build_dynamic_schema(schema_row.definition)
+    definition = schema_row.definition or ai_service._GENERIC_ANTECEDENTES_DEFINITION
+    model = ai_service.build_dynamic_schema(definition)
     try:
         validated = model.model_validate(body.payload or {})
     except ValidationError as exc:
@@ -382,24 +399,25 @@ def assign_account_line(
 ) -> AntecedentesRead:
     """Assign a line (or an adopted template) to an account, re-resolving the
     Bases-Técnicas schema. Broker-scoped: a foreign account or a foreign line is
-    a 404 (rule 2). The line's ramo must match the account's."""
+    a 404 (rule 2). A template of another ramo is allowed (v8 warn-not-block) —
+    the mismatch comes back as a soft ``warnings`` entry, not a 422."""
     case = _account_or_404(db, case_file_id, broker_id)
     line = _visible_schema_or_404(db, body.line_record_schema_id, broker_id)
+    # v8 warn-not-block: a template of ANOTHER ramo is now allowed (ramos are
+    # advisory). The mismatch is surfaced as a soft warning, never a 422.
+    warnings: list[str] = []
     if (
         case.insurance_line_id is not None
         and line.insurance_line_id != case.insurance_line_id
     ):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La línea pertenece a otro ramo que el de la cuenta",
-        )
+        warnings.append("La plantilla es de otro ramo que el de la cuenta")
     case.line_record_schema_id = line.id
     db.commit()
     db.refresh(case)
 
     expediente = _expediente(db, case.id, broker_id)
     return _antecedentes_read(
-        db, case, broker_id, expediente=expediente, schema_row=line
+        db, case, broker_id, expediente=expediente, schema_row=line, warnings=warnings
     )
 
 
@@ -558,44 +576,43 @@ def _pdf_sections(definition: dict, payload: dict | None) -> list[dict]:
 
 @router.get(
     "/case-files/{case_file_id}/antecedentes/pdf",
-    response_model=DocumentDownload,
+    response_model=AntecedentesPdfResponse,
 )
 async def antecedentes_pdf(
     case_file_id: int,
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     current_user: User = Depends(require_permission("CaseFiles", "View")),
-) -> DocumentDownload:
-    """Generate (or return) the branded antecedentes PDF as a download link."""
+) -> AntecedentesPdfResponse:
+    """Generate (or return) the branded antecedentes PDF as a download link.
+
+    v8 warn-not-block: the Bases Técnicas ALWAYS render — DRAFT, REVIEW or
+    REGISTERED — never a 409. A payload that is not yet a complete, registered
+    record renders a BORRADOR / INCOMPLETO cover; the response carries
+    ``incomplete=True`` and the still-empty mandatory fields so the UI flags it.
+    """
     case = _account_or_404(db, case_file_id, broker_id)
     expediente = _expediente(db, case.id, broker_id)
-    if expediente is None or expediente.status != RecordExpedienteStatus.REGISTERED:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="El expediente aún no está registrado",
-        )
 
     schema_row = None
-    if expediente.line_record_schema_id is not None:
+    if expediente is not None and expediente.line_record_schema_id is not None:
         schema_row = db.get(LineRecordSchema, expediente.line_record_schema_id)
         if schema_row is not None and schema_row.broker_id not in (broker_id, None):
             schema_row = None
     if schema_row is None:
         schema_row = ai_service.resolve_account_line_record_schema(db, case, broker_id)
-    definition = schema_row.definition if schema_row else {"sections": []}
+    definition = (
+        schema_row.definition if schema_row else None
+    ) or ai_service._GENERIC_ANTECEDENTES_DEFINITION
 
-    # Can't send incomplete Bases Técnicas — the frontend gates the button on
-    # ``complete`` but a direct call must still be refused (rule: no half-sent
-    # técnicas). 409 lists what is missing.
-    missing = _missing_required(definition, expediente.payload)
-    if missing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "Faltan campos obligatorios de las Bases Técnicas: "
-                + ", ".join(m.label for m in missing)
-            ),
-        )
+    # Completeness is now ADVISORY: render regardless, but flag what is missing.
+    payload_for_pdf = expediente.payload if expediente is not None else None
+    missing = _missing_required(definition, payload_for_pdf)
+    is_registered = (
+        expediente is not None
+        and expediente.status == RecordExpedienteStatus.REGISTERED
+    )
+    incomplete = bool(missing) or not is_registered
 
     broker = db.get(Broker, broker_id)
     insured = getattr(getattr(case, "client", None), "insured", None)
@@ -613,7 +630,14 @@ async def antecedentes_pdf(
     }
     title = getattr(insured, "legal_name", None) or case.title
 
-    pdf_payload = _with_derived_totals(definition, expediente.payload)
+    # A BORRADOR/INCOMPLETO cover when the record is not a complete, registered
+    # one — the template renders ghost rows for the empty mandatory fields.
+    branding["incomplete"] = incomplete
+    branding["incomplete_fields"] = [m.label for m in missing]
+    if incomplete:
+        branding["eyebrow"] = "Bases Técnicas · BORRADOR"
+
+    pdf_payload = _with_derived_totals(definition, payload_for_pdf)
     html = pdf_templates.render_expediente_html(
         title=title, branding=branding, sections=_pdf_sections(definition, pdf_payload)
     )
@@ -640,10 +664,16 @@ async def antecedentes_pdf(
         mime_type="application/pdf",
         uploaded_by_id=current_user.id,
     )
-    expediente.pdf_document_id = document.id
+    if expediente is not None:
+        expediente.pdf_document_id = document.id
     db.commit()
     db.refresh(document)
-    return build_download_payload(document)
+    download = build_download_payload(document)
+    return AntecedentesPdfResponse(
+        **download.model_dump(),
+        incomplete=incomplete,
+        missing_required=missing,
+    )
 
 
 # --- Ramo-schema maintainer CRUD ---------------------------------------------
@@ -668,6 +698,12 @@ def _schema_read(
         is_template=bool(row.is_template),
         usage=usage or LineUsage(),
         definition=RamoSchema.model_validate(row.definition or {"sections": []}),
+        recommended_files=[
+            RecommendedFile.model_validate(item)
+            for item in (row.recommended_files or [])
+            if isinstance(item, dict)
+        ],
+        explanation=row.explanation,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -792,9 +828,12 @@ def create_ramo_schema(
     broker_id: int = Depends(get_current_broker_id),
     current_user: User = Depends(require_permission("Settings", "Manage")),
 ) -> LineRecordSchemaRead:
-    """Create a broker-owned LINE (v7). Optionally clone ``from_template_id`` (a
-    global template's definition + ramo), then edit freely. A broker line is
-    never a template (``is_template=False``); its name is unique per broker."""
+    """Create a broker-owned ramo (v9). A ramo is a **name + recommended files +
+    context** — ``definition`` (the old sectioned schema) is DEPRECATED and never
+    required. Optionally clone ``from_template_id`` (a global template's
+    recommended files + ramo), then edit freely. ``insurance_line_id`` is optional
+    — a fully custom ramo need not map to any CMF line. A broker ramo is never a
+    template (``is_template=False``); its name is unique per broker."""
     template: LineRecordSchema | None = None
     if body.from_template_id is not None:
         template = _visible_schema_or_404(db, body.from_template_id, broker_id)
@@ -802,22 +841,30 @@ def create_ramo_schema(
     insurance_line_id = body.insurance_line_id or (
         template.insurance_line_id if template else None
     )
-    if insurance_line_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="insurance_line_id is required when not cloning a template",
-        )
-    _own_line_or_404(db, insurance_line_id, broker_id)
+    # v9: ``insurance_line_id`` is now optional (a custom ramo maps to no CMF
+    # line). When one IS given it must be a ramo the broker may build on.
+    if insurance_line_id is not None:
+        _own_line_or_404(db, insurance_line_id, broker_id)
 
+    # ``definition`` is DEPRECATED: kept only for the backward-compatible
+    # dynamic-schema/register path. A v9 ramo carries recommended files instead.
     if body.definition is not None:
         definition = body.definition.model_dump()
     elif template is not None:
-        definition = dict(template.definition or {"sections": []})
+        definition = dict(template.definition) if template.definition else None
     else:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="definition is required when not cloning a template",
-        )
+        definition = None
+
+    if body.recommended_files is not None:
+        recommended_files = [rf.model_dump(exclude_none=True) for rf in body.recommended_files]
+    elif template is not None:
+        recommended_files = list(template.recommended_files or [])
+    else:
+        recommended_files = []
+
+    explanation = body.explanation if body.explanation is not None else (
+        template.explanation if template else None
+    )
 
     row = LineRecordSchema(
         broker_id=broker_id,
@@ -827,6 +874,8 @@ def create_ramo_schema(
         is_active=body.is_active,
         is_template=False,
         definition=definition,
+        recommended_files=recommended_files,
+        explanation=explanation,
         created_by_id=current_user.id,
     )
     db.add(row)
@@ -866,6 +915,12 @@ def update_ramo_schema(
         row.name = body.name
     if body.definition is not None:
         row.definition = body.definition.model_dump()
+    if body.recommended_files is not None:
+        row.recommended_files = [
+            rf.model_dump(exclude_none=True) for rf in body.recommended_files
+        ]
+    if body.explanation is not None:
+        row.explanation = body.explanation
     if body.version is not None:
         row.version = body.version
     if body.is_active is not None:

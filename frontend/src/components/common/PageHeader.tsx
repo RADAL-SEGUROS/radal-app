@@ -39,7 +39,7 @@ export function PageHeader({
         ) : null}
         <h1 className="text-balance text-h1 tracking-tight text-ink">{title}</h1>
         {subtitle ? (
-          <p className="mt-1.5 text-pretty text-body text-ink-3">{subtitle}</p>
+          <div className="mt-1.5 text-pretty text-body text-ink-3">{subtitle}</div>
         ) : null}
       </div>
       {actions ? (

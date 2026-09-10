@@ -29,6 +29,7 @@ from app.models.ai import ExtractionKind
 from app.models.document import DocumentCategory
 from app.models.enums import CaseSection, DocumentDirection
 from app.schemas.extraction.broker_closing_note import BrokerClosingNoteExtraction
+from app.schemas.extraction.budget_proposal import BudgetProposalExtraction
 from app.schemas.extraction.business_questionnaire import BusinessQuestionnaireExtraction
 from app.schemas.extraction.claim_final_report import ClaimFinalReportExtraction
 from app.schemas.extraction.claim_notice import ClaimNoticeExtraction
@@ -326,6 +327,42 @@ literal en español. La vigencia de la oferta va en días hábiles.
 """,
         "proposal (money -> columns, deductibles -> JSON, coverages -> proposal_coverage)",
         prompt_version=LEGACY_PROPOSAL_PROMPT_VERSION,
+        extraction_kind=ExtractionKind.PROPOSAL,
+    ),
+    _spec(
+        DocumentCategory.BUDGET_PROPOSAL,
+        None,
+        CaseSection.INSURER_QUOTES,
+        DocumentDirection.INSURER_TO_BROKER,
+        BudgetProposalExtraction,
+        f"{_PKG}.budget_proposal",
+        """
+Es una OFERTA / COTIZACIÓN de una compañía de seguros, leída de forma DINÁMICA para el
+comparador incremental. Devuelves TRES cosas en un solo objeto JSON.
+
+1) DISCRIMINADOR DE ARCHIVO (detección de archivo equivocado):
+   - `document_type` = "budget_proposal" solo si el documento ES una oferta de una aseguradora
+     (una propuesta/cotización con prima, vigencia o coberturas). Si es cualquier otra cosa
+     (una carta, una planilla de montos, una póliza emitida, un correo, un documento en blanco),
+     `document_type` = "not_a_proposal" y explica por qué en `rejection_reason`, en español.
+   - `document_type_confidence` va de 0 a 100.
+
+2) NÚCLEO FIJO de prima y vigencia (montos en UF, punto decimal, sin punto de miles):
+   la estructura es neta = afecta + exenta ; IVA = 0,19 x AFECTA (el sismo es exento, el IVA
+   nunca se calcula sobre la neta) ; total = neta + IVA. Las tasas son POR MIL. Informa el RUT
+   y el código CMF de la compañía tal como aparecen; NUNCA los deduzcas del nombre. La vigencia
+   de la oferta va en días hábiles.
+
+3) FACETS: una lista DINÁMICA de dimensiones de la oferta, una por línea. Cada facet lleva:
+   `group` ("coverage", "exclusion", "deductible", "sublimit", "clause", "warranty" u "other"),
+   `key` (un slug estable en minúsculas, p. ej. "sismo"), `label` (etiqueta corta en español),
+   `description` (resumen en lenguaje llano de qué dice esa dimensión), `verbatim` (la redacción
+   EXACTA copiada del documento — en esta cartera la redacción ES la cobertura), `present`
+   (true si la ampara, false si la excluye) y `value` (montos, porcentajes, mínimos UF, base del
+   deducible, días…). No inventes facets: extrae solo lo que el documento declara.
+""",
+        "comparison_source.facets + the fixed core -> the proposal money/period columns",
+        prompt_version="budget-proposal-v1",
         extraction_kind=ExtractionKind.PROPOSAL,
     ),
     _spec(

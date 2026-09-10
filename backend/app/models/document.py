@@ -84,6 +84,11 @@ class DocumentCategory(StrEnum):
     ISSUANCE_PROPOSAL = "issuance_proposal"  # 07
     TECHNICAL_RECOMMENDATION = "technical_recommendation"  # 07R
 
+    # --- comparison (v8): the dynamic per-offer read the comparator aligns ---
+    # 15 < 25 ("conditional_pronouncement"): the computed VARCHAR is unchanged,
+    # so this member needs no migration.
+    BUDGET_PROPOSAL = "budget_proposal"
+
     # --- policy_file --------------------------------------------------------
     POLICY = "policy"  # 08
 

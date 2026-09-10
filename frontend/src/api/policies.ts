@@ -27,6 +27,8 @@ import type {
   PolicyStatus,
   PolicySummary,
   PolicyUpdate,
+  PolicyUploadRequest,
+  PolicyUploadResponse,
   Warranty,
   WarrantyCreate,
 } from "@/api/types";
@@ -101,6 +103,33 @@ export function useCreatePolicy() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.policies.all });
       void qc.invalidateQueries({ queryKey: qk.caseFiles.all });
+    },
+  });
+}
+
+/**
+ * `POST /policies/upload` — validate-then-dynamic ingestion.
+ *
+ * The PDF must be filed through `POST /documents` first; this passes its id. On
+ * a core-validation failure the server answers **HTTP 422** with a
+ * `{ code: "not_a_policy", reason, missing, detail }` body — surfaced to the
+ * caller so the dialog can render the reject state and offer `override: true`
+ * (the broker's confirmed "register it anyway"). Success invalidates the lists.
+ */
+export function useUploadPolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: PolicyUploadRequest) => {
+      const { data } = await api.post<PolicyUploadResponse>("/policies/upload", payload);
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(qk.policies.detail(data.policy.id), data.policy);
+      void qc.invalidateQueries({ queryKey: qk.policies.all });
+      void qc.invalidateQueries({ queryKey: qk.caseFiles.all });
+      void qc.invalidateQueries({ queryKey: qk.accountGroups.all });
+      void qc.invalidateQueries({ queryKey: qk.navigator.all });
+      void qc.invalidateQueries({ queryKey: qk.documents.all });
     },
   });
 }

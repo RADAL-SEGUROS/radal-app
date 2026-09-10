@@ -17,8 +17,8 @@ through :data:`STAGE_TO_PLACEMENT_STATUS` inside the same transaction — refusi
 with 422 when the placement machine forbids that move.
 
 The seven guards of §5.2 are data, not scattered ``if``s: see :data:`STAGE_GUARDS`.
-Each returns ``None`` when satisfied or a specific Spanish-free English message
-the router turns into a 422.
+Each returns ``None`` when satisfied or a specific user-facing Spanish message
+the router turns into a 422 (the reason is surfaced raw in the UI).
 """
 from __future__ import annotations
 
@@ -297,8 +297,8 @@ def case_policies(db: Session, case: CaseFile) -> list[Policy]:
 def _guard_market_submission(db: Session, case: CaseFile) -> str | None:
     if not _case_documents(db, case, DocumentCategory.TECHNICAL_BRIEF):
         return (
-            "The case needs a technical_brief document (01 bases técnicas) "
-            "before it can be sent to the market"
+            "Falta el documento de bases técnicas (01) para poder enviar la "
+            "carpeta al mercado."
         )
     recipients = 0
     for quote in _case_quote_requests(db, case):
@@ -315,14 +315,20 @@ def _guard_market_submission(db: Session, case: CaseFile) -> str | None:
             )
         )
     if recipients == 0:
-        return "No recipient insurer resolves for this broker and insurance line"
+        return (
+            "No se resuelve ninguna aseguradora destinataria para este corredor "
+            "y ramo."
+        )
     return None
 
 
 def _guard_comparison(db: Session, case: CaseFile) -> str | None:
     confirmed = [p for p in case_proposals(db, case) if p.is_confirmed]
     if not confirmed:
-        return "At least one confirmed proposal is required to build the comparison"
+        return (
+            "Se necesita al menos una cotización confirmada para armar la "
+            "comparación."
+        )
     return None
 
 
@@ -338,8 +344,8 @@ def _guard_proposal_issued(db: Session, case: CaseFile) -> str | None:
     ]
     if not accepted:
         return (
-            "At least one accepted proposal is required to issue the propuesta de "
-            "emisión (found 0)"
+            "Se necesita al menos una cotización aceptada para emitir la propuesta "
+            "de emisión (se encontraron 0)."
         )
     quotes = {q.id: q for q in _case_quote_requests(db, case)}
     per_placement: dict[int | None, int] = {}
@@ -354,13 +360,13 @@ def _guard_proposal_issued(db: Session, case: CaseFile) -> str | None:
     ):
         if count > 1:
             where = (
-                f"placement {placement_id}"
+                f"el placement {placement_id}"
                 if placement_id is not None
-                else "the case (no placement)"
+                else "la carpeta (sin placement)"
             )
             return (
-                "At most one accepted proposal per placement is allowed to issue "
-                f"the propuesta de emisión ({where} has {count})"
+                "Se permite como máximo una cotización aceptada por placement para "
+                f"emitir la propuesta de emisión ({where} tiene {count})."
             )
     return None
 
@@ -369,7 +375,7 @@ def _guard_policy_issued(db: Session, case: CaseFile) -> str | None:
     for policy in case_policies(db, case):
         if policy.source_document_id is not None:
             return None
-    return "No policy with a source document (08) is attached to this case"
+    return "No hay ninguna póliza con documento de origen (08) adjunta a esta carpeta."
 
 
 def _guard_endorsement_issued(db: Session, case: CaseFile) -> str | None:
@@ -380,9 +386,9 @@ def _guard_endorsement_issued(db: Session, case: CaseFile) -> str | None:
         )
     ).all()
     if not rows:
-        return "No endorsement is attached to this case"
+        return "No hay ningún endoso adjunto a esta carpeta."
     if not any(row.issued_document_id is not None for row in rows):
-        return "The endorsement has no issued document (08A/08B/09B/09D) attached"
+        return "El endoso no tiene un documento emitido (08A/08B/09B/09D) adjunto."
     return None
 
 
@@ -408,7 +414,7 @@ def _guard_collection_settled(db: Session, case: CaseFile) -> str | None:
         ).all()
     )
     if not plan_ids:
-        return "No collection plan is attached to this case"
+        return "No hay ningún plan de cobranza adjunto a esta carpeta."
     pending = db.scalar(
         select(CollectionInstallment.id)
         .where(
@@ -418,13 +424,16 @@ def _guard_collection_settled(db: Session, case: CaseFile) -> str | None:
         .limit(1)
     )
     if pending is not None:
-        return "Every instalment must be paid, credited or cancelled before settling"
+        return (
+            "Todas las cuotas deben estar pagadas, abonadas o anuladas antes de "
+            "liquidar la cobranza."
+        )
     return None
 
 
 def _guard_claim_final(db: Session, case: CaseFile) -> str | None:
     if not _case_documents(db, case, DocumentCategory.CLAIM_FINAL_REPORT):
-        return "The claim needs a claim_final_report document (informe final)"
+        return "El siniestro necesita un documento de informe final."
     return None
 
 
@@ -475,7 +484,7 @@ def transition_options(db: Session, case: CaseFile) -> list[TransitionOption]:
     for stage in chain:
         if stage == case.stage:
             options.append(
-                TransitionOption(to_stage=stage, allowed=False, reason="current stage")
+                TransitionOption(to_stage=stage, allowed=False, reason="etapa actual")
             )
             continue
         if stage not in structurally:
@@ -483,7 +492,7 @@ def transition_options(db: Session, case: CaseFile) -> list[TransitionOption]:
                 TransitionOption(
                     to_stage=stage,
                     allowed=False,
-                    reason=f"not reachable from '{case.stage.value}'",
+                    reason=f"no alcanzable desde '{case.stage.value}'",
                 )
             )
             continue
@@ -561,8 +570,8 @@ def _sync_placement(db: Session, case: CaseFile, to_stage: CaseStage) -> str | N
             continue
         if target not in ALLOWED_TRANSITIONS.get(placement.status, ()):
             return (
-                f"The placement cannot move from '{placement.status.value}' to "
-                f"'{target.value}', which stage '{to_stage.value}' requires"
+                f"El placement no puede pasar de '{placement.status.value}' a "
+                f"'{target.value}', que exige la etapa '{to_stage.value}'."
             )
         placement.status = target
         db.add(
@@ -598,14 +607,16 @@ def apply_transition(
     """
     previous = case.stage
     if to_stage == previous:
-        raise CaseTransitionError(f"The case is already in stage '{to_stage.value}'")
+        raise CaseTransitionError(
+            f"La carpeta ya se encuentra en la etapa '{to_stage.value}'."
+        )
 
     allowed = allowed_stages(case)
     if to_stage not in allowed:
         raise CaseTransitionError(
-            f"Cannot move a '{case.kind.value}' case from '{previous.value}' to "
-            f"'{to_stage.value}'. Allowed: "
-            f"{', '.join(s.value for s in allowed) or 'none (terminal)'}"
+            f"No se puede mover una carpeta '{case.kind.value}' de "
+            f"'{previous.value}' a '{to_stage.value}'. Permitidas: "
+            f"{', '.join(s.value for s in allowed) or 'ninguna (terminal)'}"
         )
 
     if not force:

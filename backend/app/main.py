@@ -74,10 +74,14 @@ def create_app() -> FastAPI:
     app.include_router(search.router, prefix=prefix)
 
     # --- Quotes + proposals (the core) --------------------------------------
-    from app.api.routers import proposals, quotes
+    from app.api.routers import broker_proposals, comparisons, proposals, quotes
 
     app.include_router(quotes.router, prefix=prefix)
     app.include_router(proposals.router, prefix=prefix)
+    # v8 broker-journey redesign: the incremental comparison worktable and the
+    # outbound broker propuesta built solely from it.
+    app.include_router(comparisons.router, prefix=prefix)
+    app.include_router(broker_proposals.router, prefix=prefix)
 
     # --- AI pipeline: extraction (suggest -> confirm) + agent chat -----------
     from app.api.routers import ai as ai_router

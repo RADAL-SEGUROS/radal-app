@@ -37,6 +37,11 @@ export const NAMESPACES = [
   "analytics",
   // v6: the antecedentes expediente (process → review → register → view/PDF).
   "antecedentes",
+  // v8: the incremental comparison expedient + the public insured-decision page.
+  "comparison",
+  "publicOffering",
+  // v8: the outbound broker propuesta (mint from comparison → ratify → send).
+  "propuesta",
 ] as const;
 
 export type Namespace = (typeof NAMESPACES)[number];

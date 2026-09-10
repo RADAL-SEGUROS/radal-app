@@ -13,6 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 COPY requirements.txt ./
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
+# Chromium for the Playwright PDF pipeline (Bases Técnicas / comparison / propuesta).
+# --with-deps pulls the system libs (libnss3, fonts, etc.); the browser lands in
+# /root/.cache/ms-playwright, resolved at runtime by the root LWA process.
+RUN playwright install --with-deps chromium
+
 COPY app ./app
 
 # Lambda Web Adapter (proxies Lambda Runtime API -> our uvicorn server)

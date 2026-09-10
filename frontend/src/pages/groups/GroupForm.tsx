@@ -30,18 +30,30 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ErrorBanner } from "@/components/common/kit";
+import { IconPicker } from "@/components/groups/IconPicker";
 import { accountErrorMessage, useDebounced } from "@/pages/groups/shared";
 import { useClients } from "@/api/clients";
-import { useCreateGroup } from "@/api/accountGroups";
-import type { AccountGroupDetail } from "@/api/types";
+import { useCreateGroup, useUpdateGroup } from "@/api/accountGroups";
+import type {
+  AccountGroupDetail,
+  AccountGroupIcon,
+  AccountGroupIconInput,
+} from "@/api/types";
 
 export interface GroupFormState {
   name: string;
   notes: string;
   clientIds: number[];
+  /** `null` = untouched (edit keeps the stored icon; create keeps none). */
+  icon: AccountGroupIconInput | null;
 }
 
-export const EMPTY_GROUP_FORM: GroupFormState = { name: "", notes: "", clientIds: [] };
+export const EMPTY_GROUP_FORM: GroupFormState = {
+  name: "",
+  notes: "",
+  clientIds: [],
+  icon: null,
+};
 
 /**
  * Name + notes + the company picker.
@@ -56,10 +68,13 @@ export function GroupFormFields({
   value,
   onChange,
   disabled,
+  currentIcon,
 }: {
   value: GroupFormState;
   onChange: (next: GroupFormState) => void;
   disabled?: boolean;
+  /** The stored icon (edit mode) shown while `value.icon` is untouched. */
+  currentIcon?: AccountGroupIcon | null;
 }) {
   const { t } = useTranslation("accounts");
   const [term, setTerm] = React.useState("");
@@ -78,6 +93,19 @@ export function GroupFormFields({
 
   return (
     <div className="flex flex-col gap-4">
+      <div>
+        <Label>{t("group.icon.label")}</Label>
+        <div className="mt-1.5">
+          <IconPicker
+            name={value.name}
+            value={value.icon}
+            currentIcon={currentIcon}
+            disabled={disabled}
+            onChange={(icon) => onChange({ ...value, icon })}
+          />
+        </div>
+      </div>
+
       <div>
         <Label htmlFor="group-name">{t("group.create.nameLabel")}</Label>
         <Input
@@ -181,6 +209,7 @@ export function useGroupCreate(onDone: (group: AccountGroupDetail) => void) {
       {
         name,
         notes: state.notes.trim() || null,
+        icon: state.icon,
         client_ids: state.clientIds.length ? state.clientIds : null,
       },
       {
@@ -250,6 +279,133 @@ export function NewGroupDialog({
           </Button>
           <Button size="sm" onClick={form.submit} disabled={!form.canSubmit || form.isPending}>
             {t("group.create.submit")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Edit a group's identity: its avatar, name and notes. Membership is NOT here —
+ * a company is attached/detached through its own endpoint (the Empresas tab),
+ * so this dialog never grows a client picker that could not save.
+ *
+ * The icon starts `null` = untouched: an already-stored image icon comes back
+ * on read without its `document_id`, so leaving it alone is the only faithful
+ * default; picking a new one overrides it.
+ */
+export function EditGroupDialog({
+  group,
+  open,
+  onOpenChange,
+}: {
+  group: AccountGroupDetail;
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+}) {
+  const { t } = useTranslation("accounts");
+  const { t: tc } = useTranslation("common");
+  const update = useUpdateGroup(group.id);
+
+  const [name, setName] = React.useState(group.name);
+  const [notes, setNotes] = React.useState(group.notes ?? "");
+  const [icon, setIcon] = React.useState<AccountGroupIconInput | null>(null);
+
+  // Re-seed when the dialog opens for a (possibly different) group.
+  React.useEffect(() => {
+    if (open) {
+      setName(group.name);
+      setNotes(group.notes ?? "");
+      setIcon(null);
+    }
+  }, [open, group.id, group.name, group.notes]);
+
+  const submit = () => {
+    const trimmed = name.trim();
+    if (!trimmed || update.isPending) return;
+    update.mutate(
+      {
+        name: trimmed,
+        notes: notes.trim() || null,
+        // Omit when untouched so the stored icon survives.
+        icon: icon ?? undefined,
+      },
+      { onSuccess: () => onOpenChange(false) },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-brand" />
+            {t("group.edit.title")}
+          </DialogTitle>
+          <DialogDescription>{t("group.edit.subtitle")}</DialogDescription>
+        </DialogHeader>
+
+        {update.isError ? (
+          <ErrorBanner
+            error={accountErrorMessage(update.error, (key, options) => t(key, options))}
+          />
+        ) : null}
+
+        <div className="flex flex-col gap-4">
+          <div>
+            <Label>{t("group.icon.label")}</Label>
+            <div className="mt-1.5">
+              <IconPicker
+                name={name}
+                value={icon}
+                currentIcon={group.icon}
+                disabled={update.isPending}
+                onChange={setIcon}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="edit-group-name">{t("group.create.nameLabel")}</Label>
+            <Input
+              id="edit-group-name"
+              value={name}
+              disabled={update.isPending}
+              autoFocus
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1.5"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-group-notes">{t("group.fields.notes")}</Label>
+            <Textarea
+              id="edit-group-notes"
+              rows={3}
+              value={notes}
+              disabled={update.isPending}
+              onChange={(e) => setNotes(e.target.value)}
+              className="mt-1.5"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            disabled={update.isPending}
+          >
+            {tc("actions.cancel")}
+          </Button>
+          <Button
+            size="sm"
+            onClick={submit}
+            disabled={!name.trim() || update.isPending}
+          >
+            {tc("actions.save")}
           </Button>
         </DialogFooter>
       </DialogContent>

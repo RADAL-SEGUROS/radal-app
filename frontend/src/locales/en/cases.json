@@ -79,6 +79,14 @@
     "blocked": "The server does not allow this move yet.",
     "notReachable": "Not reachable from the current stage.",
     "phases": {
+      "records": "Records",
+      "technical": "Technical spec",
+      "market": "Market",
+      "comparison": "Comparison",
+      "proposal": "Proposal",
+      "policy": "Policy",
+      "active": "Active",
+      "renewal": "Renewal",
       "antecedentes": "Background",
       "mercado": "Market",
       "comparacion": "Comparison",
@@ -91,6 +99,8 @@
       "siniestro": "Claim"
     },
     "whatNext": "What's next",
+    "pending_one": "{{count}} pending",
+    "pending_other": "{{count}} pending",
     "advanceTo": "Advance to {{stage}}",
     "otherStages": "Other stages",
     "closedChip": "Closed",

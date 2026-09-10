@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, String
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base_class import Base, TimestampMixin
@@ -59,6 +59,15 @@ class Offering(Base, TimestampMixin):
         ForeignKey("proposal.id", ondelete="SET NULL"), index=True
     )
 
+    # --- The INSURED's decision on the public share surface (v8) -------------
+    # ``selected_proposal_id`` is the broker's RECOMMENDATION; these record what
+    # the insured actually chose (and why) from the shared comparison.
+    decided_proposal_id: Mapped[int | None] = mapped_column(
+        ForeignKey("proposal.id", ondelete="SET NULL"), index=True
+    )
+    decided_note: Mapped[str | None] = mapped_column(Text)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     # Unguessable public handle for the share link.
     share_token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     # Generated branded PDF. FK to `document` — never a raw S3 key.
@@ -82,6 +91,9 @@ class Offering(Base, TimestampMixin):
     quote_request: Mapped["QuoteRequest"] = relationship(back_populates="offerings")
     selected_proposal: Mapped["Proposal | None"] = relationship(
         foreign_keys=[selected_proposal_id]
+    )
+    decided_proposal: Mapped["Proposal | None"] = relationship(
+        foreign_keys=[decided_proposal_id]
     )
     pdf_document: Mapped["Document | None"] = relationship(foreign_keys=[pdf_document_id])
     created_by: Mapped["User | None"] = relationship(foreign_keys=[created_by_id])

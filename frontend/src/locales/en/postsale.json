@@ -20,7 +20,6 @@
     "soonExport": "Export is coming soon.",
     "soonRenewal": "Renewals are API-only in this release."
   },
-
   "policy": {
     "title": "Policies",
     "subtitle": "The live contract and everything that happens after issuance.",
@@ -115,9 +114,68 @@
       "newClaim": "Report a claim",
       "renew": "Renew",
       "exportPolicy": "Export policy"
+    },
+    "upload": {
+      "title": "Register policy",
+      "subtitle": "Upload the file issued by the carrier and we read it automatically.",
+      "dropTitle": "Drag the policy PDF here or click to choose it",
+      "dropHint": "A single PDF file.",
+      "working": "Processing the file…",
+      "rejectTitle": "This file does not look like a policy",
+      "rejectReasonFallback": "The policy's minimal core could not be validated.",
+      "missingLabel": "Missing core fields:",
+      "coreField": {
+        "corredor": "Broker",
+        "asegurado": "Insured",
+        "vigencia": "Validity period",
+        "prima": "Premium breakdown"
+      },
+      "tryAnother": "Try another file",
+      "overrideAction": "Register anyway",
+      "doneTitle": "Policy {{number}} registered",
+      "validated": "Validated",
+      "registeredOverride": "Registered with override",
+      "needsReview": "Review",
+      "inspect": "View policy"
+    },
+    "overview": {
+      "upload": "Register policy",
+      "uploadHint": "Have the issued file? Upload it to register the policy.",
+      "empty": "This account has no policies yet.",
+      "emptyHint": "A policy is born from the file issued by the carrier.",
+      "opening": "Opening…",
+      "openSource": "Original file",
+      "noSource": "No source file",
+      "columns": {
+        "number": "Policy",
+        "insurer": "Insurer",
+        "period": "Validity",
+        "total": "Total premium",
+        "core": "Validation"
+      },
+      "core": {
+        "valid": "Validated",
+        "review": "Review"
+      },
+      "kpi": {
+        "total": "Policies",
+        "active": "Active",
+        "expiring": "Expiring",
+        "expiringHint": "Ends within 60 days",
+        "gross": "Active premium"
+      }
+    },
+    "extracted": {
+      "title": "Extracted content",
+      "subtitle": "The full confirmed reading of the issued document.",
+      "openSource": "Open original file",
+      "coreValid": "Core valid",
+      "coreInvalid": "Core incomplete",
+      "noVerdict": "No validation",
+      "empty": "No additional dynamic content.",
+      "extractionRef": "Extraction #{{id}}"
     }
   },
-
   "subFunnel": {
     "title": "Post-sale case files",
     "description": "Each case with its sequence, version and dates: the past-to-present tracker.",
@@ -144,7 +202,6 @@
     },
     "openCase": "Open case file"
   },
-
   "mirror": {
     "title": "Mirror validation",
     "description": "The issued policy against the issuance proposal, field by field. Nothing self-corrects: each difference is resolved with an endorsement.",
@@ -166,7 +223,6 @@
     "noSuggestion": "No suggested endorsement kind",
     "noPermission": "You need permission to create endorsements."
   },
-
   "warranty": {
     "title": "Warranties and recommendations",
     "description": "The R-n / G-n / M-n code runs through inspection, policy, collection and claim. Its status decides coverage.",
@@ -209,7 +265,6 @@
     "compliance": "Compliance",
     "noPermission": "You need permission to edit policies."
   },
-
   "endorsement": {
     "title": "Endorsements",
     "detail": {
@@ -287,7 +342,6 @@
     },
     "noPermission": "You need permission to edit endorsements."
   },
-
   "effectDiff": {
     "title": "Effect table",
     "description": "One row per changed dimension: before, after and delta.",
@@ -300,7 +354,6 @@
       "delta": "Delta"
     }
   },
-
   "premiumDelta": {
     "title": "Premium movement",
     "description": "Deltas keep their sign: an exclusion or a decrease is negative.",
@@ -318,7 +371,6 @@
     "increase": "Increases the premium",
     "decrease": "Reduces the premium"
   },
-
   "collection": {
     "title": "Collection",
     "detail": {
@@ -373,7 +425,6 @@
     "alerts": "Alerts",
     "noAlerts": "No active alerts"
   },
-
   "installment": {
     "title": "Instalment ledger",
     "description": "Σ instalments = policy gross premium + Σ endorsement deltas. The last instalment absorbs the rounding.",
@@ -413,7 +464,6 @@
     "fromEndorsement": "Instalment created by an endorsement",
     "noPermission": "You need permission to edit collections."
   },
-
   "art528": {
     "title": "Article 528 — coverage termination and reinstatement",
     "description": "Non-payment terminates the cover by operation of law; reinstatement has a date and a cost.",
@@ -428,7 +478,6 @@
     "eventKind": "Event",
     "eventDetail": "Detail"
   },
-
   "claim": {
     "title": "Claims",
     "subtitle": "From the notice to the final adjustment, with warranty causality in plain sight.",
@@ -518,7 +567,6 @@
     },
     "noPermission": "You need permission to approve claims."
   },
-
   "claimItem": {
     "title": "Claim items",
     "description": "The adjuster's progression for each item: notified, determined, damage, deductible and indemnity.",
@@ -546,7 +594,6 @@
     "retention": "Insured's retention",
     "retentionHint": "Determined damage minus indemnity: what the insured ultimately absorbs."
   },
-
   "adjuster": {
     "title": "Adjuster reports",
     "description": "Preliminary and final reports, with the warranty causality analysis.",
@@ -573,7 +620,6 @@
     "suggestionOnly": "Unconfirmed AI suggestion — review it before relying on it.",
     "aiUnavailable": "We could not read the report with AI."
   },
-
   "counterfactual": {
     "title": "Comparison with the prior program",
     "description": "What this same loss would have cost under the previous program. This is the renewal argument.",

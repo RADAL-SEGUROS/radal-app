@@ -1,0 +1,42 @@
+{
+  "via": "Preparado por {{broker}}",
+  "footer": "Este enlace es personal. Si tienes dudas, responde a tu corredor.",
+  "heading": "Elige tu seguro",
+  "lead": "Tu corredor preparó estas alternativas para ti. Revísalas y elige la que prefieras.",
+  "leadWithObject": "Tu corredor preparó estas alternativas para {{object}}. Revísalas y elige la que prefieras.",
+  "declaredValue": "Valor asegurado:",
+  "chooseTitle": "{{count}} alternativas para comparar",
+  "decided": {
+    "title": "Tu elección quedó registrada",
+    "body": "Elegiste la propuesta de {{insurer}}. Tu corredor la retomará para avanzar.",
+    "at": "Registrada el"
+  },
+  "noneTitle": "Todavía no hay alternativas",
+  "noneHint": "Tu corredor aún está preparando las opciones. Vuelve a abrir el enlace más tarde.",
+  "note": {
+    "label": "¿Quieres dejar un comentario? (opcional)",
+    "placeholder": "Por ejemplo, una duda o una preferencia."
+  },
+  "confirmNote": "Puedes cambiar tu elección mientras tu corredor no la haya retomado.",
+  "confirmChoice": "Confirmar mi elección",
+  "updateChoice": "Actualizar mi elección",
+  "errorFallback": "No pudimos registrar tu elección. Inténtalo de nuevo.",
+  "openPdf": "Ver el documento completo",
+  "expired": {
+    "title": "Este enlace ya venció",
+    "hint": "Pídele a tu corredor que te comparta uno nuevo."
+  },
+  "notFound": {
+    "title": "No encontramos esta oferta",
+    "hint": "Revisa el enlace o pídele a tu corredor que te lo comparta de nuevo."
+  },
+  "card": {
+    "insurerFallback": "Compañía de seguros",
+    "recommended": "Recomendada por tu corredor",
+    "yourChoice": "Tu elección",
+    "total": "Precio total (UF)",
+    "net": "Prima neta (UF)",
+    "validity": "Vigencia de la oferta",
+    "businessDays": "{{count}} días hábiles"
+  }
+}

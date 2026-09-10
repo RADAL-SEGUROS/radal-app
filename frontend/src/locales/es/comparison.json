@@ -1,0 +1,121 @@
+{
+  "title": "Comparación",
+  "subtitle": "Suma las cotizaciones una a una y compáralas lado a lado",
+  "backToAccount": "Volver a la cuenta",
+  "versionShort": "v{{version}}",
+  "status": {
+    "draft": "Borrador",
+    "aligned": "Alineada",
+    "superseded": "Reemplazada"
+  },
+  "noPermission": {
+    "title": "No tienes acceso a las comparaciones",
+    "hint": "Tu rol no permite ver las comparaciones de esta corredora."
+  },
+  "upload": {
+    "title": "Agregar cotización",
+    "hint": "Arrastra un PDF o haz clic para leerlo y sumarlo como columna.",
+    "working": "Leyendo la cotización…",
+    "added": "Cotización agregada: {{name}}",
+    "rejected": "Ese archivo no parece una cotización: {{name}}",
+    "noPermission": "Tu rol no permite agregar cotizaciones"
+  },
+  "align": {
+    "action": "Realinear",
+    "noPermission": "Tu rol no permite realinear la comparación",
+    "needColumns": "Agrega al menos una cotización antes de alinear",
+    "batched": "Comparado por lotes",
+    "blocked": {
+      "title": "El proveedor de IA no está disponible",
+      "hint": "No se pudo estandarizar la comparación. La comparación no se alineó; reintenta en unos momentos.",
+      "retry": "Reintentar"
+    }
+  },
+  "recommendation": {
+    "eyebrow": "Recomendación de la IA",
+    "noRationale": "La IA recomendó una oferta, sin fundamento detallado.",
+    "caveats": "Salvedades a revisar"
+  },
+  "empty": {
+    "title": "Todavía no hay cotizaciones",
+    "hint": "Agrega la primera cotización para empezar a comparar."
+  },
+  "needAlign": {
+    "title": "Listo para alinear",
+    "hint": "Ya cargaste cotizaciones; realínealas para verlas comparadas."
+  },
+  "grid": {
+    "columnsHeader": "{{count}} cotizaciones",
+    "sections": {
+      "premium": "Prima y tasas",
+      "figures": "Cifras destacadas",
+      "common": "Coberturas comunes",
+      "extras": "Diferencias"
+    },
+    "premium": {
+      "total": "Prima total",
+      "net": "Prima neta",
+      "comprehensiveRate": "Tasa integral",
+      "commission": "Comisión"
+    },
+    "lowest": "menor",
+    "noCommon": "Todavía no hay dimensiones comunes a todas las cotizaciones.",
+    "noExtras": "No hay diferencias entre las cotizaciones.",
+    "extrasHint": "Dimensiones que no todas las cotizaciones incluyen.",
+    "absent": "No indicada",
+    "excluded": "Excluida",
+    "included": "Incluida",
+    "verbatim": "Texto original"
+  },
+  "facetGroups": {
+    "coverage": "Cobertura",
+    "exclusion": "Exclusión",
+    "deductible": "Deducible",
+    "sublimit": "Sublímite",
+    "clause": "Cláusula",
+    "warranty": "Garantía",
+    "other": "Otro"
+  },
+  "column": {
+    "proposal": "Propuesta",
+    "quotation": "Cotización {{n}}",
+    "recommended": "Recomendada",
+    "recommendedByAi": "Recomendado por IA",
+    "promoted": "Ya es propuesta",
+    "openProposal": "Abrir propuesta",
+    "document": "Ver documento"
+  },
+  "recommend": {
+    "action": "Recomendar",
+    "noPermission": "Tu rol no permite recomendar cotizaciones"
+  },
+  "promote": {
+    "action": "Promover a propuesta",
+    "done": "Cotización promovida a propuesta",
+    "noPermission": "Tu rol no permite promover cotizaciones",
+    "already": "Esta columna ya es una propuesta",
+    "dialog": {
+      "title": "Promover a propuesta",
+      "description": "Confirma la identidad de la aseguradora para crear la propuesta a partir de esta columna.",
+      "helper": "Las cotizaciones suelen traer solo el RUT del asegurado, así que puede que el lector no haya identificado a la aseguradora. Ingresa su RUT o código CMF si falta.",
+      "rutLabel": "RUT de la aseguradora",
+      "rutPlaceholder": "Ej: 99.301.000-6",
+      "cmfLabel": "Código CMF de la aseguradora",
+      "cmfPlaceholder": "Ej: 315",
+      "confirm": "Promover",
+      "errors": {
+        "insurerUnresolved": "Ingresa el RUT o código CMF de la aseguradora para poder promover.",
+        "moneyInconsistent": "Las cifras de prima no cuadran (neto = afecto + exento, IVA = 19% del afecto). Revisa la cotización antes de promover."
+      }
+    }
+  },
+  "remove": {
+    "action": "Quitar",
+    "done": "Columna eliminada",
+    "noPermission": "Tu rol no permite quitar columnas"
+  },
+  "rejection": {
+    "title": "Este archivo no es una cotización",
+    "reasonFallback": "El lector no reconoció una oferta de seguro en este documento."
+  }
+}

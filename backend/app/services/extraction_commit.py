@@ -75,6 +75,7 @@ from app.models.quote import QuoteRequest, QuoteRequestStatus
 from app.models.user import User
 from app.models.warranty import Warranty
 from app.schemas.proposal import MONEY_TOLERANCE, reconcile_money
+from app.services.policy_validation import validate_policy_core
 from app.models.enums import CoverageKind
 
 __all__ = ["CommitError", "CommitResult", "commit_extraction", "COMMIT_PERMISSIONS"]
@@ -133,6 +134,9 @@ class _Ctx:
     document: Document
     case_file: CaseFile | None
     warnings: list[str] = field(default_factory=list)
+    #: v8 policy: force the commit even when the fixed core is incomplete (the
+    #: broker's confirmed "register it anyway"). Ignored by every other target.
+    override: bool = False
 
     @property
     def user_id(self) -> int | None:
@@ -1635,6 +1639,58 @@ def _commit_compliance_notice(ctx: _Ctx) -> CommitResult:
     )
 
 
+def _account_insurer_id(ctx: _Ctx, case: CaseFile) -> int | None:
+    """The insurer the ACCOUNT already knows, for a policy PDF that names it only
+    by name (corpus-wide, real policies carry no insurer rut/cmf).
+
+    Resolution order — NEVER by name:
+      1. the account's minted propuesta's winning inbound ``proposal.insurer_id``;
+      2. an ACCEPTED ``proposal`` on the account's placement / case file;
+      3. failing that, the most-recent ``proposal`` on the account (the common
+         single-offer case, e.g. Southbridge proposal 1 -> insurer_id 20).
+    Returns ``None`` when the account yields no insurer either.
+    """
+    from app.models.broker_proposal import BrokerProposal
+    from app.models.proposal import Proposal, ProposalStatus
+
+    db, broker_id = ctx.db, ctx.broker_id
+
+    # 1. The minted/ratified propuesta names the winning inbound proposal.
+    bp = db.scalars(
+        select(BrokerProposal)
+        .where(
+            BrokerProposal.broker_id == broker_id,
+            BrokerProposal.case_file_id == case.id,
+            BrokerProposal.winning_proposal_id.isnot(None),
+        )
+        .order_by(BrokerProposal.id.desc())
+    ).first()
+    if bp is not None and bp.winning_proposal_id is not None:
+        winner = db.get(Proposal, bp.winning_proposal_id)
+        if winner is not None and winner.broker_id == broker_id:
+            return winner.insurer_id
+
+    # 2 + 3. A proposal reached through the account's placement or case file.
+    from sqlalchemy import or_
+
+    clauses = []
+    if case.placement_id is not None:
+        clauses.append(QuoteRequest.placement_id == case.placement_id)
+    clauses.append(QuoteRequest.case_file_id == case.id)
+    proposals = db.scalars(
+        select(Proposal)
+        .join(QuoteRequest, Proposal.quote_request_id == QuoteRequest.id)
+        .where(Proposal.broker_id == broker_id, or_(*clauses))
+        .order_by(Proposal.id.desc())
+    ).all()
+    if not proposals:
+        return None
+    for proposal in proposals:
+        if proposal.status == ProposalStatus.ACCEPTED:
+            return proposal.insurer_id
+    return proposals[0].insurer_id
+
+
 def _commit_policy(ctx: _Ctx) -> CommitResult:
     """08 -> the issued policy: as-issued identity, money, children (§3.1).
 
@@ -1646,26 +1702,78 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
     db, payload = ctx.db, ctx.payload
     case = _require_case(ctx, "policy")
 
+    # --- v8 fixed-core gate: is this actually a policy? -----------------------
+    # The FULL confirmed parse is what we persist and validate. The account's
+    # identity (a registered expediente / a resolved client) lets the asegurado
+    # check be skipped, so the payload need not restate what the folder holds.
+    full_payload = payload.model_dump(mode="json")
+    verdict = validate_policy_core(full_payload, case)
+    if not verdict["is_core_valid"] and not ctx.override:
+        raise CommitError(
+            {
+                "code": "not_a_policy",
+                "reason": (
+                    "Este archivo no parece ser una póliza: falta(n) "
+                    + ", ".join(verdict["missing"])
+                    + ". Corrige los datos o confirma para registrarlo de todos modos."
+                ),
+                "missing": verdict["missing"],
+                "detail": verdict["detail"],
+            }
+        )
+
     policy = _resolve_policy(ctx, payload.policy_number)
     created = policy is None
     if created:
         insurer_ref = payload.insurer
+        from app.models.insurer import Insurer
         from app.services.ai import find_or_create_insurer
 
-        try:
-            insurer = find_or_create_insurer(
-                db,
-                cmf_code=insurer_ref.cmf_code,
-                rut=insurer_ref.rut,
-                legal_name=insurer_ref.legal_name,
-                trade_name=insurer_ref.trade_name,
-                broker_id=ctx.broker_id,
+        has_identity = bool(
+            (insurer_ref.cmf_code or "").strip() or (insurer_ref.rut or "").strip()
+        )
+        if has_identity:
+            # The payload states a rut/cmf: resolve by it (never by name).
+            try:
+                insurer = find_or_create_insurer(
+                    db,
+                    cmf_code=insurer_ref.cmf_code,
+                    rut=insurer_ref.rut,
+                    legal_name=insurer_ref.legal_name,
+                    trade_name=insurer_ref.trade_name,
+                    broker_id=ctx.broker_id,
+                )
+            except ValueError as exc:
+                raise CommitError(
+                    f"The issuing insurer could not be identified: {exc} — identity "
+                    "is matched by rut/cmf_code, never by name"
+                ) from exc
+        else:
+            # Real policy PDFs name the insurer only by NAME. Resolve it from the
+            # ACCOUNT context (the accepted proposal / placement), never by name.
+            account_insurer_id = _account_insurer_id(ctx, case)
+            insurer = (
+                db.get(Insurer, account_insurer_id)
+                if account_insurer_id is not None
+                else None
             )
-        except ValueError as exc:
-            raise CommitError(
-                f"The issuing insurer could not be identified: {exc} — identity "
-                "is matched by rut/cmf_code, never by name"
-            ) from exc
+            if insurer is None:
+                raise CommitError(
+                    {
+                        "code": "insurer_unresolved",
+                        "reason": (
+                            "The policy does not state the insurer's rut/cmf and the "
+                            "account has no accepted proposal to resolve it from. Supply "
+                            "the insurer's RUT or CMF code (an insurer is never matched "
+                            "by name)."
+                        ),
+                        "field": "insurer",
+                    }
+                )
+            ctx.warnings.append(
+                "Insurer resolved from the account's accepted proposal "
+                "(the policy states it only by name)."
+            )
         number = (payload.policy_number or "").strip()
         if not number:
             raise CommitError("The payload has no policy_number — a policy cannot be created without one")
@@ -1835,6 +1943,19 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
     if case.policy_id is None:
         case.policy_id = policy.id
 
+    # The FULL parse (vehicles, drivers, workers, sublimits, clauses…) plus the
+    # verdict + provenance. Typed money/vigencia columns above stay the source;
+    # ``payload`` is the remainder + a snapshot (no double-sourcing).
+    policy.payload = full_payload
+    policy.is_core_valid = verdict["is_core_valid"]
+    policy.core_validation = verdict
+    policy.extraction_id = ctx.extraction.id
+    if not verdict["is_core_valid"] and ctx.override:
+        ctx.warnings.append(
+            "Póliza registrada con núcleo incompleto (override): "
+            + ", ".join(verdict["missing"])
+        )
+
     db.flush()
     return CommitResult(
         applied=True,
@@ -1842,7 +1963,12 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
         entity_type="policy",
         entity_id=policy.id,
         detail=("Policy created from the issued document" if created else "Policy updated from the issued document"),
-        extra={"created": created, "warranty_ids": warranty_ids},
+        extra={
+            "created": created,
+            "warranty_ids": warranty_ids,
+            "is_core_valid": verdict["is_core_valid"],
+            "overridden": bool(not verdict["is_core_valid"] and ctx.override),
+        },
         warnings=ctx.warnings,
     )
 
@@ -1943,6 +2069,7 @@ def commit_extraction(
     payload: Any,
     broker_id: int,
     user: User | None,
+    override: bool = False,
 ) -> CommitResult:
     """Dispatch a confirmed payload to its category's committer.
 
@@ -1988,5 +2115,6 @@ def commit_extraction(
         payload=payload,
         document=document,
         case_file=_resolve_case_file(db, extraction, document, broker_id),
+        override=override,
     )
     return committer(ctx)

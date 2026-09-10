@@ -176,6 +176,7 @@ export function useTransitionCaseFile(caseId: number) {
     onSuccess: (data) => {
       qc.setQueryData(qk.caseFiles.detail(caseId), data);
       void qc.invalidateQueries({ queryKey: qk.caseFiles.transitions(caseId) });
+      void qc.invalidateQueries({ queryKey: qk.caseFiles.pendingActions(caseId) });
       void qc.invalidateQueries({ queryKey: qk.caseFiles.timeline(caseId) });
       void qc.invalidateQueries({ queryKey: qk.caseFiles.lists() });
       void qc.invalidateQueries({ queryKey: qk.caseFiles.summary() });

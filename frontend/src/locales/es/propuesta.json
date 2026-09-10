@@ -1,0 +1,71 @@
+{
+  "noPermission": "No tienes permiso para ver la propuesta.",
+  "title": "Propuesta",
+  "subtitle": "El documento que el corredor emite y ratifica a partir de la comparación.",
+  "ratified": "Ratificada",
+  "status": {
+    "draft": "Borrador",
+    "issued": "Emitida",
+    "ratified": "Ratificada",
+    "superseded": "Reemplazada"
+  },
+  "fields": {
+    "winner": "Oferta ganadora",
+    "total": "Prima total",
+    "net": "Prima neta",
+    "commission": "Tasa",
+    "hash": "Huella de contenido"
+  },
+  "core": {
+    "fields": {
+      "insurer_name": "Aseguradora",
+      "insured_name": "Asegurado",
+      "insured_rut": "RUT del asegurado",
+      "coverage_start": "Inicio de vigencia",
+      "coverage_end": "Término de vigencia",
+      "validity_business_days": "Días hábiles de validez",
+      "total_premium_uf": "Prima total",
+      "net_premium_uf": "Prima neta",
+      "taxable_premium_uf": "Prima afecta",
+      "exempt_premium_uf": "Prima exenta",
+      "vat_uf": "IVA",
+      "comprehensive_rate_permille": "Tasa integral",
+      "commission_pct": "Comisión"
+    }
+  },
+  "additional": {
+    "title": "Información adicional",
+    "item": "Detalle",
+    "verbatim": "Texto original"
+  },
+  "copyHash": "Copiar huella",
+  "openWinner": "Ver propuesta ganadora",
+  "winner": {
+    "insurerRef": "Compañía #{{id}}",
+    "column": "Cotización {{n}}"
+  },
+  "ratify": {
+    "action": "Ratificar",
+    "done": "Ratificada",
+    "noPermission": "No tienes permiso para ratificar.",
+    "already": "La propuesta ya está ratificada.",
+    "error": "No se pudo ratificar la propuesta."
+  },
+  "pdf": {
+    "download": "Descargar PDF",
+    "soon": "El PDF de la propuesta llega pronto."
+  },
+  "mint": {
+    "title": "Generar propuesta",
+    "action": "Generar propuesta",
+    "done": "Propuesta generada",
+    "error": "No se pudo generar la propuesta.",
+    "noPermission": "No tienes permiso para generar la propuesta.",
+    "notAligned": "Alinea la comparación antes de generar la propuesta.",
+    "noWinner": "Promueve y recomienda una columna ganadora en la comparación.",
+    "hintAlign": "La propuesta se arma desde una comparación alineada. Alinéala primero.",
+    "hintWinner": "Elige la oferta ganadora: promuévela y márcala como recomendada en el comparador.",
+    "hintReady": "Lista para emitir desde {{insurer}}.",
+    "openComparison": "Abrir comparador"
+  }
+}

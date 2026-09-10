@@ -1,0 +1,71 @@
+{
+  "noPermission": "You don't have permission to view the propuesta.",
+  "title": "Propuesta",
+  "subtitle": "The document the broker issues and ratifies from the comparison.",
+  "ratified": "Ratified",
+  "status": {
+    "draft": "Draft",
+    "issued": "Issued",
+    "ratified": "Ratified",
+    "superseded": "Superseded"
+  },
+  "fields": {
+    "winner": "Winning offer",
+    "total": "Total premium",
+    "net": "Net premium",
+    "commission": "Rate",
+    "hash": "Content hash"
+  },
+  "core": {
+    "fields": {
+      "insurer_name": "Insurer",
+      "insured_name": "Insured",
+      "insured_rut": "Insured RUT",
+      "coverage_start": "Coverage start",
+      "coverage_end": "Coverage end",
+      "validity_business_days": "Validity (business days)",
+      "total_premium_uf": "Total premium",
+      "net_premium_uf": "Net premium",
+      "taxable_premium_uf": "Taxable premium",
+      "exempt_premium_uf": "Exempt premium",
+      "vat_uf": "VAT",
+      "comprehensive_rate_permille": "Comprehensive rate",
+      "commission_pct": "Commission"
+    }
+  },
+  "additional": {
+    "title": "Additional information",
+    "item": "Detail",
+    "verbatim": "Original text"
+  },
+  "copyHash": "Copy hash",
+  "openWinner": "Open winning proposal",
+  "winner": {
+    "insurerRef": "Insurer #{{id}}",
+    "column": "Quote {{n}}"
+  },
+  "ratify": {
+    "action": "Ratify",
+    "done": "Ratified",
+    "noPermission": "You don't have permission to ratify.",
+    "already": "The propuesta is already ratified.",
+    "error": "The propuesta could not be ratified."
+  },
+  "pdf": {
+    "download": "Download PDF",
+    "soon": "The propuesta PDF is coming soon."
+  },
+  "mint": {
+    "title": "Generate propuesta",
+    "action": "Generate propuesta",
+    "done": "Propuesta generated",
+    "error": "The propuesta could not be generated.",
+    "noPermission": "You don't have permission to generate the propuesta.",
+    "notAligned": "Align the comparison before generating the propuesta.",
+    "noWinner": "Promote and recommend a winning column in the comparison.",
+    "hintAlign": "The propuesta is built from an aligned comparison. Align it first.",
+    "hintWinner": "Choose the winning offer: promote it and mark it recommended in the comparator.",
+    "hintReady": "Ready to issue from {{insurer}}.",
+    "openComparison": "Open comparator"
+  }
+}

@@ -190,18 +190,38 @@ def test_get_returns_the_schema_even_before_processing(
     assert body["schema"]["sections"][1]["fields"][1]["type"] == "list"
 
 
-def test_process_without_a_schema_is_422(
+def test_process_without_a_schema_falls_back_to_generic(
     client, world, headers_a, db, tmp_path, ai_key, monkeypatch
 ):
+    """A ramo with no configured template no longer 422s: it consolidates against
+    the built-in GENERIC definition so a free upload always yields an extraction."""
     case = _account_with_docs(db, world.a, tmp_path)  # no schema seeded
     _fake_model(monkeypatch)
 
     response = client.post(
         f"{API}/case-files/{case.id}/antecedentes/process", headers=headers_a
     )
-    assert response.status_code == 422
-    # No row is written when consolidation is refused before the LLM call.
-    assert db.scalars(select(Extraction)).all() == []
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["status"] == "review"
+
+    # Exactly one extraction row, and it succeeded (rule 6).
+    rows = db.scalars(select(Extraction).where(Extraction.case_file_id == case.id)).all()
+    assert len(rows) == 1
+    assert rows[0].status is ExtractionStatus.SUCCEEDED
+    assert rows[0].prompt_version == ai_service.ANTECEDENTES_PROMPT_VERSION
+
+    # The service resolved no template, so the consolidation used the generic shape.
+    result = ai_service.consolidate_antecedentes(
+        db, case_file_id=case.id, broker_id=world.a.broker_id
+    )
+    assert result.line_record_schema is None
+    assert {s["key"] for s in ai_service._GENERIC_ANTECEDENTES_DEFINITION["sections"]} == {
+        "asegurado",
+        "materias",
+        "siniestralidad",
+        "observaciones",
+    }
 
 
 # --- 2. Register (human confirm) ---------------------------------------------
@@ -286,18 +306,30 @@ def test_pdf_generates_and_files_a_document(
     assert doc.broker_id == world.a.broker_id
 
 
-def test_pdf_before_register_is_409(
+def test_pdf_before_register_renders_incomplete(
     client, world, headers_a, db, tmp_path, ai_key, monkeypatch
 ):
+    """v8 warn-not-block: an unregistered (REVIEW) expediente still renders the
+    Bases Técnicas, but flagged ``incomplete`` — never the old 409."""
     _make_schema(db, broker_id=world.a.broker_id, line_id=world.a.line.id)
     case = _account_with_docs(db, world.a, tmp_path)
     _fake_model(monkeypatch)
     client.post(f"{API}/case-files/{case.id}/antecedentes/process", headers=headers_a)
 
+    async def _fake_render(html: str) -> bytes:
+        return b"%PDF-1.4 borrador"
+
+    import app.services.pdf as pdf_module
+
+    monkeypatch.setattr(pdf_module, "render_html_to_pdf", _fake_render)
+
     response = client.get(
         f"{API}/case-files/{case.id}/antecedentes/pdf", headers=headers_a
     )
-    assert response.status_code == 409
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["url"]
+    assert body["incomplete"] is True
 
 
 # --- 4. Tenancy --------------------------------------------------------------
@@ -546,16 +578,16 @@ def test_read_reports_required_and_missing_and_complete(
     assert missing == labels
 
 
-def test_pdf_blocked_when_incomplete_is_409(
+def test_pdf_when_incomplete_renders_with_a_warning(
     client, world, headers_a, db, tmp_path, ai_key, local_media, monkeypatch
 ):
-    """A registered-but-incomplete expediente cannot export Bases Técnicas."""
+    """v8 warn-not-block: a registered-but-incomplete expediente still exports the
+    Bases Técnicas — flagged ``incomplete`` with the missing fields — never a 409."""
     _make_schema(db, broker_id=world.a.broker_id, line_id=world.a.line.id)
     case = _account_with_docs(db, world.a, tmp_path)
     _fake_model(monkeypatch)
     client.post(f"{API}/case-files/{case.id}/antecedentes/process", headers=headers_a)
-    # Register a deliberately incomplete payload (the dynamic model is lenient, so
-    # register accepts it; the mandatory-field gate lives on /pdf).
+    # Register a deliberately incomplete payload (the dynamic model is lenient).
     reg = client.post(
         f"{API}/case-files/{case.id}/antecedentes/register",
         json={"payload": {"identification": {"giro": "Viñedos"}}},
@@ -564,9 +596,222 @@ def test_pdf_blocked_when_incomplete_is_409(
     assert reg.status_code == 200, reg.text
     assert reg.json()["complete"] is False
 
+    async def _fake_render(html: str) -> bytes:
+        return b"%PDF-1.4 borrador"
+
+    import app.services.pdf as pdf_module
+
+    monkeypatch.setattr(pdf_module, "render_html_to_pdf", _fake_render)
+
     pdf = client.get(f"{API}/case-files/{case.id}/antecedentes/pdf", headers=headers_a)
-    assert pdf.status_code == 409
-    assert "obligatorio" in pdf.json()["detail"].lower()
+    assert pdf.status_code == 200, pdf.text
+    body = pdf.json()
+    assert body["url"]
+    assert body["incomplete"] is True
+    assert body["missing_required"], "the missing mandatory fields are surfaced"
+
+
+# --- 8. v9 corrected model: ramo = recommended files + context --------------
+
+
+def test_seeded_ramos_carry_the_exact_recommended_files(db):
+    """The two global ramos are seeded as name + recommended-files + context.
+
+    A ramo is NO LONGER a field schema — ``recommended_files`` is its first-class
+    content, each entry ``{key, label, doc_type, category, format, required,
+    description}``."""
+    from app.db.import_fixtures import seed_line_templates
+
+    # Broker 999999 is absent → the Fuenzalida clone/assign steps are a no-op; only
+    # the two global ramos (broker_id NULL) are seeded.
+    seed_line_templates(db, broker_id=999999, assign_case_files=(), commit=True)
+
+    rows = db.scalars(
+        select(LineRecordSchema).where(LineRecordSchema.broker_id.is_(None))
+    ).all()
+    by_name = {row.name: row for row in rows}
+    assert "Incendio y Sismo (TRBF)" in by_name
+    assert "RC / Ingeniería / Transporte" in by_name
+
+    incendio = by_name["Incendio y Sismo (TRBF)"]
+    inc_files = incendio.recommended_files
+    # Exactly the four Property recommended files, in order.
+    assert [(f["label"], f["required"]) for f in inc_files] == [
+        ("Slip de términos y condiciones", True),
+        ("Desglose de montos por ubicación", True),
+        ("Siniestralidad", True),
+        ("Informe de inspección", False),
+    ]
+    slip = inc_files[0]
+    # The slip is the bases técnicas itself, in Word.
+    assert slip["doc_type"] == "slip de términos y condiciones"
+    assert slip["format"] == "word"
+    # Every entry carries the corrected shape.
+    for f in inc_files:
+        assert {"key", "label", "doc_type", "category", "format", "required", "description"} <= set(f)
+
+    rc = by_name["RC / Ingeniería / Transporte"]
+    assert [(f["label"], f["required"]) for f in rc.recommended_files] == [
+        ("Slip de términos y condiciones", True),
+        ("Cuestionario / formulario de riesgo", True),
+        ("Siniestralidad", True),
+    ]
+
+
+def test_create_ramo_with_only_recommended_files(client, world, headers_a, db):
+    """A ramo is valid with just a name + recommended files — the deprecated
+    sectioned ``definition`` is never required (v9 corrected model)."""
+    created = client.post(
+        f"{API}/line-record-schemas",
+        json={
+            "name": "Transporte marítimo",
+            "recommended_files": [
+                {
+                    "key": "terms_slip",
+                    "label": "Slip de términos y condiciones",
+                    "doc_type": "slip de términos y condiciones",
+                    "format": "word",
+                    "required": True,
+                    "description": "Las bases técnicas del riesgo.",
+                }
+            ],
+            "explanation": "Ramo de transporte marítimo.",
+        },
+        headers=headers_a,
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["insurance_line_id"] is None
+    assert body["recommended_files"][0]["label"] == "Slip de términos y condiciones"
+    assert body["recommended_files"][0]["format"] == "word"
+    assert body["explanation"] == "Ramo de transporte marítimo."
+    # The deprecated definition is empty — a ramo carries no field schema now.
+    assert body["definition"]["sections"] == []
+
+
+# --- 9. Antecedentes scoping: EXCLUDE the cotización / insurer-quote docs -----
+
+
+def test_antecedentes_excludes_cotizacion_documents(
+    client, world, headers_a, db, tmp_path, ai_key, monkeypatch
+):
+    """The antecedentes set is only what the INSURED communicated. Every insurer
+    cotización (03 Southbridge/HDI/Mapfre) is excluded — it belongs to the
+    comparison — even when misfiled under a submission section."""
+    _make_schema(db, broker_id=world.a.broker_id, line_id=world.a.line.id)
+    case = _account_with_docs(db, world.a, tmp_path)
+
+    # Two insurer quotations: one correctly under insurer_quotes, one MISFILED
+    # under the submission section. Neither may enter the antecedentes set.
+    for name, section in (
+        ("03-southbridge.txt", CaseSection.INSURER_QUOTES),
+        ("03-hdi.txt", CaseSection.SUBMISSION),
+    ):
+        path = tmp_path / name
+        path.write_text("Cotización de la aseguradora, prima total UF 900. " * 5, encoding="utf-8")
+        db.add(
+            Document(
+                broker_id=world.a.broker_id,
+                entity_type=EntityType.CASE_FILE,
+                entity_id=case.id,
+                case_file_id=case.id,
+                section=section,
+                s3_key=str(path),
+                bucket="radal-test-bucket",
+                original_name=name,
+                mime_type="text/plain",
+                category=DocumentCategory.INSURER_QUOTATION,
+            )
+        )
+    db.commit()
+
+    docs = ai_service._antecedentes_documents(db, case, world.a.broker_id)
+    names = {d.original_name for d in docs}
+    assert names == {"solicitud.txt", "slip.txt"}
+    assert "03-southbridge.txt" not in names
+    assert "03-hdi.txt" not in names
+
+    # And the consolidation only reads the antecedentes documents.
+    _fake_model(monkeypatch)
+    response = client.post(
+        f"{API}/case-files/{case.id}/antecedentes/process", headers=headers_a
+    )
+    assert response.status_code == 200, response.text
+    per_doc_names = {d["document_name"] for d in response.json()["document_extractions"]}
+    assert per_doc_names == {"solicitud.txt", "slip.txt"}
+
+
+def test_process_exposes_per_document_extractions(
+    client, world, headers_a, db, tmp_path, ai_key, monkeypatch
+):
+    """SUGGEST carries per-document extraction cards keyed by document, plus the
+    consolidated payload — the "Extracción" subtab reads the former."""
+    _make_schema(db, broker_id=world.a.broker_id, line_id=world.a.line.id)
+    case = _account_with_docs(db, world.a, tmp_path)
+    _fake_model(monkeypatch)
+
+    response = client.post(
+        f"{API}/case-files/{case.id}/antecedentes/process", headers=headers_a
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    per = body["document_extractions"]
+    assert len(per) == 2  # one card per source document
+    assert all(item["document_id"] for item in per)
+    assert all(item["payload"] is not None for item in per)
+    # The consolidated payload is derived from the per-document reads.
+    assert body["payload"]["identification"]["razon_social"] == "Viña Santa Alicia S.A."
+
+    # Re-reading persists the per-document cards (they live on the source extraction).
+    reread = client.get(
+        f"{API}/case-files/{case.id}/antecedentes", headers=headers_a
+    ).json()
+    assert {d["document_name"] for d in reread["document_extractions"]} == {
+        "solicitud.txt",
+        "slip.txt",
+    }
+
+
+# --- 10. Upload format policy: PDF/Word pass, Excel rejected ------------------
+
+
+def test_antecedentes_upload_rejects_excel_accepts_pdf_and_word(
+    client, world, headers_a, db, tmp_path, local_media
+):
+    """The antecedentes upload FORMAT must be PDF or Word. Excel is a 415 with an
+    actionable message; PDF and Word pass."""
+    case = make_case_file(db, world.a)
+    db.commit()
+
+    def _upload(filename, mime):
+        return client.post(
+            f"{API}/documents",
+            files={"file": (filename, b"%PDF-1.4 or docx bytes, non-empty", mime)},
+            data={
+                "entity_type": EntityType.CASE_FILE.value,
+                "entity_id": str(case.id),
+                "category": DocumentCategory.INSURED_VALUES_SCHEDULE.value,
+                "case_file_id": str(case.id),
+                "section": CaseSection.SUBMISSION.value,
+            },
+            headers=headers_a,
+        )
+
+    excel = _upload(
+        "montos.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    assert excel.status_code == 415, excel.text
+    assert "Excel" in excel.json()["detail"]
+
+    pdf = _upload("montos.pdf", "application/pdf")
+    assert pdf.status_code == 201, pdf.text
+
+    word = _upload(
+        "slip.docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    assert word.status_code == 201, word.text
 
 
 def test_broker_schema_wins_over_global_seed(client, world, headers_a, db, tmp_path, ai_key, monkeypatch):

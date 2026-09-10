@@ -1,0 +1,121 @@
+{
+  "title": "Comparison",
+  "subtitle": "Add quotations one at a time and compare them side by side",
+  "backToAccount": "Back to account",
+  "versionShort": "v{{version}}",
+  "status": {
+    "draft": "Draft",
+    "aligned": "Aligned",
+    "superseded": "Superseded"
+  },
+  "noPermission": {
+    "title": "You cannot access comparisons",
+    "hint": "Your role does not allow viewing this broker's comparisons."
+  },
+  "upload": {
+    "title": "Add quotation",
+    "hint": "Drag a PDF or click to read it and add it as a column.",
+    "working": "Reading the quotation…",
+    "added": "Quotation added: {{name}}",
+    "rejected": "That file does not look like a quotation: {{name}}",
+    "noPermission": "Your role does not allow adding quotations"
+  },
+  "align": {
+    "action": "Re-align",
+    "noPermission": "Your role does not allow re-aligning the comparison",
+    "needColumns": "Add at least one quotation before aligning",
+    "batched": "Compared in batches",
+    "blocked": {
+      "title": "The AI provider is unavailable",
+      "hint": "The comparison could not be standardized. It was not aligned; retry in a moment.",
+      "retry": "Retry"
+    }
+  },
+  "recommendation": {
+    "eyebrow": "AI recommendation",
+    "noRationale": "The AI recommended an offer, without a detailed rationale.",
+    "caveats": "Caveats to review"
+  },
+  "empty": {
+    "title": "No quotations yet",
+    "hint": "Add the first quotation to start comparing."
+  },
+  "needAlign": {
+    "title": "Ready to align",
+    "hint": "You have loaded quotations; re-align them to see them compared."
+  },
+  "grid": {
+    "columnsHeader": "{{count}} quotations",
+    "sections": {
+      "premium": "Premium & rates",
+      "figures": "Key figures",
+      "common": "Common coverages",
+      "extras": "Differences"
+    },
+    "premium": {
+      "total": "Total premium",
+      "net": "Net premium",
+      "comprehensiveRate": "Comprehensive rate",
+      "commission": "Commission"
+    },
+    "lowest": "lowest",
+    "noCommon": "No dimensions are common to every quotation yet.",
+    "noExtras": "There are no differences between the quotations.",
+    "extrasHint": "Dimensions not every quotation includes.",
+    "absent": "Not stated",
+    "excluded": "Excluded",
+    "included": "Included",
+    "verbatim": "Original text"
+  },
+  "facetGroups": {
+    "coverage": "Coverage",
+    "exclusion": "Exclusion",
+    "deductible": "Deductible",
+    "sublimit": "Sublimit",
+    "clause": "Clause",
+    "warranty": "Warranty",
+    "other": "Other"
+  },
+  "column": {
+    "proposal": "Proposal",
+    "quotation": "Quotation {{n}}",
+    "recommended": "Recommended",
+    "recommendedByAi": "Recommended by AI",
+    "promoted": "Already a proposal",
+    "openProposal": "Open proposal",
+    "document": "View document"
+  },
+  "recommend": {
+    "action": "Recommend",
+    "noPermission": "Your role does not allow recommending quotations"
+  },
+  "promote": {
+    "action": "Promote to proposal",
+    "done": "Quotation promoted to proposal",
+    "noPermission": "Your role does not allow promoting quotations",
+    "already": "This column is already a proposal",
+    "dialog": {
+      "title": "Promote to proposal",
+      "description": "Confirm the insurer's identity to mint the proposal from this column.",
+      "helper": "Quotations usually carry only the insured's RUT, so the reader may not have identified the insurer. Enter its RUT or CMF code if it is missing.",
+      "rutLabel": "Insurer RUT",
+      "rutPlaceholder": "e.g. 99.301.000-6",
+      "cmfLabel": "Insurer CMF code",
+      "cmfPlaceholder": "e.g. 315",
+      "confirm": "Promote",
+      "errors": {
+        "insurerUnresolved": "Enter the insurer's RUT or CMF code to promote.",
+        "moneyInconsistent": "The premium figures do not add up (net = taxable + exempt, VAT = 19% of taxable). Review the quotation before promoting."
+      }
+    }
+  },
+  "remove": {
+    "action": "Remove",
+    "done": "Column removed",
+    "noPermission": "Your role does not allow removing columns"
+  },
+  "rejection": {
+    "title": "This file is not a quotation",
+    "reasonFallback": "The reader did not recognize an insurance offer in this document."
+  }
+}

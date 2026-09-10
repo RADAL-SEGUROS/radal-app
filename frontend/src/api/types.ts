@@ -1085,12 +1085,399 @@ export interface Offering {
   updated_at: IsoDateTime | null;
   /** The public link the broker copies into WhatsApp / email. */
   share_url: string | null;
+  /** The insured's own choice, recorded from the public surface. */
+  decided_proposal_id: number | null;
+  decided_note: string | null;
+  decided_at: IsoDateTime | null;
 }
 
 export interface OfferingCreate {
   quote_request_id: number;
   selected_proposal_id?: number | null;
   expires_at?: IsoDateTime | null;
+}
+
+// --- Public offering (insured decision surface) ------------------------------
+
+/** One proposal's headline figures for the public page — never any commission. */
+export interface OfferingPublicProposal {
+  id: number | null;
+  insurer_name: string | null;
+  insurer_cmf_code: string | null;
+  modality: string | null;
+  is_recommended: boolean;
+  total_premium_uf: DecimalString | null;
+  net_premium_uf: DecimalString | null;
+  vat_uf: DecimalString | null;
+  comprehensive_rate_permille: DecimalString | null;
+  validity_business_days: number | null;
+  coverage_start: IsoDate | null;
+  coverage_end: IsoDate | null;
+}
+
+/** The unauthenticated share-link projection — no broker/internal ids. */
+export interface OfferingPublicRead {
+  share_token: string;
+  status: OfferingStatus;
+  sent_at: IsoDateTime | null;
+  viewed_at: IsoDateTime | null;
+  expires_at: IsoDateTime | null;
+  broker_name: string | null;
+  insured_object: string | null;
+  declared_value_uf: DecimalString | null;
+  /** The broker's recommendation (kept for back-compat). */
+  proposal: OfferingPublicProposal | null;
+  /** Every open proposal of the quote, in clear language. */
+  proposals: OfferingPublicProposal[];
+  decided_proposal_id: number | null;
+  decided_note: string | null;
+  decided_at: IsoDateTime | null;
+  pdf_url: string | null;
+}
+
+export interface OfferingDecisionRequest {
+  proposal_id: number;
+  note?: string | null;
+}
+
+// --- Comparison expedient (v8: incremental proposal comparison) --------------
+
+export const COMPARISON_STATUSES = ["draft", "aligned", "superseded"] as const;
+export type ComparisonStatus = (typeof COMPARISON_STATUSES)[number];
+
+/** The open facet groups an offer is decomposed into (budget_proposal spec). */
+export const FACET_GROUPS = [
+  "coverage",
+  "exclusion",
+  "deductible",
+  "sublimit",
+  "clause",
+  "warranty",
+  "other",
+] as const;
+export type FacetGroup = (typeof FACET_GROUPS)[number];
+
+/** Alignment check kinds surfaced in the grid. */
+export const COMPARISON_CHECK_TYPES = ["wrong_file", "partial_facet"] as const;
+export type ComparisonCheckType = (typeof COMPARISON_CHECK_TYPES)[number];
+
+/** One canonical dictionary row snapshotted at the comparison's version. */
+export interface ComparisonDictionaryEntry {
+  key: string;
+  group: FacetGroup | string;
+  label: string | null;
+  /** Only on `extra_facets`: the source ids this facet is present in. */
+  present_in?: number[];
+}
+
+/** One aligned cell: the value plus its plain-language + verbatim wording.
+ *  LEGACY (pre-v8 holistic pass) — retained for callers still on the facet grid. */
+export interface ComparisonCell {
+  present: boolean | null;
+  label: string | null;
+  description: string | null;
+  verbatim: string | null;
+  value: Record<string, unknown> | null;
+}
+
+/**
+ * One standardized dimension cell: which column it belongs to, whether the offer
+ * covers it, its value and the offer's EXACT wording. The AI holistic pass emits
+ * one cell per insurer per dimension.
+ */
+export interface ComparisonDimensionCell {
+  comparison_source_id: number | null;
+  present?: boolean | null;
+  value?: string | number | null;
+  verbatim?: string | null;
+}
+
+/**
+ * One standardized dimension row of `aligned_matrix.dimensions`: a canonical
+ * comparison axis (e.g. "sismo") aligned across every insurer. `scope` is
+ * `common` when every offer carries it, `extra` otherwise.
+ */
+export interface ComparisonDimension {
+  key: string;
+  group: FacetGroup | string;
+  label: string | null;
+  scope: "common" | "extra" | null;
+  cells: ComparisonDimensionCell[];
+}
+
+/** One aligned column of the matrix: the insurer/source identity. */
+export interface ComparisonMatrixColumn {
+  proposal_id: number | null;
+  comparison_source_id: number | null;
+  is_wrong_file: boolean;
+  wrong_file_reason?: string | null;
+}
+
+/** One alignment finding: a wrong file, or a facet not priced by everyone. */
+export interface ComparisonCheck {
+  type: ComparisonCheckType | string;
+  comparison_source_id?: number | null;
+  proposal_id?: number | null;
+  reason?: string | null;
+  key?: string;
+  label?: string | null;
+  present_in?: number[];
+  missing_from?: number[];
+}
+
+/**
+ * The AI recommendation from the holistic `submit_comparison` pass. Points at the
+ * recommended column (by `comparison_source_id` and/or the promoted `proposal_id`),
+ * carries a Spanish `rationale` and a short list of `caveats` to review. Null until
+ * the comparison is aligned.
+ */
+export interface ComparisonRecommendation {
+  recommended_comparison_source_id: number | null;
+  recommended_proposal_id: number | null;
+  rationale: string | null;
+  caveats: string[];
+}
+
+/** The rendered aligned view stored on `comparison.aligned_matrix` (v8 holistic). */
+export interface ComparisonAlignedMatrix {
+  dimensions: ComparisonDimension[];
+  columns: ComparisonMatrixColumn[];
+  recommendation?: ComparisonRecommendation | null;
+  used_ai?: boolean;
+  /** The readings exceeded the input threshold and were run in batches then merged. */
+  batched?: boolean;
+  batch_count?: number;
+}
+
+/**
+ * The fixed money/period core a column extracted, surfaced PRE-promotion so the
+ * grid can show a premium/rate highlight before any column is promoted to a real
+ * proposal. Read verbatim from the column's persisted extraction — display only,
+ * never re-validated. Null on a wrong-file column or one with no parse.
+ */
+export interface ComparisonPremiumCore {
+  taxable_premium_uf: DecimalString | number | null;
+  exempt_premium_uf: DecimalString | number | null;
+  net_premium_uf: DecimalString | number | null;
+  vat_uf: DecimalString | number | null;
+  total_premium_uf: DecimalString | number | null;
+  taxable_rate_permille: DecimalString | number | null;
+  exempt_rate_permille: DecimalString | number | null;
+  comprehensive_rate_permille: DecimalString | number | null;
+  commission_pct: DecimalString | number | null;
+  validity_business_days: number | string | null;
+  period_start_at: string | null;
+  period_end_at: string | null;
+  coverage_start: string | null;
+  coverage_end: string | null;
+}
+
+/** One column of the comparison, with its cached source verdict flattened. */
+export interface ComparisonEntry {
+  id: number;
+  comparison_id: number;
+  proposal_id: number | null;
+  comparison_source_id: number | null;
+  is_recommended: boolean;
+  sort_order: number;
+  is_wrong_file: boolean;
+  wrong_file_reason: string | null;
+  source_extraction_id: number | null;
+  document_id: number | null;
+  facets: unknown[] | Record<string, unknown> | null;
+  /** The money/period core, surfaced pre-promotion. Null for a wrong-file column. */
+  premium: ComparisonPremiumCore | null;
+  created_at: IsoDateTime | null;
+  updated_at: IsoDateTime | null;
+}
+
+/** The comparison header + columns + aligned grid + snapshotted dictionary. */
+export interface Comparison {
+  id: number;
+  broker_id: number;
+  case_file_id: number | null;
+  placement_id: number | null;
+  status: ComparisonStatus;
+  canonical_version: number;
+  dictionary: ComparisonDictionaryEntry[] | null;
+  aligned_matrix: ComparisonAlignedMatrix | null;
+  /** The AI's recommended offer, surfaced first-class. Null until aligned. */
+  recommendation: ComparisonRecommendation | null;
+  pdf_document_id: number | null;
+  source_extraction_id: number | null;
+  entries: ComparisonEntry[];
+  created_at: IsoDateTime | null;
+  updated_at: IsoDateTime | null;
+}
+
+export interface ComparisonCreate {
+  case_file_id: number;
+  placement_id?: number | null;
+}
+
+export interface ComparisonEntryCreate {
+  document_id: number;
+}
+
+export interface ComparisonEntryUpdate {
+  is_recommended?: boolean | null;
+  sort_order?: number | null;
+  facets?: unknown[] | null;
+}
+
+/** The response to adding a column: the entry plus the read verdict. */
+export interface ComparisonEntryResult {
+  entry: ComparisonEntry;
+  extraction_id: number;
+  document_type: string;
+  is_wrong_file: boolean;
+  rejection_reason: string | null;
+  warnings: string[];
+}
+
+export interface ComparisonAlignmentResult {
+  comparison: Comparison;
+  used_ai: boolean;
+  canonical_version: number;
+  /** The readings were run in batches then merged (large input). */
+  batched: boolean;
+  recommendation?: ComparisonRecommendation | null;
+  warnings: string[];
+}
+
+/**
+ * Optional insurer identity the reviewer supplies at promote time. Real
+ * cotización PDFs carry only the insured's RUT, so the extractor often cannot
+ * fill the insurer's identity; a valid supplied value wins over the parsed one.
+ * The server 422s (`insurer_unresolved` / `insurer_identity_incomplete`) when
+ * neither source resolves an insurer.
+ */
+export interface ComparisonPromotePayload {
+  insurer_rut?: string | null;
+  insurer_cmf_code?: string | null;
+}
+
+export interface ComparisonPromoteResult {
+  entry: ComparisonEntry;
+  proposal_id: number;
+  insurer_id: number;
+  quote_request_id: number;
+}
+
+// --- Broker propuesta (v8 outbound artifact) ---------------------------------
+// TERMINOLOGY TRAP: a `BrokerProposal` is NOT a `Proposal`. `Proposal` is the
+// insurer's inbound offer; `BrokerProposal` is the outbound propuesta the broker
+// mints SOLELY from an aligned comparison snapshot, ratifies, and sends.
+
+export const BROKER_PROPOSAL_STATUSES = [
+  "draft",
+  "issued",
+  "ratified",
+  "superseded",
+] as const;
+export type BrokerProposalStatus = (typeof BROKER_PROPOSAL_STATUSES)[number];
+
+/** The winning column snapshot the mint freezes into `payload.winning_proposal`. */
+export interface BrokerProposalWinner {
+  id: number;
+  insurer_id: number;
+  taxable_premium_uf: DecimalString | null;
+  exempt_premium_uf: DecimalString | null;
+  net_premium_uf: DecimalString | null;
+  vat_uf: DecimalString | null;
+  total_premium_uf: DecimalString | null;
+  comprehensive_rate_permille: DecimalString | null;
+}
+
+/**
+ * The validated minimum core the propuesta freezes: insurer identity, the insured,
+ * the vigencia and the premium core in UF. Shapes vary (the AI fills what the
+ * winning offer stated), so every leaf is lenient and unknown keys survive.
+ */
+export interface BrokerProposalCore {
+  insured_name?: string | null;
+  insured_rut?: string | null;
+  insurer_name?: string | null;
+  insurer_rut?: string | null;
+  insurer_cmf_code?: string | null;
+  coverage_start?: string | null;
+  coverage_end?: string | null;
+  validity_business_days?: number | string | null;
+  taxable_premium_uf?: DecimalString | number | null;
+  exempt_premium_uf?: DecimalString | number | null;
+  net_premium_uf?: DecimalString | number | null;
+  vat_uf?: DecimalString | number | null;
+  total_premium_uf?: DecimalString | number | null;
+  comprehensive_rate_permille?: DecimalString | number | null;
+  commission_pct?: DecimalString | number | null;
+  [key: string]: unknown;
+}
+
+/** One row of the propuesta's free tail — a heterogeneous dimension appended. */
+export interface BrokerProposalAdditionalItem {
+  group?: string | null;
+  label?: string | null;
+  value?: string | number | null;
+  verbatim?: string | null;
+  [key: string]: unknown;
+}
+
+/**
+ * The snapshotted comparison the propuesta was minted from — the aligned matrix,
+ * the dictionary and the winning offer's frozen money core.
+ */
+export interface BrokerProposalComparisonSnapshot {
+  comparison_id?: number;
+  case_file_id?: number | null;
+  canonical_version?: number;
+  dictionary?: ComparisonDictionaryEntry[] | null;
+  aligned_matrix?: ComparisonAlignedMatrix | null;
+  winning_proposal?: BrokerProposalWinner;
+  [key: string]: unknown;
+}
+
+export interface BrokerProposalPayload {
+  /** The validated minimum core (v8 shape). */
+  core?: BrokerProposalCore | null;
+  /** The free tail — everything else worth carrying. */
+  additional?: BrokerProposalAdditionalItem[] | null;
+  /** The comparison this was minted from. */
+  comparison_snapshot?: BrokerProposalComparisonSnapshot | null;
+  // --- Legacy top-level fields (pre-v8 payloads) ---
+  comparison_id?: number;
+  case_file_id?: number | null;
+  canonical_version?: number;
+  winning_proposal?: BrokerProposalWinner;
+  [key: string]: unknown;
+}
+
+export interface BrokerProposal {
+  id: number;
+  broker_id: number;
+  case_file_id: number | null;
+  comparison_id: number | null;
+  winning_proposal_id: number | null;
+  content_hash: string | null;
+  payload: BrokerProposalPayload | null;
+  pdf_document_id: number | null;
+  status: BrokerProposalStatus;
+  is_ratified: boolean;
+  ratified_at: IsoDateTime | null;
+  ratified_by_id: number | null;
+  created_at: IsoDateTime | null;
+  updated_at: IsoDateTime | null;
+}
+
+/** `POST /broker-proposals` — mint from an ALIGNED comparison + a promoted winner. */
+export interface BrokerProposalCreate {
+  comparison_id: number;
+  winning_proposal_id: number;
+  winner_note?: string | null;
+}
+
+/** `POST /broker-proposals/{id}/ratify`. */
+export interface BrokerProposalRatify {
+  note?: string | null;
 }
 
 export interface OfferingUpdate {
@@ -1503,6 +1890,39 @@ export interface CaseFileSummary {
   overdue: number;
 }
 
+/** The English `code` tokens `GET /case-files/{id}/pending-actions` can carry. */
+export const PENDING_ACTION_CODES = [
+  "antecedentes_missing",
+  "antecedentes_unregistered",
+  "proposals_unconfirmed",
+  "comparison_unaligned",
+  "propuesta_missing",
+  "stage_blocked",
+] as const;
+export type PendingActionCode = (typeof PENDING_ACTION_CODES)[number];
+
+export type PendingActionSeverity = "info" | "warning" | "blocker";
+
+/**
+ * One actionable gap in the account, for the overview Journey and the account
+ * SUMMARY. `code` is an English token (dynamic-key labelled), `tab` names the
+ * desk that owns the fix (server vocabulary: `record | comparison | proposal |
+ * journey`), `reason` is the server's own human sentence, `count` is how many
+ * items the gap covers.
+ */
+export interface PendingAction {
+  code: PendingActionCode | string;
+  severity: PendingActionSeverity | string;
+  tab: string;
+  reason: string;
+  count: number;
+}
+
+export interface PendingActionsResponse {
+  case_file_id: number;
+  actions: PendingAction[];
+}
+
 // --- Module summaries (the /analytics dashboard) -----------------------------
 //
 // `GET /{module}/summary` — auth required, gated on the module's `View`
@@ -1861,6 +2281,51 @@ export interface Policy extends PolicyMoney {
   endorsements_count: number;
   warranties_count: number;
   claims_count: number;
+
+  // v8 validate-then-dynamic ingestion: `payload` is the FULL confirmed parse
+  // (the dynamic remainder beyond the typed money/vigencia columns above), and
+  // the fixed-core verdict travels alongside it. All optional — a policy created
+  // by hand or from a proposal carries none of them.
+  payload: Record<string, unknown> | null;
+  is_core_valid: boolean | null;
+  core_validation: PolicyCoreValidation | null;
+  extraction_id: number | null;
+}
+
+/** The fixed minimal core the uploader checks: corredor / asegurado / vigencia /
+ *  desglose de prima. Shape is defensive — the server owns the exact contents. */
+export interface PolicyCoreValidation {
+  is_core_valid?: boolean;
+  missing?: string[];
+  detail?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+/** `POST /policies/upload` — point at an already-filed document. */
+export interface PolicyUploadRequest {
+  document_id: number;
+  /** Attach the document to this account folder when it carries none yet. */
+  case_file_id?: number | null;
+  /** Force the commit even when the fixed core is incomplete (confirmed override). */
+  override?: boolean;
+}
+
+/** `POST /policies/upload` success — the committed policy + the core verdict. */
+export interface PolicyUploadResponse {
+  policy: Policy;
+  extraction_id: number;
+  is_core_valid: boolean;
+  core_validation: PolicyCoreValidation | null;
+  overridden: boolean;
+  warnings: string[];
+}
+
+/** The 422 body when the upload does not look like a policy (`not_a_policy`). */
+export interface PolicyNotAPolicyDetail {
+  code: "not_a_policy";
+  reason?: string;
+  missing?: string[];
+  detail?: Record<string, unknown> | null;
 }
 
 export interface PolicyCreate
@@ -2655,12 +3120,40 @@ export interface AccountGroupClient {
   status: ClientStatus;
 }
 
+/** How a group's avatar is rendered (v8). */
+export const ACCOUNT_GROUP_ICON_KINDS = ["emoji", "glyph", "image"] as const;
+export type AccountGroupIconKind = (typeof ACCOUNT_GROUP_ICON_KINDS)[number];
+
+/**
+ * The resolved group avatar as it comes back on read: `value` is the emoji
+ * character or the curated glyph name; `url` is a scoped link for an image
+ * icon, `null` otherwise.
+ */
+export interface AccountGroupIcon {
+  kind: AccountGroupIconKind;
+  value: string | null;
+  url: string | null;
+}
+
+/**
+ * The avatar payload on create/update. An `image` icon references an uploaded
+ * `document` by id (rule 8: the S3 key lives only on the document row); an
+ * `emoji`/`glyph` icon carries its character or glyph name in `value`.
+ */
+export interface AccountGroupIconInput {
+  kind: AccountGroupIconKind;
+  value?: string | null;
+  document_id?: number | null;
+}
+
 /** List row. Every count is over cases VISIBLE to the caller. */
 export interface AccountGroup {
   id: number;
   name: string;
   slug: string;
   status: AccountGroupStatus;
+  /** The group avatar; `null` falls back to the styled name initials chip. */
+  icon: AccountGroupIcon | null;
   primary_client: GroupClientRef | null;
   clients_count: number;
   accounts_count: number;
@@ -2715,6 +3208,8 @@ export interface ArchiveResponse {
 export interface AccountGroupCreate {
   name: string;
   notes?: string | null;
+  /** Optional group avatar (emoji / curated glyph / uploaded image). */
+  icon?: AccountGroupIconInput | null;
   /** Existing clients of the caller's broker to attach on creation. */
   client_ids?: number[] | null;
 }
@@ -2724,6 +3219,8 @@ export interface AccountGroupUpdate {
   name?: string | null;
   status?: AccountGroupStatus | null;
   notes?: string | null;
+  /** Set/replace the group avatar. Omit to leave it untouched. */
+  icon?: AccountGroupIconInput | null;
 }
 
 export interface AccountGroupAttachClient {
@@ -3080,6 +3577,26 @@ export interface LineRecordSchemaUsage {
 }
 
 /**
+ * One advisory antecedentes document a ramo recommends (v8). Purely advisory: it
+ * drives the uploader's category picker and per-file explanations; it never
+ * gates consolidation or the PDF. `category` is a `DocumentCategory` value.
+ */
+export interface RamoRecommendedFile {
+  /** Stable English identifier for the recommended slot. */
+  key?: string | null;
+  category?: DocumentCategory | string | null;
+  label?: string | null;
+  /** Free label for the document type when no `DocumentCategory` fits. */
+  doc_type?: string | null;
+  /** Human context shown under the slot. */
+  description?: string | null;
+  /** Expected upload format — `"pdf" | "word" | "pdf/word" | "image"`. */
+  format?: "pdf" | "word" | "pdf/word" | "image" | string | null;
+  explanation?: string | null;
+  required?: boolean | null;
+}
+
+/**
  * A stored line (`line_record_schema` row): the ramo plus the antecedentes it
  * requires (v7 §A). A **template** is global (`broker_id === null`) with
  * `is_template === true` — a recommended shape a broker adopts and then freely
@@ -3102,6 +3619,12 @@ export interface LineRecordSchema {
   /** Nonzero only on the list endpoint; drives the delete-in-use gate. */
   usage?: LineRecordSchemaUsage;
   definition: RamoSchema;
+  /**
+   * Advisory (v8): the antecedentes documents this ramo recommends and a
+   * ramo-level prose blurb. Neither gates anything — they guide the uploader.
+   */
+  recommended_files?: RamoRecommendedFile[];
+  explanation?: string | null;
   created_by_id: number | null;
   created_at: IsoDateTime | null;
   updated_at: IsoDateTime | null;
@@ -3114,8 +3637,11 @@ export interface LineRecordSchema {
  */
 export interface LineRecordSchemaCreate {
   name: string;
-  insurance_line_id?: number;
+  insurance_line_id?: number | null;
   definition?: RamoSchema;
+  /** The recommended antecedentes documents — the first-class content (v9). */
+  recommended_files?: RamoRecommendedFile[];
+  explanation?: string | null;
   version?: number;
   is_active?: boolean;
   /** Clone this global template's definition into the new broker line. */
@@ -3179,6 +3705,24 @@ export interface AntecedentesExpediente {
   missing_required: RamoRequiredField[];
   /** No mandatory field missing — gates the Descargar Bases Técnicas button. */
   complete: boolean;
+  /** Per-document AI reads behind the consolidated payload (v9). */
+  document_extractions: AntecedentesDocumentExtraction[];
+  warnings: string[];
+}
+
+/**
+ * One document's AI extraction, as carried by `GET /case-files/{id}/
+ * antecedentes` (v9). `payload` is the raw per-document read; `needs_vision`
+ * flags a scanned/image document the text pass could not fully read.
+ */
+export interface AntecedentesDocumentExtraction {
+  document_id: number;
+  document_name: string;
+  category: string;
+  section: string | null;
+  payload: Record<string, unknown> | null;
+  confidence: DecimalString | number | null;
+  needs_vision: boolean;
   warnings: string[];
 }
 

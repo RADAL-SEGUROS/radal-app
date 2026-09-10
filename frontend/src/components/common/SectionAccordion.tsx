@@ -9,7 +9,7 @@
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Download, FileText, Sparkles } from "lucide-react";
+import { FileText, Sparkles } from "lucide-react";
 
 import {
   Accordion,
@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DisabledHint, EmptyState, MonoChip, resolveFileUrl } from "@/components/common/kit";
+import { DisabledHint, EmptyState, MonoChip } from "@/components/common/kit";
+import { DownloadDocButton } from "@/components/common/DownloadDocButton";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CaseDocument, CaseDocumentGroups, CategorySpec } from "@/api/types";
@@ -99,7 +100,6 @@ export function SectionAccordion({
                 {group.documents.map((doc) => {
                   const canExtract = extractable.has(doc.category);
                   const busy = analyzingDocumentId === doc.id;
-                  const href = resolveFileUrl(doc.url);
                   return (
                     <li
                       key={doc.id}
@@ -142,14 +142,11 @@ export function SectionAccordion({
                         </Button>
                       </DisabledHint>
 
-                      {href ? (
-                        <Button size="sm" variant="secondary" asChild>
-                          <a href={href} target="_blank" rel="noreferrer">
-                            <Download className="h-3.5 w-3.5" />
-                            {tc("actions.download")}
-                          </a>
-                        </Button>
-                      ) : null}
+                      <DownloadDocButton
+                        documentId={doc.id}
+                        filename={doc.original_name}
+                        variant="secondary"
+                      />
                     </li>
                   );
                 })}

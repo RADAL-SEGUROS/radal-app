@@ -14,7 +14,12 @@ from decimal import Decimal
 
 import pytest
 
-from app.schemas.proposal import MONEY_TOLERANCE, VAT_RATE, reconcile_money
+from app.schemas.proposal import (
+    MONEY_TOLERANCE,
+    VAT_RATE,
+    reconcile_money,
+    reconcile_money_verbose,
+)
 from tests.conftest import API
 
 
@@ -129,15 +134,19 @@ class TestReconcileMoneyRejection:
         )
         assert [e["field"] for e in errors] == ["total_premium_uf"]
 
-    def test_bad_comprehensive_rate_is_reported(self) -> None:
-        _, errors = reconcile_money(
-            {
-                "taxable_rate_permille": D("1.2"),
-                "exempt_rate_permille": D("0.8"),
-                "comprehensive_rate_permille": D("5.0"),
-            }
-        )
-        assert [e["field"] for e in errors] == ["comprehensive_rate_permille"]
+    def test_non_additive_comprehensive_rate_is_a_soft_warning_not_an_error(self) -> None:
+        # APPROVED DEVIATION (rule 5): HDI quotes a weighted "tasa media" that is
+        # NOT the sum of the per-peril rates. It must NOT block — it is a warning.
+        values = {
+            "taxable_rate_permille": D("1.2"),
+            "exempt_rate_permille": D("0.8"),
+            "comprehensive_rate_permille": D("5.0"),  # not 2.0
+        }
+        _, errors = reconcile_money(values)
+        assert errors == []  # no longer a hard error
+        _, errors_v, warnings = reconcile_money_verbose(values)
+        assert errors_v == []
+        assert [w["field"] for w in warnings] == ["comprehensive_rate_permille"]
 
     def test_net_below_taxable_is_reported(self) -> None:
         # Implies a negative exempt premium, which is nonsense.
@@ -197,8 +206,6 @@ class TestMoneyInvariantsOverHttp:
             ({"taxable_premium_uf": "100", "exempt_premium_uf": "50",
               "net_premium_uf": "150", "vat_uf": "19",
               "total_premium_uf": "500"}, "total_premium_uf"),
-            ({"taxable_rate_permille": "1.2", "exempt_rate_permille": "0.8",
-              "comprehensive_rate_permille": "9"}, "comprehensive_rate_permille"),
         ],
     )
     def test_bad_combination_is_rejected_422(
@@ -211,6 +218,26 @@ class TestMoneyInvariantsOverHttp:
         detail = response.json()["detail"]
         assert detail["code"] == "money_invariant_violated"
         assert bad_field in [e["field"] for e in detail["errors"]]
+
+    def test_non_additive_comprehensive_rate_is_accepted(
+        self, client, world, headers_a
+    ) -> None:
+        # HDI-shaped: comprehensive is a weighted tasa media, not the per-peril
+        # sum. The premium reconciles, so the proposal is CREATED (rate is soft).
+        response = client.post(
+            f"{API}/proposals",
+            json=_proposal_body(
+                world,
+                taxable_premium_uf="100",
+                exempt_premium_uf="0",
+                taxable_rate_permille="1.2",
+                exempt_rate_permille="0.8",
+                comprehensive_rate_permille="2.357",  # not 2.0
+            ),
+            headers=headers_a,
+        )
+        assert response.status_code == 201, response.text
+        assert Decimal(response.json()["comprehensive_rate_permille"]) == D("2.357")
 
     def test_rejected_proposal_is_not_persisted(self, client, world, headers_a) -> None:
         client.post(

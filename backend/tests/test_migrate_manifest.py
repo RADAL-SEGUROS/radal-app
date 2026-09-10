@@ -101,8 +101,14 @@ def test_manifests_match_the_spec_exactly():
 
 
 def test_both_passes_are_registered_in_order():
-    assert [m.key for m in MANIFESTS] == ["case_files", "groups", "agent", "antecedentes"]
-    assert set(OFFLINE_PASSES) == {"all", "groups", "agent", "antecedentes"}
+    assert [m.key for m in MANIFESTS] == [
+        "case_files",
+        "groups",
+        "agent",
+        "antecedentes",
+        "repurpose",
+    ]
+    assert set(OFFLINE_PASSES) == {"all", "groups", "agent", "antecedentes", "repurpose"}
 
 
 def test_validate_manifest_is_clean_against_the_models():

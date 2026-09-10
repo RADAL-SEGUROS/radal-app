@@ -117,13 +117,21 @@ export function useExpedientePdf(caseId: number | undefined, enabled = true) {
 
 // --- Ramo-schema maintainer CRUD (admin) -------------------------------------
 
-/** Every schema visible to the broker (its own rows + the global seed). */
+/**
+ * Every schema visible to the broker (its own rows + the global seed).
+ *
+ * The corrected v9 endpoint returns a BARE ARRAY of ramos; older callers expect
+ * `{ items }`, so we normalise to the wrapper shape here.
+ */
 export function useRamoSchemas() {
   return useQuery({
     queryKey: qk.ramoSchemas.lists(),
     queryFn: async () => {
-      const { data } = await api.get<ListResponse<LineRecordSchema>>("/line-record-schemas");
-      return data;
+      const { data } = await api.get<ListResponse<LineRecordSchema> | LineRecordSchema[]>(
+        "/line-record-schemas",
+      );
+      const items = Array.isArray(data) ? data : (data.items ?? []);
+      return { items, total: items.length } as ListResponse<LineRecordSchema>;
     },
   });
 }
@@ -186,6 +194,38 @@ export function useDeleteRamoSchema() {
       return id;
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: qk.ramoSchemas.all }),
+  });
+}
+
+/**
+ * Assign a line to an account by case id passed per-call — the account-creation
+ * flow opens several folders in a loop and cannot bind a hook to one case id.
+ * Same endpoint and cache invalidation as `useAssignLine`.
+ */
+export function useAssignCaseLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      caseId,
+      line_record_schema_id,
+    }: {
+      caseId: number;
+      line_record_schema_id: number;
+    }) => {
+      const { data } = await api.post<AntecedentesExpediente>(
+        `/case-files/${caseId}/line`,
+        { line_record_schema_id },
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(qk.expedientes.detail(data.case_file_id), data);
+      void qc.invalidateQueries({ queryKey: qk.expedientes.all });
+      void qc.invalidateQueries({ queryKey: qk.ramoSchemas.all });
+      void qc.invalidateQueries({ queryKey: qk.navigator.all });
+      void qc.invalidateQueries({ queryKey: qk.accountGroups.all });
+      void qc.invalidateQueries({ queryKey: qk.caseFiles.all });
+    },
   });
 }
 

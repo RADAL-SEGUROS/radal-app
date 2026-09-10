@@ -90,6 +90,35 @@ class PolicyUpdate(PolicyMoneyMixin):
     notes: str | None = None
 
 
+class PolicyUploadRequest(BaseModel):
+    """``POST /policies/upload`` — validate-then-dynamic policy ingestion.
+
+    Point at an already-filed ``document``; the server runs the context-aware
+    POLICY extraction, checks the fixed minimal core and (unless ``override``)
+    refuses a file that does not look like a policy with a 422 ``not_a_policy``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    document_id: int = Field(gt=0)
+    #: Attach the document to this account folder when it carries none yet.
+    case_file_id: int | None = Field(default=None, gt=0)
+    #: Force the commit even when the fixed core is incomplete (the broker's
+    #: confirmed decision — "yes, register it anyway").
+    override: bool = False
+
+
+class PolicyUploadResponse(BaseModel):
+    """The committed policy plus the core verdict and provenance."""
+
+    policy: "PolicyRead"
+    extraction_id: int
+    is_core_valid: bool
+    core_validation: dict[str, Any] | None = None
+    overridden: bool = False
+    warnings: list[str] = Field(default_factory=list)
+
+
 class PolicyFromProposal(BaseModel):
     """Build the draft policy from the accepted proposal — the mirror baseline."""
 
@@ -146,6 +175,14 @@ class PolicyRead(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+    # v8 dynamic policy: the FULL confirmed parse (vehicles, drivers, workers,
+    # sublimits, clauses…) plus the fixed-core verdict. Typed money/vigencia
+    # columns above stay the source; ``payload`` is the remainder + a snapshot.
+    payload: dict[str, Any] | None = None
+    is_core_valid: bool | None = None
+    core_validation: dict[str, Any] | None = None
+    extraction_id: int | None = None
+
     # Denormalised for the list view.
     insurer_name: str | None = None
     client_legal_name: str | None = None
@@ -159,6 +196,10 @@ class PolicyPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# ``PolicyUploadResponse`` forward-references ``PolicyRead`` (defined above it).
+PolicyUploadResponse.model_rebuild()
 
 
 class PolicySummary(BaseModel):
@@ -281,6 +322,8 @@ __all__ = [
     "PolicyCreate",
     "PolicyUpdate",
     "PolicyFromProposal",
+    "PolicyUploadRequest",
+    "PolicyUploadResponse",
     "PolicyRead",
     "PolicyPage",
     "PolicySummary",

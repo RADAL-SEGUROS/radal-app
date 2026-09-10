@@ -445,7 +445,31 @@ class CaseHistoryResponse(BaseModel):
     prior: CasePriorContext | None = None
 
 
+class PendingAction(BaseModel):
+    """One actionable gap in the account, for the overview Journey.
+
+    ``code`` is an English token, ``severity`` is ``info | warning | blocker``,
+    ``tab`` names the desk that owns the fix, ``reason`` is the human sentence,
+    and ``count`` is how many items the gap covers (1 for a singleton).
+    """
+
+    code: str
+    severity: str
+    tab: str
+    reason: str
+    count: int = 1
+
+
+class PendingActionsResponse(BaseModel):
+    """``GET /case-files/{id}/pending-actions`` — the typed gap list."""
+
+    case_file_id: int
+    actions: list[PendingAction] = Field(default_factory=list)
+
+
 __all__ = [
+    "PendingAction",
+    "PendingActionsResponse",
     "CaseFileCreate",
     "CaseFileUpdate",
     "CaseFileTransition",

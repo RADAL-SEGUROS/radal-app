@@ -1,0 +1,42 @@
+{
+  "via": "Prepared by {{broker}}",
+  "footer": "This link is personal. If you have questions, reply to your broker.",
+  "heading": "Choose your insurance",
+  "lead": "Your broker prepared these alternatives for you. Review them and pick the one you prefer.",
+  "leadWithObject": "Your broker prepared these alternatives for {{object}}. Review them and pick the one you prefer.",
+  "declaredValue": "Insured value:",
+  "chooseTitle": "{{count}} alternatives to compare",
+  "decided": {
+    "title": "Your choice has been recorded",
+    "body": "You chose the {{insurer}} proposal. Your broker will pick it up to move forward.",
+    "at": "Recorded on"
+  },
+  "noneTitle": "No alternatives yet",
+  "noneHint": "Your broker is still preparing the options. Open the link again later.",
+  "note": {
+    "label": "Want to leave a comment? (optional)",
+    "placeholder": "For example, a question or a preference."
+  },
+  "confirmNote": "You can change your choice while your broker has not picked it up.",
+  "confirmChoice": "Confirm my choice",
+  "updateChoice": "Update my choice",
+  "errorFallback": "We could not record your choice. Please try again.",
+  "openPdf": "View the full document",
+  "expired": {
+    "title": "This link has expired",
+    "hint": "Ask your broker to share a new one with you."
+  },
+  "notFound": {
+    "title": "We could not find this offer",
+    "hint": "Check the link or ask your broker to share it again."
+  },
+  "card": {
+    "insurerFallback": "Insurance company",
+    "recommended": "Recommended by your broker",
+    "yourChoice": "Your choice",
+    "total": "Total price (UF)",
+    "net": "Net premium (UF)",
+    "validity": "Offer validity",
+    "businessDays": "{{count}} business days"
+  }
+}

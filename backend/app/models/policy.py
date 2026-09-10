@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from app.models.case_file import CaseFile
     from app.models.client import Client
     from app.models.collection import CollectionPlan
+    from app.models.ai import Extraction
     from app.models.document import Document
     from app.models.endorsement import Endorsement
     from app.models.insurance_line import InsuranceLine
@@ -157,6 +158,23 @@ class Policy(Base, TimestampMixin):
     deductibles: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     notes: Mapped[str | None] = mapped_column(Text)
 
+    # --- v8 policy repurpose: full dynamic payload + fixed-core verdict --------
+    # Everything the typed committer does NOT promote to a column lands here —
+    # the same columns-plus-JSON-tail split as ``asset`` (decision #6). The typed
+    # money/vigencia columns above stay the SINGLE source for their values;
+    # ``payload`` never re-stores them (no double-sourcing).
+    payload: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    # The fixed minimal-core verdict (corredor / datos asegurado / vigencia /
+    # desglose de prima present). NULLable: NULL = not yet validated; the detail
+    # of which core fields are present/missing lives in ``core_validation``.
+    is_core_valid: Mapped[bool | None] = mapped_column(Boolean)
+    core_validation: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    # The dynamic parse this policy's payload was read from (mirrors
+    # ``proposal.extraction_id``).
+    extraction_id: Mapped[int | None] = mapped_column(
+        ForeignKey("extraction.id", ondelete="SET NULL"), index=True
+    )
+
     # --- Relationships ------------------------------------------------------
     broker: Mapped["Broker"] = relationship()
     client: Mapped["Client"] = relationship(back_populates="policies")
@@ -181,6 +199,7 @@ class Policy(Base, TimestampMixin):
     source_document: Mapped["Document | None"] = relationship(
         foreign_keys=[source_document_id]
     )
+    extraction: Mapped["Extraction | None"] = relationship(foreign_keys=[extraction_id])
     renews_policy: Mapped["Policy | None"] = relationship(
         "Policy", remote_side=[id], foreign_keys=[renews_policy_id]
     )

@@ -15,11 +15,44 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.account_group import AccountGroupStatus
+from app.models.account_group import AccountGroupIconKind, AccountGroupStatus
 from app.models.client import ClientStatus
 from app.schemas.document import DocumentDownload
+
+
+# --- Group avatar (v8) --------------------------------------------------------
+
+class AccountGroupIconInput(BaseModel):
+    """The optional group avatar on create/update.
+
+    ``emoji``/``glyph`` carry the character or curated glyph name in ``value``;
+    ``image`` points at an uploaded ``document`` via ``document_id`` (rule 8: the
+    S3 key lives only on the document row)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: AccountGroupIconKind
+    value: str | None = Field(default=None, max_length=64)
+    document_id: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _shape(self) -> "AccountGroupIconInput":
+        if self.kind is AccountGroupIconKind.IMAGE:
+            if self.document_id is None:
+                raise ValueError("an image icon requires document_id")
+        elif not (self.value or "").strip():
+            raise ValueError(f"a {self.kind.value} icon requires value")
+        return self
+
+
+class AccountGroupIconRead(BaseModel):
+    """The resolved avatar: ``url`` is a scoped link for an image, else null."""
+
+    kind: AccountGroupIconKind
+    value: str | None = None
+    url: str | None = None
 
 #: The kinds a group timeline row can carry (spec §4.1).
 GroupTimelineKind = Literal[
@@ -36,6 +69,8 @@ class AccountGroupCreate(BaseModel):
 
     name: str = Field(min_length=1, max_length=255)
     notes: str | None = None
+    #: Optional group avatar (emoji / curated glyph / uploaded image).
+    icon: AccountGroupIconInput | None = None
     #: Existing clients of the caller's broker to attach on creation.
     client_ids: list[int] | None = None
 
@@ -59,6 +94,8 @@ class AccountGroupUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     status: AccountGroupStatus | None = None
     notes: str | None = None
+    #: Set/replace the group avatar. ``None`` leaves it untouched.
+    icon: AccountGroupIconInput | None = None
 
 
 class AccountGroupAttachClient(BaseModel):
@@ -114,6 +151,7 @@ class AccountGroupRead(BaseModel):
     name: str
     slug: str
     status: AccountGroupStatus
+    icon: AccountGroupIconRead | None = None
     primary_client: GroupClientRef | None = None
     clients_count: int = 0
     accounts_count: int = 0
@@ -188,6 +226,8 @@ class ArchiveResponse(BaseModel):
 
 __all__ = [
     "GroupTimelineKind",
+    "AccountGroupIconInput",
+    "AccountGroupIconRead",
     "AccountGroupCreate",
     "AccountGroupUpdate",
     "AccountGroupAttachClient",

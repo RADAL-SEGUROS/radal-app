@@ -76,6 +76,65 @@ class _FakeChatModel:
             raise self._fail_with
 
 
+# A fixed, non-empty standardized table the faked comparison returns, so the
+# align step snapshots a real dictionary (v9: no deterministic fallback exists).
+_FAKE_COMPARISON_DIMENSIONS = [
+    {"key": "sismo", "group": "deductible", "label": "Sismo", "scope": "common", "cells": []},
+    {"key": "incendio", "group": "coverage", "label": "Incendio", "scope": "common", "cells": []},
+]
+_FAKE_RECOMMENDATION = {
+    "recommended_comparison_source_id": None,
+    "recommended_proposal_id": None,
+    "rationale": "Mejor cobertura de sismo por prima.",
+    "caveats": [],
+}
+
+
+def tool_call_double(fake: "_FakeChatModel"):
+    """A ``ai.tool_call`` double that dispatches by tool name (v9).
+
+    One hermetic double serves every tool-calling path a comparison flow touches:
+    the budget-proposal read (Phase 1), the holistic ``submit_comparison`` /
+    ``recommend_comparison`` (Phase 2) and the outbound ``submit_propuesta``. It
+    reads the offer JSON a ``_FakeChatModel`` carries for the budget path and
+    returns fixed, well-formed shapes for the others — no live provider.
+    """
+
+    def _result(parsed, *, schema=None):
+        payload = None
+        warnings: list = []
+        if schema is not None:
+            payload, warnings = ai_service._coerce_payload(schema, dict(parsed))
+        return ai_service.ToolCallResult(
+            parsed=parsed,
+            payload=payload,
+            raw={"content": json.dumps(parsed, ensure_ascii=False), "parsed": parsed},
+            usage={"prompt_tokens": 11, "completion_tokens": 7},
+            reasoning=None,
+            warnings=warnings,
+            model="fake/model-1",
+        )
+
+    def _call(*, schema=None, tool_schema=None, **kwargs):
+        name = (tool_schema or {}).get("name")
+        if name == "submit_comparison":
+            return _result(
+                {"dimensions": _FAKE_COMPARISON_DIMENSIONS, "recommendation": _FAKE_RECOMMENDATION}
+            )
+        if name == "recommend_comparison":
+            return _result({"recommendation": _FAKE_RECOMMENDATION})
+        if name == "submit_propuesta":
+            # Empty core => submit_propuesta falls back to the winner's authoritative
+            # (already-reconciled) columns; a small free tail rides along.
+            return _result(
+                {"core": {}, "additional": [{"group": "coverage", "label": "Incendio"}]}
+            )
+        # Default: the budget-proposal read, from the fake's live content.
+        return _result(json.loads(fake._content), schema=schema)
+
+    return _call
+
+
 @pytest.fixture()
 def no_ai_key(monkeypatch):
     """The outage case: the feature is configured off."""
@@ -363,6 +422,10 @@ def test_confirming_a_policy_payload_commits_the_policy(
         "insurer": {"legal_name": "HDI Seguros S.A.", "rut": "99301000-6",
                     "cmf_code": "CMF-HDI-001"},
         "total_insured_amount_uf": "UF 17.920",
+        # v8: the POLICY commit now runs the fixed-core gate — a vigencia is part
+        # of the minimal core, so the confirmed payload must carry it.
+        "period_start_at": "2026-01-01T12:00:00Z",
+        "period_end_at": "2027-01-01T12:00:00Z",
         "premium": {"taxable_premium_uf": "UF 100", "exempt_premium_uf": "UF 20"},
     }
     response = client.post(

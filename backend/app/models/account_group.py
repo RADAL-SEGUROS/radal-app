@@ -30,11 +30,25 @@ if TYPE_CHECKING:
     from app.models.broker import Broker
     from app.models.case_file import CaseFile
     from app.models.client import Client
+    from app.models.document import Document
 
 
 class AccountGroupStatus(StrEnum):
     ACTIVE = "active"
     ARCHIVED = "archived"
+
+
+class AccountGroupIconKind(StrEnum):
+    """How the group's avatar is rendered (v8).
+
+    ``emoji`` -> ``icon_value`` is the emoji character; ``glyph`` -> a curated
+    glyph name in ``icon_value``; ``image`` -> ``icon_document_id`` points at an
+    uploaded ``document`` (rule 8: the S3 key lives only on the document row).
+    """
+
+    EMOJI = "emoji"
+    GLYPH = "glyph"
+    IMAGE = "image"
 
 
 class AccountGroup(Base, TimestampMixin):
@@ -60,8 +74,18 @@ class AccountGroup(Base, TimestampMixin):
     )
     notes: Mapped[str | None] = mapped_column(Text)
 
+    # --- Group avatar (v8): emoji char / curated glyph name / uploaded image --
+    icon_kind: Mapped[AccountGroupIconKind | None] = mapped_column(
+        sql_enum(AccountGroupIconKind)
+    )
+    icon_value: Mapped[str | None] = mapped_column(String(64))
+    icon_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("document.id", ondelete="SET NULL"), index=True
+    )
+
     # --- Relationships ------------------------------------------------------
     broker: Mapped["Broker"] = relationship()
+    icon_document: Mapped["Document | None"] = relationship(foreign_keys=[icon_document_id])
     # A broker x RUT belongs to <= 1 group; detaching is SET NULL, never a delete.
     clients: Mapped[list["Client"]] = relationship(
         back_populates="account_group", passive_deletes=True
@@ -76,4 +100,4 @@ class AccountGroup(Base, TimestampMixin):
         return f"<AccountGroup id={self.id} broker_id={self.broker_id} slug={self.slug!r}>"
 
 
-__all__ = ["AccountGroup", "AccountGroupStatus"]
+__all__ = ["AccountGroup", "AccountGroupStatus", "AccountGroupIconKind"]
