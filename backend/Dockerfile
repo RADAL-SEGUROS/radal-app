@@ -14,8 +14,11 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Chromium for the Playwright PDF pipeline (Bases Técnicas / comparison / propuesta).
-# --with-deps pulls the system libs (libnss3, fonts, etc.); the browser lands in
-# /root/.cache/ms-playwright, resolved at runtime by the root LWA process.
+# Install to a fixed, world-readable path (NOT /root/.cache, which depends on HOME)
+# and export it so the runtime resolves the same browser. --with-deps pulls the
+# system libs (libnss3, fonts, etc.). On Lambda, pdf.py adds --single-process/
+# --no-zygote and a /tmp cache so this Chromium can launch in the read-only sandbox.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN playwright install --with-deps chromium
 
 COPY app ./app

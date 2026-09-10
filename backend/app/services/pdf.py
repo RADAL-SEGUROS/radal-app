@@ -20,6 +20,7 @@ Design constraints (spec §D):
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
 __all__ = ["PDFGenerationError", "ensure_browser", "close_browser", "render_html_to_pdf"]
@@ -34,7 +35,32 @@ _browser: Any = None
 _playwright: Any = None
 _lock: asyncio.Lock | None = None
 
-_LAUNCH_ARGS = ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+# Base args run everywhere. On AWS Lambda the execution sandbox has a READ-ONLY
+# filesystem (only /tmp is writable) and cannot fork Chromium's zygote helper, so
+# a container Chromium only launches with --single-process/--no-zygote and its
+# cache pointed at /tmp. (Reference: nirvana web2text_playwright prod options.)
+_BASE_LAUNCH_ARGS = ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+_LAMBDA_LAUNCH_ARGS = [
+    "--single-process",
+    "--no-zygote",
+    "--disable-extensions",
+    "--disk-cache-dir=/tmp",
+]
+
+
+def _on_lambda() -> bool:
+    """True inside a Lambda execution environment (LWA still sets these)."""
+    return bool(
+        os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+        or os.environ.get("AWS_LAMBDA_RUNTIME_API")
+    )
+
+
+def _launch_args() -> list[str]:
+    args = list(_BASE_LAUNCH_ARGS)
+    if _on_lambda():
+        args += _LAMBDA_LAUNCH_ARGS
+    return args
 
 
 def _get_lock() -> asyncio.Lock:
@@ -67,7 +93,7 @@ async def ensure_browser() -> Any:
         try:
             _playwright = await async_playwright().start()
             _browser = await _playwright.chromium.launch(
-                headless=True, args=_LAUNCH_ARGS
+                headless=True, args=_launch_args()
             )
         except Exception as exc:  # noqa: BLE001
             # Reset partial state so a later call can retry cleanly.
