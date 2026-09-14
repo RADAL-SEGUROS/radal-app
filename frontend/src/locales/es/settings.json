@@ -225,7 +225,7 @@
     "endorsement": "Endoso",
     "collection_plan": "Plan de cobranza",
     "warranty": "Garantía",
-    "account_group": "Grupo"
+    "account_group": "Asegurado"
   },
   "guard": {
     "noPermission": "No tienes permisos para esta acción",
@@ -322,7 +322,7 @@
     "empty": "Todavía no tienes ramos. Créalo desde una plantilla o desde cero.",
     "plantilla": "Plantilla",
     "ownScope": "Tu corredora",
-    "usageLabel": "{{accounts}} cuentas · {{groups}} grupos",
+    "usageLabel": "{{accounts}} cuentas · {{groups}} asegurados",
     "active": "Activa",
     "inactive": "Inactiva",
     "adopt": "Adoptar",

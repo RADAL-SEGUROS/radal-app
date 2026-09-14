@@ -1897,6 +1897,18 @@ export interface CaseFile {
   period_locked: boolean;
   /** Member RUTs: `account_client` rows ∪ placements, contratante first. */
   client_ids: number[];
+
+  // --- Market answer (Portafolio → Cotizaciones) ---------------------------
+  //
+  // Both fields are OPTIONAL on purpose: they are a recent addition to the
+  // case-file LIST item, and an older/other caller of `GET /case-files` may
+  // still answer without them. Read them defensively
+  // (`item.proposals_count ?? 0`, `item.quoting_insurers ?? []`) — an absent
+  // field must read as "ninguna compañía todavía", never as a crash.
+  /** How many cotizaciones (inbound `proposal` rows) this account has received. */
+  proposals_count?: number;
+  /** The insurers behind those cotizaciones, deduplicated by the server. */
+  quoting_insurers?: { id: number; name: string }[];
 }
 
 export interface CaseSectionCount {

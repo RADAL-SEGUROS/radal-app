@@ -225,7 +225,7 @@
     "endorsement": "Endorsement",
     "collection_plan": "Collection plan",
     "warranty": "Warranty",
-    "account_group": "Group"
+    "account_group": "Insured"
   },
   "guard": {
     "noPermission": "You do not have permission for this action",
@@ -322,7 +322,7 @@
     "empty": "You have no lines yet. Create one from a template or from scratch.",
     "plantilla": "Template",
     "ownScope": "Your brokerage",
-    "usageLabel": "{{accounts}} accounts · {{groups}} groups",
+    "usageLabel": "{{accounts}} accounts · {{groups}} insureds",
     "active": "Active",
     "inactive": "Inactive",
     "adopt": "Adopt",

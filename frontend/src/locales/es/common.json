@@ -13,9 +13,9 @@
       "pinned": "Accesos"
     },
     "dashboard": "Dashboard",
-    "groups": "Grupos",
-    "newGroup": "Nuevo grupo",
-    "allGroups": "Ver todos los grupos",
+    "groups": "Asegurados",
+    "newGroup": "Nuevo asegurado",
+    "allGroups": "Ver todos los asegurados",
     "more": "Más",
     "portfolio": "Cartera",
     "reader": "Lector documental",
@@ -44,8 +44,8 @@
     "comingSoon": "Próximamente",
     "soon": "Pronto",
     "analytics": "Analítica",
-    "backToGroups": "Volver a grupos",
-    "data": "Datos"
+    "backToGroups": "Volver a asegurados",
+    "data": "Portafolio"
   },
   "sidebar": {
     "collapse": "Contraer barra lateral",
@@ -90,7 +90,7 @@
     "placeholder": "Buscar clientes, pólizas, activos…",
     "empty": "Sin resultados",
     "categories": {
-      "groups": "Grupos",
+      "groups": "Asegurados",
       "clients": "Clientes",
       "assets": "Bienes",
       "quotes": "Cotizaciones",

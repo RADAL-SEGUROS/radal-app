@@ -13,9 +13,9 @@
       "pinned": "Shortcuts"
     },
     "dashboard": "Dashboard",
-    "groups": "Groups",
-    "newGroup": "New group",
-    "allGroups": "See all groups",
+    "groups": "Insureds",
+    "newGroup": "New insured",
+    "allGroups": "View all insureds",
     "more": "More",
     "portfolio": "Portfolio",
     "reader": "Document reader",
@@ -44,8 +44,8 @@
     "comingSoon": "Coming soon",
     "soon": "Soon",
     "analytics": "Analytics",
-    "backToGroups": "Back to groups",
-    "data": "Data"
+    "backToGroups": "Back to insureds",
+    "data": "Portfolio"
   },
   "sidebar": {
     "collapse": "Collapse sidebar",
@@ -90,7 +90,7 @@
     "placeholder": "Search clients, policies, assets…",
     "empty": "No results",
     "categories": {
-      "groups": "Groups",
+      "groups": "Insureds",
       "clients": "Clients",
       "assets": "Assets",
       "quotes": "Quotes",

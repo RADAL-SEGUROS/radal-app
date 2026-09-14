@@ -47,18 +47,19 @@ of orientation and current state, nothing more.** When a pass adds detail, it go
 | 14 | [v3 — Groups & Accounts](#14-v3--groups--accounts-as-built) | the group layer, the Account, the navigator, the binary rules |
 | 15 | [v4 — Agent & Porcelana UI](#15-v4--agent--porcelana-ui-as-built) | the tool-using agent and the current UI direction |
 | 16 | [v5·v6·v7 — Signal UI · Antecedentes → Bases Técnicas · broker Lines](#16-v5--v6--v7--signal-ui-antecedentes--bases-técnicas-broker-defined-lines-as-built) | the UI direction, the expediente/bases-técnicas builder, and broker-defined lines |
-| 17 | [v10 — Datos/Analítica, expediente completo, scope & exports](#17-v10--datosanalítica-el-expediente-completo-filtros-y-exportes-as-built) | **the latest arc** — the two analysis destinations, the account super-overview, the shared filter vocabulary and the export layer |
+| 17 | [v10 — Datos/Analítica, expediente completo, scope & exports](#17-v10--datosanalítica-el-expediente-completo-filtros-y-exportes-as-built) | the two analysis destinations, the account super-overview, the shared filter vocabulary and the export layer |
+| 18 | [v11 — Portafolio & Asegurados](#18-v11--portafolio--asegurados-as-built) | **the latest arc** — the broker-vocabulary rename and the nine-tab Portafolio, driven by team-filed issues #1 and #2 |
 
-**Current state (verified 2026-09-10):** **752 backend tests passing in ~155 s** · `npx tsc -b
---noEmit`, `npm run build` and `npm run check:locales` (**22 namespaces, 3 695 keys per locale**)
+**Current state (verified 2026-09-14):** **757 backend tests passing in ~155 s** · `npx tsc -b
+--noEmit`, `npm run build` and `npm run check:locales` (**22 namespaces, 3 719 keys per locale**)
 clean · the whole v10 surface **driven live in a real browser**, not just compile-green. The v2→v9
 arc plus **v10** is committed as `0c60de6` on branch `dev` and **pushed**, which fired both CI
 deploys to `https://dev.radalseguros.cl`. The dev RDS already carries the v9 schema + blank baseline;
-**v10 added no columns and no enum values, so it needs no migration**. Passes since the v2 rebuild:
+**neither v10 nor v11 added a column or an enum value, so neither needs a migration**. Passes since the v2 rebuild:
 v2 case files, **v3 groups & accounts (§14)**, **v4 agent + Porcelana (§15)**, **v5·v6·v7 Signal UI ·
 Antecedentes → Bases Técnicas · broker-defined Lines (§16)**, v8/v9 broker-journey redesign +
-tool-calling AI + expedient PDFs, and **v10 Datos/Analítica · expediente completo · scope & exports
-(§17)**. The short "what changed + candid error log" companions are
+tool-calling AI + expedient PDFs, **v10 Datos/Analítica · expediente completo · scope & exports (§17)**, and **v11 Portafolio &
+Asegurados — the first issue-driven pass (§18)**. The short "what changed + candid error log" companions are
 `docs/handoff-2026-09-09-v9.md` and `docs/handoff-2026-09-10-v10.md`.
 
 ---
@@ -2812,7 +2813,7 @@ All app routes are declared in one file, `src/App.tsx` — there is exactly one 
 | `/collections/:planId` | `pages/collections/detail.tsx` | `Collections` | **lazy** — instalment ledger + the article-528 timeline. |
 | `/claims` | `pages/claims/index.tsx` | `Claims` | **lazy** — claim list. |
 | `/claims/:claimId` | `pages/claims/detail.tsx` | `Claims` | **lazy** — items table, adjuster report, counterfactual card. `Claims.Approve` to close. |
-| `/data` | `pages/data/index.tsx` | `Dashboard` (per-tab module gates) | **Datos** — eleven table tabs behind one scope (grupo · grupo-cuenta · fechas) + XLSX/PDF export. Six tabs live in `pages/data/`; Clientes, Colocaciones, Inspecciones, Ofertas and Leads reuse the standalone pages with `embedded`. |
+| `/data` | `pages/data/index.tsx` | `Dashboard` (per-tab module gates) | **Portafolio** (v11; the route keeps its English name) — **nine** table tabs behind one scope (asegurado · cuenta · fechas) + XLSX/PDF export: Asegurados · Pipeline · Cotizaciones · Propuestas · Pólizas · Endosos · Cobranza · Siniestros · Documentos. Asegurados and Cotizaciones each split further on `?sub=`; Clientes and Leads reuse the standalone pages with `embedded`. Colocaciones/Inspecciones/Ofertas lost their tabs but keep their routes. |
 | `/analytics` | `pages/analytics/index.tsx` | `Dashboard` | **Analítica** — visuals only. KPI row + a `?by=` dimension (read from `GET /exports/entities`) driving generic bucket charts. |
 | `/groups/:groupId/accounts/:caseId/expediente` | `pages/groups/expediente.tsx` | `CaseFiles` | **El expediente completo** — the account super-overview + its branded PDF. This is what "Ver expediente completo" opens; it used to go to `/cases/:id`. |
 | `/agent` | `pages/agent/index.tsx` | `Dashboard` | SSE agent chat with a 5 s non-streaming fallback (§12.6). |
@@ -3101,6 +3102,75 @@ pre-confirmed, so `GET /policies/{id}/mirror-diff` renders without ever calling 
 > Newest first. **Append a new dated `###` section above the previous one**, one per pass. Each
 > entry states what was added, what changed in existing behaviour, and the verified state at the
 > end of the pass — with the commands and the numbers, so the next reader can re-run them.
+
+### 2026-09-14 — v11 · Portafolio & Asegurados (issues #1, #2)
+
+The first pass driven by **team-filed GitHub issues** rather than a spec. Both came from the same
+complaint: the app's nav spoke the data model's vocabulary, not the broker's.
+
+**Vocabulary (issue #1).** "Grupo" and "Datos" are not insurance words. The **Datos** view is now
+**Portafolio**, and the **Grupos** view is **Asegurados** — across *all* user-facing copy (~65
+strings in `accounts` · `analytics` · `common` · `settings`, es + en), not just the rail: titles,
+breadcrumbs, "Nuevo asegurado", empty states, the scope filter. What used to read "grupo-cuenta" is
+now plainly **cuenta**. Per non-negotiable 1 **nothing else moved**: the routes stay `/data` and
+`/groups` (saved links keep working), and every identifier, API field and i18n *key* stays English.
+Collision caught in passing: Analítica's eyebrow already read "Portafolio" — it is now "Cartera",
+so the two destinations never print the same word.
+
+**Portafolio's tabs (issue #2).** Eleven table-shaped tabs → **nine** in the broker's own sequence:
+
+```
+Asegurados · Pipeline · Cotizaciones · Propuestas · Pólizas · Endosos · Cobranza · Siniestros · Documentos
+```
+
+- **Asegurados** (`pages/data/insureds.tsx`, new) merges the old Cuentas + Clientes behind one
+  `?sub=` toggle; the export follows the sub-view (`clients` / `case_files`) via `useInsuredsSub()`,
+  so the file and the table on screen can never disagree about what was filtered.
+- **Pipeline** is the Leads board, correctly named.
+- **Cotizaciones** was rewritten: it no longer lists `quote_request` rows, it lists **colocaciones**
+  (`case_file(kind=account)`) in three market states, `?sub=` again —
+  `inMarket` = `technical_basis|market_submission`, `received` = `quotes_received|comparison`,
+  `presented` = `insured_decision|proposal_issued`. `received`/`presented` show **which insurers
+  quoted** and link straight to the comparison.
+- **Endosos · Cobranza · Siniestros** were promoted out of the single Post-venta tab — three desks,
+  three tabs, three export entities, which also deleted the "pick one entity" disabled export.
+- **Colocaciones, Inspecciones and Ofertas lost their tabs**; `/placements`, `/inspections` and
+  `/offerings` are untouched and still resolve for deep links from inside a group.
+- **Renovaciones was requested and deliberately NOT built** — see below.
+
+**Backend.** `CaseFileListItem` gained `proposals_count` and `quoting_insurers: [{id, name}]`,
+filled by one grouped aggregate per page in `routers/case_files.py` next to `_documents_count` —
+never N+1. It mirrors `services.case_files.case_proposals` exactly (joining through
+`quote_request.placement_id` as well as `case_file_id`), because `proposal.quote_request_id` is NOT
+NULL and plenty of offers reach the folder only through the placement's quote request; a plain
+`Proposal.case_file_id.in_(...)` under-counts, and the list would then print a different number
+than the detail page for exactly those folders. `CaseFileRead` was NOT widened, so every single-case
+payload keeps its shape. Both fields are defaulted Pydantic fields — **no column, no enum value, no
+migration**. Insurers are emitted sorted by `(name.casefold(), id)` so the column is stable between
+requests, and every join leg carries `broker_id`.
+
+**Deliberately not built, and why.** The issue also asked for **Renovaciones** and **Inspecciones**
+tabs. Neither has an *origin* (a point in the journey where the record is created), a *classifier*
+(a rule that recognises the document as that type) or an *owner* (the cuenta or bien it belongs to).
+A ramo is a recommended-files template + AI context, **not a schema**, so nothing would ever fill
+those lists — the tab would render permanently empty, which reads as a broken app rather than as a
+missing feature. Both are answered on the issue in plain Spanish with the questions that unblock
+them; renewal's open question is structural (does renewing open a *new vigencia* in the sidebar,
+linked to the old one?) and must be decided before any code.
+
+**Export note.** The two new fields are deliberately **absent from `POST /exports/case_files`**.
+That pipeline renders from `EntitySpec.columns` in `services/analytics.py` — a per-ORM-row callable
+with no per-page precompute hook and a 10 000-row cap — so a column would be either an N+1 or a
+cheap `len(...)` that counts only directly-attached proposals and therefore contradicts the screen.
+`documents_count` is absent for the same reason.
+
+**Verified 2026-09-14:** **757 backend tests passing** (752 baseline + 5, run with
+`MEDIA_BACKEND=local`; without it 5 pre-existing `test_v8_broker_journey.py` tests fail on
+`NoSuchBucket` from the real S3 config in `backend/.env`, identical before this pass) ·
+`npx tsc -b` + `npm run build` + `npm run check:locales` clean (**22 namespaces, 3 719 keys per
+locale**) · the repeated `stage` param verified on the wire through the real `@/lib/api` instance —
+`…&kind=account&stage=quotes_received&stage=comparison&…`, bare repeated keys, so the
+`paramsSerializer` trap is not biting · the new backend columns exercised live against two tenants.
 
 ### 2026-09-10 — v10 · Datos/Analítica, el expediente completo, filtros y exportes
 
@@ -4105,3 +4175,143 @@ Put motion here, not per page: half the call sites would otherwise never get it.
   "El grupo sólo tiene este RUT" when the group has zero empresas.
 - **`git remote` still points at the old repo location** — the push works only because GitHub
   redirects. `git remote set-url origin git@github.com:RADAL-SEGUROS/radal-app.git`.
+
+---
+
+## 18. v11 — Portafolio & Asegurados (as built)
+
+**Read §17 first** — this pass changes what v10's two destinations are *called* and what the rows
+half of it *contains*; everything else in §17 (the scope vocabulary, the export layer, the
+expediente completo) is unchanged and still authoritative.
+
+### 18.1 Why — the first issue-driven pass
+
+v11 has no spec. It has two GitHub issues filed by the team after using the app
+(`#1 Cambio de nombres de vistas`, `#2 Cambios en vista Datos`), and they make the same point from
+two angles: **the navigation was named after the data model, not after the broker's day.** A broker
+does not have "grupos" and does not go to "Datos"; he has *asegurados* and looks at his *portafolio*.
+That is not cosmetics — a name the user has to translate in his head is a name that costs him time
+every session.
+
+### 18.2 The rename (issue #1)
+
+| was | is | reach |
+|---|---|---|
+| Datos | **Portafolio** | rail, page title, subtitle, Analítica's cross-reference |
+| Grupos / Grupo | **Asegurados / Asegurado** | rail, titles, breadcrumbs, buttons, empty states, errors, the scope filter, the search category |
+| grupo-cuenta | **cuenta** | everywhere — the "grupo-" prefix only said which folder it hung under, and that folder is now the asegurado |
+
+~65 strings, `es` + `en`, in `accounts` · `analytics` · `common` · `settings`.
+
+**What did NOT move, and why it matters.** Routes stay `/data` and `/groups`; component names, API
+fields, table names and every i18n **key** stay English (non-negotiable 1). This is exactly what
+that rule buys: the word the broker reads changed four times in one afternoon and the database never
+noticed, and every link anyone had already sent by mail still resolves.
+
+Three "grupo"s were deliberately left alone because they are not `account_group`:
+`settings.fieldTypes.group` (a group of fields in a form schema), `analytics.charts.premiumBy`
+("agrupada por la dimensión elegida") and `cases` "Agrupados por subexpediente" — the statistical /
+UI sense of the word.
+
+**Collision worth remembering:** Analítica's eyebrow already read "Portafolio". Two destinations
+printing the same word is worse than either name, so the eyebrow moved to **"Cartera"**. Check for
+this whenever a term is promoted — the word you are promoting is usually already in use somewhere.
+
+### 18.3 The nine tabs (issue #2)
+
+`frontend/src/pages/data/index.tsx`. Eleven table-shaped tabs became nine in the broker's sequence.
+The full tab table, gates and export entities live in the page's own header docstring — that is the
+authoritative copy, kept next to the code it describes. The shape:
+
+| tab | source | `?sub=` | export entity |
+|---|---|---|---|
+| Asegurados | `pages/data/insureds.tsx` (new) | `clients` \| `accounts` | follows the sub-view |
+| Pipeline | `pages/leads` `embedded` | — | `leads` |
+| Cotizaciones | `pages/data/quotes.tsx` (rewritten) | `inMarket` \| `received` \| `presented` | `case_files` |
+| Propuestas · Pólizas · Documentos | unchanged | — | own entity |
+| Endosos · Cobranza · Siniestros | split out of `postsale.tsx` | — | own entity |
+
+**Cotizaciones is the substantive change.** It used to list `quote_request` rows. The broker's own
+definition in the issue is "listado de asegurados/vigencia/ramo (**colocación**)" — so the row is a
+`case_file(kind=account)`, and the three sub-views are three market states:
+
+```
+inMarket   stage = technical_basis | market_submission   → out to market, nothing back
+received   stage = quotes_received | comparison          → offers in, ready to compare
+presented  stage = insured_decision | proposal_issued    → comparison shown to the insured
+```
+
+`received` and `presented` print **which insurers quoted**; `received` links straight to that
+account's comparison. On a group-less (legacy/imported) account that link goes to
+`/comparisons/:caseId` instead of the account tab, because `/cases/:caseId` has no comparison tab —
+the link is live in both shapes rather than silently landing on Resumen.
+
+**Splitting Post-venta into three tabs deleted a wart:** the old tab spanned three entities, so its
+export button had to be disabled with `export.pickOneEntity`. Every tab now maps to exactly one
+entity, and `TAB_EXPORT` is typed `Record<Exclude<TabId,"insureds">, ExportEntity>` so the compiler
+enforces it. Asegurados is the single exception and resolves through `INSUREDS_EXPORT[sub]`.
+
+### 18.4 `proposals_count` / `quoting_insurers` on the list item
+
+`CaseFileListItem` (schemas/case_file.py) gained both; `CaseFileRead` was **not** widened, so every
+single-case payload keeps its shape. Filled by `_proposal_offers(db, broker_id, cases)` in
+`routers/case_files.py`, one grouped aggregate per page, sitting next to `_documents_count` and
+following the same pattern.
+
+**The trap this avoids.** `proposal.quote_request_id` is NOT NULL, and plenty of offers reach a
+folder only through the placement's quote request, never through `proposal.case_file_id`. A plain
+`Proposal.case_file_id.in_(ids)` therefore under-counts — and the list would print a *different*
+number than the detail page for exactly those folders. `_proposal_offers` mirrors
+`services.case_files.case_proposals` exactly (LEFT JOIN `quote_request` on `case_file_id` OR
+`placement_id`, then `proposal` on either leg, `.distinct()`, collapse per case with a set of
+proposal ids). Insurer display name is `trade_name or legal_name`, the convention already used by
+`services/expediente.py`, `routers/comparisons.py`, `routers/offerings.py` and
+`routers/broker_proposals.py`. Emitted sorted by `(name.casefold(), id)` so the column is stable
+between requests. Every join leg carries `broker_id`; `insurer` is canonical and reached only
+through the broker's own `proposal` rows.
+
+Both fields are defaulted Pydantic fields — **no column, no enum value, no migration**.
+
+**Not in the export, on purpose.** `POST /exports/case_files` renders from `EntitySpec.columns`
+(`services/analytics.py`), a per-ORM-row callable with no per-page precompute hook and a 10 000-row
+cap. A column there would be an N+1 over up to 10 000 rows, or a cheap `len(...)` that counts only
+directly-attached proposals and so contradicts the screen. `documents_count` is absent for the same
+reason. If this is ever wanted, the fix is a precompute stage in the export pipeline, not a column.
+
+### 18.5 What was asked for and NOT built — the rule to reuse
+
+The issue also asked for **Renovaciones** and **Inspecciones** tabs. Neither was built, and the
+reasoning generalises, so it is written down here rather than buried in a comment.
+
+A ramo in Radal is an **advisory recommended-files template + AI context, not a schema**. The app
+validates only the journey's milestones and lets the AI read the rest. The consequence: for anything
+to become a *list*, the system must be able to recognise it on its own, which needs three things —
+
+1. **an origin** — a point in the journey where the record is created (a button, a step, an upload);
+2. **a classifier** — a rule that says *this* document/row is of that type;
+3. **an owner** — the cuenta (ramo × vigencia) or the bien it belongs to.
+
+Miss any one and the tab renders permanently empty, which a user reads as a **broken app**, not as a
+missing feature. Inspections today have none of the three: no button, no file type, no attachment
+rule. Renewals have a deeper, structural question that must be answered before any code — **does
+renewing open a new vigencia in the sidebar, linked to the expiring one, or live inside the current
+cuenta?** — plus what carries over (antecedentes, bases técnicas, the winning cotización) and what
+"finished" means.
+
+Both were answered on issue #2 in plain Spanish with the specific questions that unblock them. The
+question to put to any future feature request is the one that closes that reply: **"¿en qué momento
+del viaje se crea ese dato, y cómo sabe la aplicación a qué cuenta pertenece?"**
+
+### 18.6 Verified
+
+- **757 backend tests** passing (752 baseline + 5 new in `tests/test_case_files.py`, covering
+  two-insurer ordering, same-insurer dedup, the empty `0`/`[]` case, list-equals-detail when the
+  offer arrives via the quote request, and cross-tenant isolation — the last one mutation-checked by
+  deleting the `broker_id` predicate and confirming only it fails). Run with `MEDIA_BACKEND=local`;
+  without it 5 pre-existing `test_v8_broker_journey.py` tests fail on `NoSuchBucket`, unchanged by
+  this pass.
+- `npx tsc -b`, `npm run build`, `npm run check:locales` — clean, **22 namespaces, 3 719 keys per
+  locale**.
+- The repeated `stage` param checked **on the wire** through the real `@/lib/api` instance:
+  `…&kind=account&stage=quotes_received&stage=comparison&…` — bare repeated keys, so the
+  `paramsSerializer` trap (§12) is not biting.

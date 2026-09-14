@@ -1,8 +1,8 @@
 {
   "nav": {
-    "groups": "Groups",
-    "newGroup": "New group",
-    "allGroups": "See all groups",
+    "groups": "Insureds",
+    "newGroup": "New insured",
+    "allGroups": "View all insureds",
     "more": "More",
     "commercial": "Commercial",
     "portfolio": "Portfolio",
@@ -12,13 +12,13 @@
     "insurersAppetite": "Insurers and appetite",
     "finance": "Finance",
     "reports": "Reporting",
-    "emptyGroups": "No groups",
-    "emptyGroupsHint": "Create the first group to start organising the book.",
+    "emptyGroups": "No insureds",
+    "emptyGroupsHint": "Create the first insured to start organising the book.",
     "openAccounts": "{{count}} open",
     "periodsMore": "See all validity periods",
     "expand": "Expand",
     "collapse": "Collapse",
-    "error": "We could not load the groups"
+    "error": "We could not load the insureds"
   },
   "ai": {
     "reader": {
@@ -93,7 +93,7 @@
     "accounts_other": "{{count}} accounts",
     "policyLabel": "P{{n}} · {{number}}",
     "extendedUntil": "Extended until {{date}}",
-    "error": "We could not load the group tree",
+    "error": "We could not load the insured tree",
     "readOnly": "Historic validity period: read only",
     "batch": "Period extension",
     "batchHint": "One prórroga batch across several policies: it is drawn once."
@@ -169,7 +169,7 @@
   },
   "extend": {
     "title": "Policy extension",
-    "subtitle": "Pick the group's policies to extend. One endorsement is created per policy.",
+    "subtitle": "Pick the insured's policies to extend. One endorsement is created per policy.",
     "selectPolicies": "Policies to extend",
     "selectHint": "None are pre-selected: an extension is always chosen by hand.",
     "selectedCount": "{{count}} policies selected",
@@ -206,9 +206,9 @@
     "error": "We could not load the history"
   },
   "group": {
-    "title": "Groups",
+    "title": "Insureds",
     "subtitle": "The commercial folder holding an account's companies, validity periods and lines.",
-    "one": "Group",
+    "one": "Insured",
     "fields": {
       "name": "Name",
       "nameHint": "The name the broker uses for the account; it need not be the legal name.",
@@ -227,40 +227,40 @@
       "archived": "Archived"
     },
     "actions": {
-      "new": "New group",
-      "edit": "Edit group",
-      "archive": "Archive group",
-      "restore": "Reactivate group",
+      "new": "New insured",
+      "edit": "Edit insured",
+      "archive": "Archive insured",
+      "restore": "Reactivate insured",
       "addClient": "Add company",
-      "removeClient": "Remove from group",
+      "removeClient": "Remove from insured",
       "downloadArchive": "Download case folder",
       "newAccount": "New account",
-      "open": "Open the group",
-      "viewInGroup": "See in the group"
+      "open": "Open the insured",
+      "viewInGroup": "See in the insured"
     },
     "create": {
-      "title": "Create a group",
-      "nameLabel": "Group name",
+      "title": "Create an insured",
+      "nameLabel": "Insured name",
       "clients": "Companies to include",
-      "submit": "Create the group",
-      "success": "Group created",
-      "error": "We could not create the group",
-      "clientsHint": "A company can belong to only one group; the ones already in another are shown disabled."
+      "submit": "Create the insured",
+      "success": "Insured created",
+      "error": "We could not create the insured",
+      "clientsHint": "A company can belong to only one insured; the ones already in another are shown disabled."
     },
     "detach": {
-      "confirm": "Remove this company from the group?",
-      "success": "Company removed from the group",
-      "confirmNamed": "Remove {{name}} from the group? The company still exists in Clients."
+      "confirm": "Remove this company from the insured?",
+      "success": "Company removed from the insured",
+      "confirmNamed": "Remove {{name}} from the insured? The company still exists in Clients."
     },
-    "search": "Search groups",
-    "notFound": "We could not find this group",
+    "search": "Search insureds",
+    "notFound": "We could not find this insured",
     "searchClients": "Search a company by legal name or RUT",
     "noClients": "No companies available to add",
     "filters": {
       "allStatuses": "All statuses"
     },
-    "noCreatePermission": "You do not have permission to create groups.",
-    "noEditPermission": "You do not have permission to edit this group.",
+    "noCreatePermission": "You do not have permission to create insureds.",
+    "noEditPermission": "You do not have permission to edit this insured.",
     "icon": {
       "label": "Icon",
       "emoji": "Emoji",
@@ -287,10 +287,10 @@
       }
     },
     "edit": {
-      "title": "Edit group",
-      "subtitle": "Change the group's icon, name and notes."
+      "title": "Edit insured",
+      "subtitle": "Change the insured's icon, name and notes."
     },
-    "inOtherGroup": "In another group",
+    "inOtherGroup": "In another insured",
     "createClient": {
       "action": "Create company",
       "withRut": "Create company {{rut}}"
@@ -337,7 +337,7 @@
       "error": "We could not create the account",
       "results": "Accounts created",
       "datesInvalid": "The period end must be later than the period start.",
-      "noExtraMembers": "This group holds only this RUT.",
+      "noExtraMembers": "This insured holds only this RUT.",
       "noLines": "The broker has no active insurance lines yet.",
       "linesRequired": "Pick at least one insurance line.",
       "willCreate_one": "{{count}} folder will be created, one per line.",
@@ -449,11 +449,11 @@
     "subtitle": "One card per line in this validity period.",
     "current": "Current validity period",
     "historic": "Historic validity period",
-    "notFound": "This period does not exist in the group."
+    "notFound": "This period does not exist in the insured."
   },
   "overview": {
-    "title": "Group overview",
-    "subtitle": "Everything that happened in the group, newest first.",
+    "title": "Insured overview",
+    "subtitle": "Everything that happened in the insured, newest first.",
     "olderPeriods": "Previous validity periods",
     "loadMore": "Load more",
     "periods": "Periods",
@@ -478,7 +478,7 @@
   },
   "archive": {
     "title": "Download case folder",
-    "wholeGroup": "The whole group",
+    "wholeGroup": "The whole insured",
     "currentPeriod": "This validity period only",
     "preparing": "Preparing the case folder…",
     "ready": "Case folder ready to download",
@@ -488,7 +488,7 @@
     "onlyPeriod": "Only validity period {{label}}"
   },
   "timeline": {
-    "title": "Group activity log",
+    "title": "Insured activity log",
     "kinds": {
       "stage": "Stage",
       "activity": "Activity",
@@ -508,34 +508,34 @@
   "errors": {
     "period_locked": "The validity period is a folder: to change the dates, open a new one.",
     "folder_exists": "An open folder already exists for this line and validity period.",
-    "client_not_in_group": "That RUT does not belong to the account's group.",
-    "policies_span_groups": "The selected policies belong to different groups.",
-    "client_in_other_group": "That RUT already belongs to another group.",
+    "client_not_in_group": "That RUT does not belong to the account's insured.",
+    "policies_span_groups": "The selected policies belong to different insureds.",
+    "client_in_other_group": "That RUT already belongs to another insured.",
     "renewal_not_allowed": "This account cannot be renewed yet.",
-    "group_has_open_cases": "The RUT has open folders in the group.",
+    "group_has_open_cases": "The RUT has open folders in the insured.",
     "generic": "Something went wrong"
   },
   "empty": {
-    "groups": "No groups yet",
-    "groupsHint": "A group organises the companies, validity periods and lines of one commercial account.",
-    "accounts": "This group has no accounts yet",
+    "groups": "No insureds yet",
+    "groupsHint": "An insured organises the companies, validity periods and lines of one commercial account.",
+    "accounts": "This insured has no accounts yet",
     "accountsHint": "Create the first account by choosing the validity period and the lines.",
     "policies": "This validity period has no issued policies yet.",
     "records": "This records folder is empty.",
     "recordsHint": "Upload the matching document to complete it.",
-    "timeline": "No movements in the group",
+    "timeline": "No movements in the insured",
     "periods": "No validity periods recorded",
     "history": "No previous validity period",
-    "clients": "The group has no companies attached",
+    "clients": "The insured has no companies attached",
     "lines": "This validity period has no lines yet",
     "clientsHint": "Add the companies that make up the account; each one brings its RUT."
   },
   "policy": {
     "current": "This policy",
-    "subFunnel": "Group post-sale",
+    "subFunnel": "Insured post-sale",
     "subFunnelHint": "The policies of this validity period and what hangs off each one.",
-    "notInTree": "This policy is not in the group tree",
-    "notInTreeHint": "It may belong to another group or not be attached to an account.",
+    "notInTree": "This policy is not in the insured tree",
+    "notInTreeHint": "It may belong to another insured or not be attached to an account.",
     "noChildren": "No records",
     "noChildPermission": "You do not have permission to view this detail."
   },

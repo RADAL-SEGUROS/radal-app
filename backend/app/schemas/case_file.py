@@ -280,8 +280,34 @@ class CaseFileRead(BaseModel):
     client_ids: list[int] = Field(default_factory=list)
 
 
+class QuotingInsurer(BaseModel):
+    """One insurer that actually quoted, as the list column renders it.
+
+    ``name`` is the same display name the rest of the API uses for an insurer
+    (``trade_name`` when it exists, else ``legal_name``) so the Cotizaciones
+    column reads identically to the comparacion and the expediente.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+
+
 class CaseFileListItem(CaseFileRead):
-    pass
+    """A row of ``GET /case-files``.
+
+    Carries the offer facts the Portafolio's Cotizaciones tab needs: how many
+    cotizaciones (an insurer's INBOUND offer = a ``proposal`` row) landed on the
+    folder, and which companies sent them. Both are filled by the list router in
+    ONE grouped aggregate over the page, and both default to empty, so a folder
+    with no offers is ``0`` / ``[]`` and never null. Deliberately NOT on
+    ``CaseFileRead``: ``CaseFileDetail`` already carries its own
+    ``proposals_count`` and the single-case payloads must not change shape.
+    """
+
+    proposals_count: int = 0
+    quoting_insurers: list[QuotingInsurer] = Field(default_factory=list)
 
 
 class CaseFilePage(BaseModel):

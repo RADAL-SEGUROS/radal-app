@@ -1,13 +1,16 @@
 /**
- * Analítica — Post-venta (spec v4 §4.2 last row).
+ * Portafolio — the three post-sale tables: **Endosos · Cobranza · Siniestros**.
  *
- * One tab, three sub-views behind a segmented toggle: Endosos / Cobranzas /
- * Siniestros. Each sub-view renders ONLY when its module grants `View`
- * (`Endorsements` / `Collections` / `Claims`) — the parent tab is shown when
- * any of the three is granted, and the toggle hides the others. The active
- * sub-view persists in `?sub=`; its status chip filters server-side.
+ * They used to be three sub-views of one "Post-venta" tab. Issue #2 promoted
+ * them to top-level tabs, because post-sale is not one desk: an endoso, a
+ * cobranza and a siniestro are worked by different people on different days.
+ * Each is now its own tab with its own module gate (`Endorsements` /
+ * `Collections` / `Claims`), its own `?status=` chip and its own export entity
+ * — which is also what killed the old "pick one entity" disabled export: every
+ * tab maps to exactly one entity now.
  *
- * Money rules surfaced here:
+ * The file survives as the home of the three, since they share their shape,
+ * their scope handling and the money rules below:
  *  - endorsement deltas CARRY A SIGN (never an absolute value) — rendered with
  *    an explicit `+` so an increase and a refund read differently;
  *  - the collection ledger column is Σ `gross_amount_uf` over the plan's
@@ -21,12 +24,10 @@ import { FileEdit, Landmark, Siren } from "lucide-react";
 
 import { DataTable } from "@/components/common/DataTable";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState, ErrorBanner, MonoChip, StatusBadge, uf } from "@/pages/proposals/shared";
 import { useEndorsements } from "@/api/endorsements";
 import { useCollectionPlans } from "@/api/collections";
 import { useClaims } from "@/api/claims";
-import { usePermissions, can } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import {
   CLAIM_STATUSES,
@@ -50,8 +51,6 @@ import {
 } from "./shared";
 import { useScopeParams } from "@/components/common/ScopeFilter";
 
-type SubView = "endorsements" | "collections" | "claims";
-
 /** A signed UF delta: `+UF 10,54` / `−UF 1,86` / `—`. The sign is the meaning. */
 function signedUf(value: string | null): string {
   if (value === null || value === undefined) return "—";
@@ -60,69 +59,29 @@ function signedUf(value: string | null): string {
   return n > 0 ? `+${uf(value)}` : uf(value);
 }
 
-export default function PostsaleTab() {
-  const { t } = useTranslation("analytics");
-  const perms = usePermissions();
-
-  const granted = React.useMemo<SubView[]>(() => {
-    const out: SubView[] = [];
-    if (can(perms.data, "Endorsements", "View")) out.push("endorsements");
-    if (can(perms.data, "Collections", "View")) out.push("collections");
-    if (can(perms.data, "Claims", "View")) out.push("claims");
-    return out;
-  }, [perms.data]);
-
-  const [subParam] = useUrlParam("sub");
+/**
+ * The `?status=` chip as URL state, shared by the three tables.
+ *
+ * Each tab owns its own status vocabulary, but they all reset the page index
+ * in the SAME update — two sequential setters would each read the same stale
+ * URL and only the last change would survive.
+ */
+function useStatusFilter(): { status: string | null; setStatus: (value: string | null) => void } {
   const [status] = useUrlParam("status");
   const setParams = useSetUrlParams();
-  const sub: SubView =
-    subParam && granted.includes(subParam as SubView)
-      ? (subParam as SubView)
-      : (granted[0] ?? "endorsements");
-
-  // One batched update: status vocabularies differ per sub-view and a page
-  // index is meaningless on another table, so both reset with the switch.
-  const switchSub = (next: string) => setParams({ sub: next, status: null, page: null });
-  const setStatus = (value: string | null) => setParams({ status: value, page: null });
-
-  if (perms.isLoading) return null;
-  if (granted.length === 0) return null; // the parent tab is already hidden
-
-  return (
-    <div className="flex flex-col gap-3">
-      {granted.length > 1 ? (
-        <Tabs value={sub} onValueChange={switchSub}>
-          <TabsList>
-            {granted.map((view) => (
-              <TabsTrigger key={view} value={view}>
-                {t(`postsale.${view}`)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      ) : null}
-
-      {sub === "endorsements" ? (
-        <EndorsementsView status={status} setStatus={setStatus} />
-      ) : sub === "collections" ? (
-        <CollectionsView status={status} setStatus={setStatus} />
-      ) : (
-        <ClaimsView status={status} setStatus={setStatus} />
-      )}
-    </div>
+  const setStatus = React.useCallback(
+    (value: string | null) => setParams({ status: value, page: null }),
+    [setParams],
   );
-}
-
-interface SubViewProps {
-  status: string | null;
-  setStatus: (value: string | null) => void;
+  return { status, setStatus };
 }
 
 // =============================================================================
 // Endosos
 // =============================================================================
 
-function EndorsementsView({ status, setStatus }: SubViewProps) {
+export function EndorsementsTab() {
+  const { status, setStatus } = useStatusFilter();
   const { t } = useTranslation("analytics");
   const { t: tPostsale } = useTranslation("postsale");
   const navigate = useNavigate();
@@ -242,7 +201,8 @@ function EndorsementsView({ status, setStatus }: SubViewProps) {
 // Cobranzas
 // =============================================================================
 
-function CollectionsView({ status, setStatus }: SubViewProps) {
+export function CollectionsTab() {
+  const { status, setStatus } = useStatusFilter();
   const { t } = useTranslation("analytics");
   const { t: tPostsale } = useTranslation("postsale");
   const navigate = useNavigate();
@@ -363,7 +323,8 @@ function CollectionsView({ status, setStatus }: SubViewProps) {
 // Siniestros
 // =============================================================================
 
-function ClaimsView({ status, setStatus }: SubViewProps) {
+export function ClaimsTab() {
+  const { status, setStatus } = useStatusFilter();
   const { t } = useTranslation("analytics");
   const { t: tPostsale } = useTranslation("postsale");
   const navigate = useNavigate();

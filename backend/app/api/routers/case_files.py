@@ -48,8 +48,10 @@ from app.models.enums import (
 )
 from app.models.insurance_line import InsuranceLine
 from app.models.insured import Insured
+from app.models.insurer import Insurer
 from app.models.placement import Placement, PlacementStatus
 from app.models.policy import Policy
+from app.models.proposal import Proposal
 from app.models.quote import QuoteRequest
 from app.models.user import User
 from app.schemas.case_file import (
@@ -77,6 +79,7 @@ from app.schemas.case_file import (
     OriginChainEntry,
     PendingAction,
     PendingActionsResponse,
+    QuotingInsurer,
     SectionCount,
     StageEventRead,
     TimelineEntry,
@@ -313,6 +316,87 @@ def _documents_count(db: Session, case_ids: list[int]) -> dict[int, int]:
         .group_by(Document.case_file_id)
     ).all()
     return {int(key): int(value) for key, value in rows if key is not None}
+
+
+def _proposal_offers(
+    db: Session, broker_id: int, cases: list[CaseFile]
+) -> dict[int, tuple[int, list[QuotingInsurer]]]:
+    """Cotizaciones received per case + the insurers behind them, in ONE query.
+
+    Same reach as ``services.case_files.case_proposals``, so the list column and
+    the expediente's ``proposals_count`` can never disagree: a proposal belongs
+    to the folder when it hangs off the case directly, off a quote request of
+    the case, or off a quote request of the case's placement. That OR is
+    expressed as a LEFT JOIN to ``quote_request`` plus an OR join condition on
+    ``proposal``, DISTINCT-ed because several quote requests fan the same row
+    out — one grouped aggregate over the page, never an N+1 per row.
+
+    Tenant scope: every leg filters ``broker_id``. ``insurer`` is canonical /
+    cross-broker, so it is reached ONLY through the broker's own ``proposal``
+    rows — another tenant's offer is simply not in the result.
+    """
+    case_ids = [case.id for case in cases]
+    if not case_ids:
+        return {}
+
+    rows = db.execute(
+        select(
+            CaseFile.id,
+            Proposal.id,
+            Insurer.id,
+            Insurer.legal_name,
+            Insurer.trade_name,
+        )
+        .select_from(CaseFile)
+        .join(
+            QuoteRequest,
+            or_(
+                QuoteRequest.case_file_id == CaseFile.id,
+                QuoteRequest.placement_id == CaseFile.placement_id,
+            ),
+            isouter=True,
+        )
+        .join(
+            Proposal,
+            or_(
+                Proposal.case_file_id == CaseFile.id,
+                Proposal.quote_request_id == QuoteRequest.id,
+            ),
+        )
+        .join(Insurer, Insurer.id == Proposal.insurer_id)
+        .where(
+            CaseFile.id.in_(case_ids),
+            CaseFile.broker_id == broker_id,
+            Proposal.broker_id == broker_id,
+            or_(QuoteRequest.id.is_(None), QuoteRequest.broker_id == broker_id),
+        )
+        .distinct()
+    ).all()
+
+    proposals: dict[int, set[int]] = {}
+    insurers: dict[int, dict[int, str]] = {}
+    for case_id, proposal_id, insurer_id, legal_name, trade_name in rows:
+        proposals.setdefault(int(case_id), set()).add(int(proposal_id))
+        insurers.setdefault(int(case_id), {})[int(insurer_id)] = (
+            trade_name or legal_name
+        )
+
+    return {
+        case_id: (
+            len(found),
+            [
+                QuotingInsurer(id=insurer_id, name=name)
+                # Deterministic: name first (that is the column the broker
+                # reads), id as the tie-break, so the row is stable request
+                # to request.
+                for insurer_id, name in sorted(
+                    insurers.get(case_id, {}).items(),
+                    key=lambda item: (item[1].casefold(), item[0]),
+                )
+            ],
+        )
+        for case_id, found in proposals.items()
+    }
 
 
 def _read(db: Session, case: CaseFile, *, documents_count: int = 0) -> CaseFileRead:
@@ -561,10 +645,16 @@ def list_case_files(
         db.scalars(stmt.offset((page - 1) * page_size).limit(page_size)).all()
     )
     counts = _documents_count(db, [row.id for row in rows])
+    offers = _proposal_offers(db, broker_id, rows)
     return CaseFilePage(
         items=[
             CaseFileListItem.model_validate(
                 _read(db, row, documents_count=counts.get(row.id, 0))
+            ).model_copy(
+                update={
+                    "proposals_count": offers.get(row.id, (0, []))[0],
+                    "quoting_insurers": offers.get(row.id, (0, []))[1],
+                }
             )
             for row in rows
         ],

@@ -1,8 +1,8 @@
 {
   "nav": {
-    "groups": "Grupos",
-    "newGroup": "Nuevo grupo",
-    "allGroups": "Ver todos los grupos",
+    "groups": "Asegurados",
+    "newGroup": "Nuevo asegurado",
+    "allGroups": "Ver todos los asegurados",
     "more": "Más",
     "commercial": "Comercial",
     "portfolio": "Portafolio",
@@ -12,13 +12,13 @@
     "insurersAppetite": "Compañías y apetito",
     "finance": "Finanzas",
     "reports": "Reportería",
-    "emptyGroups": "Sin grupos",
-    "emptyGroupsHint": "Crea el primer grupo para empezar a ordenar la cartera.",
+    "emptyGroups": "Sin asegurados",
+    "emptyGroupsHint": "Crea el primer asegurado para empezar a ordenar la cartera.",
     "openAccounts": "{{count}} en curso",
     "periodsMore": "Ver todas las vigencias",
     "expand": "Desplegar",
     "collapse": "Plegar",
-    "error": "No pudimos cargar los grupos"
+    "error": "No pudimos cargar los asegurados"
   },
   "ai": {
     "reader": {
@@ -93,7 +93,7 @@
     "accounts_other": "{{count}} cuentas",
     "policyLabel": "P{{n}} · {{number}}",
     "extendedUntil": "Prorrogada hasta {{date}}",
-    "error": "No pudimos cargar el árbol del grupo",
+    "error": "No pudimos cargar el árbol del asegurado",
     "readOnly": "Vigencia histórica: sólo lectura",
     "batch": "Prórroga",
     "batchHint": "Un mismo lote de prórroga sobre varias pólizas: se muestra una vez."
@@ -169,7 +169,7 @@
   },
   "extend": {
     "title": "Prórroga de pólizas",
-    "subtitle": "Selecciona las pólizas del grupo que se prorrogan. Se crea un endoso por póliza.",
+    "subtitle": "Selecciona las pólizas del asegurado que se prorrogan. Se crea un endoso por póliza.",
     "selectPolicies": "Pólizas a prorrogar",
     "selectHint": "Ninguna viene marcada: la prórroga siempre se elige a mano.",
     "selectedCount": "{{count}} pólizas seleccionadas",
@@ -206,9 +206,9 @@
     "error": "No pudimos cargar la historia"
   },
   "group": {
-    "title": "Grupos",
-    "subtitle": "La carpeta comercial que agrupa las empresas, las vigencias y los ramos de una cuenta.",
-    "one": "Grupo",
+    "title": "Asegurados",
+    "subtitle": "La carpeta comercial que reúne las empresas, las vigencias y los ramos de una cuenta.",
+    "one": "Asegurado",
     "fields": {
       "name": "Nombre",
       "nameHint": "El nombre con que la corredora habla de la cuenta; puede no ser la razón social.",
@@ -227,40 +227,40 @@
       "archived": "Archivado"
     },
     "actions": {
-      "new": "Nuevo grupo",
-      "edit": "Editar grupo",
-      "archive": "Archivar grupo",
-      "restore": "Reactivar grupo",
+      "new": "Nuevo asegurado",
+      "edit": "Editar asegurado",
+      "archive": "Archivar asegurado",
+      "restore": "Reactivar asegurado",
       "addClient": "Agregar empresa",
-      "removeClient": "Quitar del grupo",
+      "removeClient": "Quitar del asegurado",
       "downloadArchive": "Descargar expediente",
       "newAccount": "Nueva cuenta",
-      "open": "Abrir el grupo",
-      "viewInGroup": "Ver en el grupo"
+      "open": "Abrir el asegurado",
+      "viewInGroup": "Ver en el asegurado"
     },
     "create": {
-      "title": "Crear un grupo",
-      "nameLabel": "Nombre del grupo",
+      "title": "Crear un asegurado",
+      "nameLabel": "Nombre del asegurado",
       "clients": "Empresas que se incorporan",
-      "submit": "Crear el grupo",
-      "success": "Grupo creado",
-      "error": "No pudimos crear el grupo",
-      "clientsHint": "Una empresa sólo puede pertenecer a un grupo; las que ya están en otro aparecen deshabilitadas."
+      "submit": "Crear el asegurado",
+      "success": "Asegurado creado",
+      "error": "No pudimos crear el asegurado",
+      "clientsHint": "Una empresa sólo puede pertenecer a un asegurado; las que ya están en otro aparecen deshabilitadas."
     },
     "detach": {
-      "confirm": "¿Quitar esta empresa del grupo?",
-      "success": "Empresa quitada del grupo",
-      "confirmNamed": "¿Quitar a {{name}} del grupo? La empresa sigue existiendo en Clientes."
+      "confirm": "¿Quitar esta empresa del asegurado?",
+      "success": "Empresa quitada del asegurado",
+      "confirmNamed": "¿Quitar a {{name}} del asegurado? La empresa sigue existiendo en Clientes."
     },
-    "search": "Buscar grupos",
-    "notFound": "No encontramos este grupo",
+    "search": "Buscar asegurados",
+    "notFound": "No encontramos este asegurado",
     "searchClients": "Buscar una empresa por razón social o RUT",
     "noClients": "No hay empresas disponibles para incorporar",
     "filters": {
       "allStatuses": "Todos los estados"
     },
-    "noCreatePermission": "No tienes permiso para crear grupos.",
-    "noEditPermission": "No tienes permiso para editar este grupo.",
+    "noCreatePermission": "No tienes permiso para crear asegurados.",
+    "noEditPermission": "No tienes permiso para editar este asegurado.",
     "icon": {
       "label": "Ícono",
       "emoji": "Emoji",
@@ -287,10 +287,10 @@
       }
     },
     "edit": {
-      "title": "Editar grupo",
-      "subtitle": "Cambia el ícono, el nombre y las notas del grupo."
+      "title": "Editar asegurado",
+      "subtitle": "Cambia el ícono, el nombre y las notas del asegurado."
     },
-    "inOtherGroup": "En otro grupo",
+    "inOtherGroup": "En otro asegurado",
     "createClient": {
       "action": "Crear empresa",
       "withRut": "Crear empresa {{rut}}"
@@ -337,7 +337,7 @@
       "error": "No pudimos crear la cuenta",
       "results": "Cuentas creadas",
       "datesInvalid": "El término de la vigencia debe ser posterior al inicio.",
-      "noExtraMembers": "El grupo sólo tiene este RUT.",
+      "noExtraMembers": "El asegurado sólo tiene este RUT.",
       "noLines": "La corredora todavía no tiene ramos activos.",
       "linesRequired": "Elige al menos un ramo.",
       "willCreate_one": "Se creará {{count}} carpeta, una por ramo.",
@@ -449,11 +449,11 @@
     "subtitle": "Una tarjeta por ramo de esta vigencia.",
     "current": "Vigencia actual",
     "historic": "Vigencia histórica",
-    "notFound": "Esta vigencia no existe en el grupo."
+    "notFound": "Esta vigencia no existe en el asegurado."
   },
   "overview": {
-    "title": "Resumen del grupo",
-    "subtitle": "Todo lo que pasó en el grupo, de lo más reciente a lo más antiguo.",
+    "title": "Resumen del asegurado",
+    "subtitle": "Todo lo que pasó en el asegurado, de lo más reciente a lo más antiguo.",
     "olderPeriods": "Vigencias anteriores",
     "loadMore": "Cargar más",
     "periods": "Vigencias",
@@ -478,7 +478,7 @@
   },
   "archive": {
     "title": "Descargar expediente",
-    "wholeGroup": "Todo el grupo",
+    "wholeGroup": "Todo el asegurado",
     "currentPeriod": "Sólo esta vigencia",
     "preparing": "Preparando el expediente…",
     "ready": "Expediente listo para descargar",
@@ -488,7 +488,7 @@
     "onlyPeriod": "Sólo la vigencia {{label}}"
   },
   "timeline": {
-    "title": "Bitácora del grupo",
+    "title": "Bitácora del asegurado",
     "kinds": {
       "stage": "Etapa",
       "activity": "Actividad",
@@ -508,34 +508,34 @@
   "errors": {
     "period_locked": "La vigencia es una carpeta: para cambiar las fechas abre una vigencia nueva.",
     "folder_exists": "Ya existe una carpeta abierta para este ramo y esta vigencia.",
-    "client_not_in_group": "Ese RUT no pertenece al grupo de la cuenta.",
-    "policies_span_groups": "Las pólizas seleccionadas pertenecen a grupos distintos.",
-    "client_in_other_group": "Ese RUT ya pertenece a otro grupo.",
+    "client_not_in_group": "Ese RUT no pertenece al asegurado de la cuenta.",
+    "policies_span_groups": "Las pólizas seleccionadas pertenecen a asegurados distintos.",
+    "client_in_other_group": "Ese RUT ya pertenece a otro asegurado.",
     "renewal_not_allowed": "Esta cuenta todavía no se puede renovar.",
-    "group_has_open_cases": "El RUT tiene carpetas abiertas en el grupo.",
+    "group_has_open_cases": "El RUT tiene carpetas abiertas en el asegurado.",
     "generic": "Ocurrió un error"
   },
   "empty": {
-    "groups": "Todavía no hay grupos",
-    "groupsHint": "Un grupo ordena las empresas, las vigencias y los ramos de una misma cuenta comercial.",
-    "accounts": "Este grupo aún no tiene cuentas",
+    "groups": "Todavía no hay asegurados",
+    "groupsHint": "Un asegurado ordena las empresas, las vigencias y los ramos de una misma cuenta comercial.",
+    "accounts": "Este asegurado aún no tiene cuentas",
     "accountsHint": "Crea la primera cuenta eligiendo la vigencia y los ramos.",
     "policies": "Esta vigencia todavía no tiene pólizas emitidas.",
     "records": "Esta carpeta de antecedentes está vacía.",
     "recordsHint": "Sube el documento que corresponde para completarla.",
-    "timeline": "Sin movimientos en el grupo",
+    "timeline": "Sin movimientos en el asegurado",
     "periods": "Sin vigencias registradas",
     "history": "Sin vigencia anterior",
-    "clients": "El grupo no tiene empresas asociadas",
+    "clients": "El asegurado no tiene empresas asociadas",
     "lines": "Esta vigencia todavía no tiene ramos",
     "clientsHint": "Agrega las empresas que componen la cuenta; cada una aporta su RUT."
   },
   "policy": {
     "current": "Esta póliza",
-    "subFunnel": "Post-venta del grupo",
+    "subFunnel": "Post-venta del asegurado",
     "subFunnelHint": "Las pólizas de esta vigencia y lo que cuelga de cada una.",
-    "notInTree": "Esta póliza no aparece en el árbol del grupo",
-    "notInTreeHint": "Puede pertenecer a otro grupo o no estar asociada a una cuenta.",
+    "notInTree": "Esta póliza no aparece en el árbol del asegurado",
+    "notInTreeHint": "Puede pertenecer a otro asegurado o no estar asociada a una cuenta.",
     "noChildren": "Sin registros",
     "noChildPermission": "No tienes permiso para ver este detalle."
   },

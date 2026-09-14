@@ -79,8 +79,14 @@ const PHASE_BY_STAGE: Partial<Record<CaseStage, AccountPhase>> = {
   renewal_review: "renovacion",
 };
 
-/** Where an account/renewal row lives: its group page when it has one. */
-function accountRoute(row: CaseFile): string {
+/**
+ * Where an account/renewal row lives: its group page when it has one.
+ *
+ * Exported because the Cotizaciones tab lists the same folders from a
+ * different angle and must land the broker in exactly the same place — one
+ * route rule for accounts, not two that drift.
+ */
+export function accountRoute(row: CaseFile): string {
   return row.account_group_id
     ? `/groups/${row.account_group_id}/accounts/${row.id}`
     : `/cases/${row.id}`;

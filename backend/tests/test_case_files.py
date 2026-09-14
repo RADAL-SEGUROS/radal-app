@@ -1216,3 +1216,145 @@ def test_patch_cannot_move_a_folder_onto_another_folders_line(
         json={"insurance_line_id": free_line.id},
     )
     assert ok.status_code == 200, ok.text
+
+
+# --- The list's offer columns (Portafolio > Cotizaciones) ---------------------
+# ``proposals_count`` + ``quoting_insurers`` on CaseFileListItem: how many
+# cotizaciones (an insurer's INBOUND offer) landed on the folder and which
+# companies sent them. Filled by ONE grouped aggregate over the page.
+
+def _insurer(db, legal_name, *, rut, cmf_code, trade_name=None):
+    from app.models.insurer import Insurer
+
+    row = Insurer(
+        legal_name=legal_name,
+        trade_name=trade_name,
+        rut=rut,
+        cmf_code=cmf_code,
+        is_native=False,
+    )
+    db.add(row)
+    db.flush()
+    return row
+
+
+def _offer(db, tenant, insurer, *, case=None, quote_request=None):
+    """One received cotización, attached the way the comparación attaches it.
+
+    ``quote_request_id`` is NOT NULL on ``proposal``, so an offer always hangs
+    off a quote request; ``case_file_id`` is the direct link the comparación
+    also writes. Passing both is the real shape, and the aggregate must not
+    double-count it.
+    """
+    proposal = Proposal(
+        broker_id=tenant.broker_id,
+        case_file_id=case.id if case is not None else None,
+        quote_request_id=(quote_request or tenant.quote).id,
+        insurer_id=insurer.id,
+        source_document_id=tenant.document.id,
+        status=ProposalStatus.SUBMITTED,
+        total_premium_uf=Decimal("139.0000"),
+    )
+    db.add(proposal)
+    db.flush()
+    return proposal
+
+
+def _row(body, case_id):
+    return next(item for item in body["items"] if item["id"] == case_id)
+
+
+def test_list_reports_the_insurers_that_quoted(client, world, db, headers_a):
+    """Two offers from two companies: the count is 2 and both names show, in a
+    stable order (by name) so the column does not shuffle between requests."""
+    case = make_case_file(db, world.a)
+    zurich = _insurer(db, "Zurich Chile Seguros S.A.", rut="99999999-9", cmf_code="CMF-Z-1")
+    bci = _insurer(
+        db,
+        "BCI Seguros Generales S.A.",
+        trade_name="BCI Seguros",
+        rut="99888888-8",
+        cmf_code="CMF-B-1",
+    )
+    _offer(db, world.a, zurich, case=case)
+    _offer(db, world.a, bci, case=case)
+    db.commit()
+
+    body = client.get(f"{API}/case-files", headers=headers_a).json()
+    row = _row(body, case.id)
+    assert row["proposals_count"] == 2
+    # trade_name wins over legal_name, exactly as the comparación renders it.
+    assert row["quoting_insurers"] == [
+        {"id": bci.id, "name": "BCI Seguros"},
+        {"id": zurich.id, "name": "Zurich Chile Seguros S.A."},
+    ]
+
+
+def test_list_counts_two_offers_from_one_insurer_once_in_the_column(
+    client, world, db, headers_a
+):
+    """Two cotizaciones from the SAME company: two offers, one name."""
+    case = make_case_file(db, world.a)
+    hdi = world.insurer
+    _offer(db, world.a, hdi, case=case)
+    _offer(db, world.a, hdi, case=case)
+    db.commit()
+
+    row = _row(client.get(f"{API}/case-files", headers=headers_a).json(), case.id)
+    assert row["proposals_count"] == 2
+    assert row["quoting_insurers"] == [{"id": hdi.id, "name": "HDI Seguros S.A."}]
+
+
+def test_list_offer_columns_are_empty_not_null_without_proposals(
+    client, world, db, headers_a
+):
+    case = make_case_file(db, world.a)
+    db.commit()
+
+    row = _row(client.get(f"{API}/case-files", headers=headers_a).json(), case.id)
+    assert row["proposals_count"] == 0
+    assert row["quoting_insurers"] == []
+
+
+def test_list_counts_an_offer_attached_through_the_quote_request(
+    client, world, db, headers_a
+):
+    """The folder's placement carries the quote request: an offer against it is
+    the folder's offer, exactly as ``CaseFileDetail.proposals_count`` reads it."""
+    case = make_case_file(db, world.a)
+    _offer(db, world.a, world.insurer, quote_request=world.a.quote)
+    db.commit()
+
+    row = _row(client.get(f"{API}/case-files", headers=headers_a).json(), case.id)
+    detail = client.get(f"{API}/case-files/{case.id}", headers=headers_a).json()
+    assert row["proposals_count"] == detail["proposals_count"] == 1
+    assert row["quoting_insurers"] == [{"id": world.insurer.id, "name": "HDI Seguros S.A."}]
+
+
+def test_another_brokers_offers_never_land_on_this_brokers_row(
+    client, world, db, headers_a, headers_b
+):
+    """``insurer`` is canonical, so it is reached only through the caller's own
+    proposals. Broker B's offers — even one forged onto A's case id — are
+    invisible to A, and A's are invisible to B."""
+    case_a = make_case_file(db, world.a)
+    case_b = make_case_file(db, world.b)
+    mapfre = _insurer(db, "MAPFRE Seguros Generales", rut="99777777-7", cmf_code="CMF-M-1")
+    _offer(db, world.a, world.insurer, case=case_a)
+    _offer(db, world.b, mapfre, case=case_b)
+    # The forgery the broker_id filter exists for: B's proposal pointing at A's
+    # folder. It must not add a row, a count or a name to A's list.
+    _offer(db, world.b, mapfre, case=case_a)
+    db.commit()
+
+    row_a = _row(client.get(f"{API}/case-files", headers=headers_a).json(), case_a.id)
+    assert row_a["proposals_count"] == 1
+    assert row_a["quoting_insurers"] == [
+        {"id": world.insurer.id, "name": "HDI Seguros S.A."}
+    ]
+
+    body_b = client.get(f"{API}/case-files", headers=headers_b).json()
+    assert [item["id"] for item in body_b["items"]] == [case_b.id]
+    assert _row(body_b, case_b.id)["quoting_insurers"] == [
+        {"id": mapfre.id, "name": "MAPFRE Seguros Generales"}
+    ]

@@ -16,11 +16,12 @@ they are pasted into every session and cost ~170k tokens before a word is exchan
 works top-down and left-to-right:
 
 ```
-grupo (group) → grupo-cuenta (account: ramo × vigencia) →
+grupo (account_group — shown to the user as **Asegurado** since v11) →
+   grupo-cuenta (account: ramo × vigencia — shown as **Cuenta**) →
    Antecedentes → Bases Técnicas → Comparación → Propuesta → Pólizas
 ```
 
-- **grupo / group** (`account_group`) — the broker-private folder grouping the *empresas* (RUTs), the
+- **grupo / group** (`account_group`, UI label **Asegurado**) — the broker-private folder grouping the *empresas* (RUTs), the
   *vigencias* and the *ramos* of one commercial account. Has an icon; carries no money and no stage.
 - **grupo-cuenta / account / expediente** (`case_file(kind=account)`) — **one ramo × one vigencia × N
   RUTs**, under a group. THE unit of work; it carries the journey stage. "Expediente" = the folder;
@@ -72,11 +73,15 @@ unroutable port **before** any `app.*` import — delete those two lines and the
 calls and hangs. (10) There is **no Alembic**: `create_all` never ALTERs, so any new column must go
 through `backend/scripts/migrate_case_files.py` before the branch is pushed.
 
-**Where the work stands (v10, 2026-09-10 — pushed to dev).** The whole v2→v10 arc is committed
-(`0c60de6`) and **pushed to `dev`**, which fires CI to `https://dev.radalseguros.cl`. **v9** built the
-broker journey (see `docs/handoff-2026-09-09-v9.md`); **v10** built the two analysis destinations and
-the account super-overview (see `docs/handoff-2026-09-10-v10.md` — as-built AND a candid error log;
-`docs/technical-reference.md` §17 is the spec). A **ramo** is an **advisory recommended-files template
+**Where the work stands (v11, 2026-09-14).** The v2→v10 arc is committed (`0c60de6`) and **pushed to
+`dev`**, which fires CI to `https://dev.radalseguros.cl`. **v9** built the broker journey (see
+`docs/handoff-2026-09-09-v9.md`); **v10** built the two analysis destinations and the account
+super-overview (see `docs/handoff-2026-09-10-v10.md` — as-built AND a candid error log;
+`docs/technical-reference.md` §17 is the spec); **v11** is the first **issue-driven** pass — the
+Portafolio/Asegurados rename and the nine-tab Portafolio (§18), from team issues #1 and #2. §18.5
+carries the rule that killed the two tabs that were asked for but NOT built (Renovaciones,
+Inspecciones): a list needs **an origin, a classifier and an owner**, or it renders permanently empty
+and reads as a broken app — reuse that test on the next feature request. A **ramo** is an **advisory recommended-files template
 + AI context — NOT a field/section schema**: chosen when creating the grupo-cuenta via a **dropdown**
 or a **"Crear ramo" drawer**, never managed in Configuración. **Antecedentes** shows the ramo's
 recommended-file slots + free upload, two subtabs (Archivos / Extracción), **cotizaciones scoped out**,
@@ -87,10 +92,13 @@ is a dynamic incremental comparison via **tool calls** (`extract_budget_proposal
 insurer resolution. Extraction is context-aware on **GLM-5.3 tool-calling** with a model-tiering
 registry; stage-guard reasons are **Spanish**.
 
-**What v10 changed.** The **MÁS nav section is gone**; the rail is GRUPOS + five plain rows — **Datos ·
-Analítica · Agente · Compañías · Configuración** (no ADMINISTRACIÓN header). `/analytics` split into
-**`/data` (Datos — eleven table tabs)** and **`/analytics` (Analítica — visuals only, with a `?by=`
-dimension read from the server catalog)**. The old entity routes still resolve for group deep links;
+**What v10/v11 changed.** The **MÁS nav section is gone**; the rail is ASEGURADOS + five plain rows —
+**Portafolio · Analítica · Agente · Compañías · Configuración** (no ADMINISTRACIÓN header).
+`/analytics` split into **`/data` (Portafolio) and `/analytics` (Analítica — visuals only, with a
+`?by=` dimension read from the server catalog)**. **v11** renamed Datos → **Portafolio** and Grupos →
+**Asegurados** in every user-facing string (routes and identifiers stay English) and cut Portafolio's
+eleven table tabs to **nine** in the broker's own order — Asegurados · Pipeline · Cotizaciones ·
+Propuestas · Pólizas · Endosos · Cobranza · Siniestros · Documentos. The old entity routes still resolve for group deep links;
 they just lost their rail entries. Both destinations share one **scope — grupo · grupo-cuenta ·
 fechas — held in the URL**, applied server-side to lists, summaries and exports alike; comparing
 several groups is deliberately NOT built (that is the agent's job). **"Ver expediente completo"** now
@@ -99,13 +107,13 @@ journey with real completion dates, antecedentes, comparación, propuesta, póli
 plus a branded PDF, **rendered on demand so it is always current and needed no migration**; absent
 blocks print a Spanish reason **derived from the journey**, never a blank. New: `POST /exports/{entity}`
 (XLSX + PDF over every matching row) and `GET /exports/entities`. **Motion lives in the `Tabs`
-primitive** so every tab bar inherits the sliding marker. **Verified: 752 backend tests;
-`tsc -b`/`build`/`check:locales` clean (22 namespaces, 3 695 keys/locale); the whole surface driven
+primitive** so every tab bar inherits the sliding marker. **Verified at v11: 757 backend tests;
+`tsc -b`/`build`/`check:locales` clean (22 namespaces, 3 719 keys/locale); the v10 surface driven
 live in a real browser.** Read `README.md` to orient, the handoffs for the arc, the technical reference
 for detail, plus `docs/deployment.md`, `docs/usuarios-de-prueba.md`; delegate to `.claude/agents/`.
 
-**Deploy state / traps.** The dev RDS carries the **v9 schema + blank baseline**; **v10 added no
-columns and no enum values, so it needs no migration**. S3 `deploy/backend.env` carries the AI/media
+**Deploy state / traps.** The dev RDS carries the **v9 schema + blank baseline**; **neither v10 nor
+v11 added a column or an enum value, so neither needs a migration**. S3 `deploy/backend.env` carries the AI/media
 keys (`MEDIA_BACKEND=s3`); CI (`.github/workflows/dev-deploy.yml`, OIDC) fires on push to `dev` →
 `https://dev.radalseguros.cl`. **Still owed / watch:** the **full sequential QA walk has never been run**
 (`docs/qa-handoff-chrome.md` — v10 verified only its own changes); the backend image builds Chromium

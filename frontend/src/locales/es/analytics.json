@@ -1,7 +1,7 @@
 {
-  "eyebrow": "Portafolio",
+  "eyebrow": "Cartera",
   "title": "Analítica",
-  "subtitle": "La forma de la cartera: indicadores y distribución. Las tablas están en Datos.",
+  "subtitle": "La forma de la cartera: indicadores y distribución. Las tablas están en Portafolio.",
   "noModules": "Tu rol no tiene acceso a ninguno de los módulos de esta página.",
   "count_one": "{{count}} resultado",
   "count_many": "{{count}} resultados",
@@ -56,6 +56,7 @@
     }
   },
   "tabs": {
+    "insureds": "Asegurados",
     "accounts": "Cuentas",
     "quotes": "Cotizaciones",
     "proposals": "Propuestas",
@@ -66,7 +67,11 @@
     "placements": "Colocaciones",
     "inspections": "Inspecciones",
     "offerings": "Ofertas",
-    "leads": "Leads"
+    "leads": "Leads",
+    "pipeline": "Pipeline",
+    "endorsements": "Endosos",
+    "collections": "Cobranza",
+    "claims": "Siniestros"
   },
   "filters": {
     "all": "Todas",
@@ -83,7 +88,7 @@
     "board": "Tablero"
   },
   "columns": {
-    "group": "Grupo / cuenta",
+    "group": "Asegurado / cuenta",
     "line": "Ramo",
     "period": "Vigencia",
     "stage": "Etapa",
@@ -116,7 +121,8 @@
     "category": "Categoría",
     "entityType": "Entidad",
     "size": "Tamaño",
-    "uploadedAt": "Subido"
+    "uploadedAt": "Subido",
+    "updatedAt": "Actualizado"
   },
   "postsale": {
     "endorsements": "Endosos",
@@ -141,7 +147,7 @@
     "documents": "Todavía no hay documentos"
   },
   "emptyHint": {
-    "accounts": "Crea un grupo y agrega su primera cuenta para verla aquí.",
+    "accounts": "Crea un asegurado y agrega su primera cuenta para verla aquí.",
     "quotes": "Las cotizaciones enviadas al mercado aparecerán en esta lista.",
     "proposals": "Sube la cotización de una compañía para registrar su propuesta.",
     "policies": "Las pólizas emitidas desde una propuesta aceptada aparecerán aquí.",
@@ -150,12 +156,29 @@
   },
   "data": {
     "eyebrow": "Cartera",
-    "title": "Datos",
-    "subtitle": "Todas las tablas de la corredora, filtradas por grupo, cuenta y fecha."
+    "title": "Portafolio",
+    "subtitle": "Todo el portafolio de la corredora, filtrado por asegurado, cuenta y fecha."
+  },
+  "insureds": {
+    "clients": "Asegurados",
+    "accounts": "Cuentas",
+    "openAccounts": "Cuentas abiertas"
+  },
+  "quotesSub": {
+    "inMarket": "En mercado",
+    "inMarketHint": "Colocaciones enviadas a las compañías que aún no vuelven con ofertas.",
+    "received": "Ofertas recibidas",
+    "receivedHint": "Colocaciones con ofertas de una o más compañías, listas para comparar.",
+    "presented": "Ofertas presentadas",
+    "presentedHint": "Colocaciones cuya comparación ya fue presentada al asegurado.",
+    "insurers": "Compañías que cotizaron",
+    "offers": "Ofertas",
+    "compare": "Ver comparación",
+    "noInsurers": "Sin ofertas todavía"
   },
   "scope": {
-    "group": "Grupo",
-    "account": "Grupo-cuenta",
+    "group": "Asegurado",
+    "account": "Cuenta",
     "dateRange": "Fechas",
     "from": "Desde",
     "to": "Hasta",
@@ -178,7 +201,7 @@
     "status": "Estado",
     "insurer": "Compañía",
     "insurance_line": "Ramo",
-    "account_group": "Grupo",
+    "account_group": "Asegurado",
     "month": "Mes",
     "kind": "Tipo",
     "origin": "Origen",

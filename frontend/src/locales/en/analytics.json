@@ -1,7 +1,7 @@
 {
-  "eyebrow": "Portfolio",
+  "eyebrow": "Book of business",
   "title": "Analytics",
-  "subtitle": "The shape of the portfolio: indicators and distribution. The tables live in Data.",
+  "subtitle": "The shape of the portfolio: indicators and distribution. The tables live in Portfolio.",
   "noModules": "Your role has no access to any of the modules on this page.",
   "count_one": "{{count}} result",
   "count_many": "{{count}} results",
@@ -56,6 +56,7 @@
     }
   },
   "tabs": {
+    "insureds": "Insureds",
     "accounts": "Accounts",
     "quotes": "Quotes",
     "proposals": "Proposals",
@@ -66,7 +67,11 @@
     "placements": "Placements",
     "inspections": "Inspections",
     "offerings": "Offerings",
-    "leads": "Leads"
+    "leads": "Leads",
+    "pipeline": "Pipeline",
+    "endorsements": "Endorsements",
+    "collections": "Collections",
+    "claims": "Claims"
   },
   "filters": {
     "all": "All",
@@ -83,7 +88,7 @@
     "board": "Board"
   },
   "columns": {
-    "group": "Group / account",
+    "group": "Insured / account",
     "line": "Line",
     "period": "Period",
     "stage": "Stage",
@@ -116,7 +121,8 @@
     "category": "Category",
     "entityType": "Entity",
     "size": "Size",
-    "uploadedAt": "Uploaded"
+    "uploadedAt": "Uploaded",
+    "updatedAt": "Updated"
   },
   "postsale": {
     "endorsements": "Endorsements",
@@ -141,7 +147,7 @@
     "documents": "No documents yet"
   },
   "emptyHint": {
-    "accounts": "Create a group and add its first account to see it here.",
+    "accounts": "Create an insured and add its first account to see it here.",
     "quotes": "Quote requests sent to the market will show up in this list.",
     "proposals": "Upload an insurer's quotation to register its proposal.",
     "policies": "Policies issued from an accepted proposal will show up here.",
@@ -149,13 +155,30 @@
     "documents": "Files uploaded to case files and entities will show up here."
   },
   "data": {
-    "eyebrow": "Portfolio",
-    "title": "Data",
-    "subtitle": "Every table in the brokerage, filtered by group, account and date."
+    "eyebrow": "Book of business",
+    "title": "Portfolio",
+    "subtitle": "The whole brokerage portfolio, filtered by insured, account and date."
+  },
+  "insureds": {
+    "clients": "Insureds",
+    "accounts": "Accounts",
+    "openAccounts": "Open accounts"
+  },
+  "quotesSub": {
+    "inMarket": "In market",
+    "inMarketHint": "Placements sent to the insurers that have not come back with offers yet.",
+    "received": "Offers received",
+    "receivedHint": "Placements with offers from one or more insurers, ready to compare.",
+    "presented": "Offers presented",
+    "presentedHint": "Placements whose comparison has already been presented to the insured.",
+    "insurers": "Insurers that quoted",
+    "offers": "Offers",
+    "compare": "See comparison",
+    "noInsurers": "No offers yet"
   },
   "scope": {
-    "group": "Group",
-    "account": "Group account",
+    "group": "Insured",
+    "account": "Account",
     "dateRange": "Dates",
     "from": "From",
     "to": "To",
@@ -178,7 +201,7 @@
     "status": "Status",
     "insurer": "Insurer",
     "insurance_line": "Line",
-    "account_group": "Group",
+    "account_group": "Insured",
     "month": "Month",
     "kind": "Kind",
     "origin": "Origin",

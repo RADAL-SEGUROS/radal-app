@@ -8,7 +8,7 @@ the folder the broker works in and normalises every insurer offer into one compa
 ## The broker journey
 
 ```
-group (icon) → grupo-cuenta (ramo + vigencia)
+asegurado (icon) → cuenta (ramo + vigencia)
    → Antecedentes → Bases Técnicas → Comparación → Propuesta → Pólizas
 ```
 
@@ -24,15 +24,16 @@ current. What is missing prints *why* in Spanish, never a blank.
 
 ## The three ways to look at the book
 
-The rail is GRUPOS plus five rows: **Datos · Analítica · Agente · Compañías · Configuración.**
+The rail is ASEGURADOS plus five rows: **Portafolio · Analítica · Agente · Compañías · Configuración.**
 
-- **Datos** (`/data`) — every consolidated table.
+- **Portafolio** (`/data`) — every consolidated table, in the order a broker works: Asegurados ·
+  Pipeline · Cotizaciones · Propuestas · Pólizas · Endosos · Cobranza · Siniestros · Documentos.
 - **Analítica** (`/analytics`) — the shape of the portfolio: indicators and distribution.
-- **inside a grupo** — one account's detail.
+- **inside an asegurado** — one account's detail.
 
-Both Datos and Analítica share one **scope** — grupo · grupo-cuenta · fechas — held in the URL, so a
+Both Portafolio and Analítica share one **scope** — asegurado · cuenta · fechas — held in the URL, so a
 filtered view is a link you can send. Everything exports to **XLSX or PDF** (charts to **PNG**), over
-every row matching the filters rather than the page on screen. Comparing several groups side by side
+every row matching the filters rather than the page on screen. Comparing several asegurados side by side
 is deliberately not a feature — ask the agent.
 
 ## Cómo reportar algo (para todo el equipo)
@@ -59,7 +60,7 @@ importante y la más fácil de dejar pasar— **un número que sale distinto al 
 debería**. Un dato equivocado se ve igual de normal que uno correcto, así que si
 notas uno, dinos **qué número viste y cuál debería ser**.
 
-*Ejemplos:* "Exporté las pólizas de un grupo y el Excel trajo las de toda la
+*Ejemplos:* "Exporté las pólizas de un asegurado y el Excel trajo las de toda la
 corredora." · "La prima de la propuesta muestra 1.120 y en la póliza dice 1.316."
 
 **🔧 Mejora — algo debería ser distinto.**
