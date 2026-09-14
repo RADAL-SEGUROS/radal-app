@@ -4241,6 +4241,27 @@ received   stage = quotes_received | comparison          → offers in, ready to
 presented  stage = insured_decision | proposal_issued    → comparison shown to the insured
 ```
 
+```mermaid
+flowchart LR
+    subgraph SUB["Cotizaciones · ?sub="]
+        direction TB
+        IM["inMarket"]
+        RC["received"]
+        PS["presented"]
+    end
+    TB["technical_basis"] --> IM
+    MS["market_submission"] --> IM
+    QR["quotes_received"] --> RC
+    CP["comparison"] --> RC
+    ID["insured_decision"] --> PS
+    PI["proposal_issued"] --> PS
+    IM -.->|"nothing yet"| NONE["no offers"]
+    RC -.->|"quoting_insurers"| CMP["comparison worktable"]
+```
+
+The stage set is the whole filter — there is no client-side bucketing, so the table, the count and
+the export all see the same rows.
+
 `received` and `presented` print **which insurers quoted**; `received` links straight to that
 account's comparison. On a group-less (legacy/imported) account that link goes to
 `/comparisons/:caseId` instead of the account tab, because `/cases/:caseId` has no comparison tab —
@@ -4258,8 +4279,23 @@ single-case payload keeps its shape. Filled by `_proposal_offers(db, broker_id, 
 `routers/case_files.py`, one grouped aggregate per page, sitting next to `_documents_count` and
 following the same pattern.
 
-**The trap this avoids.** `proposal.quote_request_id` is NOT NULL, and plenty of offers reach a
-folder only through the placement's quote request, never through `proposal.case_file_id`. A plain
+**The trap this avoids.** A proposal can reach a folder by **two different paths**, and only one of
+them is the obvious one:
+
+```mermaid
+flowchart LR
+    P["proposal<br/>(the insurer's inbound cotización)"]
+    P -->|"path A · case_file_id"| CF["case_file"]
+    P -->|"quote_request_id<br/>NOT NULL"| QR["quote_request"]
+    QR -->|"path B1 · case_file_id"| CF
+    QR -->|"path B2 · placement_id"| PL["placement"]
+    PL --> CF
+```
+
+Counting path A alone — a plain `Proposal.case_file_id.in_(ids)` — silently drops every offer that
+arrived through path B, and the list would then print a *different* number than the detail page for
+exactly those folders. `proposal.quote_request_id` is NOT NULL, and plenty of offers reach a folder
+only through the placement's quote request, never through `proposal.case_file_id`. A plain
 `Proposal.case_file_id.in_(ids)` therefore under-counts — and the list would print a *different*
 number than the detail page for exactly those folders. `_proposal_offers` mirrors
 `services.case_files.case_proposals` exactly (LEFT JOIN `quote_request` on `case_file_id` OR
@@ -4291,8 +4327,20 @@ to become a *list*, the system must be able to recognise it on its own, which ne
 2. **a classifier** — a rule that says *this* document/row is of that type;
 3. **an owner** — the cuenta (ramo × vigencia) or the bien it belongs to.
 
+```mermaid
+flowchart TD
+    ASK["a new list is requested"] --> O{"origin?<br/>where in the journey<br/>is the record created"}
+    O -->|"no"| DEAD["permanently empty tab<br/>= reads as a broken app"]
+    O -->|"yes"| C{"classifier?<br/>what rule says<br/>this row is that type"}
+    C -->|"no"| DEAD
+    C -->|"yes"| W{"owner?<br/>which cuenta / bien<br/>does it hang off"}
+    W -->|"no"| DEAD
+    W -->|"yes"| BUILD["buildable"]
+```
+
 Miss any one and the tab renders permanently empty, which a user reads as a **broken app**, not as a
-missing feature. Inspections today have none of the three: no button, no file type, no attachment
+missing feature. Endosos, Cobranza and Siniestros pass all three (opened from the policy, own kind,
+owned by the policy) — which is exactly why they could be promoted to tabs in this pass. Inspections today have none of the three: no button, no file type, no attachment
 rule. Renewals have a deeper, structural question that must be answered before any code — **does
 renewing open a new vigencia in the sidebar, linked to the expiring one, or live inside the current
 cuenta?** — plus what carries over (antecedentes, bases técnicas, the winning cotización) and what

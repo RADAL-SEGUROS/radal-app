@@ -613,7 +613,7 @@ sequenceDiagram
 
     CB->>API: POST /codigos-acceso/solicitar {entidad_tipo, rut, scope}
     API->>DB: crea codigo_acceso(estado=pendiente, corredora_solicitante=B)
-    Note over API,DB: guarda code_hash = HMAC(pepper, code); plaintext se muestra 1 sola vez
+    Note over API,DB: guarda code_hash = HMAC(pepper, code) · plaintext se muestra 1 sola vez
     API-->>OWN: (out-of-band) el TITULAR genera/aprueba y recibe el code plaintext
     OWN-->>CB: hand-off del código (fuera de banda: correo/tel)
     CB->>API: POST /codigos-acceso/redimir {code}
@@ -625,7 +625,7 @@ sequenceDiagram
         API-->>CB: 200 vínculo creado
     else inválido/expirado/agotado
         DB-->>API: 0 filas
-        API->>DB: intentos+1 ; log attempt_fail ; rate-limit por IP
+        API->>DB: intentos+1 · log attempt_fail · rate-limit por IP
         API-->>CB: 400 código inválido
     end
 ```

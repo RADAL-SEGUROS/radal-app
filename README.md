@@ -26,8 +26,26 @@ current. What is missing prints *why* in Spanish, never a blank.
 
 The rail is ASEGURADOS plus five rows: **Portafolio · Analítica · Agente · Compañías · Configuración.**
 
-- **Portafolio** (`/data`) — every consolidated table, in the order a broker works: Asegurados ·
-  Pipeline · Cotizaciones · Propuestas · Pólizas · Endosos · Cobranza · Siniestros · Documentos.
+- **Portafolio** (`/data`) — every consolidated table, in the order a broker works:
+
+```mermaid
+flowchart LR
+    subgraph PRE["before selling"]
+        direction TB
+        A["Asegurados"] --> B["Pipeline"]
+    end
+    subgraph SALE["the placement's journey"]
+        direction TB
+        C["Cotizaciones"] --> D["Propuestas"] --> E["Pólizas"]
+    end
+    subgraph POST["after the policy"]
+        direction TB
+        F["Endosos"] --> G["Cobranza"] --> H["Siniestros"]
+    end
+    PRE --> SALE --> POST
+    DOC["Documentos · cross-cutting"]
+```
+
 - **Analítica** (`/analytics`) — the shape of the portfolio: indicators and distribution.
 - **inside an asegurado** — one account's detail.
 
