@@ -42,6 +42,16 @@ export const NAMESPACES = [
   "publicOffering",
   // v8: the outbound broker propuesta (mint from comparison → ratify → send).
   "propuesta",
+  // v12: policies as the home, three-level cobranza, the bell, mail, public
+  // share links, the Radal maintainer console, portal RPA, the closed catalogue.
+  "policies",
+  "collections",
+  "notifications",
+  "mail",
+  "share",
+  "platform",
+  "rpa",
+  "catalog",
 ] as const;
 
 export type Namespace = (typeof NAMESPACES)[number];

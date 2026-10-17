@@ -163,6 +163,14 @@ body,
   height: 100%;
 }
 
+/* Set by AppShell while mounted: inside the app the document never scrolls —
+   `main` is the only scroller (review v12 #4). */
+html.app-shell-locked,
+html.app-shell-locked body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   background: var(--bg-app);
   color: var(--text-primary);

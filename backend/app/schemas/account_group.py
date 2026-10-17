@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from app.models.account_group import AccountGroupIconKind, AccountGroupStatus
 from app.models.client import ClientStatus
 from app.schemas.document import DocumentDownload
+from app.schemas.utc import UtcDatetime
 
 
 # --- Group avatar (v8) --------------------------------------------------------
@@ -158,7 +159,7 @@ class AccountGroupRead(BaseModel):
     open_count: int = 0
     latest_period_label: str | None = None
     latest_period_start: date | None = None
-    updated_at: datetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 class AccountGroupDetail(AccountGroupRead):
@@ -181,7 +182,13 @@ class GroupTimelineEntry(BaseModel):
     policies, endorsements, claims, collections), newest FIRST."""
 
     kind: GroupTimelineKind
-    occurred_at: datetime
+    #: Tz-aware UTC (``Z``) so the browser shows Chile time (review v12 #3).
+    occurred_at: UtcDatetime
+    #: True when the source is a bare date (policy start, plan as-of): the
+    #: instant is noon in Chile and the UI must print the DATE only, no "00:00".
+    date_only: bool = False
+    #: Stage rows only: an *omitida* event (the UI folds a run into one line).
+    is_skipped: bool = False
     case_file_id: int | None = None
     policy_id: int | None = None
     #: The human identifier only (policy number, endorsement folio, claim
@@ -213,7 +220,7 @@ class GroupTimelinePage(BaseModel):
     """
 
     entries: list[GroupTimelineEntry]
-    next_before: datetime | None = None
+    next_before: UtcDatetime | None = None
 
 
 class ArchiveResponse(BaseModel):

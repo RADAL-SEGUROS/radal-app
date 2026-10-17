@@ -1,0 +1,130 @@
+{
+  "title": "Mail",
+  "tab": {
+    "description": "Which mailbox sends collection reminders and insurer inquiries, and which mailboxes Radal reads to detect their replies."
+  },
+  "noView": "Your role cannot see the mailboxes.",
+  "radal": {
+    "title": "Radal mailbox",
+    "description": "Ready to use, nothing to configure. Mail goes out under your brokerage's name and replies reach Radal.",
+    "address": "Address",
+    "displayName": "Display name",
+    "readOnly": "Read only",
+    "sendingOff": "Real sending is off in this environment: mail is recorded but not sent."
+  },
+  "providers": {
+    "title": "Connect another mailbox",
+    "description": "Use your own domain so reminders go out from your own address.",
+    "custom": {
+      "name": "Own server (SMTP / IMAP)",
+      "description": "GoDaddy, cPanel, Zoho and similar servers."
+    },
+    "google": {
+      "name": "Google Workspace",
+      "description": "Gmail with your company account."
+    },
+    "microsoft": {
+      "name": "Microsoft 365",
+      "description": "Outlook with your company account."
+    },
+    "connect": "Connect",
+    "unavailable": "Not available yet."
+  },
+  "accounts": {
+    "title": "Connected mailboxes",
+    "description": "Each mailbox is tested before use. A personal mailbox is used only by you; a shared one by the whole brokerage.",
+    "empty": "You have not connected a mailbox yet. Meanwhile, everything goes out from the Radal mailbox.",
+    "lastSync": "Last read: {{date}}",
+    "sends": "Sends",
+    "reads": "Reads",
+    "off": "Off"
+  },
+  "owner": {
+    "me": "Only me",
+    "shared": "Shared",
+    "other": "Another user's",
+    "radal": "Radal"
+  },
+  "status": {
+    "draft": "Not tested",
+    "connected": "Connected",
+    "error": "Error",
+    "paused": "Paused"
+  },
+  "security": {
+    "ssl": "SSL/TLS",
+    "starttls": "STARTTLS",
+    "none": "No encryption"
+  },
+  "fields": {
+    "address": "Email",
+    "displayName": "Display name",
+    "displayNameHint": "What the recipient sees. Empty = your brokerage's name.",
+    "username": "Username",
+    "usernameHint": "Usually the same email address.",
+    "password": "Password",
+    "passwordKeep": "Leave blank to keep the saved one",
+    "passwordSaved": "Saved ✓",
+    "passwordNone": "No password saved",
+    "smtpTitle": "Sending (SMTP)",
+    "imapTitle": "Reading (IMAP)",
+    "host": "Server",
+    "port": "Port",
+    "security": "Security",
+    "sendEnabled": "Send from this mailbox",
+    "receiveEnabled": "Read replies arriving at this mailbox",
+    "owner": "Who uses it",
+    "ownerMe": "Only me",
+    "ownerShared": "The whole brokerage"
+  },
+  "actions": {
+    "add": "Connect mailbox",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "edit": "Edit",
+    "pause": "Pause",
+    "resume": "Resume",
+    "delete": "Disconnect",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel"
+  },
+  "test": {
+    "ok": "Connection OK",
+    "failed": "Connection failed",
+    "notChecked": "Not tested",
+    "checkedAt": "Tested on {{date}}"
+  },
+  "dialog": {
+    "createTitle": "Connect mailbox",
+    "createDescription": "Your mail provider (GoDaddy, cPanel…) gives you these details. The password is stored encrypted and never shown again.",
+    "editTitle": "Edit mailbox",
+    "editDescription": "Changing the server or the password puts the mailbox back to not tested."
+  },
+  "delete": {
+    "title": "Disconnect {{address}}?",
+    "description": "Mail already recorded is kept. If it was the collections sender, reminders go back to the Radal mailbox.",
+    "confirm": "Disconnect"
+  },
+  "toast": {
+    "created": "Mailbox connected. Test it to start using it.",
+    "updated": "Mailbox updated",
+    "deleted": "Mailbox disconnected",
+    "paused": "Mailbox paused",
+    "resumed": "Mailbox resumed. Test it again.",
+    "testOk": "The mailbox works",
+    "testFailed": "The mailbox did not respond correctly"
+  },
+  "guard": {
+    "noCreate": "Your role cannot connect mailboxes.",
+    "noManage": "Only an administrator can change a shared mailbox or another user's.",
+    "sharedNeedsAdmin": "Only an administrator can connect a shared mailbox."
+  },
+  "validation": {
+    "email": "Invalid email",
+    "host": "Enter the server",
+    "port": "Port between 1 and 65535",
+    "oneDirection": "The mailbox must send, read, or both",
+    "password": "Enter the mailbox password"
+  }
+}

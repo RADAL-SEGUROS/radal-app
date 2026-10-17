@@ -9,8 +9,14 @@ Mounted at ``{API_V1_PREFIX}``:
 
     GET  /line-record-schemas                     list ramo schemas (+ global seed)
     GET  /line-record-schemas/{insurance_line_id} resolve the active schema for a ramo
-    POST /line-record-schemas                     create a broker ramo schema
-    PUT  /line-record-schemas/{id}                edit a broker ramo schema
+    POST /line-record-schemas                     LOCKED (v12): 403 for brokers
+    PUT  /line-record-schemas/{id}                LOCKED (v12): 403 for brokers
+    DELETE /line-record-schemas/{id}              LOCKED (v12): 403 for brokers
+
+v12 closed the ramo catalogue (docs/v12/02-backend-api.md §1): a broker can no
+longer create, edit or delete a ramo. The three write doors answer 403 with
+``CLOSED_CATALOGUE_DETAIL`` for every non-platform user; a platform user still
+maintains the GLOBAL rows (``broker_id IS NULL``) through them. Reads stay.
 
 Doctrine (CLAUDE.md rule 6, extended for v6): the consolidation SUGGESTS and
 persists exactly one ``extraction`` row; nothing is written to the expediente
@@ -32,7 +38,14 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_broker_id, get_db, require_permission
+from app.api.deps import (
+    get_current_broker_id,
+    get_current_broker_id_optional,
+    get_current_user,
+    get_db,
+    require_permission,
+    resolve_user_type,
+)
 from app.api.routers.ai import _ai_http_error
 from app.api.routers.documents import build_download_payload, store_generated_document
 from app.services.pdf_templates import _sum_money, _fmt_money
@@ -758,22 +771,23 @@ def list_ramo_schemas(
     return [_schema_read(row, usage.get(row.id)) for row in rows]
 
 
-@schemas_router.get("/{insurance_line_id}", response_model=LineRecordSchemaRead)
+@schemas_router.get("/{insurance_line_id}", response_model=LineRecordSchemaRead | None)
 def resolve_ramo_schema(
     insurance_line_id: int,
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     current_user: User = Depends(require_permission("Settings", "Manage")),
-) -> LineRecordSchemaRead:
-    """The active schema for a ramo (the broker's own row wins over the seed)."""
+) -> LineRecordSchemaRead | None:
+    """The active schema for a ramo (the broker's own row wins over the seed).
+
+    ``null`` (200) when the ramo has no schema: that is a normal answer — the UI
+    disables "Procesar antecedentes" with a reason — not an error, so it must
+    not log a failed request on every Antecedentes tab (QA v12)."""
     row = ai_service.resolve_line_record_schema(
         db, insurance_line_id=insurance_line_id, broker_id=broker_id
     )
     if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No schema for insurance line {insurance_line_id}",
-        )
+        return None
     return _schema_read(row)
 
 
@@ -819,21 +833,49 @@ def _visible_schema_or_404(
     return row
 
 
+def require_catalog_maintainer(current_user: User = Depends(get_current_user)) -> User:
+    """v12 lock: ramos are a closed Radal catalogue. Only a PLATFORM user may
+    write one; every broker role gets 403 with the Spanish reason the UI shows."""
+    from app.services.catalog import CLOSED_CATALOGUE_DETAIL
+
+    if resolve_user_type(current_user) != "platform":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=CLOSED_CATALOGUE_DETAIL
+        )
+    return current_user
+
+
+def _global_line_usage(db: Session, schema_id: int) -> int:
+    """How many accounts (any broker) point at a GLOBAL line — the platform's
+    delete guard, since a global row is shared by every tenant."""
+    assigned = db.scalar(
+        select(func.count())
+        .select_from(CaseFile)
+        .where(CaseFile.line_record_schema_id == schema_id)
+    ) or 0
+    registered = db.scalar(
+        select(func.count())
+        .select_from(RecordExpediente)
+        .where(RecordExpediente.line_record_schema_id == schema_id)
+    ) or 0
+    return max(int(assigned), int(registered))
+
+
 @schemas_router.post(
     "", response_model=LineRecordSchemaRead, status_code=status.HTTP_201_CREATED
 )
 def create_ramo_schema(
     body: LineRecordSchemaCreate,
+    _maintainer: User = Depends(require_catalog_maintainer),
     db: Session = Depends(get_db),
-    broker_id: int = Depends(get_current_broker_id),
+    broker_id: int | None = Depends(get_current_broker_id_optional),
     current_user: User = Depends(require_permission("Settings", "Manage")),
 ) -> LineRecordSchemaRead:
-    """Create a broker-owned ramo (v9). A ramo is a **name + recommended files +
+    """Create a GLOBAL ramo template (v12: platform maintainers only — a broker
+    gets 403, the catalogue is closed). A ramo is a **name + recommended files +
     context** — ``definition`` (the old sectioned schema) is DEPRECATED and never
-    required. Optionally clone ``from_template_id`` (a global template's
-    recommended files + ramo), then edit freely. ``insurance_line_id`` is optional
-    — a fully custom ramo need not map to any CMF line. A broker ramo is never a
-    template (``is_template=False``); its name is unique per broker."""
+    required. Optionally clone ``from_template_id``. ``insurance_line_id`` is
+    optional. A platform-written row has ``broker_id`` NULL and is a template."""
     template: LineRecordSchema | None = None
     if body.from_template_id is not None:
         template = _visible_schema_or_404(db, body.from_template_id, broker_id)
@@ -872,7 +914,8 @@ def create_ramo_schema(
         name=body.name,
         version=body.version or 1,
         is_active=body.is_active,
-        is_template=False,
+        # v12: only the platform writes here, and a global row IS a template.
+        is_template=broker_id is None,
         definition=definition,
         recommended_files=recommended_files,
         explanation=explanation,
@@ -895,11 +938,12 @@ def create_ramo_schema(
 def update_ramo_schema(
     schema_id: int,
     body: LineRecordSchemaUpdate,
+    _maintainer: User = Depends(require_catalog_maintainer),
     db: Session = Depends(get_db),
-    broker_id: int = Depends(get_current_broker_id),
+    broker_id: int | None = Depends(get_current_broker_id_optional),
     current_user: User = Depends(require_permission("Settings", "Manage")),
 ) -> LineRecordSchemaRead:
-    """Edit a broker-owned ramo schema. The global seed is read-only here."""
+    """Edit a ramo schema (v12: platform maintainers only, global rows)."""
     row = db.scalars(
         select(LineRecordSchema).where(
             LineRecordSchema.id == schema_id,
@@ -933,8 +977,9 @@ def update_ramo_schema(
 @schemas_router.delete("/{schema_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_ramo_schema(
     schema_id: int,
+    _maintainer: User = Depends(require_catalog_maintainer),
     db: Session = Depends(get_db),
-    broker_id: int = Depends(get_current_broker_id),
+    broker_id: int | None = Depends(get_current_broker_id_optional),
     current_user: User = Depends(require_permission("Settings", "Manage")),
 ) -> Response:
     """Delete a broker-owned ramo schema. The global seed is read-only here:
@@ -953,17 +998,20 @@ def delete_ramo_schema(
         )
     # Block deletion while any account resolves to this line (rule: no dead
     # references). Direct assignments and registered expedientes both count.
-    usage = _line_usage(db, broker_id).get(row.id)
-    in_use = usage.accounts if usage else 0
-    registered = db.scalar(
-        select(func.count())
-        .select_from(RecordExpediente)
-        .where(
-            RecordExpediente.broker_id == broker_id,
-            RecordExpediente.line_record_schema_id == row.id,
-        )
-    ) or 0
-    total_in_use = max(in_use, int(registered))
+    if broker_id is None:
+        total_in_use = _global_line_usage(db, row.id)
+    else:
+        usage = _line_usage(db, broker_id).get(row.id)
+        in_use = usage.accounts if usage else 0
+        registered = db.scalar(
+            select(func.count())
+            .select_from(RecordExpediente)
+            .where(
+                RecordExpediente.broker_id == broker_id,
+                RecordExpediente.line_record_schema_id == row.id,
+            )
+        ) or 0
+        total_in_use = max(in_use, int(registered))
     if total_in_use:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

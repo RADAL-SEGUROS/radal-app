@@ -32,6 +32,14 @@ export interface SearchResults {
   proposals: SearchHit[];
 }
 
+const SEARCH_CATEGORY_LABEL = {
+  groups: "common:search.categories.groups",
+  clients: "common:search.categories.clients",
+  assets: "common:search.categories.assets",
+  quotes: "common:search.categories.quotes",
+  proposals: "common:search.categories.proposals",
+} as const satisfies Record<keyof SearchResults, string>;
+
 const CATEGORY_ICON: Record<keyof SearchResults, React.ReactNode> = {
   groups: <FolderOpen className="h-[15px] w-[15px]" strokeWidth={1.75} />,
   clients: <Users className="h-[15px] w-[15px]" strokeWidth={1.75} />,
@@ -110,7 +118,7 @@ export function SearchDropdown({ className, placeholder }: SearchDropdownProps) 
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, isError } = useQuery({
     queryKey: ["search", debounced],
     enabled: debounced.trim().length >= 2,
     queryFn: async () => {
@@ -174,7 +182,12 @@ export function SearchDropdown({ className, placeholder }: SearchDropdownProps) 
             exit={reduce ? undefined : "exit"}
             className="absolute left-0 right-0 top-[48px] z-50 max-h-[64vh] overflow-y-auto rounded-card border border-line bg-bone p-1.5 shadow-overlay"
           >
-            {!hasResults && !isFetching ? (
+            {isError && !isFetching ? (
+              // A failed search is not "no results" (QA v12: a 403 read as empty).
+              <div role="alert" className="px-3 py-[18px] text-center text-body text-ink-3">
+                {t("search.error")}
+              </div>
+            ) : !hasResults && !isFetching ? (
               <div className="px-3 py-[18px] text-center text-body text-ink-3">
                 {t("search.empty")}
               </div>
@@ -184,7 +197,7 @@ export function SearchDropdown({ className, placeholder }: SearchDropdownProps) 
                 .map((group) => (
                   <div key={group.key}>
                     <div className="px-2.5 pb-1 pt-2.5 text-caption font-medium text-ink-3">
-                      {t(`search.categories.${group.key}`)}
+                      {t(SEARCH_CATEGORY_LABEL[group.key])}
                     </div>
                     {group.hits.map((hit) => (
                       <button

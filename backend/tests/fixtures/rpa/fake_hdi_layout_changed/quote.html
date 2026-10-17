@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>Cotizar vehículo (fake)</title></head>
+<body>
+  <h1>Cotizar vehículo liviano</h1>
+  <form id="quote-form" onsubmit="return doQuote(event)">
+    <input id="patente" name="plate">
+    <input id="brand" name="brand">
+    <input id="model" name="model">
+    <input id="year" name="year">
+    <select id="use" name="use">
+      <option value="PARTICULAR">Particular</option>
+      <option value="COMERCIAL">Comercial</option>
+    </select>
+    <input id="commune" name="commune">
+    <input id="insured-rut" name="rut">
+    <input id="start-date" name="start" type="date">
+    <button id="quote-submit" type="submit">Cotizar</button>
+  </form>
+  <script>
+    function doQuote(ev) {
+      ev.preventDefault();
+      var q = new URLSearchParams();
+      ['patente', 'brand', 'model', 'year', 'use', 'commune', 'insured-rut', 'start-date'].forEach(function (id) {
+        q.set(id, document.getElementById(id).value);
+      });
+      window.location.href = 'results.html?' + q.toString();
+      return false;
+    }
+  </script>
+</body>
+</html>

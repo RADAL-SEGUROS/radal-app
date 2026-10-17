@@ -18,7 +18,7 @@
     "no": "No",
     "soonEmail": "El envío por correo llega pronto.",
     "soonExport": "La exportación llega pronto.",
-    "soonRenewal": "La renovación se crea por API en esta versión."
+    "soonRenewal": "Esta póliza no está en una cuenta: la renovación se abre desde la cuenta (ramo y vigencia) del asegurado."
   },
   "policy": {
     "title": "Pólizas",
@@ -116,7 +116,7 @@
       "exportPolicy": "Exportar póliza"
     },
     "upload": {
-      "title": "Registrar póliza",
+      "title": "Subir póliza",
       "subtitle": "Sube el archivo emitido por la compañía y lo leemos automáticamente.",
       "dropTitle": "Arrastra el PDF de la póliza o haz clic para elegirlo",
       "dropHint": "Un solo archivo PDF.",
@@ -139,7 +139,7 @@
       "inspect": "Ver póliza"
     },
     "overview": {
-      "upload": "Registrar póliza",
+      "upload": "Subir póliza",
       "uploadHint": "¿Ya tienes el archivo emitido? Súbelo para registrar la póliza.",
       "empty": "Esta cuenta todavía no tiene pólizas.",
       "emptyHint": "Una póliza nace del archivo emitido por la compañía.",
@@ -207,7 +207,6 @@
     "description": "La póliza emitida contra la propuesta de emisión, campo por campo. Nada se corrige solo: cada diferencia se resuelve con un endoso.",
     "empty": "La póliza calza con la propuesta",
     "emptyHint": "No hay diferencias entre lo propuesto y lo emitido.",
-    "missingSources": "Faltan extracciones confirmadas para comparar: {{sources}}",
     "columns": {
       "field": "Campo",
       "expected": "Propuesto",
@@ -221,7 +220,15 @@
     "queued_other": "{{count}} endosos en borrador",
     "suggestedKind": "Endoso sugerido: {{kind}}",
     "noSuggestion": "Sin tipo de endoso sugerido",
-    "noPermission": "Necesitas permiso de creación de endosos."
+    "noPermission": "Necesitas permiso de creación de endosos.",
+    "notApplicable": "No aplica: esta póliza no tiene propuesta",
+    "notApplicableHint": "La validación espejo compara la póliza emitida con la propuesta de emisión. Esta póliza se registró sin propuesta, así que no hay nada que comparar.",
+    "pendingTitle": "Todavía no se puede comparar",
+    "sources": {
+      "issuance_proposal": "Falta confirmar la extracción de la propuesta de emisión.",
+      "policy": "Falta confirmar la extracción de la póliza.",
+      "other": "Falta una extracción confirmada."
+    }
   },
   "warranty": {
     "title": "Garantías y recomendaciones",

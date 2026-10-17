@@ -27,6 +27,7 @@ from app.models.account_group import AccountGroupStatus
 from app.models.document import DocumentCategory
 from app.models.enums import CaseFileKind, CaseFileStatus, CaseOrigin, CaseStage
 from app.models.policy import PolicyStatus
+from app.schemas.wallclock import WallClockDatetime
 
 #: The five ANTECEDENTES folder keys, in the Excel's order (G8-G12).
 RecordFolderKey = Literal["amounts", "loss_history", "report", "questionnaire", "slip"]
@@ -174,7 +175,7 @@ class TreePostSaleNode(BaseModel):
     stage: CaseStage
     status: CaseFileStatus
     #: ``endorsement.effective_at`` for endorsement children; null otherwise.
-    effective_at: datetime | None = None
+    effective_at: WallClockDatetime | None = None
     #: Shared by the N endorsements of one prórroga; null otherwise.
     batch_key: str | None = None
 

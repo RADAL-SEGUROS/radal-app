@@ -147,10 +147,11 @@ export function useRamoSchema(insuranceLineId: number | null | undefined) {
     enabled: !!insuranceLineId,
     queryFn: async () => {
       try {
-        const { data } = await api.get<LineRecordSchema>(
+        // 200 + null = the ramo has no schema (older servers answered 404).
+        const { data } = await api.get<LineRecordSchema | null>(
           `/line-record-schemas/${insuranceLineId}`,
         );
-        return data;
+        return data ?? null;
       } catch (error) {
         if (isNotFound(error)) return null;
         throw error;

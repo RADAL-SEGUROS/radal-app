@@ -1,0 +1,377 @@
+{
+  "title": "Pólizas",
+  "other": "Otro",
+  "new": {
+    "title": "Registrar póliza a mano",
+    "description": "Ingresa una póliza sin PDF: asegurado, compañía, ramo y subtipo, vigencia, primas y contactos. Podrás completar lo que falte después."
+  },
+  "actions": {
+    "upload": "Subir póliza",
+    "manual": "Registrar a mano",
+    "more": "Más acciones",
+    "moreShort": "Más"
+  },
+  "list": {
+    "subtitle": "Todas las pólizas de la corredora, vengan de un PDF, de un registro a mano o de una colocación completa.",
+    "resultCount_one": "{{count}} póliza",
+    "resultCount_other": "{{count}} pólizas",
+    "empty": "Aún no hay pólizas",
+    "emptyHint": "Sube el PDF de una póliza o regístrala a mano para empezar.",
+    "emptyFiltered": "Ninguna póliza coincide con los filtros",
+    "emptyFilteredHint": "Prueba con otros filtros o quítalos para ver todas.",
+    "noNumber": "Sin n°",
+    "overdueCount_one": "{{count}} vencida",
+    "overdueCount_other": "{{count}} vencidas",
+    "allPaid": "Todas las cuotas pagadas"
+  },
+  "columns": {
+    "insured": "Asegurado",
+    "line": "Ramo · Subtipo",
+    "period": "Vigencia",
+    "insurer": "Compañía",
+    "number": "N° póliza",
+    "premium": "Prima",
+    "collection": "Cobranza",
+    "missing": "Falta",
+    "status": "Estado"
+  },
+  "kpi": {
+    "active": "Vigentes",
+    "activeHint": "Pólizas en vigencia hoy",
+    "premium": "Prima vigente",
+    "premiumHint": "Prima bruta de las vigentes, en UF",
+    "overdue": "Cuotas vencidas",
+    "overdueHint": "Sin cuotas impagas vencidas",
+    "noPlan": "Sin plan de pago",
+    "noPlanHint": "Vivas sin cuotas: no entran a Cobranza",
+    "noSource": "Sin respaldo",
+    "noSourceHint": "Registradas sin el PDF de la póliza",
+    "provisionalHint_one": "{{count}} con prima provisoria",
+    "provisionalHint_other": "{{count}} con prima provisoria",
+    "expiring": "Vencen en 90 días",
+    "expiringHint": "Revísalas para renovar a tiempo"
+  },
+  "filters": {
+    "search": "Buscar por asegurado, RUT o n° de póliza",
+    "toggle": "Filtros",
+    "line": "Ramo",
+    "allLines": "Todos los ramos",
+    "subtype": "Subtipo",
+    "allSubtypes": "Todos los subtipos",
+    "pickLineFirst": "Elige primero un ramo",
+    "insurer": "Compañía",
+    "allInsurers": "Todas las compañías",
+    "status": "Estado",
+    "allStatuses": "Todos los estados",
+    "collection": "Cobranza",
+    "allCollection": "Toda la cobranza",
+    "missing": "Falta",
+    "allMissing": "Con o sin faltantes",
+    "missingOption": "Falta: {{label}}",
+    "mine": "Mías",
+    "clear": "Quitar filtros"
+  },
+  "pager": {
+    "previous": "Página anterior",
+    "next": "Página siguiente",
+    "page": "Página {{page}} de {{pages}}"
+  },
+  "status": {
+    "upcoming": "Por iniciar",
+    "active": "Vigente",
+    "expired": "Vencida",
+    "cancelled": "Anulada"
+  },
+  "storedStatus": {
+    "draft": "Borrador",
+    "renewed": "Renovada"
+  },
+  "collection": {
+    "overdue": "Con cuotas vencidas",
+    "due_soon": "Vence pronto",
+    "no_plan": "Sin plan de pago",
+    "ok": "Al día"
+  },
+  "marks": {
+    "noSource": "Sin respaldo",
+    "provisional": "Provisoria"
+  },
+  "missing": {
+    "source_document": "PDF de la póliza",
+    "policy_number": "N° de póliza",
+    "plan": "Plan de pago",
+    "gross_premium": "Prima bruta",
+    "payer_contact": "Contacto de cobranza",
+    "premiums": "Primas afecta y exenta",
+    "commission": "% de comisión"
+  },
+  "feature": {
+    "collections": "Cobranza",
+    "payer_notices": "Avisos al contratante",
+    "endorsements": "Endosos",
+    "claims": "Siniestros",
+    "premium_reports": "Reportes de prima",
+    "commission": "Comisión estimada",
+    "source_document": "Respaldo"
+  },
+  "missingBlock": {
+    "title": "Falta",
+    "subtitle": "Lo que falta para que todo funcione. Completarlo no pide motivo.",
+    "line": "Falta: {{label}}"
+  },
+  "complete": {
+    "action": "Completar",
+    "hint": "Completa el dato que falta. Llenar un campo vacío no pide motivo.",
+    "premiumsHint": "Escribe las primas en la moneda de la póliza. Neta = afecta + exenta; IVA = 19 % de la afecta; bruta = neta + IVA. El servidor revisa que cuadren.",
+    "save": "Guardar",
+    "toast": "Dato guardado",
+    "title": {
+      "policy_number": "Completar el n° de póliza",
+      "premiums": "Completar las primas",
+      "commission": "Completar el % de comisión"
+    },
+    "fields": {
+      "policy_number": "N° de póliza",
+      "taxable_premium_uf": "Prima afecta",
+      "exempt_premium_uf": "Prima exenta",
+      "total_premium_uf": "Prima bruta",
+      "commission_pct": "% de comisión"
+    }
+  },
+  "plan": {
+    "load": "Cargar plan de pago",
+    "title": "Cargar plan de pago",
+    "subtitle": "Las cuotas deben sumar la prima bruta: {{gross}}.",
+    "method": "Método de pago",
+    "count": "N° de cuotas",
+    "first": "Primer vencimiento",
+    "columns": {
+      "number": "N°",
+      "due": "Vence",
+      "amount": "Monto",
+      "amountUnit": "Monto ({{unit}})"
+    },
+    "add": "Agregar cuota",
+    "remove": "Quitar cuota",
+    "balanced": "Las cuotas suman la prima bruta.",
+    "unbalanced": "Las cuotas no suman la prima bruta: diferencia de {{diff}}.",
+    "save": "Guardar plan",
+    "toast": "Plan de pago cargado",
+    "error": "No se pudo cargar el plan de pago",
+    "needsGross": "Primero completa la prima bruta: las cuotas deben sumarla.",
+    "pastDue_one": "{{count}} cuota vence antes de hoy ({{today}}): quedará vencida apenas guardes. Revisa la fecha si la compañía no la cobró todavía.",
+    "pastDue_other": "{{count}} cuotas vencen antes de hoy ({{today}}): quedarán vencidas apenas guardes. Revisa las fechas si la compañía no las cobró todavía.",
+    "startCollection": "Iniciar cobranza al guardar",
+    "startHint": "Radal enviará los avisos de la cadencia al pagador desde hoy.",
+    "notStartedHint": "El plan queda cargado sin avisos al pagador. Puedes iniciar la cobranza después desde el panel de cobranza.",
+    "startNoPermission": "Tu rol no permite iniciar la cobranza: el plan queda cargado sin avisos.",
+    "toastStarted": "Plan de pago cargado y cobranza iniciada",
+    "toastNotStarted": "Plan de pago cargado. La cobranza no está iniciada."
+  },
+  "party": {
+    "title": "Partes",
+    "edit": "Editar partes",
+    "editTitle": "Partes de la póliza",
+    "editHint": "Un contratante, al menos un asegurado y, si corresponde, un pagador. Los terceros guardan solo nombre, RUT y contacto: no entran a Clientes.",
+    "empty": "Esta póliza aún no tiene partes registradas.",
+    "noContact": "Sin correo ni teléfono: la cobranza no tiene a quién avisar.",
+    "payerDefault": "Sin pagador registrado: paga el contratante.",
+    "add": "Agregar parte",
+    "remove": "Quitar parte",
+    "save": "Guardar partes",
+    "toast": "Partes guardadas",
+    "role": {
+      "insured": "Asegurado",
+      "policyholder": "Contratante",
+      "payer": "Pagador",
+      "beneficiary": "Beneficiario",
+      "additional_insured": "Asegurado adicional"
+    },
+    "fields": {
+      "role": "Rol",
+      "name": "Nombre",
+      "rut": "RUT",
+      "email": "Correo",
+      "phone": "Teléfono",
+      "beneficiaryKind": "Tipo de beneficiario",
+      "beneficiaryKindHint": "Por ejemplo: acreedor hipotecario",
+      "notifyCollections": "Recibe los avisos de cobranza"
+    },
+    "errors": {
+      "holder": "Debe haber exactamente un contratante.",
+      "insured": "Debe haber al menos un asegurado.",
+      "payer": "Puede haber como máximo un pagador.",
+      "name": "Cada parte necesita un nombre.",
+      "rut": "Hay un RUT que no es válido.",
+      "email": "Hay un correo que no es válido."
+    },
+    "fieldErrors": {
+      "name": "Escribe el nombre.",
+      "rut": "Este RUT no es válido: revisa el dígito verificador.",
+      "email": "Este correo no es válido."
+    }
+  },
+  "collectionBlock": {
+    "title": "Cobranza",
+    "openPlan": "Ver plan de pago",
+    "noPlan": "Esta póliza no tiene cuotas: no aparece en Cobranza ni genera avisos de vencimiento.",
+    "next": "Próximo vencimiento",
+    "nextAmount": "Monto de la cuota",
+    "progress": "Cuotas pagadas",
+    "progressValue": "{{paid}} de {{total}}",
+    "overdue": "Vencidas",
+    "method": "Método de pago: {{method}}"
+  },
+  "journeyBlock": {
+    "title": "Viaje",
+    "origin": "Origen: {{origin}}",
+    "openAccount": "Ver colocación",
+    "empty": "Esta póliza no pasó por etapas de colocación.",
+    "skipped": "omitida",
+    "viewerHint": "La colocación muestra solo las etapas que ocurrieron y sus archivos."
+  },
+  "origin": {
+    "reader": "PDF leído",
+    "manual": "Registro a mano",
+    "journey": "Colocación completa",
+    "portal_rpa": "Portal de la compañía",
+    "migration": "Migración"
+  },
+  "stage": {
+    "lead": "Interés",
+    "intake": "Antecedentes",
+    "pre_underwriting": "Presuscripción",
+    "technical_basis": "Bases técnicas",
+    "market_submission": "Envío al mercado",
+    "quotes_received": "Cotizaciones recibidas",
+    "comparison": "Comparación",
+    "insured_decision": "Decisión del asegurado",
+    "proposal_issued": "Propuesta emitida",
+    "ratified": "Ratificación",
+    "policy_issued": "Póliza emitida",
+    "mirror_validation": "Validación espejo",
+    "active": "Vigente",
+    "renewal_review": "Revisión de renovación"
+  },
+  "paymentMethod": {
+    "coupon_book": "Cupón (pago manual)",
+    "direct_debit": "PAC (cargo en cuenta)",
+    "card_debit": "PAT (cargo en tarjeta)",
+    "transfer": "Transferencia",
+    "single_charge": "Pago único",
+    "other": "Otro"
+  },
+  "share": {
+    "action": "Compartir"
+  },
+  "clientPicker": {
+    "placeholder": "Busca un cliente por nombre o RUT",
+    "none": "Ningún cliente coincide",
+    "change": "Cambiar",
+    "error": "No pudimos buscar clientes. Intenta de nuevo."
+  },
+  "upload": {
+    "noTarget": "Elige el subtipo antes de subir el PDF.",
+    "subtype": "Ramo · Subtipo",
+    "subtypeHint": "La póliza se archiva en la colocación de ese ramo; si no existe, se crea.",
+    "subtypeFirst": "Elige primero el ramo y subtipo",
+    "client": "Asegurado (opcional)",
+    "clientHint": "Si lo dejas en blanco, se toma el RUT que se lea del PDF.",
+    "unresolvedTitle": "No sabemos a qué asegurado pertenece esta póliza",
+    "suggestion": "Leído del PDF",
+    "createClient": "Crear este asegurado y seguir",
+    "pickClient": "O elige un cliente de la cartera",
+    "useClient": "Usar este cliente",
+    "tryAnother": "Subir otro PDF"
+  },
+  "form": {
+    "submit": "Guardar póliza",
+    "cancel": "Cancelar",
+    "toast": {
+      "created": "Póliza {{number}} registrada",
+      "error": "No se pudo registrar la póliza"
+    },
+    "insuredMode": {
+      "client": "Cliente de la cartera",
+      "rut": "Por RUT"
+    },
+    "sections": {
+      "insured": "Asegurado",
+      "insuredHint": "El RUT manda: si ya está en la cartera, se usa ese asegurado.",
+      "policy": "Póliza",
+      "premiums": "Primas",
+      "premiumsHint": "Opcionales. Con la prima bruta podrás cargar el plan de pago después; las primas afecta y exenta alimentan los reportes.",
+      "parties": "Contratante y pagador",
+      "partiesHint": "A quien contrata se dirige la cobranza. Por defecto es el asegurado y paga el contratante.",
+      "notes": "Notas"
+    },
+    "fields": {
+      "client": "Cliente",
+      "insuredRut": "RUT del asegurado",
+      "insuredName": "Nombre o razón social",
+      "insurer": "Compañía",
+      "subtype": "Ramo · Subtipo",
+      "startDate": "Inicio de vigencia",
+      "endDate": "Fin de vigencia",
+      "policyNumber": "N° de póliza",
+      "paymentMethod": "Método de pago",
+      "isProvisional": "Prima provisoria",
+      "currency": "Moneda",
+      "taxable": "Prima afecta",
+      "exempt": "Prima exenta",
+      "total": "Prima bruta",
+      "commission": "% de comisión",
+      "holderSame": "El contratante es el mismo asegurado",
+      "holderName": "Nombre del contratante",
+      "holderEmail": "Correo de cobranza",
+      "rut": "RUT",
+      "email": "Correo",
+      "phone": "Teléfono",
+      "payerSame": "Paga el contratante",
+      "payerName": "Nombre del pagador"
+    },
+    "hints": {
+      "insuredRut": "Con o sin puntos; se valida el dígito verificador.",
+      "policyNumber": "Opcional. Sin n° no se puede endosar.",
+      "paymentMethod": "Opcional. Se propone al cargar el plan de pago.",
+      "isProvisional": "Se cobra por adelantado y se ajusta después con lo declarado.",
+      "total": "Opcional. Enciende el plan de pago y la cobranza.",
+      "commission": "Opcional. Suma a la comisión estimada.",
+      "contact": "A este correo van los avisos de cobranza."
+    },
+    "placeholders": {
+      "insurer": "Elige la compañía",
+      "paymentMethod": "Sin definir"
+    },
+    "preview": {
+      "net": "Neta: {{value}}",
+      "vat": "IVA: {{value}}",
+      "total": "Bruta: {{value}}",
+      "mismatch": "La prima bruta escrita no cuadra con neta + IVA."
+    },
+    "errors": {
+      "required": "Este dato es obligatorio.",
+      "rut": "El RUT no es válido.",
+      "email": "El correo no es válido.",
+      "number": "Escribe un número, por ejemplo 12,5.",
+      "pct": "El porcentaje no puede pasar de 100.",
+      "endBeforeStart": "El fin de vigencia debe ser posterior al inicio.",
+      "client": "Elige un cliente.",
+      "subtype": "Elige el subtipo. Si el ramo tiene uno solo, se elige al marcar el ramo.",
+      "insurer": "Elige la compañía.",
+      "ambiguous": "Monto ambiguo: usa coma para los decimales (12,345) o escríbelo sin puntos (12345).",
+      "totalMismatch": "La prima bruta no cuadra con neta + IVA. Corrígela o déjala vacía para calcularla."
+    }
+  },
+  "noPermission": {
+    "create": "Tu rol no puede registrar pólizas.",
+    "upload": "Tu rol no puede subir documentos.",
+    "edit": "Tu rol no puede editar pólizas.",
+    "plan": "Tu rol no puede crear planes de pago.",
+    "share": "Tu rol no puede compartir esta póliza.",
+    "insurers": "Tu rol no puede ver las compañías.",
+    "clients": "Tu rol no puede ver los clientes.",
+    "collections": "Tu rol no puede ver la cobranza.",
+    "cases": "Tu rol no puede ver las carpetas."
+  }
+}

@@ -39,6 +39,7 @@ from app.models.case_file import CaseFile, CaseFileStageEvent, CasePack
 from app.models.client import Client
 from app.models.document import Document
 from app.models.enums import (
+    CaseEntryOrigin,
     CaseFileKind,
     CaseFileStatus,
     CaseOrigin,
@@ -46,6 +47,7 @@ from app.models.enums import (
     CaseStage,
     EntityType,
 )
+from app.models.catalog import InsuranceSubtype
 from app.models.insurance_line import InsuranceLine
 from app.models.insured import Insured
 from app.models.insurer import Insurer
@@ -55,7 +57,10 @@ from app.models.proposal import Proposal
 from app.models.quote import QuoteRequest
 from app.models.user import User
 from app.schemas.case_file import (
+    CaseActivateStage,
     CaseClientAttach,
+    CaseSkipTo,
+    StageStateRead,
     CaseDocumentGroups,
     CaseDocumentRead,
     CaseDocumentSection,
@@ -86,6 +91,7 @@ from app.schemas.case_file import (
     TransitionOptionRead,
 )
 from app.services import case_files as machine
+from app.services.stage_labels import humanize_system_text
 
 router = APIRouter(prefix="/case-files", tags=["case-files"])
 
@@ -300,10 +306,17 @@ def _identity(db: Session, case: CaseFile) -> dict[str, object]:
         if case.insurance_line_id is not None
         else None
     )
+    subtype = (
+        db.get(InsuranceSubtype, case.insurance_subtype_id)
+        if case.insurance_subtype_id is not None
+        else None
+    )
     return {
         "client_legal_name": insured.legal_name if insured else None,
         "client_rut": insured.rut if insured else None,
         "insurance_line_name": line.name if line else None,
+        "insurance_subtype_code": subtype.code if subtype else None,
+        "insurance_subtype_name": subtype.name if subtype else None,
     }
 
 
@@ -492,13 +505,59 @@ def _detail(db: Session, case: CaseFile) -> CaseFileDetail:
         )
         or 0
     )
+    # v12 partial journeys: the rail (entered solid, skipped as "omitida").
+    payload.stages = [StageStateRead(**row) for row in machine.stage_states(db, case)]
+    payload.has_policy = machine.case_has_policy(db, case)
+    if case.kind in machine.ACCOUNT_KINDS and case.status == CaseFileStatus.OPEN:
+        chain = machine.CASE_STAGE_FLOW.get(case.kind, ())
+        current = chain.index(case.stage) if case.stage in chain else len(chain)
+        payload.skip_targets = [
+            stage
+            for stage in machine.SKIP_TO_TARGETS
+            if stage in chain and chain.index(stage) > current
+        ]
     return payload
+
+
+#: Spanish names of the editable folder fields — the bitácora is prose (rule 1).
+_FIELD_LABELS_ES: dict[str, str] = {
+    "title": "título",
+    "status": "estado",
+    "owner_user_id": "ejecutivo a cargo",
+    "due_at": "fecha compromiso",
+    "summary": "resumen",
+    "meta": "datos adicionales",
+    "insurance_line_id": "ramo",
+    "policy_id": "póliza",
+    "parent_case_file_id": "carpeta superior",
+    "period_start": "inicio de vigencia",
+    "period_end": "término de vigencia",
+    "period_label": "vigencia",
+}
+
+
+def _updated_description(changes: dict) -> str:
+    names = [_FIELD_LABELS_ES.get(field, "datos") for field in sorted(changes)]
+    names = list(dict.fromkeys(names))
+    if not names:
+        return "Expediente actualizado"
+    return "Expediente actualizado: " + ", ".join(names)
+
+
+#: The folder kind in Spanish, for a default title (prose, never the code).
+_KIND_LABELS_ES: dict[str, str] = {
+    "account": "Cuenta",
+    "renewal": "Renovación",
+    "endorsement": "Endoso",
+    "collection": "Cobranza",
+    "claim": "Siniestro",
+}
 
 
 def _default_title(db: Session, case_kind: CaseFileKind, client: Client) -> str:
     insured = db.get(Insured, client.insured_id)
     name = insured.legal_name if insured else f"Cliente {client.id}"
-    return f"{name} · {case_kind.value}"
+    return f"{name} · {_KIND_LABELS_ES.get(case_kind.value, 'Expediente')}"
 
 
 # =============================================================================
@@ -758,6 +817,24 @@ def create_case_file(
             ).first()
 
     line_id = payload.insurance_line_id
+    # v12 closed catalogue: the subtipo decides the ramo (and the suggested
+    # route). Unknown / retired subtipo -> 422; a contradicting line -> 422.
+    subtype = None
+    if payload.insurance_subtype_id is not None:
+        from app.services.catalog import SUBTYPE_INVALID_DETAIL, get_subtype
+
+        subtype = get_subtype(db, payload.insurance_subtype_id)
+        if subtype is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=SUBTYPE_INVALID_DETAIL,
+            )
+        if line_id is not None and line_id != subtype.insurance_line_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="El ramo indicado no corresponde al subtipo elegido.",
+            )
+        line_id = subtype.insurance_line_id
     if line_id is None:
         if placement is not None:
             line_id = placement.insurance_line_id
@@ -869,6 +946,12 @@ def create_case_file(
         period_label=period_label,
         origin=origin,
         origin_case_file_id=origin_case.id if origin_case is not None else None,
+        insurance_subtype_id=subtype.id if subtype is not None else None,
+        # v12: an account opened from the UI is the full-journey door.
+        entry_origin=(
+            CaseEntryOrigin.FULL_JOURNEY if payload.kind is CaseFileKind.ACCOUNT else None
+        ),
+        route=payload.route or (subtype.suggested_route if subtype is not None else None),
     )
     db.add(case)
     db.flush()
@@ -993,7 +1076,7 @@ def update_case_file(
         action="case_file.updated",
         entity_type=EntityType.CASE_FILE,
         entity_id=case.id,
-        description=f"Expediente actualizado ({', '.join(sorted(changes))})",
+        description=_updated_description(changes),
         meta={"fields": sorted(changes)},
     )
     db.commit()
@@ -1067,11 +1150,20 @@ def get_case_file_transitions(
         stage=case.stage,
         options=[
             TransitionOptionRead(
-                to_stage=option.to_stage, allowed=option.allowed, reason=option.reason
+                to_stage=option.to_stage,
+                allowed=option.allowed,
+                reason=option.reason,
+                direction=option.direction,
             )
             for option in options
         ],
         is_terminal=not machine.allowed_stages(case),
+        backward_locked=case.stage in machine.BACKWARD_LOCKED_STAGES,
+        backward_locked_reason=(
+            machine.REASON_BACKWARD_LOCKED
+            if case.stage in machine.BACKWARD_LOCKED_STAGES
+            else None
+        ),
     )
 
 
@@ -1082,6 +1174,98 @@ def _forward_next_stage(case: CaseFile) -> CaseStage | None:
         return None
     index = chain.index(case.stage)
     return chain[index + 1] if index + 1 < len(chain) else None
+
+
+def _collection_actions(db: Session, case: CaseFile) -> list[PendingAction]:
+    """``collection_termination_risk`` (blocker) / ``collection_overdue``
+    (warning) / ``collection_debit_rejected`` (warning) for the account's live
+    cuotas. ``reason`` is the server's Spanish sentence (it names the cuota) —
+    the UI shows it verbatim."""
+    from app.models.collection import CollectionPlan  # noqa: PLC0415
+    from app.services.collection import ledger as _ledger  # noqa: PLC0415
+    from app.services.collection.alerts import alerts_apply  # noqa: PLC0415
+    from app.services.collection.clock import business_today  # noqa: PLC0415
+
+    policies = {p.id: p for p in machine.case_policies(db, case)}
+    plan_stmt = select(CollectionPlan).where(CollectionPlan.broker_id == case.broker_id)
+    if policies:
+        plan_stmt = plan_stmt.where(
+            or_(CollectionPlan.case_file_id == case.id, CollectionPlan.policy_id.in_(list(policies)))
+        )
+    else:
+        plan_stmt = plan_stmt.where(CollectionPlan.case_file_id == case.id)
+    today = business_today()
+    risk: list[tuple] = []
+    late: list[tuple] = []
+    rejected: list[tuple] = []
+    for plan in db.scalars(plan_stmt.order_by(CollectionPlan.id)).all():
+        count = plan.installment_count or len(plan.installments or [])
+        for inst in sorted(plan.installments or [], key=lambda r: r.number):
+            if not alerts_apply(inst):
+                continue
+            state = _ledger.current_state(db, inst, today=today)
+            label = (inst.number, count, plan.policy.policy_number if plan.policy else None, state)
+            if state.state == "termination_risk":
+                risk.append(label)
+            elif state.state == "overdue":
+                late.append(label)
+            if "direct_debit_rejected" in state.flags and state.state not in ("paid", "voided"):
+                rejected.append(label)
+
+    def _cuota(item: tuple) -> str:
+        number, count, policy_number, _state = item
+        text = f"Cuota {number}/{count}" if count else f"Cuota {number}"
+        return text + (f" de la póliza {policy_number}" if policy_number else "")
+
+    out: list[PendingAction] = []
+    if risk:
+        reason = (
+            f"{_cuota(risk[0])} en riesgo de término"
+            if len(risk) == 1
+            else f"{len(risk)} cuotas en riesgo de término (la primera: {_cuota(risk[0])})"
+        )
+        out.append(
+            PendingAction(
+                code="collection_termination_risk",
+                severity="blocker",
+                tab="policies",
+                reason=reason + ".",
+                count=len(risk),
+            )
+        )
+    if late:
+        first = late[0]
+        days = first[3].days_late
+        reason = (
+            f"{_cuota(first)} vencida hace {days} día{'s' if days != 1 else ''}"
+            if len(late) == 1
+            else f"{len(late)} cuotas vencidas (la primera: {_cuota(first)})"
+        )
+        out.append(
+            PendingAction(
+                code="collection_overdue",
+                severity="warning",
+                tab="policies",
+                reason=reason + ".",
+                count=len(late),
+            )
+        )
+    if rejected:
+        reason = (
+            f"{_cuota(rejected[0])}: el cargo automático fue rechazado"
+            if len(rejected) == 1
+            else f"{len(rejected)} cuotas con cargo automático rechazado"
+        )
+        out.append(
+            PendingAction(
+                code="collection_debit_rejected",
+                severity="warning",
+                tab="policies",
+                reason=reason + ".",
+                count=len(rejected),
+            )
+        )
+    return out
 
 
 @router.get("/{case_id}/pending-actions", response_model=PendingActionsResponse)
@@ -1110,8 +1294,35 @@ def get_case_file_pending_actions(
     account_kinds = machine.ACCOUNT_KINDS
     is_account = case.kind in account_kinds
 
+    # A gap is only actionable while its stage is still ahead or current: a
+    # stage the broker skipped ("Saltar a…", omitida) or one the account is long
+    # past never raises a pending action (QA v12: a Vigente account listed
+    # "Faltan antecedentes" and "está en decisión").
+    chain = list(machine.CASE_STAGE_FLOW.get(case.kind, ()))
+    # Only an explicit "omitida" (an ``is_skipped`` event is the stage's latest)
+    # counts — a legacy case with no events must still show its gaps.
+    latest_event: dict[CaseStage, bool] = {}
+    for event in db.scalars(
+        select(CaseFileStageEvent)
+        .where(CaseFileStageEvent.case_file_id == case.id)
+        .order_by(CaseFileStageEvent.occurred_at.asc(), CaseFileStageEvent.id.asc())
+    ):
+        latest_event[event.to_stage] = bool(event.is_skipped)
+    skipped = {stage for stage, was_skipped in latest_event.items() if was_skipped}
+    current_idx = chain.index(case.stage) if case.stage in chain else None
+
+    def _reached(stage: CaseStage) -> bool:
+        """True once the account is at or past ``stage`` in its chain."""
+        return (
+            current_idx is not None and stage in chain and current_idx >= chain.index(stage)
+        )
+
+    antecedentes_relevant = CaseStage.INTAKE not in skipped and not _reached(
+        CaseStage.POLICY_ISSUED
+    )
+
     # (1) Record / antecedentes gap — a missing or not-yet-registered expediente.
-    if is_account:
+    if is_account and antecedentes_relevant:
         record = db.scalars(
             select(RecordExpediente).where(
                 RecordExpediente.broker_id == broker_id,
@@ -1173,30 +1384,39 @@ def get_case_file_pending_actions(
                 )
             )
 
-    # (4) A missing propuesta once the account has reached the decision point.
-    if is_account and case.stage in machine.CASE_STAGE_FLOW.get(case.kind, ()):
-        chain = machine.CASE_STAGE_FLOW[case.kind]
-        decision_idx = (
-            chain.index(CaseStage.INSURED_DECISION)
-            if CaseStage.INSURED_DECISION in chain
-            else None
-        )
-        if decision_idx is not None and chain.index(case.stage) >= decision_idx:
-            has_bp = db.scalars(
-                select(BrokerProposal.id).where(
-                    BrokerProposal.broker_id == broker_id,
-                    BrokerProposal.case_file_id == case.id,
+    # (4) A missing propuesta while the account sits at the decision point or
+    # at "propuesta emitida" — not once it is ratified / issued / vigente, and
+    # not when the broker skipped the propuesta stage.
+    if (
+        is_account
+        and current_idx is not None
+        and CaseStage.PROPOSAL_ISSUED not in skipped
+        and case.stage in (CaseStage.INSURED_DECISION, CaseStage.PROPOSAL_ISSUED)
+    ):
+        has_bp = db.scalars(
+            select(BrokerProposal.id).where(
+                BrokerProposal.broker_id == broker_id,
+                BrokerProposal.case_file_id == case.id,
+            )
+        ).first()
+        if has_bp is None:
+            actions.append(
+                PendingAction(
+                    code="propuesta_missing",
+                    severity="warning",
+                    tab="proposal",
+                    reason=(
+                        "La cuenta está en decisión del asegurado pero aún no tiene una propuesta."
+                        if case.stage == CaseStage.INSURED_DECISION
+                        else "La cuenta figura con propuesta emitida, pero no hay una propuesta registrada."
+                    ),
                 )
-            ).first()
-            if has_bp is None:
-                actions.append(
-                    PendingAction(
-                        code="propuesta_missing",
-                        severity="warning",
-                        tab="proposal",
-                        reason="La cuenta está en decisión pero no tiene una propuesta emitida.",
-                    )
-                )
+            )
+
+    # (6) Cobranza: a cuota overdue or at risk of termination is the most
+    # urgent gap of a live account (review v12 #5 — "Todo al día" while a cuota
+    # sat in *Riesgo de término*). Same live state as the board and the bell.
+    actions.extend(_collection_actions(db, case))
 
     # (5) The first BLOCKED forward transition — the real guard reason.
     next_stage = _forward_next_stage(case)
@@ -1229,6 +1449,73 @@ def transition_case_file(
         machine.apply_transition(
             db, case=case, to_stage=payload.to_stage, user=current_user, note=payload.note
         )
+    except machine.CaseStageConflict as exc:
+        # e.g. walking back from *Vigente* (review v12 #9).
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except machine.CaseTransitionError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    db.commit()
+    db.refresh(case)
+    return _detail(db, case)
+
+
+@router.post("/{case_id}/skip-to", response_model=CaseFileDetail)
+def skip_case_file_to(
+    case_id: int,
+    payload: CaseSkipTo,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("CaseFiles", "Edit")),
+) -> CaseFileDetail:
+    """"Saltar a…": jump an account forward, writing ``is_skipped`` events for
+    every stage in between it never entered (v12 partial journeys, R6).
+
+    409 when the target is not ahead of the current stage; 422 for a target
+    outside ``quotes_received | insured_decision | policy_issued | active``, a
+    non-account / non-open folder, a policy target without a policy, or a
+    placement that cannot follow.
+    """
+    case = _get_case(db, case_id, broker_id, current_user)
+    try:
+        machine.skip_to(
+            db, case=case, target=payload.target_stage, user=current_user, note=payload.note
+        )
+    except machine.CaseStageConflict as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except machine.CaseTransitionError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    db.commit()
+    db.refresh(case)
+    return _detail(db, case)
+
+
+@router.post("/{case_id}/activate-stage", response_model=CaseFileDetail)
+def activate_case_file_stage(
+    case_id: int,
+    payload: CaseActivateStage,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("CaseFiles", "Edit")),
+) -> CaseFileDetail:
+    """Re-enter a SKIPPED stage. 409 once the folder has a policy ("Ya tiene
+    póliza: los cambios se hacen por endoso o corrección"); 422 when the stage
+    is not skipped or a placement cannot follow."""
+    case = _get_case(db, case_id, broker_id, current_user)
+    try:
+        machine.activate_stage(
+            db, case=case, stage=payload.stage, user=current_user, note=payload.note
+        )
+    except machine.CaseStageConflict as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except machine.CaseTransitionError as exc:
         db.rollback()
         raise HTTPException(
@@ -1264,9 +1551,10 @@ def get_case_file_timeline(
                 title=event.to_stage.value,
                 from_stage=event.from_stage.value if event.from_stage else None,
                 to_stage=event.to_stage.value,
-                detail=event.note,
+                detail=event.note if event.user_id else humanize_system_text(event.note),
                 user_id=event.user_id,
                 meta=event.meta,
+                is_skipped=bool(event.is_skipped),
             )
         )
 
@@ -1285,7 +1573,7 @@ def get_case_file_timeline(
                 kind="activity",
                 occurred_at=activity.occurred_at,
                 title=activity.action,
-                detail=activity.description,
+                detail=humanize_system_text(activity.description),
                 user_id=activity.user_id,
                 meta=activity.meta,
             )
@@ -1696,6 +1984,10 @@ def renew_case_file(
         policy_id=None,
         parent_case_file_id=None,
         insurance_line_id=source.insurance_line_id,
+        # v12: the subtipo and the route carry over to the next vigencia.
+        insurance_subtype_id=source.insurance_subtype_id,
+        route=source.route,
+        entry_origin=source.entry_origin,
         kind=CaseFileKind.RENEWAL,
         stage=CaseStage.RENEWAL_REVIEW,
         status=CaseFileStatus.OPEN,
@@ -1823,6 +2115,9 @@ def reperiod_case_file(
         policy_id=None,
         parent_case_file_id=None,
         insurance_line_id=source.insurance_line_id,
+        insurance_subtype_id=source.insurance_subtype_id,
+        route=source.route,
+        entry_origin=source.entry_origin,
         kind=CaseFileKind.ACCOUNT,
         stage=stage,
         status=CaseFileStatus.OPEN,

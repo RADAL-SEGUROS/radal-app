@@ -212,7 +212,7 @@ def test_issuing_an_endorsement_keeps_the_ledger_balanced(
 
 
 def test_collections_tenancy_and_permissions(
-    client, world, headers_a, headers_b, headers_a_exec, insurer_policy
+    client, world, headers_a, headers_b, headers_a_exec, headers_a_tech, insurer_policy
 ):
     plan = client.post(
         f"{API}/collections",
@@ -220,11 +220,14 @@ def test_collections_tenancy_and_permissions(
         json=_plan_payload(insurer_policy.id, ["139"]),
     ).json()
     assert client.get(f"{API}/collections/{plan['id']}", headers=headers_b).status_code == 404
-    # The executive may read the ledger but not edit it.
-    assert client.get(f"{API}/collections/{plan['id']}", headers=headers_a_exec).status_code == 200
+    # The technician may read the ledger but not edit it. (v12 gave the
+    # executive the admin's cobranza actions, so it is no longer the read-only
+    # role here — docs/v12/02-backend-api.md "RBAC changes".)
+    assert client.get(f"{API}/collections/{plan['id']}", headers=headers_a_tech).status_code == 200
     denied = client.patch(
         f"{API}/collections/{plan['id']}/installments/1",
-        headers=headers_a_exec,
+        headers=headers_a_tech,
         json={"paid_on": "2026-01-05"},
     )
     assert denied.status_code == 403
+    assert client.get(f"{API}/collections/{plan['id']}", headers=headers_a_exec).status_code == 200

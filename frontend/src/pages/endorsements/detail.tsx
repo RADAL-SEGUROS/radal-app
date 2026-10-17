@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/format";
 import { useCan } from "@/lib/permissions";
+import { toWallClock } from "@/lib/wallclock";
 import { useEndorsement, useIssueEndorsement } from "@/api/endorsements";
 import { usePolicy } from "@/api/policies";
 import type { Endorsement } from "@/api/types";
@@ -48,6 +49,7 @@ import {
 import { DateTimeValue, PostsaleBadge, renderValue } from "@/pages/policies/shared";
 import { PremiumDeltaCard } from "@/pages/endorsements/PremiumDeltaCard";
 import { EffectDiffTable } from "@/pages/endorsements/EffectDiffTable";
+import { ENDORSEMENT_KIND_LABEL, ENDORSEMENT_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const textareaClass =
   "w-full rounded-lg border border-line bg-bone px-3.5 py-2 text-body text-ink outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand-ring";
@@ -81,7 +83,8 @@ function IssueDialog({
         issued_document_id: documentId ? Number(documentId) : null,
         endorsement_number: number.trim() || null,
         issued_at: issuedAt || null,
-        effective_at: effectiveAt ? new Date(effectiveAt).toISOString() : null,
+        // Contractual: Chile wall-clock as typed, never a UTC instant.
+        effective_at: toWallClock(effectiveAt),
         note: note.trim() || null,
       });
       toast.success(t("endorsement.actions.issueDone"), {
@@ -227,8 +230,8 @@ export default function EndorsementDetailPage() {
         }
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            <PostsaleBadge value={e.status} label={t(`endorsement.status.${e.status}`)} />
-            <Badge variant="action">{t(`endorsement.kind.${e.kind}`)}</Badge>
+            <PostsaleBadge value={e.status} label={enumLabel(t, ENDORSEMENT_STATUS_LABEL, e.status)} />
+            <Badge variant="action">{enumLabel(t, ENDORSEMENT_KIND_LABEL, e.kind)}</Badge>
             <MonoChip>E{e.sequence_no}</MonoChip>
             {e.is_confirmed ? (
               <Badge variant="success">{t("endorsement.fields.confirmed")}</Badge>

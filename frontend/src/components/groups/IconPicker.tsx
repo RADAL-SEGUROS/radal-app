@@ -24,6 +24,8 @@ import { DisabledHint, ErrorBanner } from "@/components/common/kit";
 import { GroupAvatar } from "@/components/groups/GroupAvatar";
 import {
   GROUP_ICON_CATEGORIES,
+  GROUP_ICON_CATEGORY_LABEL,
+  type GroupIconCategoryKey,
   GlyphIcon,
 } from "@/components/groups/groupIcons";
 import { useUploadDocument } from "@/api/documents";
@@ -55,7 +57,7 @@ export function IconPicker({
   const q = query.trim().toLowerCase();
 
   const categoryLabel = React.useCallback(
-    (key: string) => t(`group.icon.categories.${key}`),
+    (key: GroupIconCategoryKey) => t(GROUP_ICON_CATEGORY_LABEL[key]),
     [t],
   );
 

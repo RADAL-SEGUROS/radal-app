@@ -18,6 +18,7 @@ import type { Inspection } from "@/api/types";
 import { cn } from "@/lib/utils";
 import { EmptyState, GuardedButton, RESULT_VARIANT, SectionCard, type Guard } from "./shared";
 import {
+  RESULT_LABEL,
   RESULT_TOKENS,
   type ChecklistSection,
   type ResultToken,
@@ -38,7 +39,7 @@ import {
 
 function ResultBadge({ result }: { result: ResultToken }) {
   const { t } = useTranslation("inspections");
-  return <Badge variant={RESULT_VARIANT[result]}>{t(`result.${result}`)}</Badge>;
+  return <Badge variant={RESULT_VARIANT[result]}>{t(RESULT_LABEL[result])}</Badge>;
 }
 
 export function ChecklistCard({
@@ -301,7 +302,7 @@ export function ChecklistCard({
                                   ) : null}
                                   {RESULT_TOKENS.map((token) => (
                                     <SelectItem key={token} value={token}>
-                                      {t(`result.${token}`)}
+                                      {t(RESULT_LABEL[token])}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>

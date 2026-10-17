@@ -42,7 +42,15 @@
     "submission_pack": "Carpeta de cotización",
     "comparison_pack": "Carpeta comparativa",
     "proposal_pack": "Carpeta de propuesta",
-    "archive_pack": "Expediente descargable"
+    "archive_pack": "Expediente descargable",
+    "budget_proposal": "Cotización de compañía",
+    "antecedentes_pack": "Paquete de antecedentes",
+    "payment_receipt": "Comprobante de pago",
+    "email_message": "Correo",
+    "cancellation_letter": "Carta de término",
+    "payment_consent": "Mandato de pago (PAC)",
+    "portal_screenshot": "Captura del portal",
+    "insurer_statement_upload": "Planilla de cobranza de la compañía"
   },
   "directions": {
     "insured_to_broker": "Asegurado → corredor",

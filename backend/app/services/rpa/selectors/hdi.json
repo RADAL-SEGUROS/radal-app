@@ -1,0 +1,79 @@
+{
+  "_notes": "HDI Seguros portal map. PROVISIONAL: the team has not sent HDI's real flows/page maps yet; this map drives the local fake portal (tests/fixtures/rpa/fake_hdi). When the portal changes, edit the selectors/steps here and BUMP 'version' — the maintenance flag is per version, so a bump clears it. The base URL comes from settings.RPA_HDI_BASE_URL (blank => 'Conector en configuración'). insurer.rut / insurer.cmf_code link the quotes to the canonical insurer (never by name); blank => quotes keep insurer_id NULL. Each step's 'label' is the Spanish text the run detail shows (fallback 'Paso N'); 'step_labels' names the engine's own steps.",
+  "key": "hdi",
+  "name": "HDI Seguros",
+  "version": "2026.10.1",
+  "supported_subtypes": [
+    "VEH-01"
+  ],
+  "requires_credentials": true,
+  "insurer": {
+    "rut": "",
+    "cmf_code": ""
+  },
+  "timeouts": {
+    "default_ms": 8000,
+    "navigation_ms": 30000
+  },
+  "captcha_selectors": [
+    "#captcha-challenge",
+    "iframe[src*='recaptcha']",
+    "iframe[src*='hcaptcha']"
+  ],
+  "value_map": {
+    "use": {
+      "particular": "PARTICULAR",
+      "commercial": "COMERCIAL"
+    }
+  },
+  "step_labels": {
+    "credentials": "Revisar las credenciales",
+    "run": "Ejecutar la búsqueda"
+  },
+  "steps": [
+    {"name": "open_login", "label": "Abrir el portal", "op": "goto", "path": "/login.html"},
+    {"name": "fill_username", "label": "Ingresar el usuario", "op": "fill", "selector": "#username", "value": "{credentials.username}"},
+    {"name": "fill_password", "label": "Ingresar la clave", "op": "fill", "selector": "#password", "value": "{credentials.password}"},
+    {"name": "submit_login", "label": "Iniciar sesión", "op": "click", "selector": "#login-submit"},
+    {"name": "login_result", "label": "Verificar el inicio de sesión", "op": "wait_for", "selector": "#quote-form", "failures": {"#login-error": "login_failed"}},
+    {"name": "fill_plate", "label": "Ingresar la patente", "op": "fill", "selector": "#plate", "value": "{input.plate}"},
+    {"name": "fill_brand", "label": "Ingresar la marca", "op": "fill", "selector": "#brand", "value": "{input.brand}"},
+    {"name": "fill_model", "label": "Ingresar el modelo", "op": "fill", "selector": "#model", "value": "{input.model}"},
+    {"name": "fill_year", "label": "Ingresar el año", "op": "fill", "selector": "#year", "value": "{input.year}"},
+    {"name": "select_use", "label": "Elegir el uso del vehículo", "op": "select", "selector": "#use", "value": "{input.use}"},
+    {"name": "fill_commune", "label": "Ingresar la comuna", "op": "fill", "selector": "#commune", "value": "{input.commune}"},
+    {"name": "fill_insured_rut", "label": "Ingresar el RUT del asegurado", "op": "fill", "selector": "#insured-rut", "value": "{input.insured_rut}"},
+    {"name": "fill_start_date", "label": "Ingresar el inicio de vigencia", "op": "fill", "selector": "#start-date", "value": "{input.start_date}"},
+    {"name": "submit_quote", "label": "Enviar la cotización", "op": "click", "selector": "#quote-submit"},
+    {"name": "wait_results", "label": "Esperar los resultados", "op": "wait_for", "selector": "#results-table", "failures": {"#no-results": "no_results"}, "timeout_ms": 45000, "on_timeout": "timeout"},
+    {
+      "name": "read_results",
+      "label": "Leer las alternativas",
+      "op": "extract_table",
+      "rows": "#results-table tbody tr",
+      "columns": {
+        "plan_name": {
+          "selector": "td.plan",
+          "type": "text",
+          "required": true
+        },
+        "premium_uf": {
+          "selector": "td.premium-uf",
+          "type": "uf"
+        },
+        "premium_clp": {
+          "selector": "td.premium-clp",
+          "type": "clp"
+        },
+        "deductible": {
+          "selector": "td.deductible",
+          "type": "text"
+        },
+        "coverages": {
+          "selector": "td.coverages",
+          "type": "list"
+        }
+      }
+    }
+  ]
+}

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import CaseSection, PackKind, PackStatus
 from app.schemas.document import DocumentDownload
+from app.schemas.utc import UtcDatetime
 
 
 class RecipientRead(BaseModel):
@@ -44,12 +45,12 @@ class CasePackRead(BaseModel):
     summary_prompt_version: str | None = None
     is_summary_confirmed: bool = False
     recipients: list[RecipientRead] = Field(default_factory=list)
-    generated_at: datetime | None = None
-    sent_at: datetime | None = None
+    generated_at: UtcDatetime | None = None
+    sent_at: UtcDatetime | None = None
     generated_by_id: int | None = None
     error: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     pdf: DocumentDownload | None = None
     zip: DocumentDownload | None = None

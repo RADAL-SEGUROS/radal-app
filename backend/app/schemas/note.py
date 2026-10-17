@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import EntityType
+from app.schemas.utc import UtcDatetime
 
 
 class NoteCreate(BaseModel):
@@ -46,8 +47,8 @@ class NoteRead(BaseModel):
     is_internal: bool
     phase: str | None = None
     follow_up_on: date | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     author_name: str | None = None
 
@@ -70,7 +71,8 @@ class ActivityRead(BaseModel):
     entity_id: int | None = None
     description: str | None = None
     meta: dict[str, Any] | None = None
-    occurred_at: datetime
+    #: Tz-aware UTC so the browser shows Chile time (review v12 #3).
+    occurred_at: UtcDatetime
 
     user_name: str | None = None
 

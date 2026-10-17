@@ -62,6 +62,13 @@ import {
   resolveFileUrl,
   uf,
 } from "@/pages/proposals/shared";
+import {
+  OFFERING_CHANNEL_LABEL,
+  OFFERING_STATUS_LABEL,
+  PROPOSAL_ORIGIN_LABEL,
+  PROPOSAL_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 export default function OfferingDetailPage() {
   const { offeringId } = useParams<{ offeringId: string }>();
@@ -109,8 +116,8 @@ export default function OfferingDetailPage() {
         title={t("detail.heading", { id: String(o.id).padStart(4, "0") })}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            <StatusBadge value={o.status} label={t(`status.${o.status}`)} />
-            {o.sent_via ? <Badge variant="action">{t(`channels.${o.sent_via}`)}</Badge> : null}
+            <StatusBadge value={o.status} label={enumLabel(t, OFFERING_STATUS_LABEL, o.status)} />
+            {o.sent_via ? <Badge variant="action">{enumLabel(t, OFFERING_CHANNEL_LABEL, o.sent_via)}</Badge> : null}
             <Link to={`/quotes/${o.quote_request_id}`} className="text-caption tabular-nums">
               COT-{String(o.quote_request_id).padStart(4, "0")}
             </Link>
@@ -225,7 +232,7 @@ function ProposalPicker({ offering }: { offering: Offering }) {
                       <span className="mt-1 flex flex-wrap items-center gap-1.5">
                         <MonoChip>{p.insurer?.cmf_code ?? "—"}</MonoChip>
                         <Badge variant={p.origin === "native" ? "brand" : "neutral"}>
-                          {tp(`origin.${p.origin}`)}
+                          {enumLabel(tp, PROPOSAL_ORIGIN_LABEL, p.origin)}
                         </Badge>
                       </span>
                     </span>
@@ -247,7 +254,7 @@ function ProposalPicker({ offering }: { offering: Offering }) {
                   </span>
 
                   <span className="flex flex-wrap items-center gap-1.5">
-                    <StatusBadge value={p.status} label={tp(`status.${p.status}`)} />
+                    <StatusBadge value={p.status} label={enumLabel(tp, PROPOSAL_STATUS_LABEL, p.status)} />
                     {p.is_confirmed ? null : <ConfidenceBadge value={p.extraction_confidence} />}
                   </span>
                 </button>
@@ -357,7 +364,7 @@ function SharePanel({ offering }: { offering: Offering }) {
     record.mutate(
       { channel },
       {
-        onSuccess: () => toast.success(t("detail.recorded", { channel: t(`channels.${channel}`) })),
+        onSuccess: () => toast.success(t("detail.recorded", { channel: enumLabel(t, OFFERING_CHANNEL_LABEL, channel) })),
         onError: (error) => toast.error(apiError(error, tc("toast.error"))),
       },
     );

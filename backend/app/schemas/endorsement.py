@@ -21,6 +21,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import EndorsementKind, EndorsementStatus
 from app.schemas.proposal import MONEY_TOLERANCE, VAT_RATE
+from app.schemas.utc import UtcDatetime
+from app.schemas.wallclock import WallClockDatetime
 
 _MONEY_QUANT = Decimal("0.0001")
 
@@ -143,8 +145,8 @@ class EndorsementCreate(EndorsementMoneyMixin):
     kind: EndorsementKind = EndorsementKind.OTHER
     status: EndorsementStatus = EndorsementStatus.DRAFT
 
-    effective_at: datetime | None = None
-    ends_at: datetime | None = None
+    effective_at: WallClockDatetime | None = None
+    ends_at: WallClockDatetime | None = None
     issued_at: date | None = None
 
     proposal_document_id: int | None = Field(default=None, gt=0)
@@ -168,8 +170,8 @@ class EndorsementUpdate(EndorsementMoneyMixin):
     status: EndorsementStatus | None = None
     case_file_id: int | None = Field(default=None, gt=0)
 
-    effective_at: datetime | None = None
-    ends_at: datetime | None = None
+    effective_at: WallClockDatetime | None = None
+    ends_at: WallClockDatetime | None = None
     issued_at: date | None = None
 
     proposal_document_id: int | None = Field(default=None, gt=0)
@@ -193,7 +195,7 @@ class EndorsementIssue(BaseModel):
     issued_document_id: int | None = Field(default=None, gt=0)
     endorsement_number: str | None = Field(default=None, max_length=64)
     issued_at: date | None = None
-    effective_at: datetime | None = None
+    effective_at: WallClockDatetime | None = None
     note: str | None = None
 
 
@@ -211,8 +213,8 @@ class EndorsementRead(BaseModel):
     kind: EndorsementKind
     status: EndorsementStatus
 
-    effective_at: datetime | None = None
-    ends_at: datetime | None = None
+    effective_at: WallClockDatetime | None = None
+    ends_at: WallClockDatetime | None = None
     issued_at: date | None = None
 
     proposal_document_id: int | None = None
@@ -238,9 +240,9 @@ class EndorsementRead(BaseModel):
     extraction_confidence: Decimal | None = None
     is_confirmed: bool
     confirmed_by_id: int | None = None
-    confirmed_at: datetime | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    confirmed_at: UtcDatetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     # UUID shared by the N endorsements of one prórroga (spec v3 §2.3);
     # server-minted by ``POST /endorsements/batch``, never client-supplied.
@@ -272,7 +274,7 @@ class EndorsementBatchCreate(BaseModel):
     kind: EndorsementKind = EndorsementKind.PERIOD_EXTENSION
     #: The new ``policy.end_date``; the router also moves ``period_end_at``.
     new_end_date: date
-    effective_at: datetime
+    effective_at: WallClockDatetime
     issued_document_id: int | None = Field(default=None, gt=0)
     note: str | None = None
 

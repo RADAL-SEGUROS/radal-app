@@ -26,7 +26,7 @@ RDS MySQL + ECR**, deployed by **GitHub Actions (Blacksmith) → ECR → `update
   (Function URLs reject a forwarded `Host` header).
 - The SPA calls **same-origin `/api/v1`** — CloudFront routes `/api/*` to the backend Lambda, so no CORS.
 - Backend Lambda is **VPC-attached** (subnets in the RDS VPC + `radal-lambda-sg`, which RDS allows on 3306).
-  No NAT — it only talks to RDS. Cold starts open new DB connections; add **RDS Proxy** for prod.
+  **No NAT and no VPC endpoints — so it has NO internet and NO S3 API access** (verified 2026-10-17: default VPC, public subnets → IGW, which a VPC Lambda cannot use; the only dev AI calls timed out at 30 s). AI, S3 uploads and every v12 integration need egress: see `deploy/v12/README.md` §0 (fck-nat mode C + S3 gateway endpoint). Cold starts open new DB connections; add **RDS Proxy** for prod.
 
 ## Provisioned resources (dev)
 
@@ -68,6 +68,19 @@ aws lambda update-function-code --profile radal --function-name radal-backend-de
 aws lambda update-function-code --profile radal --function-name radal-frontend-dev --image-uri $ECR/radal-frontend:dev
 aws cloudfront create-invalidation --profile radal --distribution-id E2MGVTSWQDFPY3 --paths "/*"
 ```
+
+## Webhook origin — `PUBLIC_API_URL` (v12)
+
+Provider webhooks (Forpay) are shown in Plataforma › Cuentas de proveedor as
+`{public_api_url}/api/v1/webhooks/{provider}?account=…&sig=…`. `public_api_url` is
+`PUBLIC_API_URL` when set, else the public **app** URL (the first CORS origin).
+
+- **Deployed (CloudFront)**: the fallback is correct — CloudFront routes `/api/*` on the
+  SPA origin to the backend, so `https://dev.radalseguros.cl/api/v1/webhooks/…` reaches it.
+  Set `PUBLIC_API_URL` only if the API ever moves to its own host.
+- **Local**: the fallback is the Vite host (`http://localhost:5602`), which does **not**
+  proxy `/api`. Set `PUBLIC_API_URL=http://localhost:8102` (or a tunnel URL) before copying
+  a webhook URL anywhere; a provider can never reach `localhost` anyway.
 
 ## HTML → PDF rendering (Playwright / Chromium) — NEW provisioning step
 

@@ -30,6 +30,8 @@ class AITask(str, Enum):
     PROPUESTA = "PROPUESTA"
     ANTECEDENTES = "ANTECEDENTES"
     SUMMARY = "SUMMARY"
+    # v12: classify + read an inbound insurer mail (small tier; services/mail/classifier.py).
+    CLASSIFY_MAIL = "CLASSIFY_MAIL"
 
 
 _TASKS = {task.value for task in AITask}

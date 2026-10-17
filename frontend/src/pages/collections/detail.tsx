@@ -13,7 +13,7 @@
  */
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ArrowLeft, FolderOpen, Percent, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FolderOpen, Percent, Share2, Wallet } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { KpiCard } from "@/components/common/KpiCard";
@@ -38,6 +38,15 @@ import {
 import { PostsaleBadge } from "@/pages/policies/shared";
 import { InstallmentLedger } from "@/pages/collections/InstallmentLedger";
 import { Art528Timeline } from "@/pages/collections/Art528Timeline";
+import { PlanCobranzaPanel } from "@/components/collections/PlanCobranzaPanel";
+import { ShareDialog } from "@/components/share/ShareDialog";
+import type { CollectionPlanCobranza } from "@/api/collections";
+import {
+  COLLECTION_PLAN_STATUS_LABEL,
+  PAYMENT_MODE_LABEL,
+  POSTSALE_SEVERITY_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 export default function CollectionDetailPage() {
   const { planId } = useParams<{ planId: string }>();
@@ -95,8 +104,8 @@ export default function CollectionDetailPage() {
         }
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            <PostsaleBadge value={p.status} label={t(`collection.status.${p.status}`)} />
-            <Badge variant="action">{t(`collection.paymentMode.${p.payment_mode}`)}</Badge>
+            <PostsaleBadge value={p.status} label={enumLabel(t, COLLECTION_PLAN_STATUS_LABEL, p.status)} />
+            <Badge variant="action">{enumLabel(t, PAYMENT_MODE_LABEL, p.payment_mode)}</Badge>
             {p.as_of_date ? (
               <span className="text-text-muted">
                 {t("collection.fields.asOfDate")} {formatDate(p.as_of_date)}
@@ -114,6 +123,19 @@ export default function CollectionDetailPage() {
                 </Link>
               </Button>
             ) : null}
+            {/* The whole plan, shared with the insured (pay) or the insurer
+                (informar estado) — the dialog switches the audience. */}
+            <ShareDialog
+              entityType="collection_plan"
+              entityId={p.id}
+              defaultAudience="insured"
+              trigger={
+                <Button variant="secondary" size="sm">
+                  <Share2 className="h-4 w-4" />
+                  {t("collections:actions.share")}
+                </Button>
+              }
+            />
             <SoonButton reason={t("shared.soonExport")}>{tc("actions.export")}</SoonButton>
           </>
         }
@@ -125,21 +147,21 @@ export default function CollectionDetailPage() {
         <KpiCard
           label={t("collection.kpi.scheduled")}
           countTo={num(s?.total_scheduled_uf ?? null) ?? 0}
-          format={(n) => formatUF(n, { decimals: 1 })}
+          format={(n) => formatUF(n, { decimals: 2 })}
           icon={<Wallet />}
           tone="brand"
         />
         <KpiCard
           label={t("collection.kpi.paid")}
           countTo={num(s?.paid_uf ?? null) ?? 0}
-          format={(n) => formatUF(n, { decimals: 1 })}
+          format={(n) => formatUF(n, { decimals: 2 })}
           icon={<Wallet />}
           tone="success"
         />
         <KpiCard
           label={t("collection.kpi.outstanding")}
           countTo={num(s?.outstanding_uf ?? null) ?? 0}
-          format={(n) => formatUF(n, { decimals: 1 })}
+          format={(n) => formatUF(n, { decimals: 2 })}
           icon={<Wallet />}
           tone="action"
         />
@@ -149,7 +171,7 @@ export default function CollectionDetailPage() {
             s ? t("collection.kpi.overdueCount", { count: s.overdue_count }) : undefined
           }
           countTo={num(s?.overdue_uf ?? null) ?? 0}
-          format={(n) => formatUF(n, { decimals: 1 })}
+          format={(n) => formatUF(n, { decimals: 2 })}
           icon={<AlertTriangle />}
           tone="danger"
         />
@@ -184,7 +206,7 @@ export default function CollectionDetailPage() {
             />
             <KeyValue
               label={t("collection.fields.paymentMode")}
-              value={t(`collection.paymentMode.${p.payment_mode}`)}
+              value={enumLabel(t, PAYMENT_MODE_LABEL, p.payment_mode)}
             />
             <KeyValue
               label={t("collection.fields.installmentCount")}
@@ -232,9 +254,7 @@ export default function CollectionDetailPage() {
                 >
                   <PostsaleBadge
                     value={alert.severity}
-                    label={t(`shared.severity.${alert.severity}`, {
-                      defaultValue: alert.severity,
-                    })}
+                    label={enumLabel(t, POSTSALE_SEVERITY_LABEL, alert.severity)}
                   />
                   <MonoChip>{alert.code}</MonoChip>
                   <span className="min-w-0 flex-1 text-body text-text-secondary">
@@ -245,6 +265,12 @@ export default function CollectionDetailPage() {
             </ul>
           )}
         </Section>
+      </FadeUp>
+
+      {/* v12: reminders, live cuotas (with the board's side sheet), payments
+          with their evidence level, notices sent and insurer inquiries. */}
+      <FadeUp delay={0.06} className="flex flex-col gap-4">
+        <PlanCobranzaPanel plan={p as typeof p & CollectionPlanCobranza} />
       </FadeUp>
 
       <FadeUp delay={0.08}>

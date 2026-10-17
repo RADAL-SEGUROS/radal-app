@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import ClaimItemKind, ClaimRuling
 from app.models.policy import ClaimStatus
+from app.schemas.utc import UtcDatetime
+from app.schemas.wallclock import WallClockDatetime
 
 
 # --- Items ----------------------------------------------------------------------
@@ -36,8 +38,8 @@ class ClaimItemRead(ClaimItemBase):
     id: int
     broker_id: int
     claim_id: int
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 class ClaimItemsReplace(BaseModel):
@@ -76,8 +78,8 @@ class ClaimCreate(BaseModel):
     kind: str | None = Field(default=None, max_length=160)
     event_date: date | None = None
     reported_date: date | None = None
-    occurred_at: datetime | None = None
-    reported_at: datetime | None = None
+    occurred_at: WallClockDatetime | None = None
+    reported_at: UtcDatetime | None = None
     notice_deadline_days: int | None = Field(default=None, ge=0)
     description: str | None = None
     status: ClaimStatus = ClaimStatus.REPORTED
@@ -110,8 +112,8 @@ class ClaimUpdate(BaseModel):
     kind: str | None = Field(default=None, max_length=160)
     event_date: date | None = None
     reported_date: date | None = None
-    occurred_at: datetime | None = None
-    reported_at: datetime | None = None
+    occurred_at: WallClockDatetime | None = None
+    reported_at: UtcDatetime | None = None
     notice_deadline_days: int | None = Field(default=None, ge=0)
     description: str | None = None
     status: ClaimStatus | None = None
@@ -159,8 +161,8 @@ class ClaimRead(BaseModel):
     kind: str | None = None
     event_date: date | None = None
     reported_date: date | None = None
-    occurred_at: datetime | None = None
-    reported_at: datetime | None = None
+    occurred_at: WallClockDatetime | None = None
+    reported_at: UtcDatetime | None = None
     notice_deadline_days: int | None = None
     description: str | None = None
     status: ClaimStatus
@@ -179,8 +181,8 @@ class ClaimRead(BaseModel):
     cost_uf: Decimal | None = None
     participation: list[Any] | None = None
 
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     items: list[ClaimItemRead] = Field(default_factory=list)
     policy_number: str | None = None

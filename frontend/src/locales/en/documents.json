@@ -42,7 +42,15 @@
     "submission_pack": "Submission pack",
     "comparison_pack": "Comparison pack",
     "proposal_pack": "Proposal pack",
-    "archive_pack": "Downloadable case folder"
+    "archive_pack": "Downloadable case folder",
+    "budget_proposal": "Insurer quotation",
+    "antecedentes_pack": "Antecedentes pack",
+    "payment_receipt": "Payment receipt",
+    "email_message": "Email",
+    "cancellation_letter": "Termination letter",
+    "payment_consent": "Payment mandate (PAC)",
+    "portal_screenshot": "Portal screenshot",
+    "insurer_statement_upload": "Insurer collection sheet"
   },
   "directions": {
     "insured_to_broker": "Insured → broker",

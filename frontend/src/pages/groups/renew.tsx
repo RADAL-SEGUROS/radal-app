@@ -59,9 +59,19 @@ import { useCaseFile, useCaseHistory, useRenewCase } from "@/api/caseFiles";
 import { useCan } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import type { CaseHistory, CaseSection } from "@/api/types";
+import { RECORD_FOLDER_LABEL, enumLabel } from "@/i18n/labels";
+
+/** Each section a renewal can carry forward → its literal label key. */
+const RENEW_SECTION_LABEL = {
+  root_prospect: "accounts:renew.sections.root_prospect",
+  submission: "accounts:renew.sections.submission",
+  insurer_quotes: "accounts:renew.sections.insurer_quotes",
+  broker_proposal: "accounts:renew.sections.broker_proposal",
+  policy_file: "accounts:renew.sections.policy_file",
+} as const satisfies Partial<Record<CaseSection, string>>;
 
 /** The sections a renewal can carry forward, in the order the folder is filed. */
-const COPYABLE_SECTIONS: CaseSection[] = [
+const COPYABLE_SECTIONS: (keyof typeof RENEW_SECTION_LABEL)[] = [
   "root_prospect",
   "submission",
   "insurer_quotes",
@@ -256,7 +266,7 @@ export default function RenewAccountPage() {
                       )}
                     >
                       {selected ? <Check className="h-3.5 w-3.5" /> : null}
-                      {t(`renew.sections.${value}`)}
+                      {t(RENEW_SECTION_LABEL[value])}
                     </button>
                   );
                 })}
@@ -377,7 +387,7 @@ export function HistoryPanel({
                   <div key={key}>
                     <div className="flex items-center gap-2">
                       <Badge variant={rows.length ? "neutral" : "outline"}>
-                        {t(`folders.${key}`, { defaultValue: key })}
+                        {enumLabel(t, RECORD_FOLDER_LABEL, key)}
                       </Badge>
                       <span className="text-caption tabular-nums text-text-muted">
                         {rows.length}

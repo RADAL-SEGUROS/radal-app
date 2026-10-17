@@ -59,6 +59,7 @@ import { DateTimeValue, PostsaleBadge, daysBetween } from "@/pages/policies/shar
 import { ClaimItemsTable } from "@/pages/claims/ClaimItemsTable";
 import { AdjusterReportPanel } from "@/pages/claims/AdjusterReportPanel";
 import { CounterfactualCard } from "@/pages/claims/CounterfactualCard";
+import { CLAIM_RULING_LABEL, CLAIM_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const textareaClass =
   "w-full rounded-lg border border-line bg-bone px-3.5 py-2 text-body text-ink outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand-ring";
@@ -122,7 +123,7 @@ function CloseDialog({
               <SelectContent>
                 {CLAIM_RULINGS.map((r) => (
                   <SelectItem key={r} value={r}>
-                    {t(`claim.ruling.${r}`)}
+                    {enumLabel(t, CLAIM_RULING_LABEL, r)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -257,10 +258,10 @@ export default function ClaimDetailPage() {
         }
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            <PostsaleBadge value={c.status} label={t(`claim.status.${c.status}`)} />
+            <PostsaleBadge value={c.status} label={enumLabel(t, CLAIM_STATUS_LABEL, c.status)} />
             <PostsaleBadge
               value={c.coverage_ruling}
-              label={t(`claim.ruling.${c.coverage_ruling}`)}
+              label={enumLabel(t, CLAIM_RULING_LABEL, c.coverage_ruling)}
             />
             {c.policy_number ? <MonoChip>{c.policy_number}</MonoChip> : null}
             {onTime === true ? (

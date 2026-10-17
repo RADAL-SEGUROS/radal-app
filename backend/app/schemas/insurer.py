@@ -22,6 +22,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.core.urls import safe_http_url, validate_http_url
 from app.models.insurer import InsurerStatus
 from app.services.identifiers import (
     InvalidCmf,
@@ -29,6 +30,7 @@ from app.services.identifiers import (
     validate_codigo_cmf,
     validate_rut,
 )
+from app.schemas.utc import UtcDatetime
 
 # Which fallback tier answered a contact resolution request.
 ContactMatchLevel = Literal["broker_line", "broker", "line", "global"]
@@ -67,7 +69,7 @@ class NativeInsurerProfileWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     commercial_agreement: str | None = None
-    onboarded_at: datetime | None = None
+    onboarded_at: UtcDatetime | None = None
     managed_by_user_id: int | None = None
     priority: int = Field(default=100, ge=0, le=9999)
     sla_hours: int | None = Field(default=None, ge=0, le=8760)
@@ -80,7 +82,7 @@ class NativeInsurerProfileUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     commercial_agreement: str | None = None
-    onboarded_at: datetime | None = None
+    onboarded_at: UtcDatetime | None = None
     managed_by_user_id: int | None = None
     priority: int | None = Field(default=None, ge=0, le=9999)
     sla_hours: int | None = Field(default=None, ge=0, le=8760)
@@ -94,13 +96,13 @@ class NativeInsurerProfileRead(BaseModel):
 
     insurer_id: int
     commercial_agreement: str | None = None
-    onboarded_at: datetime | None = None
+    onboarded_at: UtcDatetime | None = None
     managed_by_user_id: int | None = None
     priority: int = 100
     sla_hours: int | None = None
     notes: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 # --- Insurer ------------------------------------------------------------------
@@ -132,6 +134,12 @@ class InsurerCreate(BaseModel):
     def _validate_cmf(cls, value: str) -> str:
         return _normalize_cmf_code(value)
 
+    @field_validator("payment_url")
+    @classmethod
+    def _validate_payment_url(cls, value: str | None) -> str | None:
+        # Rendered as a link (app + public share page): http(s) only.
+        return validate_http_url(value, max_length=512)
+
 
 class InsurerUpdate(BaseModel):
     """Partial update. Identity fields are platform-only (enforced in the router)."""
@@ -158,6 +166,12 @@ class InsurerUpdate(BaseModel):
     def _validate_cmf(cls, value: str | None) -> str | None:
         return _normalize_cmf_code(value) if value is not None else None
 
+    @field_validator("payment_url")
+    @classmethod
+    def _validate_payment_url(cls, value: str | None) -> str | None:
+        # Rendered as a link (app + public share page): http(s) only.
+        return validate_http_url(value, max_length=512)
+
 
 class InsurerRead(BaseModel):
     """An insurer as seen by the requesting broker.
@@ -179,11 +193,17 @@ class InsurerRead(BaseModel):
     payment_url: str | None = None
     logo_key: str | None = None
     created_by_broker_id: int | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     native_profile: NativeInsurerProfileRead | None = None
     can_edit: bool = False
+
+    @field_validator("payment_url")
+    @classmethod
+    def _safe_payment_url(cls, value: str | None) -> str | None:
+        # Never hand an href a non-http(s) URL, whatever an older row holds.
+        return safe_http_url(value)
 
 
 class InsurerListResponse(BaseModel):
@@ -267,8 +287,8 @@ class InsurerContactRead(BaseModel):
     phone: str | None = None
     role: str | None = None
     is_primary: bool = False
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     # Derived, for the UI: "global" when broker_id is NULL.
     scope: ContactScope = "broker"
@@ -293,7 +313,7 @@ class InsurerRecommendation(BaseModel):
     insurer: InsurerRead
     priority: int = 100
     sla_hours: int | None = None
-    onboarded_at: datetime | None = None
+    onboarded_at: UtcDatetime | None = None
     # True when a contact exists that is specific to the requested line.
     has_line_contact: bool = False
     contact: ResolvedContact | None = None

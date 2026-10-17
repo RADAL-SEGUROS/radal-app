@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.comparison import ComparisonStatus
+from app.schemas.utc import UtcDatetime
 
 
 # --- Create ------------------------------------------------------------------
@@ -118,8 +119,8 @@ class ComparisonEntryRead(BaseModel):
     # wrong-file column or one with no parse. Display only.
     premium: ComparisonPremiumCore | None = None
 
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 class ComparisonRead(BaseModel):
@@ -145,8 +146,8 @@ class ComparisonRead(BaseModel):
 
     entries: list[ComparisonEntryRead] = Field(default_factory=list)
 
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 class ComparisonEntryResult(BaseModel):

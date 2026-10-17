@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>HDI Seguros — Portal Corredores (fake)</title></head>
+<body>
+  <!-- Test fixture: a tiny stand-in for the HDI broker portal. Login is checked
+       client-side against the fixed test credentials below. -->
+  <h1>Portal Corredores</h1>
+  <form id="login-form" onsubmit="return doLogin(event)">
+    <label>Usuario <input id="username" name="username" autocomplete="off"></label>
+    <label>Clave <input id="password" name="password" type="password"></label>
+    <button id="login-submit" type="submit">Ingresar</button>
+  </form>
+  <div id="login-error" style="display:none" role="alert">Usuario o clave incorrectos</div>
+  <script>
+    function doLogin(ev) {
+      ev.preventDefault();
+      var u = document.getElementById('username').value;
+      var p = document.getElementById('password').value;
+      if (u === 'corredor@alfa.cl' && p === 'clave-hdi-123') {
+        window.location.href = 'quote.html';
+      } else {
+        document.getElementById('login-error').style.display = 'block';
+      }
+      return false;
+    }
+  </script>
+</body>
+</html>

@@ -41,6 +41,13 @@ from app.services import packs as pack_service
 
 router = APIRouter(prefix="/case-files", tags=["packs"])
 
+#: Spanish names of the generated folders — the bitácora is prose (rule 1).
+_PACK_KIND_ES: dict[str, str] = {
+    "submission": "de envío al mercado",
+    "comparison": "de comparación",
+    "proposal": "de propuesta",
+}
+
 #: Pack-scoped routes (download, summary confirmation) hang off ``/packs``.
 packs_router = APIRouter(prefix="/packs", tags=["packs"])
 
@@ -117,7 +124,7 @@ def _generate(
         action="case_pack.generated",
         entity_type=EntityType.CASE_FILE,
         entity_id=case.id,
-        description=f"Carpeta '{kind.value}' generada",
+        description=f"Carpeta {_PACK_KIND_ES.get(kind.value, 'del expediente')} generada",
         meta={"pack_id": pack.id, "kind": kind.value},
     )
     db.commit()

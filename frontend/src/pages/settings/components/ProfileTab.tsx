@@ -19,6 +19,7 @@ import {
   SectionCard,
   type Guard,
 } from "./shared";
+import { ORG_TYPE_LABEL, USER_ROLE_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * Broker profile + logo + my own account + password.
@@ -209,7 +210,7 @@ function AccountCard() {
         </div>
         <div className="flex items-center justify-between gap-3">
           <Badge variant="brand">
-            {t("account.role")}: {user?.role ? t(`roles.${user.role}`, user.role) : "—"}
+            {t("account.role")}: {user?.role ? enumLabel(t, USER_ROLE_LABEL, user.role) : "—"}
           </Badge>
           <GuardedButton guard={guard} type="submit" disabled={update.isPending}>
             {t("account.save")}
@@ -311,14 +312,24 @@ function PasswordCard() {
   );
 }
 
+/** Explicit map — never a dynamic i18n key (rule 4). */
+const ORG_STATUS_LABEL: Record<string, string> = {
+  active: "profile.orgStatus.active",
+  onboarding: "profile.orgStatus.onboarding",
+  suspended: "profile.orgStatus.suspended",
+  inactive: "profile.orgStatus.inactive",
+};
+
 export function ProfileTab() {
   const { t } = useTranslation("settings");
   const { organization } = useAuth();
-  const canUpload = useCan("Documents", "Upload");
+  // The corporate logo is part of the corredora's profile: Settings.Manage,
+  // the same gate the server applies (an ejecutivo cannot replace it).
+  const canManage = useCan("Settings", "Manage");
 
-  const uploadGuard: Guard = canUpload.allowed
+  const uploadGuard: Guard = canManage.allowed
     ? { allowed: true, reason: "" }
-    : { allowed: false, reason: t("guard.noPermission") };
+    : { allowed: false, reason: t("guard.adminOnly") };
 
   return (
     <div className="flex flex-col gap-[22px]">
@@ -347,9 +358,16 @@ export function ProfileTab() {
             />
             <ReadOnlyField
               label={t("profile.type")}
-              value={t(`profile.orgType.${organization.type}`, organization.type)}
+              value={enumLabel(t, ORG_TYPE_LABEL, organization.type)}
             />
-            <ReadOnlyField label={t("profile.status")} value={organization.status ?? "—"} />
+            <ReadOnlyField
+              label={t("profile.status")}
+              value={
+                organization.status
+                  ? t(ORG_STATUS_LABEL[organization.status] ?? "profile.orgStatus.unknown")
+                  : "—"
+              }
+            />
             <ReadOnlyField label={t("profile.id")} value={`#${organization.id}`} mono />
           </div>
         )}

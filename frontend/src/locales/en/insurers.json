@@ -99,6 +99,7 @@
     "notFound": "We could not find this insurer",
     "paymentPortal": "Payment portal",
     "noPaymentUrl": "This company has no payment portal on file",
+    "invalidPaymentUrl": "The payment URL on file is not a valid http(s) link",
     "readOnly": "Radal global company: your brokerage cannot edit it",
     "brokerOwned": "Registered by your brokerage",
     "platformOwned": "Registered by Radal",

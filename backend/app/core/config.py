@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/ directory (parent of app/)
@@ -92,9 +92,74 @@ class Settings(BaseSettings):
     # user to download the sections one by one.
     PACK_MAX_MB: int = 64
 
+    # --- v12: mail (docs/v12/04-mail.md §1) ---
+    # Master switch. False => every send is recorded as status "skipped" and no
+    # socket is opened. The Radal system mailbox is the Zoho account; its app
+    # password lives ONLY in env / S3 deploy/backend.env, never in source.
+    MAIL_ENABLED: bool = False
+    RADAL_MAIL_ADDRESS: str = "contacto@radalseguros.cl"
+    RADAL_MAIL_DISPLAY_NAME: str = "Radal"
+    RADAL_MAIL_USERNAME: str = ""  # Zoho login (usually the address)
+    RADAL_MAIL_PASSWORD: str = ""
+    # Zoho: smtp.zoho.com 465 SSL / 587 STARTTLS; imap.zoho.com 993 SSL.
+    # Region hosts (smtp.zoho.eu …) exist, hence settings, not constants.
+    RADAL_MAIL_SMTP_HOST: str = "smtp.zoho.com"
+    RADAL_MAIL_SMTP_PORT: int = 465
+    RADAL_MAIL_SMTP_SECURITY: str = "ssl"  # ssl | starttls | none
+    RADAL_MAIL_IMAP_HOST: str = "imap.zoho.com"
+    RADAL_MAIL_IMAP_PORT: int = 993
+    RADAL_MAIL_IMAP_SECURITY: str = "ssl"  # ssl | starttls | none
+    # Where RPA / job failures are reported to the RADAL team. Blank = nowhere.
+    RADAL_OPS_EMAIL: str = ""
+    MAIL_TIMEOUT_SECONDS: int = 20
+
+    # --- v12: jobs & secrets ---
+    # Shared secret of the internal job routes (header X-Radal-Job-Token / the
+    # EventBridge body token). Blank => those routes answer 404.
+    JOBS_TOKEN: str = ""
+    # Whether the LWA ``POST /events`` route accepts scheduler events at all.
+    JOBS_EVENTS_ENABLED: bool = False
+    # Fernet key for stored secrets (SMTP/IMAP, Forpay, portal passwords).
+    # Blank => derived from SECRET_KEY (app.core.crypto). Generate once and back
+    # it up: losing it makes every stored secret unreadable.
+    CREDENTIALS_KEY: str = ""
+
+    # --- v12: public URLs ---
+    # The SPA origin used in share links / mail. Blank => first CORS origin.
+    PUBLIC_APP_URL: str = ""
+    # The API origin handed to third parties (Forpay webhooks). Blank =>
+    # PUBLIC_APP_URL (the SPA and the API share an origin behind CloudFront).
+    PUBLIC_API_URL: str = ""
+
+    # --- v12: FX + payment provider ---
+    FX_SOURCE_URL: str = "https://mindicador.cl/api"
+    FORPAY_DEFAULT_BASE_URL: str = "https://devapi.forpayservices.cl/white/label"
+
+    # --- v12: portal-search RPA (Playwright) ---
+    RPA_ENABLED: bool = False
+    # True => run a queued search inside the request (dev); False => job rpa.run.
+    RPA_INLINE: bool = False
+    RPA_HEADLESS: bool = True
+    RPA_HDI_BASE_URL: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def public_app_url(self) -> str:
+        """SPA origin, no trailing slash. Falls back to the first CORS origin."""
+        url = self.PUBLIC_APP_URL.strip()
+        if not url:
+            origins = self.cors_origins_list
+            url = origins[0] if origins else ""
+        return url.rstrip("/")
+
+    @property
+    def public_api_url(self) -> str:
+        """API origin (no ``/api/v1``, no trailing slash) for third-party callbacks."""
+        url = self.PUBLIC_API_URL.strip()
+        return (url or self.public_app_url).rstrip("/")
 
     # Media and documents share one bucket; these keep the older call sites
     # (app.services.media) working without duplicating the value in .env.
@@ -116,6 +181,9 @@ class Settings(BaseSettings):
         "MEDIA_MAX_UPLOAD_MB",
         "DOCUMENT_MAX_UPLOAD_MB",
         "PACK_MAX_MB",
+        "RADAL_MAIL_SMTP_PORT",
+        "RADAL_MAIL_IMAP_PORT",
+        "MAIL_TIMEOUT_SECONDS",
         mode="before",
     )
     @classmethod
@@ -123,6 +191,36 @@ class Settings(BaseSettings):
         if isinstance(v, str) and v.strip():
             return int(v.strip())
         return v
+
+    @field_validator(
+        "MAIL_ENABLED",
+        "JOBS_EVENTS_ENABLED",
+        "RPA_ENABLED",
+        "RPA_INLINE",
+        "RPA_HEADLESS",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_bool(cls, v, info: ValidationInfo):  # noqa: ANN001
+        # A blank env value (``MAIL_ENABLED=``) means "unset", not an error —
+        # keep the field's declared default rather than failing the boot.
+        if isinstance(v, str):
+            token = v.strip().lower()
+            if token == "":
+                return cls.model_fields[info.field_name].default
+            if token in ("0", "false", "no", "off"):
+                return False
+            if token in ("1", "true", "yes", "on"):
+                return True
+        return v
+
+    @field_validator("RADAL_MAIL_SMTP_SECURITY", "RADAL_MAIL_IMAP_SECURITY", mode="before")
+    @classmethod
+    def _check_mail_security(cls, v):  # noqa: ANN001
+        token = (v or "").strip().lower() if isinstance(v, str) else v
+        if token not in ("ssl", "starttls", "none"):
+            raise ValueError("mail security must be one of: ssl, starttls, none")
+        return token
 
 
 settings = Settings()

@@ -29,6 +29,7 @@ import {
   useUrlParam,
 } from "./shared";
 import { useScopeParams } from "@/components/common/ScopeFilter";
+import { POLICY_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 export default function PoliciesTab() {
   const { t } = useTranslation("analytics");
@@ -62,7 +63,7 @@ export default function PoliciesTab() {
     () =>
       POLICY_STATUSES.map((s) => ({
         value: s,
-        label: tPostsale(`policy.status.${s}`, { defaultValue: s }),
+        label: enumLabel(tPostsale, POLICY_STATUS_LABEL, s),
       })),
     [tPostsale],
   );
@@ -124,9 +125,7 @@ export default function PoliciesTab() {
         cell: ({ row }) => (
           <StatusBadge
             value={row.original.status}
-            label={tPostsale(`policy.status.${row.original.status}`, {
-              defaultValue: row.original.status,
-            })}
+            label={enumLabel(tPostsale, POLICY_STATUS_LABEL, row.original.status)}
           />
         ),
       },

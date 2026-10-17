@@ -38,6 +38,7 @@ import { SoonButton } from "@/pages/clients/Soon";
 import { DaysChip, PlacementStatusBadge } from "@/pages/placements/status";
 import { CreatePlacementDialog } from "@/pages/placements/PlacementForm";
 import { useInsuranceLines } from "@/pages/placements/useInsuranceLines";
+import { PLACEMENT_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const ALL = "__all__";
 const PAGE_SIZE = 25;
@@ -266,7 +267,7 @@ export default function PlacementsPage({ embedded }: EmbeddablePageProps = {}) {
               <SelectItem value={ALL}>{t("placements:filters.allStatuses")}</SelectItem>
               {PLACEMENT_STATUSES.map((value) => (
                 <SelectItem key={value} value={value}>
-                  {t(`placements:status.${value}`)}
+                  {enumLabel(t, PLACEMENT_STATUS_LABEL, value)}
                 </SelectItem>
               ))}
             </SelectContent>

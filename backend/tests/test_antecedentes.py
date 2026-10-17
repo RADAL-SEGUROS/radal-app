@@ -391,7 +391,35 @@ def test_process_without_a_key_is_503_and_persists_a_failed_row(
 # --- 6. Ramo-schema maintainer CRUD ------------------------------------------
 
 
+_CLOSED_CATALOGUE = "Los ramos son un catálogo cerrado de Radal. Pide uno nuevo a soporte."
+
+
+def _platform_headers(client, db):
+    """A Radal platform maintainer (no broker) — the only writer of ramos (v12)."""
+    from app.core.security import hash_password
+    from app.models.enums import UserType
+    from app.models.user import User
+    from tests.conftest import PASSWORD, auth_headers
+
+    user = User(
+        broker_id=None,
+        email="maintainer@radal.cl",
+        hashed_password=hash_password(PASSWORD),
+        full_name="Mantenedor Radal",
+        user_type=UserType.PLATFORM,
+        role="platform_admin",
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    return auth_headers(client, user.email)
+
+
 def test_ramo_schema_crud_roundtrip(client, world, headers_a, db):
+    """v12 closed catalogue: a broker reads ramos but can no longer create,
+    edit or delete one — every write door is a 403 with the Spanish reason."""
+    own = _make_schema(db, broker_id=world.a.broker_id, line_id=world.a.line.id)
+
     created = client.post(
         f"{API}/line-record-schemas",
         json={
@@ -401,44 +429,63 @@ def test_ramo_schema_crud_roundtrip(client, world, headers_a, db):
         },
         headers=headers_a,
     )
-    assert created.status_code == 201, created.text
-    schema_id = created.json()["id"]
-    assert created.json()["is_global"] is False
-    assert created.json()["definition"]["sections"][0]["key"] == "identification"
+    assert created.status_code == 403, created.text
+    assert created.json()["detail"] == _CLOSED_CATALOGUE
 
     listed = client.get(f"{API}/line-record-schemas", headers=headers_a)
     assert listed.status_code == 200
-    assert any(row["id"] == schema_id for row in listed.json())
+    assert any(row["id"] == own.id for row in listed.json())
 
     resolved = client.get(
         f"{API}/line-record-schemas/{world.a.line.id}", headers=headers_a
     )
     assert resolved.status_code == 200
-    assert resolved.json()["id"] == schema_id
+    assert resolved.json()["id"] == own.id
 
     updated = client.put(
-        f"{API}/line-record-schemas/{schema_id}",
+        f"{API}/line-record-schemas/{own.id}",
         json={"name": "Antecedentes Property v2", "is_active": False},
         headers=headers_a,
     )
-    assert updated.status_code == 200
-    assert updated.json()["name"] == "Antecedentes Property v2"
-    assert updated.json()["is_active"] is False
+    assert updated.status_code == 403, updated.text
+    assert updated.json()["detail"] == _CLOSED_CATALOGUE
 
-    # Deleting a non-existent (or foreign / global) schema is a 404, never a 403.
-    missing = client.delete(
-        f"{API}/line-record-schemas/{schema_id + 9999}", headers=headers_a
-    )
-    assert missing.status_code == 404, missing.text
+    deleted = client.delete(f"{API}/line-record-schemas/{own.id}", headers=headers_a)
+    assert deleted.status_code == 403, deleted.text
+    db.expire_all()
+    assert db.get(LineRecordSchema, own.id).name == "Antecedentes Property"
 
-    deleted = client.delete(
-        f"{API}/line-record-schemas/{schema_id}", headers=headers_a
+
+def test_platform_maintainer_crud_on_global_ramos(client, world, db):
+    """The platform still maintains the GLOBAL rows (broker_id NULL)."""
+    headers = _platform_headers(client, db)
+    created = client.post(
+        f"{API}/line-record-schemas",
+        json={"name": "Plantilla global", "definition": _DEFINITION},
+        headers=headers,
     )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["broker_id"] is None and body["is_global"] is True
+    schema_id = body["id"]
+
+    updated = client.put(
+        f"{API}/line-record-schemas/{schema_id}",
+        json={"name": "Plantilla global v2"},
+        headers=headers,
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["name"] == "Plantilla global v2"
+
+    # A broker-owned row is not the platform's to edit (404, never a leak).
+    own = _make_schema(db, broker_id=world.a.broker_id, line_id=world.a.line.id, name="Propia")
+    foreign = client.put(
+        f"{API}/line-record-schemas/{own.id}", json={"name": "X"}, headers=headers
+    )
+    assert foreign.status_code == 404
+
+    deleted = client.delete(f"{API}/line-record-schemas/{schema_id}", headers=headers)
     assert deleted.status_code == 204, deleted.text
-    gone = client.delete(
-        f"{API}/line-record-schemas/{schema_id}", headers=headers_a
-    )
-    assert gone.status_code == 404
 
 
 def test_ramo_schema_crud_requires_settings_manage(
@@ -491,9 +538,14 @@ def test_list_includes_is_template_and_usage(
 
 
 def test_create_from_template_clones_definition(client, world, headers_a, db):
+    from app.models.insurance_line import InsuranceLine
+
+    global_line = InsuranceLine(broker_id=None, name="Responsabilidad Civil (global)")
+    db.add(global_line)
+    db.flush()
     template = LineRecordSchema(
         broker_id=None,
-        insurance_line_id=world.a.line.id,
+        insurance_line_id=global_line.id,
         name="Plantilla RC",
         version=1,
         is_active=True,
@@ -503,16 +555,25 @@ def test_create_from_template_clones_definition(client, world, headers_a, db):
     db.add(template)
     db.commit()
 
-    created = client.post(
+    # A broker can no longer clone a template into its own ramo (v12).
+    denied = client.post(
         f"{API}/line-record-schemas",
         json={"name": "Línea desde plantilla", "from_template_id": template.id},
         headers=headers_a,
     )
+    assert denied.status_code == 403, denied.text
+    assert denied.json()["detail"] == _CLOSED_CATALOGUE
+
+    created = client.post(
+        f"{API}/line-record-schemas",
+        json={"name": "Línea desde plantilla", "from_template_id": template.id},
+        headers=_platform_headers(client, db),
+    )
     assert created.status_code == 201, created.text
     body = created.json()
-    assert body["is_template"] is False
-    assert body["broker_id"] == world.a.broker_id
-    assert body["insurance_line_id"] == world.a.line.id
+    assert body["is_template"] is True
+    assert body["broker_id"] is None
+    assert body["insurance_line_id"] == global_line.id
     assert body["definition"]["sections"][0]["key"] == "identification"
 
 
@@ -522,7 +583,22 @@ def test_delete_blocked_when_line_in_use(client, world, headers_a, db, tmp_path)
     case.line_record_schema_id = own.id
     db.commit()
 
-    blocked = client.delete(f"{API}/line-record-schemas/{own.id}", headers=headers_a)
+    # v12: the broker cannot delete ramos at all any more.
+    locked = client.delete(f"{API}/line-record-schemas/{own.id}", headers=headers_a)
+    assert locked.status_code == 403, locked.text
+
+    # The platform's delete of a GLOBAL row still refuses while it is in use.
+    template = LineRecordSchema(
+        broker_id=None, insurance_line_id=world.a.line.id, name="Global en uso",
+        version=1, is_active=True, is_template=True, definition=_DEFINITION,
+    )
+    db.add(template)
+    db.commit()
+    case.line_record_schema_id = template.id
+    db.commit()
+    blocked = client.delete(
+        f"{API}/line-record-schemas/{template.id}", headers=_platform_headers(client, db)
+    )
     assert blocked.status_code == 409, blocked.text
     assert "uso" in blocked.json()["detail"].lower()
 
@@ -660,7 +736,8 @@ def test_seeded_ramos_carry_the_exact_recommended_files(db):
 
 def test_create_ramo_with_only_recommended_files(client, world, headers_a, db):
     """A ramo is valid with just a name + recommended files — the deprecated
-    sectioned ``definition`` is never required (v9 corrected model)."""
+    sectioned ``definition`` is never required (v9 corrected model). v12: only
+    the platform writes ramos."""
     created = client.post(
         f"{API}/line-record-schemas",
         json={
@@ -677,7 +754,7 @@ def test_create_ramo_with_only_recommended_files(client, world, headers_a, db):
             ],
             "explanation": "Ramo de transporte marítimo.",
         },
-        headers=headers_a,
+        headers=_platform_headers(client, db),
     )
     assert created.status_code == 201, created.text
     body = created.json()

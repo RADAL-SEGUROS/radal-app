@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FadeUp, Stagger } from "@/components/common/motion";
 import { formatDateTime } from "@/lib/format";
 import { SoonNote } from "@/pages/clients/Soon";
+import { PLACEMENT_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * The client timeline.
@@ -95,9 +96,7 @@ export function ActivityPanel({ client }: { client: Client }) {
           title: t("activity.placementUpdated"),
           detail: [
             placement.asset?.name,
-            t(`placements:status.${placement.status}`, {
-              defaultValue: placement.status,
-            }),
+            enumLabel(t, PLACEMENT_STATUS_LABEL, placement.status),
           ]
             .filter(Boolean)
             .join(" · "),

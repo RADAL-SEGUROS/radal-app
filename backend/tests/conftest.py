@@ -34,6 +34,24 @@ os.environ.setdefault("S3_BUCKET", "radal-test-bucket")
 # of reaching DeepInfra. Tests that exercise AI paths fake the chat model.
 os.environ["AI_API_KEY"] = ""
 os.environ["AI_BASE_URL"] = "http://127.0.0.1:9/no-provider-in-tests"
+# Hermetic v12 (docs/v12/09-testing.md): no mail, FX, Forpay or portal traffic
+# can leave the suite. Same rule as the AI block — assignment, never
+# setdefault, so a developer's backend/.env cannot leak real credentials in,
+# and every host points at the unroutable discard port so a test that forgets
+# its fake fails fast instead of hanging. The Fernet key is a fixed TEST-ONLY
+# literal so encrypted fixtures are reproducible; it protects nothing real.
+os.environ["MAIL_ENABLED"] = "false"
+os.environ["RADAL_MAIL_PASSWORD"] = ""
+os.environ["RADAL_MAIL_SMTP_HOST"] = "127.0.0.1"
+os.environ["RADAL_MAIL_SMTP_PORT"] = "9"
+os.environ["RADAL_MAIL_IMAP_HOST"] = "127.0.0.1"
+os.environ["RADAL_MAIL_IMAP_PORT"] = "9"
+os.environ["FX_SOURCE_URL"] = "http://127.0.0.1:9/no-fx-in-tests"
+os.environ["FORPAY_DEFAULT_BASE_URL"] = "http://127.0.0.1:9/no-forpay-in-tests"
+os.environ["RPA_ENABLED"] = "false"
+os.environ["RPA_INLINE"] = "false"
+os.environ["JOBS_TOKEN"] = "test-jobs-token"
+os.environ["CREDENTIALS_KEY"] = "ke98T-bXHmbtkNFikVw727WbSqP-XSnUcIjhurwbZc8="
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
@@ -284,6 +302,50 @@ def world(db: Session) -> World:
         insurer_no_cmf=insurer_no_cmf,
         insurer_no_rut=insurer_no_rut,
     )
+
+
+# --- v12 catalogue -----------------------------------------------------------
+
+@pytest.fixture()
+def catalog(db: Session) -> dict[str, int]:
+    """Seed the closed ramo catalogue (18 global ramos + their subtipos).
+
+    Returns the seeder's stats. Opt-in, NOT part of the default world: the
+    isolation suites assert exact line rosters, and v12 must stay additive.
+    """
+    from app.db.seed_v12 import seed_catalog
+
+    stats = seed_catalog(db)
+    db.commit()
+    return stats
+
+
+# --- v12 transport / provider fakes ------------------------------------------
+
+@pytest.fixture()
+def fake_transport(monkeypatch):
+    """Install a ``FakeTransport`` behind ``get_transport()`` (no SMTP/IMAP sockets).
+
+    Patches the module-level override, so it applies however a caller imported
+    ``get_transport``. Restored by ``monkeypatch`` after the test.
+    """
+    from app.services.mail import transport as transport_module
+    from app.services.mail.fake import FakeTransport
+
+    fake = FakeTransport()
+    monkeypatch.setattr(transport_module, "_OVERRIDE", fake)
+    return fake
+
+
+@pytest.fixture()
+def fake_provider(monkeypatch):
+    """Install a ``FakePaymentProvider`` behind ``get_provider(<any name>)``."""
+    from app.services.payments import providers as providers_module
+    from app.services.payments.providers.fake import FakePaymentProvider
+
+    fake = FakePaymentProvider()
+    monkeypatch.setattr(providers_module, "_OVERRIDE", fake)
+    return fake
 
 
 # --- Auth helpers ------------------------------------------------------------

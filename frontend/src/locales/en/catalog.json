@@ -1,0 +1,32 @@
+{
+  "title": "Line catalogue",
+  "closedHint": "Lines and subtypes are a closed catalogue shared by every brokerage. If one is missing, ask the RADAL team.",
+  "select": {
+    "ramo": "Line",
+    "subtype": "Subtype",
+    "ramoPlaceholder": "Choose the line",
+    "subtypePlaceholder": "Choose the subtype",
+    "subtypeFirst": "Choose the line first",
+    "error": "We could not load the line catalogue.",
+    "retry": "Retry",
+    "empty": "The line catalogue has not been loaded yet."
+  },
+  "route": {
+    "label": "Route",
+    "suggested": "Suggested route",
+    "suggestedMark": "suggested",
+    "traditional": "Traditional",
+    "digital": "Digital",
+    "manual": "Manual",
+    "hint": "Suggested by the subtype, never mandatory: you can change it while the placement has no policy.",
+    "hints": {
+      "traditional": "Taken to market: you upload the records and your technical basis.",
+      "digital": "Standard risk, quoted or issued on the insurer's portal.",
+      "manual": "Policy typed in by hand, without a PDF."
+    }
+  },
+  "entry": {
+    "market": "usually goes to market",
+    "portal": "usually issued on the portal"
+  }
+}

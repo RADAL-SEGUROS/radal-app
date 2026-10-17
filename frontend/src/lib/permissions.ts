@@ -41,6 +41,11 @@ export const MODULES = [
   "Reports",
   "Users",
   "Settings",
+  // v12: the broker's mailboxes, the portal-search RPA, and the Radal
+  // maintainer console (platform users only — broker roles hold no grant).
+  "Mail",
+  "Integrations",
+  "Platform",
 ] as const;
 export type PermissionModule = (typeof MODULES)[number];
 

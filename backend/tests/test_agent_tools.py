@@ -153,10 +153,12 @@ def test_registry_gates_and_schemas_are_sane():
         assert isinstance(params, dict) and "properties" in params
         assert "title" not in params, "schema noise must be pruned"
 
-    assert set(agent_tools.WRITE_TOOLS) == {
+    # The v4 write tools all survive; v12 adds more (asserted exactly in
+    # tests/test_v12_agent.py).
+    assert {
         "create_group", "attach_client_to_group", "create_case_file",
         "renew_case", "add_note",
-    }
+    } <= set(agent_tools.WRITE_TOOLS)
 
 
 def test_write_execute_is_never_reachable_from_the_loop_source():

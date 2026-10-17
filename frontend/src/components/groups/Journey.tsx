@@ -17,10 +17,19 @@
  *                primary `Avanzar` button of the page (Signal: pine, never ink).
  *  - `compact` — ~28px rail for account/ramo cards: no labels except the
  *                current `{phase} · {stage}` inline, no fetch, no buttons.
+ *
+ * v12 partial journeys: when the hero receives `stages` (the server's
+ * `stages[]`, state `done | current | skipped | pending`), a phase the folder
+ * never entered is drawn as a thin grey tick labelled "omitida" and the pine
+ * stroke only joins phases that really happened. Two more doors sit next to
+ * `Avanzar`: "Saltar a…" (the server's `skip_targets`) and "Activar etapa" (a
+ * skipped stage behind the current one — disabled with the server's rule when
+ * the folder already has a policy). The page owns the confirmation and the
+ * mutation; this component only reports the choice.
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronDown, Info, Loader2 } from "lucide-react";
+import { Check, ChevronDown, CornerDownLeft, FastForward, Info, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +41,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DisabledHint } from "@/components/common/kit";
 import { cn } from "@/lib/utils";
+import { STAGE_LABEL_KEY } from "@/components/groups/stageLabels";
+import { CASE_NEXT_LABEL, enumLabel } from "@/i18n/labels";
+import { POLICY_SKIP_TARGETS, type CaseStageState } from "@/api/caseFiles";
 import {
   CASE_STAGE_FLOW,
   CLAIM_STAGES,
@@ -59,6 +71,19 @@ export interface JourneyProps {
   isPending?: boolean;
   pendingStage?: CaseStage | null;
   onTransition?: (stage: CaseStage) => void;
+  /**
+   * v12 rail (hero only): `GET /case-files/{id}` → `stages[]`. Without it the
+   * rail falls back to "everything before the current phase is done".
+   */
+  stages?: CaseStageState[];
+  /** `skip_targets` from the detail — the "Saltar a…" menu, verbatim. */
+  skipTargets?: CaseStage[];
+  /** `has_policy` — policy targets need one; activation is refused with one. */
+  hasPolicy?: boolean;
+  /** `CaseFiles.Edit` — skip-to and activate-stage are edits. */
+  canEdit?: boolean;
+  onSkipTo?: (stage: CaseStage) => void;
+  onActivateStage?: (stage: CaseStage) => void;
   className?: string;
 }
 
@@ -84,8 +109,8 @@ export function nextForwardStage(kind: CaseFileKind, stage: CaseStage): CaseStag
 
 interface RailNode {
   /**
-   * Label source: account/renewal nodes read `cases:journey.phases.${id}`;
-   * post-sale nodes read `cases:stages.${id}` (the id IS the stage).
+   * Label source: account/renewal nodes read `JOURNEY_PHASE_LABEL[id]`;
+   * post-sale nodes read `STAGE_LABEL_KEY[id]` (the id IS the stage).
    */
   id: string;
   stages: readonly CaseStage[];
@@ -127,8 +152,23 @@ const NODES_BY_KIND: Record<CaseFileKind, readonly RailNode[]> = {
   claim: CLAIM_STAGES.map((s) => ({ id: s, stages: [s] })),
 };
 
+/** Every phase node id → its literal label key (no dynamic keys). */
+const JOURNEY_PHASE_LABEL = {
+  records: "cases:journey.phases.records",
+  technical: "cases:journey.phases.technical",
+  market: "cases:journey.phases.market",
+  comparison: "cases:journey.phases.comparison",
+  proposal: "cases:journey.phases.proposal",
+  policy: "cases:journey.phases.policy",
+  active: "cases:journey.phases.active",
+  renewal: "cases:journey.phases.renewal",
+  endoso: "cases:journey.phases.endoso",
+  cobranza: "cases:journey.phases.cobranza",
+  siniestro: "cases:journey.phases.siniestro",
+} as const;
+
 /** Post-sale rails carry one overarching phase label (compact `{phase} · {stage}`). */
-const KIND_PHASE: Partial<Record<CaseFileKind, string>> = {
+const KIND_PHASE: Partial<Record<CaseFileKind, keyof typeof JOURNEY_PHASE_LABEL>> = {
   endorsement: "endoso",
   collection: "cobranza",
   claim: "siniestro",
@@ -183,7 +223,7 @@ const JOURNEY_CSS = `
 // Node dot
 // -----------------------------------------------------------------------------
 
-type NodeState = "done" | "current" | "upcoming" | "muted";
+type NodeState = "done" | "current" | "upcoming" | "muted" | "skipped" | "partial";
 
 function NodeDot({
   state,
@@ -229,6 +269,17 @@ function NodeDot({
               boxShadow: hero ? "0 0 0 2px var(--line)" : "0 0 0 1.5px var(--line)",
             };
 
+  // An *omitida* phase: a thin grey tick, not a dot — it never happened.
+  if (state === "skipped") {
+    return (
+      <span
+        className={cn("block shrink-0 rounded-full", hero ? "h-4 w-[2px]" : "h-2 w-px")}
+        style={{ background: "var(--ink-3)", opacity: 0.45 }}
+        aria-hidden
+      />
+    );
+  }
+
   // The current node breathes: an expanding, fading halo behind the dot
   // (ambient — disabled under prefers-reduced-motion via the CSS block).
   if (state === "current") {
@@ -253,6 +304,23 @@ function NodeDot({
     );
   }
 
+  // A phase that was entered but with some of its stages *omitidas*: a pine
+  // ring with NO check — a check would claim the omitted stages were done.
+  if (state === "partial") {
+    return (
+      <span
+        className={cn("block shrink-0 rounded-full", size)}
+        style={{
+          background: "var(--paper)",
+          boxShadow: hero
+            ? `0 0 0 2px ${TONE_COLOR[tone]}, 0 0 0 4px var(--bone)`
+            : `0 0 0 1.5px ${TONE_COLOR[tone]}`,
+        }}
+        aria-hidden
+      />
+    );
+  }
+
   // Done hero nodes carry a check — the rail reads as a real stepper.
   if (state === "done" && hero) {
     return (
@@ -273,6 +341,70 @@ function NodeDot({
 // The Journey
 // -----------------------------------------------------------------------------
 
+/**
+ * Every rail node's state, from the server's per-stage states — ONE function
+ * for the rail and for the "Ver etapas omitidas (N)" count, so the two can
+ * never disagree (review v12 #8).
+ *
+ *  - all of a phase's stages omitted → `skipped` (the grey "omitida" tick);
+ *  - entered, but some stage omitted → `partial` (ring, no check);
+ *  - otherwise `done` / `current` / `upcoming`.
+ *
+ * `lead` is the entry state every account is born in, not a milestone: it
+ * does not make the "Antecedentes" phase count as done when intake and
+ * presuscripción were skipped.
+ */
+function computeNodeStates(
+  kind: CaseFileKind,
+  stage: CaseStage,
+  stages: readonly CaseStageState[],
+): NodeState[] {
+  const nodes = NODES_BY_KIND[kind] ?? ACCOUNT_PHASES;
+  if (stage === "closed") return nodes.map(() => "muted");
+  const suspended = stage === "collection_suspended";
+  const anchor: CaseStage = suspended ? "collection_in_progress" : stage;
+  const currentIdx = nodes.findIndex((node) => node.stages.includes(anchor));
+  const stateByStage = new Map<CaseStage, CaseStageState["state"]>();
+  for (const row of stages) stateByStage.set(row.stage, row.state);
+  const hasRail = stateByStage.size > 0;
+
+  return nodes.map((node, i): NodeState => {
+    if (i === currentIdx && !suspended) return "current";
+    if (!hasRail) return i < currentIdx ? "done" : "upcoming";
+    const meaningful =
+      node.stages.length > 1 ? node.stages.filter((s) => s !== "lead") : node.stages;
+    const states = meaningful
+      .map((s) => stateByStage.get(s))
+      .filter((value): value is CaseStageState["state"] => !!value);
+    const skipped = states.filter((value) => value === "skipped").length;
+    if (states.length > 0 && skipped === states.length) return "skipped";
+    if (i < currentIdx) return skipped > 0 ? "partial" : "done";
+    return "upcoming";
+  });
+}
+
+/** How many rail phases read "omitida" — the number the account tabs quote. */
+export function skippedPhaseCount(
+  kind: CaseFileKind,
+  stage: CaseStage,
+  stages: readonly CaseStageState[] | undefined,
+): number {
+  return computeNodeStates(kind, stage, stages ?? []).filter((s) => s === "skipped").length;
+}
+
+/**
+ * The journey menus can list a dozen stages. Radix flips/shifts them to stay
+ * on screen, but a list taller than the room left still ran off the top
+ * (`top −253px` at 1440×723, review v12 #9): cap it to the available height
+ * Radix measures and let it scroll.
+ */
+const MENU_CLASS =
+  "max-w-xs max-h-[min(var(--radix-dropdown-menu-content-available-height),26rem)] overflow-y-auto overscroll-contain";
+
+// Stable defaults so the memoised maps below do not rebuild every render.
+const NO_STAGES: CaseStageState[] = [];
+const NO_TARGETS: CaseStage[] = [];
+
 export function Journey({
   kind,
   stage,
@@ -283,10 +415,17 @@ export function Journey({
   isPending = false,
   pendingStage = null,
   onTransition,
+  stages = NO_STAGES,
+  skipTargets = NO_TARGETS,
+  hasPolicy = false,
+  canEdit = false,
+  onSkipTo,
+  onActivateStage,
   className,
 }: JourneyProps) {
   const { t } = useTranslation("cases");
   const { t: tc } = useTranslation("common");
+  const { t: ta } = useTranslation("accounts");
 
   const hero = variant === "hero";
   const nodes = NODES_BY_KIND[kind] ?? ACCOUNT_PHASES;
@@ -297,8 +436,8 @@ export function Journey({
 
   const nodeLabel = (node: RailNode) =>
     isPostSale
-      ? t(`stages.${node.id}`, { defaultValue: node.id })
-      : t(`journey.phases.${node.id}`, { defaultValue: node.id });
+      ? enumLabel(t, STAGE_LABEL_KEY, node.id)
+      : enumLabel(t, JOURNEY_PHASE_LABEL, node.id);
 
   // Where the case is on the rail. Suspended sits on the branch: the main-rail
   // progress is its branch point (`in_progress`).
@@ -315,19 +454,37 @@ export function Journey({
   const microTotal = currentNode?.stages.length ?? 1;
   const microIdx = currentNode ? Math.max(0, currentNode.stages.indexOf(anchorStage)) : 0;
 
+  // v12: the server's per-stage state, when the hero has it.
+  const stateByStage = React.useMemo(() => {
+    const map = new Map<CaseStage, CaseStageState["state"]>();
+    for (const row of stages) map.set(row.stage, row.state);
+    return map;
+  }, [stages]);
+
+  /** One node's state: entered phases solid, never-entered ones *omitida*. */
+  const nodeStates = computeNodeStates(kind, stage, stages);
+
   // Node centers as percentages of the rail width.
   const center = (i: number) => ((i + 0.5) / n) * 100;
   const first = center(0);
   const last = center(n - 1);
-  // The pine stroke reaches the current node and walks partway into its
-  // segment as micro-stages complete — one continuous line, not steps.
-  const doneEnd =
-    closed || currentIdx < 0
+  // The pine stroke joins every pair of ENTERED nodes up to the current one
+  // (a segment touching an omitida phase stays grey road), then walks partway
+  // into the current segment as micro-stages complete.
+  const pineSegments: [number, number][] = [];
+  if (!closed && currentIdx > 0) {
+    for (let i = 0; i < currentIdx; i += 1) {
+      if (nodeStates[i] !== "skipped" && nodeStates[i + 1] !== "skipped") {
+        pineSegments.push([center(i), center(i + 1)]);
+      }
+    }
+  }
+  const microEnd =
+    closed || currentIdx < 0 || currentIdx >= n - 1 || microTotal <= 1 || microIdx === 0
       ? null
       : center(currentIdx) +
-        (currentIdx < n - 1 && microTotal > 1
-          ? (microIdx / microTotal) * (center(currentIdx + 1) - center(currentIdx))
-          : 0);
+        (microIdx / microTotal) * (center(currentIdx + 1) - center(currentIdx));
+  if (microEnd !== null) pineSegments.push([center(currentIdx), microEnd]);
 
   // ---------------------------------------------------------------------------
   // Transitions, in rail order (server options only — never a local rule).
@@ -350,8 +507,16 @@ export function Journey({
   const nextAllowed = forward.find((o) => o.allowed) ?? null;
   const nextBlocked = !nextAllowed && forward.length > 0 ? forward[0] : null;
   const closeOption = sorted.find((o) => o.to_stage === "closed") ?? null;
+  // Once the account is Vigente there is no way back (product call 2026-10-17;
+  // the server refuses it with a Spanish 409): never offer a backward move
+  // from `active`, even if a stale transitions payload still lists one.
+  const locked = stage === "active";
   const otherOptions = sorted.filter(
-    (o) => o.to_stage !== "closed" && o !== nextAllowed,
+    (o) =>
+      o.to_stage !== "closed" &&
+      o.to_stage !== stage && // "where you already are" is not a move
+      o !== nextAllowed &&
+      !(locked && orderOf(o.to_stage) < currentRailIdx),
   );
 
   const optionsByStage = React.useMemo(() => {
@@ -362,7 +527,8 @@ export function Journey({
 
   /** Hover reason for an upcoming node — server reason, `notReachable` otherwise. */
   const nodeHint = (node: RailNode, state: NodeState): string | null => {
-    if (!hero || state === "done" || state === "current" || closed) return null;
+    if (!hero || state === "done" || state === "current" || state === "partial" || closed)
+      return null;
     const offered = node.stages
       .map((s) => optionsByStage.get(s))
       .filter((o): o is CaseTransitionOption => !!o);
@@ -371,9 +537,9 @@ export function Journey({
     return offered[0].reason ?? t("journey.blocked");
   };
 
-  const stageLabel = t(`stages.${stage}`, { defaultValue: stage });
+  const stageLabel = enumLabel(t, STAGE_LABEL_KEY, stage);
   const phaseLabel = isPostSale
-    ? t(`journey.phases.${KIND_PHASE[kind] ?? kind}`)
+    ? enumLabel(t, JOURNEY_PHASE_LABEL, KIND_PHASE[kind] ?? kind)
     : currentNode
       ? nodeLabel(currentNode)
       : stageLabel;
@@ -411,12 +577,14 @@ export function Journey({
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
         />
-        {/* the completed portion — pine, drawn once on mount (hero) */}
-        {doneEnd !== null && doneEnd > first ? (
+        {/* the completed portion — pine, drawn once on mount (hero); only
+            between phases that really happened (v12 partial journeys) */}
+        {pineSegments.map(([x1, x2], index) => (
           <line
-            x1={first}
+            key={index}
+            x1={x1}
             y1="4"
-            x2={doneEnd}
+            x2={x2}
             y2="4"
             stroke={TONE_COLOR[railTone]}
             strokeWidth={hero ? 2.5 : 2}
@@ -425,7 +593,7 @@ export function Journey({
             pathLength={1}
             className={hero ? "rj-draw" : undefined}
           />
-        ) : null}
+        ))}
         {/* micro-stage ticks on the current phase's segment (hero only) */}
         {hero && !closed && currentIdx >= 0 && currentIdx < n - 1 && microTotal > 1
           ? Array.from({ length: microTotal - 1 }, (_, j) => {
@@ -453,14 +621,18 @@ export function Journey({
         style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}
       >
         {nodes.map((node, i) => {
-          const state: NodeState = closed
-            ? "muted"
-            : i < currentIdx
-              ? "done"
-              : i === currentIdx && !suspended
-                ? "current"
-                : "upcoming";
-          const hint = nodeHint(node, state);
+          const state: NodeState = nodeStates[i];
+          const hint =
+            state === "skipped" && hero
+              ? ta("journey.skippedHint")
+              : state === "partial" && hero
+                ? ta("journey.partialHint", {
+                    stages: node.stages
+                      .filter((st) => stateByStage.get(st) === "skipped")
+                      .map((st) => enumLabel(t, STAGE_LABEL_KEY, st))
+                      .join(", "),
+                  })
+                : nodeHint(node, state);
           const column = (
             <div className="flex min-w-0 flex-col items-center gap-2 px-1">
               <span className={cn("flex items-center justify-center", nodeRowH)}>
@@ -477,7 +649,7 @@ export function Journey({
                     "whitespace-nowrap text-center text-caption leading-tight",
                     state === "current"
                       ? "font-semibold text-ink"
-                      : state === "done"
+                      : state === "done" || state === "partial"
                         ? "font-medium text-ink-2"
                         : "text-ink-3",
                   )}
@@ -486,6 +658,15 @@ export function Journey({
                   {state === "current" && microTotal > 1 ? (
                     <span className="ml-1 tabular-nums text-ink-3">
                       {t("journey.progress", { done: microIdx + 1, total: microTotal })}
+                    </span>
+                  ) : null}
+                  {state === "skipped" ? (
+                    <span className="mt-0.5 block text-[10px] font-normal uppercase tracking-wide text-ink-3">
+                      {ta("journey.skipped")}
+                    </span>
+                  ) : state === "partial" ? (
+                    <span className="mt-0.5 block text-[10px] font-normal uppercase tracking-wide text-ink-3">
+                      {ta("journey.partial")}
                     </span>
                   ) : null}
                 </span>
@@ -571,6 +752,22 @@ export function Journey({
   const pendingCount = pendingActions.reduce((sum, a) => sum + (a.count || 1), 0);
   const hasBlocker = pendingActions.some((a) => a.severity === "blocker");
 
+  // v12 doors. Skip targets come from the server verbatim; the only local
+  // decision is the server's own documented rule (a policy target needs a
+  // policy), shown as the disabled item's reason.
+  const editHint = !canEdit ? ta("journey.noEditPermission") : null;
+  const showSkip = !closed && !!onSkipTo && skipTargets.length > 0;
+  const activatable = closed
+    ? []
+    : railStages.filter(
+        (s) =>
+          stateByStage.get(s) === "skipped" &&
+          currentRailIdx >= 0 &&
+          railStages.indexOf(s) < currentRailIdx,
+      );
+  const showActivate = !!onActivateStage && activatable.length > 0;
+  const activateHint = editHint ?? (hasPolicy ? ta("journey.activateHasPolicy") : null);
+
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <style>{JOURNEY_CSS}</style>
@@ -602,11 +799,12 @@ export function Journey({
               <span className="font-medium text-ink">
                 {t("journey.whatNext")}:
               </span>{" "}
-              {t(`journey.next.${nextAllowed.to_stage}`, {
-                defaultValue: t(`stages.${nextAllowed.to_stage}`, {
-                  defaultValue: nextAllowed.to_stage,
-                }),
-              })}
+              {enumLabel(
+                t,
+                CASE_NEXT_LABEL,
+                nextAllowed.to_stage,
+                enumLabel(t, STAGE_LABEL_KEY, nextAllowed.to_stage),
+              )}
             </p>
           ) : !closed && nextBlocked ? (
             <p className="mt-0.5 flex items-start gap-1.5 text-pretty text-caption text-ink-3">
@@ -616,11 +814,12 @@ export function Journey({
           ) : null}
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
           {!closed && nextAllowed ? (
             <DisabledHint hint={noPermissionHint}>
               <Button
                 size="sm"
+                className="h-10 sm:h-8"
                 disabled={!canTransition || isPending}
                 onClick={() => act(nextAllowed.to_stage)}
               >
@@ -628,23 +827,104 @@ export function Journey({
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                 ) : null}
                 {t("journey.advanceTo", {
-                  stage: t(`stages.${nextAllowed.to_stage}`, {
-                    defaultValue: nextAllowed.to_stage,
-                  }),
+                  stage: enumLabel(t, STAGE_LABEL_KEY, nextAllowed.to_stage),
                 })}
               </Button>
             </DisabledHint>
           ) : null}
 
+          {showSkip ? (
+            <DisabledHint hint={editHint}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="sm" className="h-10 sm:h-8" disabled={!canEdit || isPending}>
+                    <FastForward className="h-3.5 w-3.5" aria-hidden />
+                    {ta("journey.skipTo")}
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  collisionPadding={12}
+                  className={MENU_CLASS}
+                >
+                  {skipTargets.map((target) => {
+                    const needsPolicy = POLICY_SKIP_TARGETS.includes(target) && !hasPolicy;
+                    const enabled = !needsPolicy && canEdit && !isPending;
+                    return (
+                      <DropdownMenuItem
+                        key={target}
+                        onSelect={(event) => {
+                          if (!enabled) {
+                            event.preventDefault();
+                            return;
+                          }
+                          onSkipTo?.(target);
+                        }}
+                        className={cn(
+                          "flex-col items-start gap-0.5",
+                          !enabled && "cursor-not-allowed opacity-60",
+                        )}
+                      >
+                        <span>{t(STAGE_LABEL_KEY[target])}</span>
+                        {needsPolicy ? (
+                          <span className="text-pretty text-caption text-ink-3">
+                            {ta("journey.skipNeedsPolicy")}
+                          </span>
+                        ) : null}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </DisabledHint>
+          ) : null}
+
+          {showActivate ? (
+            activateHint ? (
+              <DisabledHint hint={activateHint}>
+                <Button variant="ghost" size="sm" className="h-10 sm:h-8" disabled>
+                  <CornerDownLeft className="h-3.5 w-3.5" aria-hidden />
+                  {ta("journey.activate")}
+                </Button>
+              </DisabledHint>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-10 sm:h-8" disabled={isPending}>
+                    <CornerDownLeft className="h-3.5 w-3.5" aria-hidden />
+                    {ta("journey.activate")}
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  collisionPadding={12}
+                  className={MENU_CLASS}
+                >
+                  {activatable.map((s) => (
+                    <DropdownMenuItem key={s} onSelect={() => onActivateStage?.(s)}>
+                      {t(STAGE_LABEL_KEY[s])}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
+          ) : null}
+
           {otherOptions.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" disabled={isPending}>
+                <Button variant="ghost" size="sm" className="h-10 sm:h-8" disabled={isPending}>
                   {t("journey.otherStages")}
                   <ChevronDown className="h-3.5 w-3.5" aria-hidden />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-w-xs">
+              <DropdownMenuContent
+                  align="end"
+                  collisionPadding={12}
+                  className={MENU_CLASS}
+                >
                 {otherOptions.map((option) => {
                   const enabled = option.allowed && canTransition && !isPending;
                   const reason = !canTransition
@@ -666,9 +946,7 @@ export function Journey({
                       )}
                     >
                       <span>
-                        {t(`stages.${option.to_stage}`, {
-                          defaultValue: option.to_stage,
-                        })}
+                        {enumLabel(t, STAGE_LABEL_KEY, option.to_stage)}
                       </span>
                       {!enabled ? (
                         <span className="text-pretty text-caption text-ink-3">
@@ -694,6 +972,7 @@ export function Journey({
               <Button
                 variant="ghost"
                 size="sm"
+                className="h-10 sm:h-8"
                 disabled={!closeOption.allowed || !canTransition || isPending}
                 onClick={() => act("closed")}
               >

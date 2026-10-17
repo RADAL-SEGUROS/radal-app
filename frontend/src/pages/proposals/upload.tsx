@@ -73,6 +73,13 @@ import {
   differs,
   uf,
 } from "@/pages/proposals/shared";
+import {
+  COVERAGE_KIND_LABEL,
+  EXTRACTION_STATUS_LABEL,
+  INSURER_MATCHED_ON_LABEL,
+  PROPOSAL_ORIGIN_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 // =============================================================================
 // Draft model
@@ -449,7 +456,7 @@ export default function ProposalUploadPage() {
               value={
                 <StatusBadge
                   value={extraction.status}
-                  label={t(`ai.statuses.${extraction.status}`)}
+                  label={enumLabel(t, EXTRACTION_STATUS_LABEL, extraction.status)}
                 />
               }
             />
@@ -817,11 +824,11 @@ function SuggestionForm({
           {match.data ? (
             <p className="mt-3 flex items-center gap-2 text-caption text-text-secondary">
               <Badge variant={match.data.insurer.is_native ? "brand" : "neutral"}>
-                {t(`origin.${match.data.insurer.is_native ? "native" : "external"}`)}
+                {enumLabel(t, PROPOSAL_ORIGIN_LABEL, match.data.insurer.is_native ? "native" : "external")}
               </Badge>
               {match.data.insurer.legal_name}
               {match.data.matched_on ? (
-                <MonoChip>{t(`upload.matchedOn.${match.data.matched_on}`)}</MonoChip>
+                <MonoChip>{enumLabel(t, INSURER_MATCHED_ON_LABEL, match.data.matched_on)}</MonoChip>
               ) : null}
             </p>
           ) : null}
@@ -1143,7 +1150,7 @@ function SuggestionForm({
                     <SelectContent>
                       {COVERAGE_KINDS.map((k) => (
                         <SelectItem key={k} value={k}>
-                          {t(`coverageKind.${k}`)}
+                          {enumLabel(t, COVERAGE_KIND_LABEL, k)}
                         </SelectItem>
                       ))}
                     </SelectContent>

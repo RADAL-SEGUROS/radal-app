@@ -1,0 +1,133 @@
+{
+  "title": "Notificaciones",
+  "description": "Lo que tienes por hacer y lo que conviene que sepas, en una sola lista.",
+  "bell": {
+    "label": "Notificaciones",
+    "labelWithCount": "Notificaciones: {{count}} por hacer",
+    "viewAll": "Ver todas",
+    "error": "No pudimos cargar las notificaciones."
+  },
+  "tray": {
+    "todo": "Por hacer",
+    "fyi": "Para saber"
+  },
+  "status": {
+    "new": "Nuevas",
+    "seen": "Vistas",
+    "closed": "Cerradas"
+  },
+  "filters": {
+    "allTrays": "Todas",
+    "open": "Abiertas",
+    "closed": "Historial"
+  },
+  "item": {
+    "markSeen": "Marcar como vista",
+    "close": "Cerrar notificación",
+    "noNumber": "sin n°",
+    "recipient": "Para {{name}}",
+    "recipientUnknown": "sin destinatario"
+  },
+  "toast": {
+    "closed": "Notificación cerrada",
+    "error": "No pudimos actualizar la notificación"
+  },
+  "empty": {
+    "todo": "Nada por hacer. Cuando algo pida tu acción, aparece aquí.",
+    "fyi": "Nada nuevo que saber por ahora.",
+    "title": "Estás al día",
+    "hint": "Las cuotas por vencer, los pagos recibidos y las respuestas de las compañías llegan aquí.",
+    "closedTitle": "Sin historial",
+    "closedHint": "Las notificaciones cerradas se guardan aquí."
+  },
+  "platform": {
+    "title": "Sin notificaciones de corredora",
+    "hint": "Las notificaciones son de cada usuario de una corredora. Las cuentas del equipo Radal no reciben avisos de cartera."
+  },
+  "resultCount_one": "{{count}} notificación",
+  "resultCount_other": "{{count}} notificaciones",
+  "pager": {
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "page": "Página {{page}} de {{pages}}"
+  },
+  "kind": {
+    "installment_due": {
+      "title": "Cuota por vencer · póliza {{policy}}",
+      "body": "Cuota {{cuota}} de {{insured}} vence el {{due}} · {{amount}}."
+    },
+    "installment_overdue": {
+      "title": "Cuota vencida · póliza {{policy}}",
+      "body": "Cuota {{cuota}} de {{insured}} lleva {{days}} días de atraso · {{amount}}. Registra el pago o un compromiso."
+    },
+    "termination_risk": {
+      "title": "Riesgo de término · póliza {{policy}}",
+      "body": "La cuota {{cuota}} sigue impaga después de la cadencia de cobranza. Registra el pago, un compromiso o la cancelación."
+    },
+    "direct_debit_rejected": {
+      "title": "PAC rechazado · póliza {{policy}}",
+      "body": "El cargo automático de la cuota {{cuota}} fue rechazado. Gestiona el pago con el contratante.",
+      "titlePat": "PAT rechazado · póliza {{policy}}",
+      "titleGeneric": "Cargo automático rechazado · póliza {{policy}}"
+    },
+    "promise_broken": {
+      "title": "Compromiso incumplido · póliza {{policy}}",
+      "body": "Pasó la fecha prometida ({{promise}}) sin pago de la cuota {{cuota}}."
+    },
+    "plan_missing": {
+      "title": "Póliza sin plan de pago",
+      "body": "La póliza {{policy}} no tiene cuotas: carga su plan de pago para que entre a Cobranza."
+    },
+    "inquiry_reply": {
+      "title": "Respondió la compañía · póliza {{policy}}",
+      "body": "Llegó la respuesta a tu consulta de estado de pago. Revísala y confirma lo que corresponda."
+    },
+    "evidence_pending": {
+      "title": "Pago informado por confirmar · póliza {{policy}}",
+      "body": "Hay un pago informado (cuota {{cuota}}) que espera tu confirmación."
+    },
+    "payment_received": {
+      "title": "Pago recibido · póliza {{policy}}",
+      "body": "Se registró el pago en línea de la cuota {{cuota}} por {{amount}}."
+    },
+    "native_collection_available": {
+      "title": "Cobro en línea disponible",
+      "body": "{{insurer}} ya cobra en línea: sus cuotas abiertas pasan solas a cobro en línea."
+    },
+    "portal_search_failed": {
+      "title": "No terminó la cotización en {{portal}}",
+      "body": "Revisa qué pasó y elige otro camino: reintentar, otro portal o subir la cotización en PDF."
+    },
+    "portal_search_done": {
+      "title": "Cotización en {{portal}} lista",
+      "body": "Cotizaciones recibidas: {{quotes}}."
+    },
+    "mail_account_error": {
+      "title": "Problema con tu correo",
+      "body": "No pudimos conectar la casilla {{address}}. Revisa su configuración."
+    },
+    "sensitive_action": {
+      "title": "Acción sensible · póliza {{policy}}",
+      "body": "Hubo un cambio sensible en la cuota {{cuota}}. Revísalo."
+    },
+    "policy_linked_insured": {
+      "title": "Póliza enlazada a un asegurado existente",
+      "body": "{{by}} registró la póliza {{policy}} y la asoció a {{insured}}, que ya estaba en la cartera."
+    },
+    "unknown": {
+      "title": "Notificación",
+      "body": "Abre el detalle para ver qué pasó."
+    }
+  },
+  "sensitiveEvent": {
+    "chargeback": "La compañía informó un contracargo del pago de la cuota {{cuota}}. Revisa el pago.",
+    "provider_payment_unconverted": "Llegó un pago en línea de la cuota {{cuota}} que no se pudo convertir a {{currency}}. Revísalo y regístralo a mano."
+  },
+  "scope": {
+    "label": "Qué notificaciones ver",
+    "mine": "Mías",
+    "all": "Todas",
+    "mineHint": "Solo las tuyas",
+    "allHint": "Todas las de la corredora"
+  }
+}

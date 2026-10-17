@@ -19,6 +19,9 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+/** Optional demo-credentials hint, from the build environment only. */
+const LOGIN_HINT = (import.meta.env.VITE_LOGIN_HINT ?? "").trim();
+
 export default function Login() {
   const { t } = useTranslation(["auth", "common"]);
   const { login } = useAuth();
@@ -26,11 +29,12 @@ export default function Login() {
   const location = useLocation();
   const [error, setError] = React.useState<string | null>(null);
 
-  // The app starts at groups (spec §5.4); "/" only ever redirects there, so a
-  // login with no `from` must land on /groups directly and never on /leads.
+  // With no `from`, land on "/" so `HomeRedirect` picks the home by user type:
+  // /platform for the Radal maintainer, /policies for a broker (v12 decision 1).
+  // Hardcoding a broker route here sent platform users to a 403 page.
   const from =
     (location.state as { from?: { pathname: string } } | null)?.from
-      ?.pathname ?? "/groups";
+      ?.pathname ?? "/";
 
   const {
     register,
@@ -172,14 +176,15 @@ export default function Login() {
             </Button>
           </form>
 
-          {import.meta.env.DEV ? (
+          {/* Demo credentials only when the environment provides them
+              (`VITE_LOGIN_HINT`): a hardcoded login that 401s in the seeded
+              world it is shown in is worse than none (review v12). */}
+          {LOGIN_HINT ? (
             <div className="mt-6 rounded-md border border-line bg-paper-2 p-3">
               <p className="text-caption font-medium text-ink-3">
                 {t("auth:demo.title", "Credenciales demo")}
               </p>
-              <p className="mt-1 font-mono text-[12px] text-text-secondary">
-                jose@radalseguros.cl · radal1234
-              </p>
+              <p className="mt-1 font-mono text-[12px] text-text-secondary">{LOGIN_HINT}</p>
             </div>
           ) : null}
         </div>

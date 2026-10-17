@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import Priority
 from app.models.inspection import InspectionRequestStatus, InspectionStatus
+from app.schemas.utc import UtcDatetime
 
 def _score() -> Any:
     """A 0-100 score field. A fresh FieldInfo per field (never share one)."""
@@ -61,9 +62,9 @@ class InspectionRequestRead(BaseModel):
     target_date: date | None = None
     status: InspectionRequestStatus
     requested_by_id: int | None = None
-    requested_at: datetime | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    requested_at: UtcDatetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 class InspectionRequestListResponse(BaseModel):
@@ -222,8 +223,8 @@ class InspectionRead(BaseModel):
     checklist_version: int | None = None
     report_document_id: int | None = None
     boundaries: list[InspectionBoundaryRead] = Field(default_factory=list)
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     @field_validator("checklist", mode="before")
     @classmethod

@@ -1,0 +1,249 @@
+{
+  "title": "Shared link",
+  "description": "Your broker shared this information with you. Here you will see the policy and its installments.",
+  "noPermission": "You don't have access to share this item.",
+  "dialog": {
+    "title": "Share link",
+    "description": "Create a secure link to {{entity}}, no sign-in required. Ready to send over WhatsApp."
+  },
+  "entity": {
+    "policy": "this policy",
+    "collection_plan": "this payment plan",
+    "installment": "this installment",
+    "case_file": "this case file",
+    "status_inquiry": "this status inquiry"
+  },
+  "refusal": {
+    "caseFileInsurer": "A case file is shared with the insured only; share the policy with the insurer instead.",
+    "inquiryInsured": "A status inquiry is shared with the insurer only."
+  },
+  "audience": {
+    "label": "Who are you sharing it with?",
+    "insured": "Insured",
+    "insurer": "Insurer",
+    "insuredHint": "They will see the policy and its installments, with how to pay each one.",
+    "insurerHint": "They will see the policy and its installments, and can report their payment status."
+  },
+  "perm": {
+    "label": "What they can do",
+    "can_pay": "Pay online",
+    "can_payHint": "Only on installments of insurers with online collection enabled.",
+    "can_upload_receipt": "Upload a receipt",
+    "can_upload_receiptHint": "It reaches you as a reply to confirm; nothing is marked paid by itself.",
+    "can_report_status": "Report payment status",
+    "can_report_statusHint": "Every report reaches you as a reply to confirm."
+  },
+  "expiry": {
+    "label": "Link validity",
+    "d7": "7 days",
+    "d30": "30 days",
+    "d60": "60 days",
+    "d90": "90 days",
+    "d180": "6 months",
+    "d365": "1 year"
+  },
+  "labelField": "Label (optional)",
+  "labelPlaceholder": "E.g. Sent to Juan over WhatsApp",
+  "create": "Create link",
+  "created": "Link created",
+  "createAnother": "Create another link",
+  "createdTitle": "Link ready to send",
+  "copy": "Copy",
+  "copied": "Link copied",
+  "copiedShort": "Copied",
+  "whatsapp": "Send over WhatsApp",
+  "whatsappShort": "WhatsApp",
+  "open": "Open",
+  "revoke": "Revoke",
+  "revoked": "Link revoked",
+  "revokeError": "The link could not be revoked.",
+  "revokeConfirm": "Anyone holding this link will lose access immediately.",
+  "cancel": "Cancel",
+  "state": {
+    "live": "Active",
+    "revoked": "Revoked",
+    "expired": "Expired"
+  },
+  "list": {
+    "title": "Links created",
+    "count_one": "{{count}} link",
+    "count_other": "{{count}} links",
+    "empty": "No links for this item yet.",
+    "createdAt": "Created {{date}}",
+    "revokedAt": "Revoked {{date}}",
+    "expiresAt": "Expires {{date}}",
+    "expiredAt": "Expired {{date}}",
+    "views_one": "{{count}} view · last {{date}}",
+    "views_other": "{{count}} views · last {{date}}",
+    "notViewed": "No views yet"
+  },
+  "public": {
+    "brokerFallback": "your broker",
+    "header": {
+      "broker": "Insurance broker",
+      "secure": "Secure link"
+    },
+    "footer": {
+      "validUntil": "This link is valid until {{date}}.",
+      "poweredBy": "Shared with"
+    },
+    "gone": {
+      "title": "This link is no longer available",
+      "hint": "It may have expired, been revoked by the broker, or the address may be incomplete. Ask your broker for a new link."
+    },
+    "error": {
+      "title": "We couldn't load the information",
+      "hint": "Check your connection and try again in a few seconds.",
+      "retry": "Try again"
+    },
+    "return": {
+      "title": "You're back from the online payment",
+      "hint": "If you completed the payment, the installment will update in a few minutes. There's nothing else to do.",
+      "dismiss": "Dismiss"
+    },
+    "policy": {
+      "title": "Policy",
+      "number": "No. {{number}}",
+      "noNumber": "Number pending",
+      "insured": "Insured",
+      "line": "Line",
+      "period": "Coverage period",
+      "periodValue": "{{start}} to {{end}}"
+    },
+    "state": {
+      "upcoming": "Upcoming",
+      "due_today": "Due today",
+      "overdue": "Overdue",
+      "termination_risk": "Termination risk",
+      "promised": "Payment promised",
+      "paid": "Paid",
+      "voided": "Voided",
+      "unknown": "No status"
+    },
+    "installment": {
+      "number": "Installment {{number}}",
+      "coupon": "Coupon {{coupon}}",
+      "partial": "Partial",
+      "due": "Due {{date}}",
+      "noDue": "No due date",
+      "daysLate_one": "{{count}} day late",
+      "daysLate_other": "{{count}} days late",
+      "paidLate_one": "Paid {{count}} day late",
+      "paidLate_other": "Paid {{count}} days late",
+      "paidOf": "Paid {{paid}} of {{total}}",
+      "clp": "≈ {{amount}} at today's rate"
+    },
+    "insured": {
+      "title": "Your policy details",
+      "greeting": "Hello, {{name}}",
+      "lead": "{{broker}} shares the status of your policy's installments with you.",
+      "openCount": "Installments to pay",
+      "overdueCount": "Late installments",
+      "installmentsTitle": "Installments",
+      "noInstallments": "This policy has no installments recorded yet.",
+      "emptyTitle": "Nothing to show",
+      "emptyHint": "Your broker hasn't recorded the policy for this link yet. Ask them to check.",
+      "paidNote": "This installment is paid. Thank you.",
+      "payDirect": "This installment is paid directly to {{insurer}}. See how to pay.",
+      "payDirectNoInsurer": "This installment is paid directly to the insurer. See how to pay.",
+      "thenUpload": "Then upload your receipt here.",
+      "payDirectNoInstructions": "This installment is paid directly to {{insurer}}; your broker will tell you how.",
+      "payDirectNoInstructionsNoInsurer": "This installment is paid directly to the insurer; your broker will tell you how."
+    },
+    "pay": {
+      "button": "Pay",
+      "opening": "Opening the payment…",
+      "hint": "We'll take you to the secure payment page.",
+      "error": "We couldn't open the online payment. You can pay following the insurer's instructions and then upload your receipt here.",
+      "inReviewHint": "You already sent a receipt for this installment: wait for your broker's review before paying again."
+    },
+    "instructions": {
+      "title": "How to pay",
+      "lead": "Pay {{insurer}} directly with these details.",
+      "leadNoInsurer": "Pay the insurer directly with these details.",
+      "empty": "The insurer hasn't published its payment details yet. Your broker will send them to you.",
+      "bank_name": "Bank",
+      "account_type": "Account type",
+      "account_number": "Account number",
+      "account_holder": "Account holder",
+      "account_rut": "RUT",
+      "transfer_email": "Email for the transfer",
+      "receipt_email": "Email to send the receipt to",
+      "portal": "Pay on the insurer's portal",
+      "copyLabel": "Copy {{field}}"
+    },
+    "receipt": {
+      "open": "I've paid · upload receipt",
+      "title": "Upload receipt",
+      "hint": "Your broker will review it and confirm the payment.",
+      "file": "Receipt",
+      "pick": "Choose file",
+      "limits": "PDF, JPG or PNG, up to 10 MB.",
+      "currencyHint": "Enter the amount as it appears on your receipt; if you paid in pesos, choose CLP.",
+      "submit": "Send receipt",
+      "errors": {
+        "fileRequired": "Choose the receipt you want to send.",
+        "fileType": "Upload the receipt as PDF, JPG or PNG.",
+        "fileSize": "The receipt exceeds the 10 MB limit."
+      },
+      "pending": "Receipt sent on {{date}} · being reviewed by your broker.",
+      "pendingNoDate": "Receipt sent · being reviewed by your broker.",
+      "openAnother": "Send another receipt",
+      "inReviewBadge": "Receipt under review",
+      "inReviewTitle": "Receipt under review"
+    },
+    "form": {
+      "paidOn": "Payment date (optional)",
+      "amountPaid": "Amount paid (optional)",
+      "currency": "Currency",
+      "amountPlaceholder": "E.g. 12.50",
+      "amountPlaceholderClp": "E.g. {{amount}}",
+      "comment": "Comment (optional)",
+      "errors": {
+        "future": "The payment date can't be in the future.",
+        "amount": "Enter a valid amount, e.g. 12.50.",
+        "amountClp": "Enter the amount in pesos, without decimals, e.g. 150.000.",
+        "send": "We couldn't send the information. Please try again."
+      }
+    },
+    "insurer": {
+      "title": "Payment status inquiry",
+      "lead": "{{broker}} asks you to confirm the payment status of these installments. You can report it right here.",
+      "leadReadOnly": "{{broker}} shares the details of these installments with you.",
+      "inquiry": "Inquiry {{reference}}",
+      "installmentsTitle": "Installments in question",
+      "noInstallments": "There are no installments in this inquiry.",
+      "emptyTitle": "Nothing to show",
+      "emptyHint": "The policy for this link is no longer available. Please contact the broker."
+    },
+    "report": {
+      "open": "Report status",
+      "again": "Report again",
+      "last": "You reported \"{{status}}\" on {{date}}.",
+      "statusLabel": "Installment status",
+      "status": {
+        "paid": "Paid",
+        "unpaid": "Unpaid",
+        "partial": "Partial payment",
+        "cancelled": "Voided",
+        "unknown": "No information"
+      },
+      "statusHint": {
+        "paid": "The insurer received the full payment.",
+        "unpaid": "No payment on record.",
+        "partial": "Only part of it was received.",
+        "cancelled": "The installment or the policy was voided."
+      },
+      "amount": "Amount received (optional)",
+      "amountRequired": "Amount received",
+      "commentPlaceholder": "E.g. payment received by transfer, ref. 12345",
+      "note": "The broker will review and confirm the information before recording it.",
+      "submit": "Send report",
+      "errors": {
+        "status": "Choose the installment status.",
+        "partialAmount": "Enter the amount received for a partial payment."
+      }
+    }
+  },
+  "createdRevoked": "You revoked this link: it no longer works and can't be sent. Create a new one if you need it."
+}

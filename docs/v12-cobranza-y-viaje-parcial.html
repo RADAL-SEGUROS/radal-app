@@ -1,0 +1,1175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radal v12 · Partial journeys &amp; three-level Cobranza (Forpay)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/styles/github.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/highlight.min.js"></script>
+<style>
+:root{
+  --paper:#fafaf9;--paper-2:#f4f4f2;--bone:#fff;--line:#e8e8e5;--line-strong:#d9d9d5;
+  --ink:#17191a;--ink-2:#41464a;--ink-3:#6b7075;--muted:#9ba0a5;
+  --brand:#0e7c70;--brand-deep:#0b655b;--brand-soft:rgba(14,124,112,.08);
+  --pos:#16a34a;--pos-text:#15803d;--pos-soft:rgba(22,163,74,.10);
+  --warn:#d97706;--warn-text:#b45309;--warn-soft:rgba(217,119,6,.10);
+  --neg:#dc2626;--neg-text:#b91c1c;--neg-soft:rgba(220,38,38,.08);
+  --info:#2563eb;--info-soft:rgba(37,99,235,.08);
+  --l0:#6b7075;--l1:#b45309;--l2:#0e7c70;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.6 Inter,system-ui,sans-serif;font-feature-settings:"cv11"}
+a{color:var(--brand)}
+code{font-family:var(--mono);font-size:.86em;background:var(--paper-2);border:1px solid var(--line);padding:.05em .35em;border-radius:4px}
+pre code{border:0;padding:0;background:none}
+pre{margin:0}
+.layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+nav.toc{position:sticky;top:0;height:100vh;overflow:auto;border-right:1px solid var(--line);background:var(--bone);padding:22px 18px}
+nav.toc .wm{font:600 20px "Space Grotesk";letter-spacing:-.01em;color:var(--brand);margin-bottom:2px}
+nav.toc .sub{font-size:12px;color:var(--ink-3);margin-bottom:18px}
+nav.toc ol{list-style:none;margin:0;padding:0;counter-reset:t}
+nav.toc li{counter-increment:t}
+nav.toc a{display:block;padding:5px 8px;border-radius:6px;color:var(--ink-2);text-decoration:none;font-size:13.5px}
+nav.toc a::before{content:counter(t,decimal-leading-zero);font:500 11px var(--mono);color:var(--muted);margin-right:8px}
+nav.toc a:hover,nav.toc a.active{background:var(--brand-soft);color:var(--brand-deep)}
+main{max-width:1180px;padding:40px 56px 120px}
+header.hero{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:12px}
+.eyebrow{font:500 12px var(--mono);color:var(--brand);text-transform:uppercase;letter-spacing:.08em}
+h1{font-size:34px;line-height:1.15;letter-spacing:-.02em;margin:10px 0 12px}
+h2{font-size:25px;letter-spacing:-.015em;margin:64px 0 6px;padding-top:12px}
+h2 .n{font:500 14px var(--mono);color:var(--muted);margin-right:10px}
+h3{font-size:18px;margin:34px 0 8px;letter-spacing:-.01em}
+h4{font-size:15px;margin:20px 0 6px}
+.lede{font-size:17px;color:var(--ink-2);max-width:900px}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--bone);color:var(--ink-2);white-space:nowrap}
+.chip.l0{color:var(--l0);background:#f1f1ef}
+.chip.l1{color:var(--l1);background:var(--warn-soft);border-color:#f3d7ae}
+.chip.l2{color:var(--l2);background:var(--brand-soft);border-color:#bfe0db}
+.chip.neg{color:var(--neg-text);background:var(--neg-soft);border-color:#f5c6c6}
+.chip.info{color:var(--info);background:var(--info-soft);border-color:#c9d8fb}
+.chip.soon{color:var(--ink-3);border-style:dashed}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1100px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:860px){.layout{grid-template-columns:1fr}nav.toc{display:none}main{padding:24px}.g2,.g3,.g4{grid-template-columns:1fr}}
+.card{background:var(--bone);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.card h4{margin-top:0}
+.card.accent{border-left:3px solid var(--brand)}
+.card.warn{border-left:3px solid var(--warn)}
+.card.neg{border-left:3px solid var(--neg)}
+.card .big{font:600 28px Inter;letter-spacing:-.02em}
+.card p:last-child{margin-bottom:0}
+.callout{border-radius:10px;padding:14px 18px;margin:18px 0;border:1px solid}
+.callout.trap{background:var(--neg-soft);border-color:#f5c6c6}
+.callout.trap b:first-child{color:var(--neg-text)}
+.callout.tip{background:var(--brand-soft);border-color:#bfe0db}
+.callout.q{background:var(--warn-soft);border-color:#f3d7ae}
+.callout.note{background:var(--info-soft);border-color:#c9d8fb}
+table{width:100%;border-collapse:collapse;background:var(--bone);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13.5px;margin:12px 0}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--paper-2);font-weight:600;color:var(--ink-2);font-size:12.5px}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.tbl-wrap{overflow-x:auto}
+.mermaid{background:var(--bone);border:1px solid var(--line);border-radius:12px;padding:18px;margin:14px 0;text-align:center}
+.codebox{background:var(--bone);border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}
+.codebox .cap{font:500 12px var(--mono);color:var(--ink-3);background:var(--paper-2);border-bottom:1px solid var(--line);padding:6px 12px}
+.codebox pre{padding:12px 14px;overflow-x:auto;font:12.5px/1.55 var(--mono)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3);margin:6px 0}
+.ladder{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin:16px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bone)}
+.ladder div{padding:14px;border-right:1px solid var(--line);position:relative}
+.ladder div:last-child{border-right:0}
+.ladder .lvl{font:500 11px var(--mono);color:var(--muted)}
+.ladder b{display:block;margin:4px 0}
+.ladder small{color:var(--ink-3)}
+.ladder .bar{position:absolute;left:0;bottom:0;height:4px;background:var(--brand)}
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:18px 0}
+.tier{border-radius:14px;padding:20px;border:1px solid var(--line);background:var(--bone)}
+.tier .tag{font:600 12px var(--mono);letter-spacing:.06em}
+.tier.t0 .tag{color:var(--l0)}.tier.t1 .tag{color:var(--l1)}.tier.t2 .tag{color:var(--l2)}
+.tier.t0{border-top:4px solid var(--l0)}.tier.t1{border-top:4px solid #e5a54c}.tier.t2{border-top:4px solid var(--brand)}
+.tier h4{font-size:18px;margin:6px 0 8px}
+.tier ul{padding-left:18px;margin:8px 0;color:var(--ink-2);font-size:13.5px}
+.tier .when{font-size:12.5px;color:var(--ink-3);border-top:1px dashed var(--line);padding-top:10px;margin-top:10px}
+@media(max-width:1000px){.tiers{grid-template-columns:1fr}.ladder{grid-template-columns:1fr}.ladder div{border-right:0;border-bottom:1px solid var(--line)}}
+/* simulator */
+.sim{display:grid;grid-template-columns:330px 1fr;gap:18px;background:var(--bone);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0}
+@media(max-width:1000px){.sim{grid-template-columns:1fr}}
+.sim label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);margin:12px 0 4px}
+.sim label:first-child{margin-top:0}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:inherit;font-size:12.5px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-2);padding:5px 10px;border-radius:8px;cursor:pointer}
+.seg button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.sim .out{border-left:1px solid var(--line);padding-left:18px}
+@media(max-width:1000px){.sim .out{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:14px}}
+.sim .out .lv{font:600 22px Inter;letter-spacing:-.02em;margin:2px 0 10px}
+.sim dl{display:grid;grid-template-columns:150px 1fr;gap:8px 14px;margin:0;font-size:13.5px}
+.sim dt{color:var(--ink-3)}
+.sim dd{margin:0}
+/* mock UI */
+.mock{background:var(--bone);border:1px solid var(--line-strong);border-radius:12px;overflow:hidden;font-size:13px;box-shadow:0 1px 0 rgba(0,0,0,.02),0 8px 24px -12px rgba(0,0,0,.12)}
+.mock .bar{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--paper-2);border-bottom:1px solid var(--line);font-weight:600}
+.mock .dots{display:flex;gap:5px;margin-right:6px}.mock .dots i{width:9px;height:9px;border-radius:50%;background:#d9d9d5;display:block}
+.mock table{border:0;border-radius:0;margin:0;font-size:12.5px}
+.mock .btn{display:inline-block;font-size:12px;font-weight:600;padding:4px 9px;border-radius:7px;border:1px solid var(--line-strong);background:var(--bone);color:var(--ink-2);white-space:nowrap}
+.mock .btn.p{background:var(--brand);border-color:var(--brand);color:#fff}
+.mock .btn.dis{opacity:.5}
+.mock .body{padding:14px}
+.phone{width:300px;margin:auto;border:10px solid #17191a;border-radius:32px;overflow:hidden;background:var(--bone);font-size:13px}
+.phone .top{background:var(--brand);color:#fff;padding:14px}
+.phone .row{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.phone .pay{margin:12px 14px;padding:10px;border-radius:10px;text-align:center;font-weight:600}
+.kpi{display:flex;gap:6px;align-items:baseline}
+.muted{color:var(--ink-3)}
+.small{font-size:12.5px}
+.pill-row{display:flex;gap:6px;flex-wrap:wrap}
+.status{font:600 11px var(--mono);padding:2px 7px;border-radius:5px}
+.st-new{background:var(--pos-soft);color:var(--pos-text)}
+.st-mod{background:var(--warn-soft);color:var(--warn-text)}
+.st-res{background:#f1f1ef;color:var(--ink-3)}
+.st-drop{background:var(--neg-soft);color:var(--neg-text)}
+.timeline{border-left:2px solid var(--line);margin:12px 0 12px 8px;padding-left:18px}
+.timeline div{position:relative;margin-bottom:12px}
+.timeline div::before{content:"";position:absolute;left:-25px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--bone);border:2px solid var(--brand)}
+.phase{display:grid;grid-template-columns:150px 1fr 120px;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.phase:last-child{border-bottom:0}
+.phase .ph{font:600 13px var(--mono);color:var(--brand)}
+.phase .est{font:500 13px var(--mono);color:var(--ink-3);text-align:right}
+.src{font-size:12.5px;color:var(--ink-3)}
+.pending-research{border:1px dashed var(--warn);background:var(--warn-soft);padding:14px;border-radius:10px}
+
+.rails{display:grid;grid-template-columns:190px 1fr 190px;gap:18px;align-items:center;background:#fffdf3;border:1px solid var(--line);border-radius:12px;padding:20px;margin:14px 0;font-size:13px}
+.rails .node{border:1.5px solid var(--ink-2);border-radius:10px;padding:8px 10px;background:var(--bone);text-align:center;font-weight:600;margin:4px 0}
+.rails .node small{display:block;font-weight:400;color:var(--neg-text)}
+.rails .node.red{border-color:#dc2626;color:#b91c1c;background:#fdecec}
+.rails .node.green{border-color:#16a34a;color:#15803d;background:#e9f7ee}
+.rails .node.green small{color:#15803d}
+.rails .node.blue{border-color:#2563eb;color:#1d4ed8;background:#eaf1fd}
+.rails .node.blue small{color:#1d4ed8}
+.rails .node.big{padding:22px 12px;font-size:15px}
+.rails .lbl{font-size:12px;color:var(--ink-3);text-align:center;margin:4px 0 14px}
+.rails .box{border:2px dashed var(--ink-2);border-radius:14px;padding:12px 14px}
+.rails .boxtitle{font:600 15px "Space Grotesk";text-align:center;margin-bottom:6px}
+.rails .rail-row{display:grid;grid-template-columns:1fr 150px 1fr;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
+.rails .arrow{text-align:center;font-size:20px;color:#2563eb;line-height:1.1}
+.rails .arrow small{display:block;font-size:11px;color:#1d4ed8}
+.rails .mall>div:first-child{border:1.5px dashed #2563eb;border-radius:10px;padding:6px 8px}
+.rails .malltitle{font-size:12px;font-weight:600;text-align:center;color:#1d4ed8}
+.rails .hooks{font-size:12px;color:#1d4ed8;text-align:center;padding-top:8px}
+@media(max-width:1000px){.rails{grid-template-columns:1fr}}
+footer{margin-top:80px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3)}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc">
+  <div class="wm">radal</div>
+  <div class="sub">v12 analysis · 16-10-2026</div>
+  <ol>
+    <li><a href="#tldr">The short version</a></li>
+    <li><a href="#shift">What changed in the priorities</a></li>
+    <li><a href="#cto">The CTO diagram, decoded</a></li>
+    <li><a href="#forpay">Forpay: what the docs say</a></li>
+    <li><a href="#rules">Regulatory guardrails</a></li>
+    <li><a href="#levels">Three levels of Cobranza</a></li>
+    <li><a href="#sim">Simulator: one cuota</a></li>
+    <li><a href="#flows">The flows</a></li>
+    <li><a href="#truth">How Radal knows a cuota is paid</a></li>
+    <li><a href="#mail">Mail integration</a></li>
+    <li><a href="#infra">Schedulers &amp; event infra</a></li>
+    <li><a href="#db">Database changes</a></li>
+    <li><a href="#backend">Backend changes</a></li>
+    <li><a href="#frontend">Frontend changes</a></li>
+    <li><a href="#journey">Partial journeys</a></li>
+    <li><a href="#plan">Build plan</a></li>
+    <li><a href="#questions">Open questions</a></li>
+    <li><a href="#risks">Risks</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Radal · v12 · analysis before build</div>
+  <h1>Partial journeys and three-level Cobranza,<br>with Forpay as the native rail</h1>
+  <p class="lede">The journey stops being the product's backbone. A broker can start anywhere: a policy PDF, two portal quotes, or the full market process. After the policy, <b>Cobranza</b> is what the broker buys. How far Radal can take a cuota depends on the insurer behind it: <b>native through Forpay</b>, <b>assisted</b> (mail, reminders, insurer statements) or <b>record only</b>. This document covers what that means for the database, the backend, the frontend and the infrastructure.</p>
+  <div class="meta">
+    <span class="chip">Source: team spec <b>“RADAL · Clic a clic” v15</b> (01-10-2026)</span>
+    <span class="chip">CTO diagram “RADAL x Forpay”</span>
+    <span class="chip">Code on <code>dev</code> @ <code>51ada38</code> (v11)</span>
+    <span class="chip">Prior analysis: <code>docs/plan-v12-tres-vias.md</code></span>
+    <span class="chip">Web research: Forpay · Transbank · CMF · mail APIs</span>
+  </div>
+</header>
+
+<!-- ============================================================ 01 -->
+<section id="tldr">
+<h2><span class="n">01</span>The short version</h2>
+<div class="grid g3">
+  <div class="card accent"><h4>1 · The journey becomes optional</h4>
+  <p>The colocación stays the parent of every policy. The 12-stage machine gets entry points, and stages before the entry are marked <i>omitida</i>, which is the team's <i>tres vías</i>. The new part is that <b>Cobranza no longer depends on the journey</b>. The minimum path is <i>Subir póliza → Confirmar datos → Plan de pago → Cobranza</i>, and it never touches Antecedentes.</p></div>
+  <div class="card accent"><h4>2 · One cuota, three levels</h4>
+  <p>Each cuota gets a collection level, resolved at run time from its insurer, payment method and payer contact. <span class="chip l2">Nativa · Forpay</span> <span class="chip l1">Asistida</span> <span class="chip l0">Registro</span>. When an insurer goes live on Forpay, its open cuotas move up a level on their own. Nothing is migrated and no plan is rebuilt.</p></div>
+  <div class="card accent"><h4>3 · Radal starts acting on its own</h4>
+  <p>Up to v11 nothing in Radal runs without a click. v12 needs <b>scheduled jobs</b> (the cuota clock, reminders, mailbox polling, subscription renewals, UF rates) and <b>inbound events</b> (Forpay webhooks, Gmail and Graph push). That infrastructure doesn't exist yet.</p></div>
+</div>
+
+<div class="callout trap"><b>The trap that would break the first webhook.</b> Our API sits behind <b>CloudFront OAC → Lambda Function URL</b>, and OAC requires every POST to carry <code>x-amz-content-sha256</code> (OAC constraint #2). Our SPA sends that header. Forpay, Google Pub/Sub and Microsoft Graph never will, so their POSTs would fail with <code>InvalidSignatureException</code>. Webhooks need <b>their own ingress</b>: an API Gateway HTTP API in front of a small Lambda that verifies the signature, writes to an inbox and enqueues. Section <a href="#infra">11</a> has the details.</div>
+
+<div class="grid g4" style="margin-top:16px">
+  <div class="card"><div class="muted small">New tables</div><div class="big">~20</div><div class="small muted">payments, Forpay charges &amp; payouts, mandates, mailboxes, evidence, notices, jobs…</div></div>
+  <div class="card"><div class="muted small">Modified tables</div><div class="big">6</div><div class="small muted">plan, cuota, insurer, document, note, case-file stage log</div></div>
+  <div class="card"><div class="muted small">New infra pieces</div><div class="big">5</div><div class="small muted">Scheduler · SQS · worker λ · ingress API · Secrets</div></div>
+  <div class="card"><div class="muted small">Effort to Nivel 2 pilot</div><div class="big">13–17 wk</div><div class="small muted">one engineer + agents · see <a href="#plan">§16</a></div></div>
+</div>
+</section>
+
+<!-- ============================================================ 02 -->
+<section id="shift">
+<h2><span class="n">02</span>What changed in the priorities</h2>
+<p>v9–v11 built Radal around the <b>journey</b>: Asegurado → Cuenta → Antecedentes → Bases técnicas → Comparación → Propuesta → Pólizas. That fits <i>Tradicional</i> business such as Property, Ingeniería or large RC. Most of a broker's portfolio by policy count is <i>portal</i> business, though (Vehículos, Hogar, PYME, AP, Vida; 34 of the 53 subtipos in <code>catalogo_ramos.csv</code> are marked <code>portal</code>). That business arrives as a policy PDF, and the broker's daily work on it is collecting the premium.</p>
+
+<div class="mermaid">
+flowchart LR
+  A1[Asegurado] --> A2[Cuenta] --> A3[Antecedentes] --> A4[Bases técnicas] --> A5[Comparación] --> A6[Propuesta] --> A7[Póliza] -.-> A8[cobranza<br/>stub]
+</div>
+<p class="small muted" style="text-align:center;margin-top:-6px">v9–v11: the journey is the spine</p>
+<div class="mermaid">
+flowchart LR
+  B0((+ Nuevo)) --> B1[Asegurado] --> B2["Colocación<br/>(created on demand)"]
+  B2 --> J1[Tradicional<br/>full journey] & J2[Digital 2a<br/>compare portal quotes] & J3[Digital 2b<br/>upload the PDF] & J4[Manual<br/>no PDF]
+  J1 & J2 & J3 & J4 --> P[[Póliza]]
+  P --> C[Plan de pago] --> CO{{Cobranza<br/>3 levels}}
+  P --> E[Endosos] & S[Siniestros] & R[Renovación]
+  classDef hub fill:#0e7c70,color:#fff,stroke:#0b655b
+  classDef cob fill:#fff7ea,stroke:#d97706,color:#b45309
+  class P hub
+  class CO cob
+</div>
+<p class="small muted" style="text-align:center;margin-top:-6px">v12: the policy is the hub, the journey is one way in</p>
+
+<h3>What “partial” means in practice</h3>
+<p>The team's v15 already defines the machinery (12 stages, 7 steps, 3 vías, R6/R34). The <i>Operatividad</i> table (R38) carries the idea furthest: <b>every feature switches on when its data exists</b>, and nothing is gated on having walked the journey. v12 applies the same rule to Cobranza, one rung at a time:</p>
+<div class="ladder">
+  <div><span class="lvl">RUNG 0</span><b>Policy saved</b><small>5 fields (R38). In the portfolio and in Renovaciones. No cuotas yet.</small><span class="bar" style="width:20%"></span></div>
+  <div><span class="lvl">RUNG 1</span><b>+ Plan de pago</b><small>Cuotas with a due date and amount. The cuota clock and bell alerts start. <span class="chip l0">Registro</span></small><span class="bar" style="width:40%"></span></div>
+  <div><span class="lvl">RUNG 2</span><b>+ Payer contact &amp; channel</b><small>Avisos to the contratante or pagador with the insurer's own payment instructions. <span class="chip l1">Asistida</span></small><span class="bar" style="width:60%"></span></div>
+  <div><span class="lvl">RUNG 3</span><b>+ Mailbox / statement</b><small>Comprobantes and insurer statements become payment <i>suggestions</i>. <span class="chip l1">Asistida+</span></small><span class="bar" style="width:80%"></span></div>
+  <div><span class="lvl">RUNG 4</span><b>+ Insurer live on Forpay</b><small>Payment link or portal, webhook confirmation, settlement to the insurer. <span class="chip l2">Nativa</span></small><span class="bar" style="width:100%"></span></div>
+</div>
+<p class="small muted">The ficha shows the missing rungs as the team's “Falta: X” line, for example <i>“Falta: correo del pagador → sin avisos”</i> or <i>“HDI aún no está en Forpay (estimado 30-10) → cobro asistido”</i>. These are never pop-ups or blockers. They are reasons the server returns, which keeps us within non-negotiable #3 (no dead buttons).</p>
+</section>
+
+<!-- ============================================================ 03 -->
+<section id="cto">
+<h2><span class="n">03</span>The CTO diagram, decoded</h2>
+<p>The diagram shows <b>three rails</b> inside a “RADAL x Forpay” box. Each rail settles money to the insurer through a different instrument, and every rail reports back to Radal through payment-notification webhooks. Here it is redrawn, with the reading notes numbered:</p>
+
+<div class="rails">
+  <div class="actors">
+    <div class="node red">Corredor</div>
+    <div class="lbl">① Carga de póliza →<br>← ⑦ Estados de pagos</div>
+    <div class="node green">Cliente final<br><small>contratante / pagador</small></div>
+    <div class="lbl">② Portal de pagos ↔<br>opciones 3A / 3B + estados</div>
+  </div>
+  <div class="box">
+    <div class="boxtitle">RADAL x Forpay</div>
+    <div class="rail-row"><div class="node">TEF / Botón bancario<br><small>pagos spot</small></div><div class="arrow">→<small>④ 0.013–0.055 UF/trx</small></div><div class="node blue">Cuenta Aseguradora N<br><small>insurer bank account</small></div></div>
+    <div class="rail-row mall"><div><div class="malltitle">③ Mall RADAL (Transbank)</div><div class="node">Webpay Plus<br><small>spot</small></div><div class="node">OneClick<br><small>spot / recurrente</small></div></div><div class="arrow">→<small>ref. externo 1–2%<br>Transbank pays each store</small></div><div><div class="node blue">Tienda Aseguradora 1</div><div class="node blue">Tienda Aseguradora N</div></div></div>
+    <div class="rail-row"><div class="node">PAC<br><small>pagos recurrentes</small></div><div class="arrow">→<small>⑤ 0.04 UF act. · 0.025 UF/trx</small></div><div class="node blue">Convenio Aseguradora N</div></div>
+    <div class="hooks">↩ Webhooks · notificación de pago, from every destination back to RADAL x Forpay</div>
+  </div>
+  <div class="abo"><div class="node blue big">⑥ Abonos, rendiciones y conciliaciones por Cía. de Seguros</div></div>
+</div>
+
+<div class="tbl-wrap"><table>
+<tr><th>#</th><th>What the diagram says</th><th>What it means for Radal</th></tr>
+<tr><td>①</td><td>The broker uploads the policy (<i>Carga de Póliza</i>) into “RADAL x Forpay”.</td><td>The <b>policy plus its payment plan</b> is the input to collection, which matches the minimum path above. A cuota only becomes collectable after <i>Confirmar datos</i> and <i>Plan de pago</i>. Forpay never reads PDFs; Radal sends it amounts and references.</td></tr>
+<tr><td>②</td><td>The end client gets a <b>payment portal</b>, “opciones 3A y 3B”, plus payment statuses.</td><td>Forpay sells its own <i>Portal de Pagos</i> (receipts, change payment method). “3A/3B” is not defined publicly and most likely refers to two variants in Forpay's proposal. <b>This has to be asked</b> (<a href="#questions">§17</a>). We recommend a <b>Radal-hosted portal</b> as the front door, because it is the only page that can show Nivel 1 and Nivel 2 cuotas together. It hands off to Forpay's checkout (<code>activation.url</code>) for the Nivel 2 ones.</td></tr>
+<tr><td>③</td><td><b>Mall RADAL</b> holds Webpay Plus and OneClick. Each insurer is a <b>Tienda</b>, and Transbank pays the store directly.</td><td><b>Confirmed by the docs.</b> Forpay's OnePay has <code>isMall: true</code>, and each installment carries the store's <code>f_commerceCode</code>; the example code is Transbank's own Mall test “Tienda 1”. Radal is the mall, each insurer is a <i>tienda hija</i> with its own Transbank affiliation, and Transbank settles each store's share <b>directly to that insurer</b>. One checkout can pay an HDI cuota and a Sura cuota together. Oneclick <i>only</i> exists as a Mall. The 1–2% “ref externo” is the card acquiring cost.</td></tr>
+<tr><td>④</td><td>TEF or bank button → <b>Cuenta Aseguradora N</b>, 0.013–0.055 UF per transaction.</td><td>An account-to-account transfer initiated by the payer into the <b>insurer's own bank account</b>. It is cheap per transaction and confirmed by webhook. The insurer needs an onboarded collecting account with Forpay.</td></tr>
+<tr><td>⑤</td><td>PAC → <b>Convenio Aseguradora N</b>, 0.04 UF activation and 0.025 UF per transaction.</td><td>Recurring direct debit under a <b>mandate</b>. Forpay's <b>ForPAC</b> signs the mandate with Clave Única plus an advanced e-signature and activates it instantly or within 24 business hours; a paper mandate at a bank takes 30–60 days. It needs a per-insurer convenio (whose convenio it is remains open) and a per-payer enrollment through Forpay's Magic Link. In Radal this is a <code>payment_mandate</code>. Monthly charges come back as webhooks, including <b>rejections</b> (state <code>-99</code>), which fill in the team's <i>PAC rechazado</i> (C1.4) automatically.</td></tr>
+<tr><td>⑥</td><td>Settlements (<i>abonos</i>), statements (<i>rendiciones</i>) and reconciliations per insurer.</td><td>Forpay exposes this <b>per installment</b>: <code>GET /receivables</code> returns a <code>payout</code> with <code>dispersionId</code>, <code>creditedAmount</code>, <code>companyDepositDate</code> and <code>“ABONADO AL COMERCIO”</code>. That is our <code>settled</code> evidence level. The team's C6 (insurer statement upload) is the <i>assisted</i> version of the same reconciliation, so both feed the same reconciliation views.</td></tr>
+<tr><td>⑦</td><td>Payment statuses go back to the broker.</td><td>Webhooks become <code>payment</code> rows with <code>evidence_level = provider_confirmed</code>. This is a fact reported by the payment rail, not an AI guess, so it <b>commits without a human</b>. Non-negotiable #6 governs AI suggestions only.</td></tr>
+</table></div>
+
+<div class="callout tip"><b>Your hypothesis, checked: “a payment link with enough metadata, money goes to the insurer's own account.”</b> Right on the money flow and on the link. Two refinements:
+<br>(a) <b>It is not a sub-account API.</b> Forpay's API is single-company. For cards, one <b>Radal Mall</b> company creates links whose installments each name their insurer's Transbank child store. For PAC and TEF, expect one Forpay company per insurer (<a href="#forpay">§04.4</a>). In both cases settlement goes straight to the insurer, which keeps Radal and the broker out of the money (<a href="#rules">§05</a>).
+<br>(b) <b>The link itself carries the metadata.</b> A OnePay link holds one installment per cuota, each with <b>our cuota id</b> as external id, the amount <b>in UF</b> with <code>currencyConvert: TO_DAY</code> (Forpay converts on the day of payment), the store's commerce code and free <code>metadata</code>. The UF drift problem is solved by Forpay. We still send payers to a <b>Radal portal URL</b> (<code>/pay/{token}</code>), and the portal creates the OnePay link when they click. That way one page covers Nivel 1 and Nivel 2 cuotas, a paid cuota can never be paid twice through an old link, and link expiry, which isn't documented, stops mattering.</div>
+</section>
+
+<!-- ============================================================ 04 -->
+<section id="forpay">
+<h2><span class="n">04</span>Forpay: what the developer docs say</h2>
+<p>We read all 41 pages of Forpay's public API reference (<a href="https://forpaydocs.readme.io/reference/getting-started-with-your-api">forpaydocs.readme.io</a>), its embedded OpenAPI specs and its product pages. The verdict is below, followed by the evidence.</p>
+
+<div class="grid g3">
+  <div class="card accent"><h4>Forpay never touches the money</h4><p class="small">Forpay SpA (RUT 77.209.349-7) describes itself as a <i>proveedor de servicios tecnológicos</i>: <i>“en ningún momento tocamos los dineros… viajan directamente de las cuentas o tarjetas bancarias de los clientes finales hacia las cuentas de las empresas”</i> (<a href="https://empresas.forpay.cl/faq.html">FAQ</a>). It has a product page for <a href="https://empresas.forpay.cl/seguros.html">“compañías y corredoras de seguros”</a>.</p></div>
+  <div class="card warn"><h4>No sub-account API, but a Mall</h4><p class="small">The public API is <b>single-company</b>: credentials, <code>commerce</code> and login are tied to one RUT, and <i>“la empresa no puede consultar datos de otro comercio”</i>. There is <b>no endpoint to onboard an insurer</b>. The one documented multi-merchant mechanism is <b>OnePay with <code>isMall: true</code></b> plus a Transbank child <code>f_commerceCode</code> on each installment. That covers cards and spot payments only.</p></div>
+  <div class="card accent"><h4>Its model fits ours closely</h4><p class="small">Forpay is built around <b>mandates with installments</b>. Each installment has its own id, due date, amount in <b>UF or CLP</b> (<code>currencyConvert: TO_DAY</code>) and free <code>metadata</code>. That maps onto our <i>plan de pago → cuotas</i> almost one to one.</p></div>
+</div>
+
+<h3>4.1 · The rails behind Forpay</h3>
+<div class="tbl-wrap"><table>
+<tr><th>Rail</th><th>Provider underneath</th><th>Use for Radal</th><th>CTO diagram</th></tr>
+<tr><td>Spot card / debit</td><td>Webpay Plus or Getnet Web Checkout</td><td>Pay one or more cuotas now (OnePay, Mall)</td><td>Webpay Plus · Mall RADAL</td></tr>
+<tr><td>Card on file (PAT)</td><td>Transbank <b>Oneclick</b> (Mall-only) or Getnet Click</td><td>Recurring cuotas charged automatically</td><td>OneClick</td></tr>
+<tr><td>PAC</td><td><b>ForPAC</b>: Clave Única plus an advanced e-signature on the mandate, active instantly or within 24 business hours. Also EPAC Directo and Fintoc.</td><td>Recurring debit from the payer's account</td><td>PAC · Convenio Aseguradora N</td></tr>
+<tr><td>TEF</td><td>ETPay (<i>“transferencia preconciliada”</i>)</td><td>Account-to-account spot payment, already reconciled</td><td>TEF / Botón bancario</td></tr>
+<tr><td>Botones bancarios</td><td>payment-method id 19</td><td>—</td><td>Botón bancario</td></tr>
+</table></div>
+<p class="small muted">Stated settlement times on the seguros page: Transbank 24–48 h, Fintoc 24 h, ForPAC same day. <a href="https://forpaydocs.readme.io/reference/conceptos-clave">Conceptos clave</a>.</p>
+
+<h3>4.2 · The API, mapped onto Radal</h3>
+<div class="tbl-wrap"><table>
+<tr><th>Forpay object</th><th>Endpoint(s)</th><th>Radal counterpart</th><th>Notes</th></tr>
+<tr><td><b>Customer</b></td><td><code>POST /user</code></td><td>The <b>pagador</b> (<code>policy_party</code>)</td><td>RUT is the unique key per Forpay company. Name, RUT and email are required.</td></tr>
+<tr><td><b>Mandate · ONEPAY</b></td><td><code>POST /mandate</code> with <code>type: ONEPAY</code>, <code>needPayNow</code>, <code>terminateWhenCharged</code>, <code>isMall</code></td><td><code>payment_intent</code>, the “link”</td><td>Returns <code>activation.url</code>, the payment link. Each installment carries <code>f_commerceCode</code> (insurer store). Methods: <code>WEBPAY_PLUS</code>, <code>WEB_CHECKOUT</code>, <code>ONECLICK</code>, <code>ETPAY_EFT</code>.</td></tr>
+<tr><td><b>Mandate · DYNAMIC</b></td><td><code>POST /mandate</code> with <code>type: DYNAMIC</code>, <code>POST /installments</code>, <code>PUT /mandate/update/…</code></td><td><code>collection_plan</code> + <code>payment_mandate</code> (recurring)</td><td>Installments can be added, edited or annulled at any time, which fits endorsements re-pricing cuotas (R23, R26). Methods: <code>DEBITO_DIRECTO</code>, <code>ONECLICK</code>, <code>EPAC</code>, <code>FINTOC_FORPAC</code>… Returns a <b>Magic Link</b> for the payer to enroll.</td></tr>
+<tr><td>Mandate · PERMANENT / SUBSCRIPTION</td><td><code>POST /mandate</code></td><td>not used</td><td>PERMANENT is fixed and can't change. SUBSCRIPTION auto-generates installments. Neither fits endorsements.</td></tr>
+<tr><td><b>Installment</b></td><td>inside the mandate · <code>PUT /installments/status/change</code></td><td><code>collection_installment</code></td><td>Our cuota id goes in <code>installments[].id</code> (external id). <code>status/change</code> marks an installment <b>paid (2) or annulled (6)</b>. Radal must call it when a cuota is paid <i>outside</i> Forpay, so Forpay never charges or reminds for a paid cuota.</td></tr>
+<tr><td><b>Receivables</b></td><td><code>GET /receivables</code> (filters: <code>externalInstallmentId</code>, <code>installmentStatus</code>, <code>paymentDateFrom/To</code>, <code>dispersionId</code>, <code>hasPayout</code>…; up to 500 per page)</td><td><code>payments.sync</code> + payout reconciliation</td><td>Each paid installment has a <code>payout</code>: <code>dispersionId</code>, <code>creditedAmount</code>, <code>companyDepositDate</code>, <code>destinationAccount</code>, <code>bankTransactionNumber</code>, <code>customerStatusName: “ABONADO AL COMERCIO”</code>. These are the <i>abonos</i> in the diagram.</td></tr>
+<tr><td>E-signature</td><td><code>POST /signature</code> (types <code>FAO</code> advanced, <code>FES</code> simple)</td><td>consent document for a payment-method change</td><td>Supports the written-consent duty of art. 60 DFL 251 (<a href="#rules">§05</a>).</td></tr>
+<tr><td>Refunds</td><td>—</td><td>—</td><td><b>No refund endpoint in the public docs.</b> There is only an installment state <code>12 REVERSADA</code> and the flag <code>f_paymentRefund</code>.</td></tr>
+</table></div>
+
+<div class="grid g2">
+<div class="codebox"><div class="cap">A OnePay (spot, Mall) request, built from the documented fields</div><pre><code class="language-json">POST /white/label/mandate
+{
+  "customer": { "userId": "rdl-party-8812" },
+  "mandate": {
+    "id": "rdl-intent-5f2c9a",            // our external id
+    "type": "ONEPAY", "isMall": true,
+    "needPayNow": true, "terminateWhenCharged": true,
+    "charges": { "wayToPay": "AUTOMATICO",
+      "totalAmounts": [{ "currencyId": "UF", "amount": 316.20 }] }
+  },
+  "paymentMethods": ["WEBPAY_PLUS", "ETPAY_EFT"],
+  "installments": [
+    { "id": "rdl-cuota-40211", "amount": 4.20, "currencyId": "UF",
+      "currencyConvert": "TO_DAY", "installmentDueDate": "2026-10-12",
+      "metadata": { "f_commerceCode": "597055555536" } },   // HDI store
+    { "id": "rdl-cuota-40977", "amount": 312.00, "currencyId": "UF",
+      "currencyConvert": "TO_DAY", "installmentDueDate": "2026-10-08",
+      "metadata": { "f_commerceCode": "597055555537" } }    // Sura store
+  ],
+  "metadata": { "radal_broker": "14", "f_paymentRefund": true },
+  "urls": { "callback": "https://dev.radalseguros.cl/pay/…/return",
+            "paymentWebhook": "https://hooks.radalseguros.cl/forpay/radal-mall/payment" }
+}
+→ 200 { "activation": { "url": "https://checkout…forpay.cl?token=…" }, … }</code></pre></div>
+<div>
+<div class="codebox"><div class="cap">Auth: a 30-minute JWT per Forpay company</div><pre><code class="language-text">every call   x-api-key, country: CL, commerce, channel,
+             processId (HYBRID | WHITE_LABEL), correlationId,
+             requestDateTime, salesExecutiveId
+POST /login  { username: "{rut_sin_dv}.{id_interno}",
+               password: JWE(password, forpay_public_key) }
+           → JWT, valid 30 min → Authorization: Bearer …
+dev base     https://devapi.forpayservices.cl/white/label
+prod base    not public</code></pre></div>
+<div class="callout tip small" style="margin-top:0"><b>Use <code>WHITE_LABEL</code>, not <code>HYBRID</code>.</b> In HYBRID mode Forpay emails the payer itself (Magic Link, notices). Forpay also sells reminders and its own payment portal. Radal must speak with <b>one voice across all three levels</b>, so Forpay stays silent and the broker-branded avisos come from Radal.</div>
+</div>
+</div>
+
+<h3>4.3 · Webhooks</h3>
+<div class="grid g2">
+<div>
+<ul class="small">
+  <li><b>Two URLs per mandate</b>, passed in the create body: <code>activationWebhook</code> (mandate active or annulled; PAC state 11 “en confirmación banco”) and <code>paymentWebhook</code> (every charge attempt). There is <b>no global webhook config</b>.</li>
+  <li><b>The signature is not a header and not a raw-body HMAC.</b> It is HMAC-SHA256 in Base64 over <b>specific fields concatenated in a fixed order</b>. The order differs by webhook type and payment method, and payment fields are included only once the installment is paid. Our verifier has to rebuild that string, using the HMAC key of the Forpay company that owns the mandate.</li>
+  <li>Retries on any non-2xx response. Count and backoff are not public. HTTPS only, with an IP allowlist on request.</li>
+  <li>Forpay recommends <b>idempotency on <code>installment.internalId</code> + <code>state.id</code></b>, plus periodic polling for reconciliation.</li>
+</ul>
+<p class="small muted">The HMAC key differs per Forpay company, so our webhook URL has to say which company is calling: <code>/forpay/{provider_account}/payment</code>. <a href="https://forpaydocs.readme.io/reference/webhooks">Webhooks</a> · <a href="https://forpaydocs.readme.io/reference/hmac">HMAC</a> · <a href="https://forpaydocs.readme.io/reference/buenas-practicas">Buenas prácticas</a></p>
+</div>
+<table>
+<tr><th>Installment state</th><th>Radal effect</th></tr>
+<tr><td><code>1</code> pendiente</td><td>—</td></tr>
+<tr><td><code>9</code> en proceso · <code>15</code> en validación</td><td>intent <code>pending_provider</code>; hold avisos</td></tr>
+<tr><td><code>2</code> <b>pagada</b> (+ <code>payment</code> object)</td><td><code>payment</code>, evidence <code>provider_confirmed</code></td></tr>
+<tr><td><code>-99</code> rechazada</td><td>PAC/PAT: flag <i>Rechazada (PAC)</i>, bell <i>Por hacer</i></td></tr>
+<tr><td><code>12</code> reversada</td><td>reverse the payment (<code>chargeback</code>)</td></tr>
+<tr><td><code>6</code> anulada · <code>10</code> repactada · <code>11</code> finalizada</td><td>mirror; never trust one blindly, re-read via <code>/receivables</code></td></tr>
+</table>
+</div>
+
+<h3>4.4 · So, is it “just a sub-account thing”?</h3>
+<p>Commercially, yes: money goes to each insurer's own account and Forpay never holds it. <b>Technically it isn't a sub-account API</b>, and that shapes the integration:</p>
+<div class="grid g2">
+  <div class="card"><h4>Cards and spot payments: one Radal Mall</h4><p class="small">A single Forpay company, <b>Radal's Mall</b>, creates OnePay links with <code>isMall</code>. Each cuota's installment carries <b>its insurer's Transbank child commerce code</b>, so one checkout can split across insurers. Transbank states that <i>“una plataforma SaaS puede ser un mall y las empresas clientes de la plataforma pueden ser”</i> the stores, and that <i>“la recaudación… irá directo al cliente”</i> (<a href="https://www.transbankdevelopers.cl/producto/webpay">Transbank</a>). Each insurer still signs its own Transbank affiliation for its store code.</p></div>
+  <div class="card warn"><h4>PAC and TEF: most likely one Forpay company per insurer</h4><p class="small">The docs give no way to route PAC or TEF to N insurers from one company. Expect either <b>one Forpay company (credential set) per insurer</b>, operated by Radal with the insurer's authorisation, or a multi-RUT setup that Forpay configures by hand. We model both as a <code>provider_account</code> row, and each insurer channel points to the account that collects for it. <b>This is the first question for the Forpay meeting.</b></p></div>
+</div>
+<p class="small muted">Not public: the production base URL, an SDK, link (Magic Link / OnePay) expiry, refund API, pricing, onboarding KYC and lead time, and what “Portal de Pagos 3A/3B” means. The CTO's fees (TEF 0.013–0.055 UF, PAC 0.04 + 0.025 UF, cards 1–2%) could not be confirmed publicly and presumably come from a Forpay quote.</p>
+</section>
+
+<!-- ============================================================ 05 -->
+<section id="rules">
+<h2><span class="n">05</span>Regulatory guardrails</h2>
+<p class="small muted">From primary statute texts and CMF, Transbank and insurer pages. This is not legal advice. The fund-flow questions at the end need Chilean counsel <b>before</b> any <i>Pagar</i> button ships.</p>
+<div class="tbl-wrap"><table>
+<tr><th style="width:230px">Rule</th><th>What it says</th><th style="width:330px">Design consequence</th></tr>
+<tr><td><b>Art. 60 DFL 251</b> (<a href="https://www.cmfchile.cl/portal/principal/623/articles-792_doc_pdf.pdf">CMF text</a>)</td><td>Brokers must remit to the insurer the premiums they receive <b>within 2 business days</b>, unless the insurer gives written power. They may not change a policy's <b>“modalidad de pago”</b> without the <b>insured's written authorisation</b>.</td><td>(1) Money must <b>never</b> pass through the broker or Radal. Settlement goes straight to the insurer. (2) Switching a payer to PAC or Oneclick needs a <b>consent document</b>. Forpay's ForPAC (Clave Única + advanced e-signature) or <code>POST /signature</code> produces it, and it is stored as a <code>document</code> linked to the mandate.</td></tr>
+<tr><td><b>Art. 58 d) DFL 251</b></td><td>Broker guarantee: the greater of UF 500 or 30% of the previous year's premium, capped at UF 60,000. It answers for all obligations of the activity.</td><td>That exposure is triggered by a broker holding money. One more reason not to.</td></tr>
+<tr><td><b>Art. 527 CCom</b></td><td>The premium is paid at the insurer's domicile <i>“o en el de sus representantes, agentes o diputados para el cobro”</i>.</td><td>A payment counts when the <b>insurer</b> receives it. The insurer statement remains the source of truth for Nivel 0/1 (evidence <code>insurer_confirmed</code>).</td></tr>
+<tr><td><b>Art. 528 CCom</b></td><td>Non-payment ends the contract <b>15 days after the insurer sends its notice</b>, not after the due date. Rehabilitation within 30 days is common, depending on the policy wording.</td><td>Keep <b>three dates apart</b>: due date, insurer notice date (+15 gives termination) and the rehabilitation window. The team's <i>Riesgo de término</i> at +10 is a <b>broker-side</b> alarm, not a legal state. Dev's <code>art528_events</code> already records the notice; the clock reads it.</td></tr>
+<tr><td><b>Brokers with collection agreements</b> (CMF Circ. 2137; e.g. Consorcio Corredores' financial statements)</td><td>Some brokers <i>“actúa[n] como recaudadora[s] por cuenta de algunas compañías convenidas”</i>, which is a regulated liability on their balance sheet.</td><td>Optional variant: a payment received by the broker gets a <b>2-business-day remittance timer</b> and an alert (art. 60). It is a flag on <code>payment</code>, not a new level.</td></tr>
+<tr><td><b>Ley Fintec 21.521</b> + NCG 502/514</td><td>Registration covers a closed list of services. Under open finance, <b>payment initiation (PSIP)</b> must register. Card processing is not on the Fintec list.</td><td>Radal must not initiate bank transfers itself. TEF is initiated by ETPay through Forpay, so Radal never becomes a PSIP.</td></tr>
+<tr><td><b>BCCh Cap. III.J.2</b> (acquiring, PSPs)</td><td>Sub-acquirers that settle to merchants fall under the payment rules and above certain thresholds must register with the CMF. Thresholds are unverified.</td><td>The Transbank Mall / PST model, where each store is its own Transbank client and settlement goes straight to it, keeps Radal a <b>technology provider</b>, the same posture as Forpay. Pooling money in a Radal account would not.</td></tr>
+<tr><td><b>NCG 420</b> (market conduct)</td><td>Fair treatment and information to clients, for insurers and brokers.</td><td>Log every aviso: text, channel, recipient and time. It is the evidence of fair treatment, and it is already in the bitácora design (R7).</td></tr>
+<tr><td><b>Ley 21.719</b> (personal data)</td><td>In force <b>1 December 2026</b> (postponement under discussion).</td><td>Mailbox reading processes third-party personal data. Minimise it with a prefilter before storage, record a purpose, set retention, and get explicit opt-in for WhatsApp.</td></tr>
+</table></div>
+<div class="callout q"><b>For counsel:</b> (1) whether a Radal-owned Webpay Mall with insurer-owned stores triggers any registration for Radal; (2) the current III.J.2 thresholds; (3) whether a payment through Radal's portal discharges the insured under each insurer's wording, in other words whether we need each insurer's written acknowledgement that the Mall store is <i>its</i> collection channel.</div>
+</section>
+
+<!-- ============================================================ 06 -->
+<section id="levels">
+<h2><span class="n">06</span>Three levels of Cobranza</h2>
+<p>The team's v15 has two horizons: <i>MVP = registro</i> and <i>lanzamiento = avisos + plataforma + C6</i>. v12 changes that sequence into <b>three levels that coexist in the same broker, on the same day, on the same screen</b>. Which level a cuota gets depends on its insurer. Brokers don't pick one.</p>
+
+<div class="tiers">
+  <div class="tier t0"><div class="tag">NIVEL 0 · REGISTRO</div><h4>Record &amp; alert</h4>
+    <ul><li>Plan de pago, cuotas, manual payments, reversals, partial payments</li><li>Gestiones with <i>Promete pagar el</i></li><li>Cuota clock: bell alerts to the ejecutivo at −15/−5/0/+3/+10, then Riesgo de término</li><li>PAC rechazado and Confirmar pago by hand</li></ul>
+    <div class="when"><b>Available when:</b> the policy has a plan. This is the team's MVP (C1–C4) unchanged.</div></div>
+  <div class="tier t1"><div class="tag">NIVEL 1 · ASISTIDA</div><h4>Remind, detect, reconcile</h4>
+    <ul><li><b>Avisos</b> to the pagador (cc contratante) with the <b>insurer's own</b> payment instructions: its portal URL, bank account or coupon</li><li><b>Mailbox watch</b>: transfer comprobantes, insurer receipts, PAC rejections and replies become <i>suggestions</i> to confirm</li><li><b>Insurer statement</b> upload (C6) confirms many cuotas at once</li><li>Payer portal with <i>“Ya pagué — subir comprobante”</i></li></ul>
+    <div class="when"><b>Available when:</b> the payer has an email or WhatsApp, and the insurer's payment instructions are known. Detection also needs a connected mailbox. This covers insurers <b>not on Forpay yet</b>, or never.</div></div>
+  <div class="tier t2"><div class="tag">NIVEL 2 · NATIVA (FORPAY)</div><h4>Collect natively</h4>
+    <ul><li>Every aviso carries a <b>Radal portal link</b> that turns into Webpay, OneClick, TEF or PAC checkout</li><li>Money settles <b>directly to the insurer</b> (store, account or convenio)</li><li>Webhook → payment <b>confirmed by the rail</b>, no human step</li><li>PAC/OneClick enrollment for recurring cuotas</li><li>Settlement reconciliation per insurer</li></ul>
+    <div class="when"><b>Available when:</b> the lead insurer (R18, coaseguro) has an <b>active</b> Forpay channel for the cuota's method <b>and</b> the broker has opted in.</div></div>
+</div>
+
+<h3>The resolver: one function decides the level</h3>
+<p>The level is <b>not stored on the cuota</b>. It is computed whenever a notice is sent or a page is rendered, which is why an insurer going live in two weeks upgrades every open cuota without a migration. Brokers see the result as a badge with a Spanish reason.</p>
+<div class="codebox"><div class="cap">backend/app/services/collection/resolver.py (sketch)</div><pre><code class="language-python">@dataclass(frozen=True)
+class CollectionMode:
+    level: Literal["record", "assisted", "native"]
+    channels: tuple[PaymentChannel, ...]      # what the payer may use
+    reason: str                               # Spanish, shown verbatim in the UI
+    missing: tuple[str, ...]                  # "Falta: X" items, i18n keys
+
+
+def resolve_collection_mode(cuota: CollectionInstallment, *, today: date) -> CollectionMode:
+    plan, policy = cuota.collection_plan, cuota.collection_plan.policy
+    insurer = policy.lead_insurer                      # R18: coaseguro pays the leader
+    payer = policy.payer_party                         # pagador, defaults to contratante (R14)
+    profile = insurer.collection_profile               # canonical, managed by Radal
+
+    if payer is None or not payer.has_reachable_channel():
+        return CollectionMode("record", (), "Falta contacto del pagador", ("payer_contact",))
+
+    live = profile.active_channels_for(plan.payment_method) if profile else ()
+    if live and policy.broker.native_collection_enabled:
+        return CollectionMode("native", live, f"{insurer.short_name} cobra con Forpay", ())
+
+    if profile and profile.payment_instructions:
+        eta = profile.expected_live_on
+        why = f"{insurer.short_name} aún no está en Forpay" + (f" (estimado {eta:%d-%m})" if eta else "")
+        return CollectionMode("assisted", (), why, ())
+
+    return CollectionMode("record", (), f"Sin instrucciones de pago de {insurer.short_name}",
+                          ("insurer_payment_instructions",))</code></pre></div>
+
+<h3>Insurer onboarding is a state machine owned by Radal</h3>
+<p>Insurer onboarding is platform data. It is canonical, like <code>insurer</code> itself (non-negotiable #2), and maintained by the Radal team rather than by brokers. Brokers see it read-only in <i>Configuración → Compañías</i>.</p>
+<div class="mermaid">
+stateDiagram-v2
+  direction LR
+  [*] --> not_contacted
+  not_contacted --> in_conversation: Radal approaches insurer
+  in_conversation --> onboarding: agreement signed
+  onboarding --> sandbox: commerce codes / convenio issued
+  sandbox --> active: first live trx reconciled
+  active --> suspended: insurer or Forpay pauses
+  suspended --> active
+  in_conversation --> not_contacted: stalled
+  note right of onboarding: expected_live_on shown to brokers<br/>cuotas stay "Asistida"
+  note right of active: per channel (Webpay, OneClick, TEF, PAC)<br/>each channel has its own status
+</div>
+</section>
+
+<!-- ============================================================ 07 -->
+<section id="sim">
+<h2><span class="n">07</span>Simulator: what happens to one cuota</h2>
+<p>Choose the situation and the panel shows what Radal does. It runs the same rules as the resolver above.</p>
+<div class="sim">
+  <div>
+    <label>Insurer on Forpay</label>
+    <div class="seg" data-k="ins"><button data-v="none" class="on">Not contacted</button><button data-v="onb">Onboarding (≈2 wk)</button><button data-v="live">Active</button></div>
+    <label>Payment method of the plan</label>
+    <div class="seg" data-k="met"><button data-v="coupon" class="on">Cupón / portal Cía.</button><button data-v="transfer">Transferencia</button><button data-v="pac_ins">PAC de la Cía.</button><button data-v="card">Tarjeta</button><button data-v="pac_radal">PAC vía Forpay</button></div>
+    <label>Payer contact</label>
+    <div class="seg" data-k="con"><button data-v="yes" class="on">Email / WhatsApp</button><button data-v="no">None</button></div>
+    <label>Broker mailbox connected</label>
+    <div class="seg" data-k="mbx"><button data-v="yes">Yes</button><button data-v="no" class="on">No</button></div>
+    <label>Insurer payment instructions known</label>
+    <div class="seg" data-k="instr"><button data-v="yes" class="on">Yes</button><button data-v="no">No</button></div>
+  </div>
+  <div class="out">
+    <div class="muted small">Level</div>
+    <div class="lv" id="sim-level">—</div>
+    <dl id="sim-dl"></dl>
+  </div>
+</div>
+</section>
+
+<!-- ============================================================ 08 -->
+<section id="flows">
+<h2><span class="n">08</span>The flows</h2>
+
+<h3>8.1 · Nivel 2 · a cuota paid natively (spot, Webpay Mall)</h3>
+<div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant SCH as Scheduler (collection.notices)
+  participant API as Radal API / worker
+  participant P as Pagador
+  participant POR as Radal portal /pay/{token}
+  participant FP as Forpay
+  participant TBK as Transbank Mall
+  participant IN as Ingress (webhooks)
+  participant INS as Aseguradora (tienda)
+  SCH->>API: 09:00 CLT, cuotas at cadence level −5
+  API->>API: resolve_collection_mode → native
+  API->>API: payment_intent (token, cuotas, expires 30 d)
+  API->>P: Aviso (broker mailbox or SES) with portal link
+  P->>POR: opens link
+  POR->>API: GET intent → open cuotas of this payer
+  P->>POR: selects cuotas, "Pagar"
+  POR->>API: POST checkout
+  API->>FP: POST /user (pagador, idempotent by RUT)
+  API->>FP: POST /mandate ONEPAY isMall, installments in UF (TO_DAY) with f_commerceCode per insurer, paymentWebhook URL
+  FP-->>API: activation.url
+  API-->>POR: redirect to Forpay checkout
+  P->>TBK: pays (Webpay Plus Mall)
+  TBK-->>INS: each store settled directly (24–48 h)
+  FP->>IN: paymentWebhook, installment state 2 + payment{authorizationCode} + HMAC
+  IN->>IN: rebuild field string, verify HMAC with that company's key
+  IN->>API: SQS → provider_event (dedup internalId + state)
+  API->>API: payment(source=provider, evidence=provider_confirmed), cuota → Pagada, close bell alerts
+  API-->>P: receipt page + email from the broker
+  Note over API,INS: Daily: GET /receivables hasPayout → payout.dispersionId "ABONADO AL COMERCIO" → evidence=settled
+</div>
+
+<h3>8.2 · Nivel 1 · an insurer not on Forpay (assisted)</h3>
+<div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant SCH as Scheduler
+  participant API as Radal
+  participant P as Pagador
+  participant INS as Aseguradora (own portal / bank account)
+  participant MB as Broker mailbox
+  participant AI as Classifier + matcher
+  participant EJ as Ejecutivo
+  SCH->>API: cuota at −5 days
+  API->>P: Aviso with insurer instructions (portal URL, bank account, n° póliza / cupón)
+  P->>INS: pays at the insurer (Radal cannot see this)
+  alt payer forwards proof or the bank emails it
+    P->>MB: "Comprobante de transferencia" (PDF / HTML)
+  else payer uses the Radal portal
+    P->>API: "Ya pagué" + upload comprobante
+  end
+  MB->>API: push / poll → inbound_message
+  API->>AI: classify (bank_transfer_receipt) + extract (monto, fecha, RUT, n° op.)
+  AI->>API: extraction row (always persisted)
+  API->>API: match against open cuotas (amount ± tolerance at UF of date, RUT ∈ parties, policy n°)
+  API->>EJ: "Pagos detectados (1)": suggestion, score, reasons
+  EJ->>API: Confirmar → payment(source=email, evidence=detected)
+  Note over API,INS: Weeks later: insurer statement (C6) → evidence=insurer_confirmed
+</div>
+
+<h3>8.3 · Recurring · PAC through Forpay (convenio per insurer)</h3>
+<div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant P as Pagador
+  participant POR as Radal portal
+  participant API as Radal
+  participant FP as Forpay
+  participant BK as Payer's bank
+  participant INS as Convenio Aseguradora
+  P->>POR: "Inscribir PAC" for this policy
+  POR->>API: request enrollment
+  API->>FP: POST /mandate DYNAMIC, paymentMethods FINTOC_FORPAC / DEBITO_DIRECTO, installments = remaining cuotas (UF, TO_DAY)
+  FP-->>API: Magic Link
+  API-->>P: redirect to Magic Link
+  P->>FP: Clave Única + advanced e-signature (written consent, art. 60)
+  FP->>BK: mandate validation
+  FP-->>API: activationWebhook, active (or state 11 "en confirmación banco")
+  API->>API: payment_mandate active, consent stored as document, plan.method = direct_debit
+  loop each due date (Forpay charges, wayToPay AUTOMATICO)
+    FP->>BK: debit
+    alt state 2 pagada
+      FP-->>API: paymentWebhook → payment (provider_confirmed)
+      BK-->>INS: funds to convenio account
+    else state -99 rechazada
+      FP-->>API: paymentWebhook → cuota flag "Rechazada (PAC)" (C1.4 automated) + bell "Por hacer"
+    end
+  end
+  Note over API,FP: Endorsement re-prices cuotas → POST /installments · PUT /installments/status/change (6 anulada)
+</div>
+<p class="small muted">The <i>PAC de la compañía</i> (the insurer's own direct debit, outside Forpay) stays at Nivel 1: Radal only learns about a rejection from an email or a statement. Two-way sync matters. When a Nivel 2 cuota gets paid <b>outside</b> Forpay (the payer paid the insurer's portal anyway), Radal calls <code>PUT /installments/status/change</code> with state 2 or 6 so Forpay never charges it.</p>
+
+<h3>8.4 · The upgrade path: an insurer goes live in the middle of a plan</h3>
+<div class="timeline">
+  <div><b>Day 0.</b> A Sura policy is uploaded with 10 cuotas. Sura's profile is <code>onboarding</code>, expected live 30-10. Cuotas render <span class="chip l1">Asistida · Sura aún no está en Forpay (estimado 30-10)</span>.</div>
+  <div><b>Day 0–14.</b> Avisos carry Sura's own instructions. Cuotas 1 and 2 are paid by transfer, detected from mail, and confirmed by the ejecutivo.</div>
+  <div><b>Day 15.</b> The Radal team flips Sura's Webpay channel to <code>active</code>. No broker action is needed and no data is migrated.</div>
+  <div><b>Day 16.</b> The next notice run resolves cuota 3 as <span class="chip l2">Nativa</span>, and its aviso now carries the portal link. Paid cuotas keep their evidence. A <i>Para saber</i> notification tells the broker that Sura now collects through Radal.</div>
+</div>
+</section>
+
+<!-- ============================================================ 09 -->
+<section id="truth">
+<h2><span class="n">09</span>How Radal knows a cuota is paid</h2>
+<p>The team's model has one <i>Pago</i> with <code>confirmado_por_compania</code>. v12 has four sources of payment truth with very different reliability, so each payment records <b>how it is known</b>. The cuota counts as paid whenever an <i>active</i> payment covers it (R30). Its <b>evidence level</b> is shown next to it and can be filtered.</p>
+<div class="ladder">
+  <div><span class="lvl">DECLARED</span><b>Manual</b><small>The ejecutivo clicks <i>Registrar pago</i>; comprobante optional. Flag <i>Sin comprobante</i>.</small><span class="bar" style="width:20%;background:#9ba0a5"></span></div>
+  <div><span class="lvl">DETECTED</span><b>Email / upload</b><small>An AI-matched comprobante, <b>confirmed by a human</b> (non-negotiable #6).</small><span class="bar" style="width:40%;background:#e5a54c"></span></div>
+  <div><span class="lvl">INSURER_CONFIRMED</span><b>Statement / portal</b><small>Matched on the insurer's statement (C6) or <i>Confirmar pago</i> after checking the insurer's portal.</small><span class="bar" style="width:60%;background:#2563eb"></span></div>
+  <div><span class="lvl">PROVIDER_CONFIRMED</span><b>Forpay webhook</b><small>The payment rail confirms it. Signed and idempotent. No human step.</small><span class="bar" style="width:80%"></span></div>
+  <div><span class="lvl">SETTLED</span><b>Abono reconciled</b><small>The money is shown on the insurer's settlement (<i>rendición</i>).</small><span class="bar" style="width:100%;background:#0b655b"></span></div>
+</div>
+<div class="callout q"><b>The most important signal (team C6.5) still applies:</b> <i>“Pagada en RADAL, impaga para la compañía.”</i> A declared or detected payment that the insurer's statement contradicts gets a <i>Por hacer</i> notification and a one-click reversal with a reason. In Nivel 2 the equivalent mismatch is <b>provider-confirmed but missing from the settlement</b> after N days.</div>
+</section>
+
+<!-- ============================================================ 10 -->
+<section id="mail">
+<h2><span class="n">10</span>Mail integration</h2>
+<p>Mail does two jobs in v12. <b>Outbound</b>, it sends avisos from the broker's own address. <b>Inbound</b>, it detects payments, PAC rejections, bounces and replies. The same connection will later automate the team's <i>Marcar enviada</i> and <i>Registrar envío</i> (R44, <code>fuente = correo</code>). The Google and Microsoft OAuth apps are treated as done. IMAP and POP3 cover custom servers.</p>
+
+<div class="mermaid">
+flowchart LR
+  subgraph PROVIDERS[" "]
+    G["Gmail API<br/>users.watch → Pub/Sub push"]
+    M["Microsoft Graph<br/>subscription → change notification"]
+    I["IMAP server<br/>(custom domain)"]
+    P3["POP3 server<br/>(legacy)"]
+    FW["Forwarding address<br/>cobranza-ossa@in.radalseguros.cl"]
+  end
+  FW -- "SES inbound → S3" --> Q
+  G -- push --> ING
+  M -- push + validationToken --> ING
+  ING["Ingress λ<br/>verify · ack fast"] --> Q[(SQS mail-sync)]
+  SCH["EventBridge Scheduler"] -- "every 5 min" --> Q
+  I -. "poll UID > last" .- W
+  P3 -. "poll UIDL" .- W
+  Q --> W["Worker λ<br/>fetch delta"]
+  W --> F{"Prefilter<br/>sender domain · subject · attachment"}
+  F -- drop --> X[("discard<br/>keep id only")]
+  F -- keep --> D["document rows<br/>(.eml + attachments → S3)"]
+  D --> C["Classify (small model)<br/>extraction row"]
+  C --> E["Extract fields<br/>monto · fecha · RUT · n° op · póliza"]
+  E --> MA["Match to open cuotas<br/>score + reasons"]
+  MA --> S["payment_evidence<br/>status = suggested"]
+  S --> U["Ejecutivo: Pagos detectados<br/>Confirmar / Rechazar"]
+  classDef q fill:#fff7ea,stroke:#d97706
+  class Q q
+</div>
+
+<div class="tbl-wrap"><table>
+<tr><th>Connection</th><th>Change signal</th><th>Cursor we store</th><th>Renewal / upkeep</th><th>Send avisos with</th><th>Notes</th></tr>
+<tr style="background:var(--brand-soft)"><td><b>Forwarding address</b> <span class="chip l2">first</span></td><td>The broker sets a rule, or a <code>Cc</code>, to <code>cobranza-{broker}@in.radalseguros.cl</code>. SES receiving writes to S3 and enqueues to SQS.</td><td>none (push only)</td><td>none</td><td>SES (Radal domain, broker display name, reply-to the broker)</td><td><b>No OAuth, no CASA, least consent, works with any provider.</b> Radal only ever sees what the broker chooses to forward. Check that SES receiving is available in our region.</td></tr>
+<tr><td><b>Microsoft</b> (365 / Outlook)</td><td>Graph <code>/subscriptions</code> on <code>me/mailFolders('inbox')/messages</code></td><td><code>@odata.deltaLink</code> (delta query)</td><td>Subscriptions last at most <b>10,080 min</b>, or 1,440 min with resource data. Renew any expiring within 48 h. Handle <code>lifecycleNotifications</code> (reauthorizationRequired, missed). Latency is under 1 min.</td><td><code>/me/sendMail</code></td><td>The endpoint must echo <code>validationToken</code> within 10 s, so the ingress Lambda answers that synchronously. <b>Basic auth for IMAP/POP is permanently off in Exchange Online</b>, so M365 boxes must use Graph or IMAP with OAuth.</td></tr>
+<tr><td><b>Google</b> (Workspace / Gmail)</td><td><code>users.watch</code> → Pub/Sub topic → push to our ingress (OIDC-signed)</td><td><code>historyId</code> → <code>users.history.list</code></td><td>The watch expires after <b>7 days</b>. Renew it daily. Pushes are capped at 1/s per user and may drop, so catch up hourly.</td><td><code>users.messages.send</code></td><td><code>gmail.readonly</code> is a <b>restricted scope</b>: OAuth verification plus an annual <b>CASA</b> security assessment, which takes weeks and costs roughly US$540–1,000+. Budget the lead time (it's in the gantt).</td></tr>
+<tr><td><b>IMAP</b></td><td>None that works on Lambda. IDLE needs a long-lived socket, so we <b>poll</b>.</td><td><code>UIDVALIDITY</code> + last <code>UID</code> per folder</td><td>Poll every 5 min via the scheduler, fanned out one SQS message per mailbox.</td><td>SMTP (host, port, STARTTLS) stored with it</td><td>App passwords, or OAuth (XOAUTH2) where the host requires it. Credentials go in Secrets Manager. Test the connection on save.</td></tr>
+<tr><td><b>POP3</b></td><td>Poll</td><td>Set of seen <code>UIDL</code>s</td><td>Poll every 10 min. <b>Never delete</b> from the server (<code>leave on server</code>).</td><td>SMTP</td><td>Inbox only, with no folders or flags. Support it last, labeled “compatibilidad”.</td></tr>
+</table></div>
+
+<div class="grid g2">
+  <div class="card warn"><h4>Privacy by design (Ley 21.719)</h4>
+  <p>Radal must not become an archive of the broker's whole inbox. Recommended defaults:</p>
+  <ul class="small">
+    <li>Order of preference: a <b>forwarding address</b> (Radal sees only what is forwarded), then a <b>shared collections mailbox</b> (e.g. <code>cobranza@corredora.cl</code>), then personal inboxes.</li>
+    <li>A <b>prefilter</b> runs before anything is stored: sender domains of insurers and Chilean banks (maintained in <code>insurer_collection_profile.sender_domains</code> plus a bank list), subject keywords, PDF or image attachments.</li>
+    <li>Non-matching messages: keep the provider id only (for cursor and dedup) and <b>no content</b>.</li>
+    <li>Matched messages: the <code>.eml</code> and attachments become <code>document</code> rows (non-negotiable #8), retained per broker policy.</li>
+    <li>Tokens and passwords never go in table columns. Use Secrets Manager, KMS-encrypted, and store only the reference in a column.</li>
+  </ul></div>
+  <div class="card"><h4>What the classifier recognizes</h4>
+  <table>
+    <tr><th>Class</th><th>Creates</th></tr>
+    <tr><td><code>bank_transfer_receipt</code></td><td>evidence → payment suggestion</td></tr>
+    <tr><td><code>insurer_payment_receipt</code></td><td>evidence (higher prior)</td></tr>
+    <tr><td><code>direct_debit_rejection</code></td><td>suggestion: <i>PAC rechazado</i> on a cuota</td></tr>
+    <tr><td><code>insurer_statement</code></td><td>C6 import draft</td></tr>
+    <tr><td><code>cancellation_notice</code></td><td>suggestion: C4.3c (cancelación por no pago)</td></tr>
+    <tr><td><code>payer_reply</code></td><td>gestión draft (“dice que paga el viernes”)</td></tr>
+    <tr><td><code>bounce</code></td><td>notice status = bounced (C5.5)</td></tr>
+    <tr><td><code>irrelevant</code></td><td>nothing</td></tr>
+  </table></div>
+</div>
+
+<div class="callout note"><b>What a Chilean comprobante looks like.</b> Banco de Chile sends from <code>serviciodetransferencias@bancochile.cl</code>. The <b>subject is free text typed by the payer</b>, so classification reads the body, never the subject. The body is consistently <i>“Comprobante de Transferencia … ha instruido la siguiente transferencia”</i>, followed by Nombre Beneficiario, Cuenta de abono, Cuenta de cargo, Monto, Mensaje, Fecha y hora and <b>ID de la operación</b>. The bank only emails the beneficiary if the payer typed its address, so many comprobantes arrive as forwarded PDFs or <b>screenshots</b>, which need the vision fallback that is still stubbed. Insurers already expect them by mail. Chubb, for example, asks for comprobantes quoting <i>Ramo, Póliza and Cuota (xx/xx)</i> at <code>normalizacion@chubb.com</code>. So the instructions profile stores each insurer's <code>receipt_email</code>, and a confirmed payment can be <b>forwarded to the insurer in one click</b>. <span class="small muted">Dedup key: <code>(bank, operation_id)</code>. The same comprobante forwarded twice never becomes two payments.</span></div>
+
+<h3>Matching a comprobante to a cuota</h3>
+<div class="codebox"><div class="cap">score(evidence, cuota): deterministic and explainable; the AI only extracts</div><pre><code class="language-python">def score(ev: ExtractedEvidence, c: OpenCuota, rates: CurrencyRates) -> Match:
+    reasons, s = [], 0.0
+    expected_clp = c.amount_uf * rates.uf_on(ev.paid_on or ev.received_on)
+    if ev.amount_clp and within(ev.amount_clp, expected_clp, pct=0.01, clp=1_000):   # team's ±1% or $1.000
+        s += 0.45; reasons.append("monto calza con la cuota a UF del día")
+    if ev.payer_rut and ev.payer_rut in c.party_ruts:            # contratante, pagador, asegurados
+        s += 0.25; reasons.append("RUT del pagador es parte de la póliza")
+    if ev.policy_number and normalize(ev.policy_number) == c.policy_number_norm:
+        s += 0.20; reasons.append("menciona el n° de póliza")
+    if ev.beneficiary_rut and ev.beneficiary_rut == c.insurer_rut:
+        s += 0.10; reasons.append("transferencia a la cuenta de la compañía")
+    if not (c.due_date - timedelta(days=20) <= ev.paid_on <= c.due_date + timedelta(days=45)):
+        s -= 0.15; reasons.append("fecha lejos del vencimiento")
+    return Match(c.id, round(s, 2), reasons)
+# ≥ 0.70 and a unique best → "sugerido"; 0.40–0.70 → "revisar"; ties → the human chooses. Never auto-commit.</code></pre></div>
+</section>
+
+<!-- ============================================================ 11 -->
+<section id="infra">
+<h2><span class="n">11</span>Schedulers &amp; event infrastructure</h2>
+<p>The plan-v12 note (Q16) found <b>no cron, scheduler or EventBridge</b> anywhere in dev. v12 needs three new paths. <b>Scheduled</b>: time makes things happen. <b>Inbound</b>: third parties call us. <b>Async work</b>: anything slower than a request, such as AI classification, mailbox fetches and bulk notices.</p>
+
+<div class="mermaid">
+flowchart TB
+  subgraph EDGE["Today (unchanged)"]
+    U[Browser SPA] --> CF[CloudFront] -- "OAC SigV4 (needs x-amz-content-sha256)" --> API["radal-backend λ<br/>Function URL, AWS_IAM, buffered"]
+  end
+  subgraph NEW["New in v12"]
+    EXT["Forpay /forpay/{account}/payment<br/>Google Pub/Sub · MS Graph"] --> HG["API Gateway HTTP API<br/>hooks.radalseguros.cl"]
+    SES["SES inbound<br/>in.radalseguros.cl"] --> Q1
+    HG --> ING["ingress λ (tiny, no VPC)<br/>verify signature / validationToken<br/>→ provider_event (via SQS) → 200 fast"]
+    ING --> Q1[(SQS events)]
+    EB["EventBridge Scheduler<br/>cron, tz America/Santiago"] --> Q2[(SQS jobs)]
+    Q1 --> WK["radal-worker λ<br/>same image, worker entrypoint<br/>VPC → RDS"]
+    Q2 --> WK
+    API -- "enqueue async work" --> Q3[(SQS work)]
+    Q3 --> WK
+    WK --> DLQ[(DLQs + alarms)]
+    WK --> SM[Secrets Manager<br/>mail tokens, Forpay keys]
+  end
+  WK --> RDS[(RDS MySQL)]
+  API --> RDS
+  classDef new fill:#e9f7ee,stroke:#16a34a
+  class HG,ING,EB,WK,Q1,Q2,Q3,SM,DLQ,SES new
+</div>
+
+<div class="callout trap"><b>Egress check.</b> <code>docs/deployment.md</code> says the VPC-attached backend Lambda has <b>“No NAT — it only talks to RDS.”</b> The worker must reach Forpay, Google, Microsoft and IMAP hosts on the internet <i>and</i> RDS inside the VPC. That takes a <b>NAT gateway</b> (about US$32/month plus data) or an equivalent. Verify how the AI calls reach DeepInfra today before assuming either way. The ingress Lambda stays <b>outside</b> the VPC on purpose: it only verifies, acknowledges and enqueues.</div>
+
+<h3>The jobs</h3>
+<div class="tbl-wrap"><table>
+<tr><th>Job</th><th>When (America/Santiago)</th><th>What it does</th><th>Idempotency key</th></tr>
+<tr><td><code>fx.daily</code></td><td>daily 08:00</td><td>Loads UF and dólar observado (team's <i>ValorMoneda</i>, R8) into <code>currency_rate</code>. UF is published ahead for the month, so load forward.</td><td><code>(date)</code></td></tr>
+<tr><td><code>collection.clock</code></td><td>daily 06:30</td><td>Recomputes cuota states (cache), escalates bell notifications by cadence (−15…+10, término), handles missed promises (<i>Compromiso incumplido</i>) and policies without a plan (every 7 days).</td><td><code>(installment, level)</code> on <code>notification</code></td></tr>
+<tr><td><code>collection.notices</code></td><td>daily 09:00, business days</td><td>Sends avisos (C5) for cuotas due at a cadence level, unless paid, <i>en acuerdo</i> or paused. Resolves the level and creates or refreshes the <code>payment_intent</code> for Nivel 2.</td><td><code>(installment, level, channel)</code> on <code>collection_notice</code></td></tr>
+<tr><td><code>mail.poll</code></td><td>every 5 min</td><td>Fans out one SQS message per IMAP/POP3 mailbox. Gmail and Graph also get an hourly catch-up via history/delta.</td><td>cursor compare-and-set</td></tr>
+<tr><td><code>mail.renew</code></td><td>every 12 h</td><td>Renews Gmail watches and Graph subscriptions that expire within 48 h. Marks <code>needs_reauth</code> and notifies the owner when refresh fails.</td><td><code>(mailbox)</code></td></tr>
+<tr><td><code>payments.sync</code></td><td>every 30 min</td><td><code>GET /receivables?paymentDateFrom=…</code> per provider account. This is Forpay's own recommendation and our safety net for lost webhooks. It also expires stale intents and pushes <i>paid outside Forpay</i> cuotas through <code>PUT /installments/status/change</code>.</td><td><code>(provider_installment_id, state)</code></td></tr>
+<tr><td><code>payments.payouts</code></td><td>daily 11:00</td><td><code>GET /receivables?hasPayout=true</code> groups paid installments by <code>dispersionId</code> into <code>provider_payout</code> and raises charges to <code>settled</code>. It alerts when a provider-confirmed payment has no payout after N days.</td><td><code>(provider_account, dispersion_id)</code></td></tr>
+<tr><td><code>renewals.windows</code></td><td>daily 06:45</td><td>Moves colocaciones through the 90/60/30 windows (team rule 5) and raises renewal notifications.</td><td><code>(case_file, window)</code></td></tr>
+<tr><td><code>notifications.expire</code></td><td>daily 03:00</td><td>Closes <i>Para saber</i> notifications older than 7 days.</td><td>—</td></tr>
+</table></div>
+
+<div class="grid g3">
+  <div class="card"><h4>One ledger for every run</h4><p class="small"><code>job_run(job, scheduled_for)</code> is unique. A retried or duplicated EventBridge invocation inserts nothing new and exits. Every run stores counts and an error.</p></div>
+  <div class="card"><h4>One inbox for every event</h4><p class="small"><code>provider_event(provider, dedup_key)</code> is unique. For Forpay the key is <code>installment.internalId:state.id</code>, as they recommend. Webhooks are <b>stored before they are processed</b>. Processing is a separate, retryable step, so replays are free and nothing gets lost when processing fails.</p></div>
+  <div class="card"><h4>Tests stay hermetic</h4><p class="small">Following non-negotiable #9: <code>conftest.py</code> blanks <code>FORPAY_API_KEY</code>, points <code>FORPAY_BASE_URL</code> at an unroutable port and swaps in <code>FakePaymentProvider</code> and <code>FakeMailbox</code> before any <code>app.*</code> import. Jobs are plain functions that take <code>today</code> as an argument.</p></div>
+</div>
+</section>
+
+<!-- ============================================================ 12 -->
+<section id="db">
+<h2><span class="n">12</span>Database changes</h2>
+<p>Identifiers stay in English (non-negotiable #1). The table names below map the team's Spanish names to code names. Legend: <span class="status st-new">NEW</span> <span class="status st-mod">MODIFIED</span> <span class="status st-res">RESERVED</span> (created now, screen later).</p>
+
+<div class="callout trap"><b>Alembic stops being optional.</b> This pass creates about 20 tables and alters 6. <code>create_all</code> never ALTERs (non-negotiable #10), and every past column change went through hand-written <code>migrate_case_files.py</code> steps. The plan-v12 recommendation D3 (Alembic baseline as step zero) is now a prerequisite.</div>
+
+<h3>12.1 · The collection core</h3>
+<div>
+<div><h4>Core + native rail</h4><div class="mermaid">
+erDiagram
+  POLICY ||--o{ COLLECTION_PLAN : has
+  POLICY ||--o{ POLICY_PARTY : "pagador"
+  COLLECTION_PLAN ||--|{ COLLECTION_INSTALLMENT : cuotas
+  COLLECTION_PLAN }o--o| PAYMENT_MANDATE : "PAC, Oneclick"
+  COLLECTION_INSTALLMENT ||--o{ PAYMENT : "paid by"
+  PAYMENT_INTENT ||--|{ PAYMENT_INTENT_ITEM : contains
+  COLLECTION_INSTALLMENT ||--o{ PAYMENT_INTENT_ITEM : "offered in"
+  COLLECTION_INSTALLMENT ||--o{ PROVIDER_CHARGE : "Forpay installment"
+  PROVIDER_CHARGE ||--o| PAYMENT : produces
+  PROVIDER_PAYOUT ||--|{ PROVIDER_CHARGE : dispersionId
+  PROVIDER_ACCOUNT ||--o{ PROVIDER_CHARGE : "collected by"
+</div></div>
+<div><h4>Insurer capability + assisted rail</h4><div class="mermaid">
+erDiagram
+  INSURER ||--o| INSURER_COLLECTION_PROFILE : "status, instructions"
+  INSURER ||--o{ INSURER_PAYMENT_CHANNEL : "webpay, tef, pac"
+  INSURER_PAYMENT_CHANNEL }o--|| PROVIDER_ACCOUNT : via
+  MAILBOX_CONNECTION ||--o{ INBOUND_MESSAGE : receives
+  INBOUND_MESSAGE ||--o{ PAYMENT_EVIDENCE : yields
+  PAYMENT_EVIDENCE }o--o| COLLECTION_INSTALLMENT : "candidate"
+  PAYMENT_EVIDENCE |o--o| PAYMENT : "confirmed into"
+  INSURER_STATEMENT ||--|{ INSURER_STATEMENT_LINE : rows
+  INSURER_STATEMENT_LINE }o--o| COLLECTION_INSTALLMENT : matches
+  COLLECTION_INSTALLMENT ||--o{ COLLECTION_NOTICE : avisos
+</div></div>
+</div>
+
+<h3>12.2 · Every table, field by field</h3>
+<div class="tbl-wrap"><table>
+<tr><th style="width:210px">Table (team name)</th><th style="width:80px"></th><th>Key fields</th><th style="width:240px">Rules</th></tr>
+
+<tr><td colspan="4" style="background:var(--paper-2);font-weight:600">Insurer capability: canonical, managed by Radal</td></tr>
+<tr><td><code>insurer_collection_profile</code></td><td><span class="status st-new">NEW</span></td><td><code>insurer_id</code> PK · <code>provider</code> (forpay | null) · <code>onboarding_status</code> (not_contacted, in_conversation, onboarding, sandbox, active, suspended) · <code>status_reason</code> (Spanish) · <code>expected_live_on</code> · <code>payment_instructions</code> JSON (portal_url, bank, account_type, account_number, account_rut, transfer_email, notes) · <code>sender_domains</code> JSON · <code>statement_format</code> JSON (C6 hints)</td><td>Canonical, like <code>insurer</code>. <b>Replaces</b> <code>insurer.payment_url</code>. Brokers read it; only Radal platform admins write it.</td></tr>
+<tr><td><code>provider_account</code></td><td><span class="status st-new">NEW</span></td><td><code>provider</code> (forpay) · <code>owner</code> (radal_mall | insurer) · <code>insurer_id</code> · <code>environment</code> (sandbox, production) · <code>commerce</code> · <code>channel</code> · <code>process_id</code> (always <code>WHITE_LABEL</code>) · <code>username_ref</code>, <code>secret_ref</code> (api key, HMAC key, JWE password in Secrets Manager) · <code>status</code></td><td>One row per <b>Forpay company</b>: Radal's Mall plus one per insurer if PAC/TEF require it (<a href="#forpay">§04.4</a>). Platform-level. Its id appears in the webhook URL so the ingress can pick the right HMAC key.</td></tr>
+<tr><td><code>insurer_payment_channel</code></td><td><span class="status st-new">NEW</span></td><td><code>insurer_id</code> · <code>channel</code> (webpay_plus, oneclick, bank_transfer, direct_debit) · <code>provider_account_id</code> · <code>store_commerce_code</code> (Transbank child code, for Mall channels) · <code>status</code> (pending, sandbox, active, suspended) · <code>fee_model</code> JSON · <code>activated_at</code></td><td>Unique <code>(insurer_id, channel)</code>. No secrets here.</td></tr>
+
+<tr><td colspan="4" style="background:var(--paper-2);font-weight:600">Plan, cuota, payment (PlanPago · Cuota · Pago)</td></tr>
+<tr><td><code>collection_plan</code></td><td><span class="status st-mod">MODIFIED</span></td><td>+ <code>origin</code> (policy, endorsement, extension) · + <code>source</code> (reader, manual) · + <code>source_document_id</code>, <code>source_page</code> · + <code>mandate_id</code> · + <code>notices_paused_until</code>, <code>notices_pause_reason</code> (C5.4). <code>payment_mode</code> keeps its values: <code>direct_debit</code> = PAC, <code>card_debit</code> = PAT.</td><td>Stored <code>status</code> becomes a computed cache (team R30). <code>bank</code>/<code>account_number</code> move into the mandate.</td></tr>
+<tr><td><code>collection_installment</code></td><td><span class="status st-mod">MODIFIED</span></td><td>+ <code>amount</code> + <code>currency</code> (UF | USD, R8) · <code>gross_amount_uf</code> stays as the UF-normalised value · + <code>voided_by_endorsement_id</code> (R23) · + <code>direct_debit_rejected_at</code> · + <code>insurer_notice_sent_on</code> (art. 528; termination date = +15 days, computed)</td><td><code>paid_on</code>/<code>days_late</code>/<code>status</code> are <b>derived from payments</b>. One function writes them as a cache, and the daily clock refreshes it.</td></tr>
+<tr><td><code>payment</code> (Pago)</td><td><span class="status st-new">NEW</span></td><td><code>installment_id</code> · <code>amount</code>, <code>currency</code> (UF, USD, CLP), <code>uf_rate</code>, <code>amount_uf</code> · <code>paid_on</code> · <code>method</code> · <code>source</code> (manual, insurer_statement, provider, email, payer_upload) · <code>evidence_level</code> · <code>confirmed_by_insurer</code>, <code>confirmed_at</code>, <code>confirmed_by_user_id</code> · <code>status</code> (active, reversed) · <code>reversal_reason</code> (error, direct_debit_rejected, chargeback, other) · <code>receipt_document_id</code> · <code>provider_charge_id</code> · <code>evidence_id</code> · <code>statement_line_id</code> · <code>collected_by_broker</code> + <code>remitted_on</code> (art. 60 variant)</td><td>Never deleted, only reversed with a reason (team C1.3). Unique on <code>provider_charge_id</code> and on <code>statement_line_id</code> when set, so <b>a payment is never duplicated</b> (team C6.4).</td></tr>
+<tr><td><code>collection_cadence</code> (CadenciaCobranza)</td><td><span class="status st-new">NEW</span></td><td><code>broker_id</code> unique · <code>days</code> JSON [−15, −5, 0, 3, 10] · <code>followup_days</code> 5 · <code>tolerance_uf</code> 0.009 · <code>tolerance_pct</code> · <code>tolerance_clp</code> · <code>native_collection_enabled</code> · <code>default_sender</code> (broker_mailbox, radal)</td><td>One per broker. Holds the team's tolerance question (Preguntas 21) as data.</td></tr>
+<tr><td><code>premium_refund</code> (DevoluciónPrima)</td><td><span class="status st-new">NEW</span></td><td>As in the team spec (R26).</td><td>—</td></tr>
+
+<tr><td colspan="4" style="background:var(--paper-2);font-weight:600">Native rail (Forpay)</td></tr>
+<tr><td><code>payment_intent</code> + <code>payment_intent_item</code></td><td><span class="status st-new">NEW</span></td><td>intent: <code>public_token</code> (unguessable, like <code>offering.share_token</code>) · <code>payer_party_id</code> · <code>status</code> (open, pending_provider, paid, partially_paid, expired, cancelled) · <code>expires_at</code> · <code>created_by</code> (user | job) · <code>provider_mandate_id</code> (the OnePay created at click). item: <code>installment_id</code> · <code>insurer_id</code> · <code>amount_uf</code> · <code>store_commerce_code</code></td><td>The token is the credential for <code>/pay/{token}</code>, following the existing <code>/public/offerings/{share_token}</code> pattern. One item per cuota, which becomes one Forpay installment with <code>f_commerceCode</code>. External ids are <code>rdl-intent-…</code> and <code>rdl-cuota-…</code>.</td></tr>
+<tr><td><code>provider_charge</code></td><td><span class="status st-new">NEW</span></td><td><code>provider_account_id</code> · <code>provider_mandate_id</code>, <code>mandate_type</code> (ONEPAY, DYNAMIC) · <code>provider_installment_id</code> (Forpay <code>internalId</code>) UK · <code>installment_id</code> · <code>state</code> (Forpay ids: 1, 2, 6, 9, 10, 11, 12, 15, −99) · <code>amount_clp</code> + <code>convert</code> (rate and date Forpay used) · <code>authorization_code</code> · <code>payment_method</code> · <code>payout_id</code> · <code>raw</code> JSON</td><td>One row per Forpay installment, so ours and theirs line up 1:1. No card or account data, ever. Only provider references.</td></tr>
+<tr><td><code>payment_mandate</code></td><td><span class="status st-new">NEW</span></td><td><code>payer_party_id</code> · <code>insurer_id</code> · <code>provider_account_id</code> · <code>channel</code> (direct_debit, oneclick) · <code>provider_mandate_id</code> (DYNAMIC) · <code>magic_link_url</code> · <code>consent_document_id</code> (art. 60) · <code>bank_name</code>, <code>account_last4</code> · <code>status</code> (pending, bank_confirmation, active, revoked, failed) · dates</td><td>Holds references only. The consent document is required before <code>active</code>.</td></tr>
+<tr><td><code>provider_event</code></td><td><span class="status st-new">NEW</span></td><td><code>provider</code> · <code>provider_account_id</code> · <code>dedup_key</code> (<code>internalId:state</code>) · <code>event_type</code> (activation, payment) · <code>signature_valid</code> · <code>payload</code> JSON · <code>received_at</code> · <code>processing_status</code> · <code>attempts</code> · <code>error</code> · <code>broker_id</code> (nullable, resolved during processing)</td><td>Unique <code>(provider, dedup_key)</code>. <b>Platform-level exception</b> to non-negotiable #2: it is written before the tenant is known and is never exposed through a broker API.</td></tr>
+<tr><td><code>provider_payout</code> (abono)</td><td><span class="status st-new">NEW</span></td><td><code>provider_account_id</code> · <code>dispersion_id</code> · <code>insurer_id</code> · <code>credited_amount</code> · <code>company_deposit_date</code> · <code>destination_account_masked</code> · <code>bank_transaction_number</code> · <code>status_name</code></td><td>Unique <code>(provider_account_id, dispersion_id)</code>. Built from <code>/receivables</code> payout data. Platform-level; brokers see payouts only through their own charges.</td></tr>
+
+<tr><td colspan="4" style="background:var(--paper-2);font-weight:600">Assisted rail: notices, mail, evidence, statements</td></tr>
+<tr><td><code>notice_template</code> (MensajeCobranza)</td><td><span class="status st-new">NEW</span></td><td><code>broker_id</code> · <code>cadence_level</code> · <code>channel</code> · <code>level_variant</code> (assisted | native) · <code>subject</code>, <code>body</code> (Spanish, with variables) · <code>approved_by</code>, <code>approved_at</code></td><td>No approval, no avisos (team C5.1). The native variant includes <code>{{payment_link}}</code>; the assisted one includes <code>{{insurer_instructions}}</code>.</td></tr>
+<tr><td><code>collection_notice</code> (Aviso)</td><td><span class="status st-new">NEW</span></td><td><code>installment_id</code> · <code>cadence_level</code> · <code>channel</code> · <code>recipient_party_id</code>, <code>to</code>, <code>cc</code> · <code>sent_via</code> (broker_mailbox, radal_ses) · <code>mailbox_id</code> · <code>provider_message_id</code> · <code>payment_intent_id</code> · <code>status</code> (queued, sent, delivered, bounced, failed) · <code>sent_at</code></td><td>Unique <code>(installment_id, cadence_level, channel)</code>, so a reminder is never sent twice.</td></tr>
+<tr><td><code>mailbox_connection</code></td><td><span class="status st-new">NEW</span></td><td><code>broker_id</code> · <code>owner_user_id</code> (null = shared) · <code>provider</code> (forwarding, google, microsoft, imap, pop3) · <code>address</code> · <code>purposes</code> (collections, market) · <code>secret_ref</code> · <code>sync_cursor</code> JSON · <code>push_subscription_id</code>, <code>push_expires_at</code> · <code>filters</code> JSON · <code>send_enabled</code> · <code>status</code> (connected, needs_reauth, error, paused) · <code>last_sync_at</code>, <code>last_error</code></td><td>Unique <code>(broker_id, address)</code>. Credentials only via <code>secret_ref</code>.</td></tr>
+<tr><td><code>inbound_message</code></td><td><span class="status st-new">NEW</span></td><td><code>mailbox_id</code> · <code>provider_message_id</code> · <code>thread_id</code> · <code>from_address</code> · <code>subject</code> · <code>received_at</code> · <code>prefilter_result</code> · <code>classification</code> · <code>extraction_id</code> · <code>document_id</code> (.eml)</td><td>Unique <code>(mailbox_id, provider_message_id)</code>. Rows dropped by the prefilter store id and date only.</td></tr>
+<tr><td><code>payment_evidence</code></td><td><span class="status st-new">NEW</span></td><td><code>source</code> (email, payer_upload, statement) · <code>inbound_message_id</code> · <code>document_id</code> · <code>extraction_id</code> · <code>extracted</code> JSON · <code>candidate_installment_id</code> · <code>score</code>, <code>reasons</code> · <code>bank</code>, <code>operation_id</code> · <code>status</code> (suggested, needs_review, confirmed, rejected, superseded) · <code>decided_by</code>, <code>decided_at</code> · <code>payment_id</code> · <code>forwarded_to_insurer_at</code></td><td>The AI suggests and a human confirms (non-negotiable #6). Confirming creates the <code>payment</code>. Unique <code>(broker_id, bank, operation_id)</code> when present, so the same comprobante forwarded twice is caught.</td></tr>
+<tr><td><code>insurer_statement</code> + <code>insurer_statement_line</code> (EstadoPagoCompañía · Diferencia)</td><td><span class="status st-new">NEW</span></td><td>statement: <code>broker_id</code>, <code>insurer_id</code>, <code>document_id</code>, <code>period</code>, <code>rows_read</code>, <code>rows_matched</code>. line: <code>policy_number</code>, <code>installment_number</code>, <code>amount</code>, <code>currency</code>, <code>paid_on</code>, <code>status_text</code>, <code>installment_id</code>, <code>match_kind</code> (matched, amount_mismatch, unknown_installment, unknown_policy, paid_here_unpaid_there), <code>resolution</code>, <code>resolved_by</code></td><td>Built now. The team had it as <i>reserved</i>, but Nivel 1 depends on it.</td></tr>
+
+<tr><td colspan="4" style="background:var(--paper-2);font-weight:600">Cross-cutting (needed by Cobranza; specified by the team)</td></tr>
+<tr><td><code>policy_party</code> (PólizaParte)</td><td><span class="status st-new">NEW</span></td><td>As in the team spec, plus <code>contact_email</code>, <code>contact_phone</code>, <code>whatsapp_opt_in</code>, <code>collection_channel</code></td><td>Avisos go to the <b>pagador</b>, cc the contratante (R17). Without this table nobody can be notified.</td></tr>
+<tr><td><code>notification</code> (Notificación)</td><td><span class="status st-new">NEW</span></td><td>As in the team spec: one open row per (origin, recipient). It escalates instead of piling up.</td><td>Used for the bell and for the Cobranza and Dashboard counters.</td></tr>
+<tr><td><code>note</code> (Gestión)</td><td><span class="status st-mod">MODIFIED</span></td><td>+ <code>follow_up_on</code> (<i>Promete pagar el</i> on a cuota) · + <code>pinned</code> · + <code>source</code> (manual, email)</td><td>Dev's polymorphic <code>note</code> already serves as Gestión (plan-v12 Q22).</td></tr>
+<tr><td><code>currency_rate</code> (ValorMoneda)</td><td><span class="status st-new">NEW</span></td><td><code>date</code> PK · <code>uf</code> · <code>usd_observed</code> · <code>source</code></td><td>Global. Loaded by <code>fx.daily</code>.</td></tr>
+<tr><td><code>job_run</code></td><td><span class="status st-new">NEW</span></td><td><code>job</code> · <code>scheduled_for</code> · <code>status</code> · <code>started_at</code>, <code>finished_at</code> · <code>stats</code> JSON · <code>error</code></td><td>Unique <code>(job, scheduled_for)</code>. Platform-level.</td></tr>
+<tr><td><code>document</code></td><td><span class="status st-mod">MODIFIED</span></td><td>New categories: <code>payment_receipt</code>, <code>email_message</code>, <code>cancellation_letter</code>, <code>settlement_report</code> (the insurer statement already exists as code 10)</td><td>Still the <b>only</b> place an S3 key lives (non-negotiable #8).</td></tr>
+<tr><td><code>insurer</code></td><td><span class="status st-mod">MODIFIED</span></td><td>− <code>payment_url</code> (moves to the profile)</td><td>Migrate the value, then drop the column.</td></tr>
+</table></div>
+
+<h3>12.3 · The cuota state, computed (team rule 3, extended)</h3>
+<div class="codebox"><div class="cap">backend/app/services/collection/status.py: one pure function, used by the API, the clock and the exports</div><pre><code class="language-python">def cuota_state(c: Installment, payments: list[Payment], promise: date | None,
+                cadence: Cadence, today: date, tol: Tolerance) -> CuotaState:
+    active = [p for p in payments if p.status == "active"]
+    paid_uf = sum(p.amount_uf for p in active)
+    if c.voided_by_endorsement_id:                     return CuotaState("anulada")
+    if paid_uf >= c.gross_amount_uf - tol.uf:           return CuotaState("pagada", evidence=max_evidence(active))
+    flags = {"parcial"} if active else set()
+    if c.direct_debit_rejected_at and (not active or c.direct_debit_rejected_at > max(p.paid_on for p in active)):
+        flags.add("rechazada_pac")
+    if promise and promise >= today:                    return CuotaState("en_acuerdo", flags)
+    if today > c.due_date + timedelta(days=cadence.last): return CuotaState("riesgo_termino", flags)
+    if today > c.due_date:                              return CuotaState("vencida", flags)
+    if today == c.due_date:                             return CuotaState("vence_hoy", flags)
+    return CuotaState("por_vencer", flags)</code></pre></div>
+</section>
+
+<!-- ============================================================ 13 -->
+<section id="backend">
+<h2><span class="n">13</span>Backend changes</h2>
+
+<h3>13.1 · A provider seam, so “partial” and “native” share one code path</h3>
+<p>Cobranza code must never import Forpay directly. A <code>PaymentProvider</code> protocol sits between them, shaped after Forpay's mandate model because it is the first and only rail. It has a Forpay implementation and a fake for tests. Nivel 0/1 need no provider: there, the insurer's own instructions are the “rail”. The rest of the app calls the registry.</p>
+<div class="codebox"><div class="cap">backend/app/services/payments/providers/base.py</div><pre><code class="language-python">class PaymentProvider(Protocol):
+    name: str
+
+    # spot: one OnePay mandate per checkout, Mall-split by store commerce code
+    def create_spot_checkout(self, acct: ProviderAccount, payer: PayerData,
+                             items: list[CheckoutItem], return_url: str,
+                             webhook_url: str) -> CheckoutSession: ...      # → activation.url
+    # recurring: one DYNAMIC mandate per plan; returns the Magic Link for enrollment
+    def create_recurring_mandate(self, acct: ProviderAccount, payer: PayerData,
+                                 items: list[CheckoutItem], methods: list[str],
+                                 webhook_urls: WebhookUrls) -> MandateSession: ...
+    def add_installments(self, acct, mandate_id: str, items: list[CheckoutItem]) -> None: ...
+    def set_installment_state(self, acct, external_ids: list[str],
+                              state: Literal["paid", "annulled"]) -> None: ...  # paid outside Forpay
+    def cancel_mandate(self, acct, mandate_id: str) -> None: ...
+    def search_receivables(self, acct, **filters) -> Iterator[ReceivableIn]: ...  # sync + payouts
+    def verify_webhook(self, acct, payload: dict) -> bool: ...  # HMAC over ordered fields, not raw body
+    def parse_webhook(self, acct, payload: dict) -> ProviderEventIn: ...
+
+
+class ForpayProvider:
+    """WHITE_LABEL only. JWT per account (30 min) cached in the worker; password JWE-encrypted."""
+
+
+# metadata on every Forpay object: only what reconciliation needs, no extra PII
+def external_ids(item: CheckoutItem) -> dict[str, str]:
+    return {"id": f"rdl-cuota-{item.installment_id}",
+            "metadata": {"radal_broker": str(item.broker_id), "radal_policy": item.policy_number,
+                         "f_commerceCode": item.store_commerce_code or ""}}</code></pre></div>
+
+<h3>13.2 · Modules</h3>
+<div class="tbl-wrap"><table>
+<tr><th>Module</th><th>Responsibility</th></tr>
+<tr><td><code>services/collection/status.py</code> · <code>resolver.py</code> · <code>clock.py</code></td><td>Cuota state (pure), collection level, and the daily escalation into <code>notification</code>.</td></tr>
+<tr><td><code>services/collection/notices.py</code></td><td>Renders the approved template for the level, chooses the sender (broker mailbox, else SES with the broker's display name and reply-to), writes <code>collection_notice</code>.</td></tr>
+<tr><td><code>services/payments/{intents,checkout,webhooks,reconciliation}.py</code></td><td>Intent lifecycle; UF→CLP at checkout from <code>currency_rate</code>; processing an event into a payment; settlement and insurer-statement matching.</td></tr>
+<tr><td><code>services/payments/providers/{forpay,fake}.py</code></td><td>Provider implementations behind the protocol. <code>forpay.py</code> owns JWT login (JWE password), the required headers (<code>commerce</code>, <code>channel</code>, <code>processId</code>, <code>correlationId</code>…) and the per-webhook-type HMAC field order.</td></tr>
+<tr><td><code>services/mail/{google,microsoft,imap,pop3}.py</code> · <code>ingest.py</code> · <code>prefilter.py</code></td><td>Connection, delta fetch and send per provider, behind one <code>MailboxClient</code> protocol.</td></tr>
+<tr><td><code>services/ai.py</code> (registry entries)</td><td>New tasks: <code>classify_inbound_message</code> (small tier), <code>extract_payment_receipt</code>, <code>extract_insurer_statement</code> (extends existing category 10). Every attempt writes an <code>extraction</code> row.</td></tr>
+<tr><td><code>services/collection/matcher.py</code></td><td>The deterministic scoring from <a href="#mail">§10</a>.</td></tr>
+<tr><td><code>jobs/</code> + <code>worker.py</code></td><td>Job registry (name → function), the SQS/EventBridge entry point for the worker Lambda, and the <code>job_run</code> ledger.</td></tr>
+<tr><td><code>ingress/</code> (separate tiny package)</td><td>Webhook verification and enqueue. It has no ORM and no VPC. It shares only signature helpers with the backend.</td></tr>
+</table></div>
+
+<h3>13.3 · Endpoints</h3>
+<div class="tbl-wrap"><table>
+<tr><th>Router</th><th>Endpoints</th><th>Permission</th></tr>
+<tr><td><code>/collections</code> (extend)</td><td><code>GET /installments?bucket=upcoming|overdue|current|settled&amp;level=…</code> (the Cobranza list, by urgency) · <code>POST /installments/{id}/payments</code> · <code>POST /payments/{id}/reverse</code> · <code>POST /payments/{id}/confirm</code> · <code>POST /installments/{id}/direct-debit-rejected</code> · <code>POST /installments/{id}/promise</code> · <code>POST /plans/{id}/pause-notices</code> · <code>GET /installments/{id}/mode</code></td><td>Collections View / Edit</td></tr>
+<tr><td><code>/payment-intents</code></td><td><code>POST</code> (manual “Generar link”) · <code>GET /{id}</code> · <code>POST /{id}/cancel</code> · <code>POST /{id}/resend</code></td><td>Collections Edit</td></tr>
+<tr><td><code>/public/pay</code> (no auth; the token is the credential)</td><td><code>GET /{token}</code> (narrow projection: broker brand, payer, open cuotas, amounts in UF and CLP, available channels or insurer instructions) · <code>POST /{token}/checkout</code> · <code>GET /{token}/return</code> · <code>POST /{token}/receipt</code> (payer uploads a comprobante, which becomes evidence) · <code>POST /{token}/mandate</code></td><td>public, rate-limited</td></tr>
+<tr><td><code>/payment-evidence</code></td><td><code>GET</code> (inbox: suggested and needs_review) · <code>POST /{id}/confirm</code> (optionally to another cuota) · <code>POST /{id}/reject</code></td><td>Collections Edit</td></tr>
+<tr><td><code>/insurer-statements</code></td><td><code>POST</code> (upload) · <code>GET /{id}/lines</code> · <code>POST /{id}/confirm-matched</code> · <code>POST /lines/{id}/resolve</code></td><td>Collections Edit</td></tr>
+<tr><td><code>/mailboxes</code></td><td><code>GET</code> · <code>GET /oauth/{google|microsoft}/start</code> · <code>GET /oauth/{provider}/callback</code> · <code>POST</code> (forwarding address, or IMAP/POP3 + SMTP tested on save) · <code>PATCH /{id}</code> (filters, purposes, send_enabled, pause) · <code>DELETE /{id}</code> (revoke and delete secret)</td><td>new: Mailboxes Manage (admin) · own mailbox (any user)</td></tr>
+<tr><td><code>/settings/collections</code></td><td><code>GET/PUT</code> cadence and tolerances · <code>GET/PUT /templates</code> · <code>POST /templates/approve</code> · <code>PUT /native</code> (opt-in)</td><td>admin only</td></tr>
+<tr><td><code>/notifications</code></td><td><code>GET ?tray=todo|fyi</code> · <code>POST /{id}/seen</code> · <code>GET /count</code></td><td>authenticated</td></tr>
+<tr><td><code>/insurers/{id}/collection-profile</code></td><td><code>GET</code> (brokers) · <code>PUT</code> plus channels (platform admin)</td><td>platform admin for writes</td></tr>
+<tr><td><code>hooks.radalseguros.cl</code> (ingress, not FastAPI)</td><td><code>POST /forpay/{provider_account}/activation</code> · <code>POST /forpay/{provider_account}/payment</code> · <code>POST /google/pubsub</code> · <code>POST /microsoft/graph</code> (+ <code>validationToken</code>). SES inbound arrives via S3 → SQS, not HTTP.</td><td>Forpay HMAC (ordered fields) + optional IP allowlist / Pub/Sub OIDC JWT / Graph <code>clientState</code></td></tr>
+</table></div>
+<p class="small muted">The <code>GET /auth/permissions</code> catalog gains these new grants, and the nav keeps being filtered by it (non-negotiable #3). Tenant isolation tests grow to cover every new broker-scoped table: another broker's row returns <b>404</b>, never 403 (non-negotiable #2).</p>
+</section>
+
+<!-- ============================================================ 14 -->
+<section id="frontend">
+<h2><span class="n">14</span>Frontend changes</h2>
+<p>Most of the visible change lands on one screen, <b>Cobranza</b>, which is both a menu entry and a Portafolio tab with the same URL (team spec). It also adds a public payer portal, two Configuración sections and the bell.</p>
+
+<h3>14.1 · Cobranza: one list, three levels side by side</h3>
+<div class="mock">
+  <div class="bar"><span class="dots"><i></i><i></i><i></i></span>Cobranza <span class="chip neg" style="margin-left:6px">12 vencidas</span><span style="flex:1"></span><span class="chip l1">Pagos detectados · 3</span><span class="btn">Cargar estado de pago</span></div>
+  <div class="body" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap">
+    <span class="chip">Próximas (30 d)</span><span class="chip" style="background:var(--ink);color:#fff">Vencidas</span><span class="chip">Al día</span><span class="chip">Saldadas</span>
+    <span style="flex:1"></span><span class="chip">Nivel: todos ▾</span><span class="chip">Compañía ▾</span><span class="chip">Método ▾</span>
+  </div>
+  <table>
+    <tr><th>Asegurado</th><th>Ramo</th><th>Compañía</th><th>N° póliza</th><th>Cuota</th><th>Vence</th><th>Monto</th><th>Cobro</th><th>Estado</th><th></th></tr>
+    <tr><td>Viña Santa Alicia SpA</td><td>Vehículos</td><td>HDI</td><td>4410293</td><td>3/10</td><td>12-10</td><td>UF 4,20<br><span class="muted">$ 165.312</span></td><td><span class="chip l2">Forpay · link enviado</span></td><td><span class="chip neg">Vencida +4</span></td><td><span class="btn p">Reenviar link</span></td></tr>
+    <tr><td>Grupo W · y1 S.A.</td><td>Property</td><td>Sura</td><td>PRP-88213</td><td>2/4</td><td>08-10</td><td>UF 312,00<br><span class="muted">Pagado UF 150 de 312</span></td><td><span class="chip l1" title="Sura aún no está en Forpay (estimado 30-10)">Asistida · Sura (≈30-10)</span></td><td><span class="chip neg">Vencida +8 · Parcial</span></td><td><span class="btn">Registrar pago</span></td></tr>
+    <tr><td>Constructora Andes SpA</td><td>Ingeniería</td><td>Mapfre</td><td>—</td><td>1/1</td><td>05-10</td><td>UF 88,50</td><td><span class="chip l0" title="Falta contacto del pagador">Registro · falta contacto</span></td><td><span class="chip neg">Riesgo de término</span></td><td><span class="btn">Completar</span></td></tr>
+    <tr><td>Clínica Los Robles</td><td>RC Médica</td><td>Chubb</td><td>RC-7781</td><td>5/12</td><td>01-10</td><td>UF 12,10</td><td><span class="chip l1">Asistida · PAC Cía.</span></td><td><span class="chip neg">Rechazada (PAC)</span></td><td><span class="btn">Registrar gestión</span></td></tr>
+  </table>
+</div>
+<p class="small muted">The <b>Cobro</b> column is new. Its badge text comes from <code>resolver.reason</code>, so the UI never invents a reason. Row actions depend on the level, and none of them is a dead button: <i>Reenviar link</i> exists only in Nivel 2. In Nivel 0/1 the same slot reads <i>Generar link</i> with a <span class="chip soon">pronto</span> chip and the server's reason in the tooltip.</p>
+
+<h3>14.2 · Pagos detectados: confirming the AI's suggestions</h3>
+<div class="mock">
+  <div class="bar"><span class="dots"><i></i><i></i><i></i></span>Pagos detectados · 3 por confirmar</div>
+  <div class="body grid g2" style="gap:14px">
+    <div class="card" style="background:var(--paper)"><div class="small muted">Correo · cobranza@corredora.cl · 14-10 10:42</div><b>Comprobante de transferencia · Banco de Chile</b>
+      <p class="small">Monto <b>$ 6.096.000</b> · Fecha 13-10-2026 · Origen RUT 76.123.456-7 · Destino Sura S.A. cta. cte. ··· 4421 · N° op. 991273311</p><span class="chip">PDF adjunto</span> <span class="chip">ver correo</span></div>
+    <div class="card"><div class="small muted">Sugerencia · puntaje 0,90</div><b>Grupo W · Property · Sura · cuota 2/4</b>
+      <ul class="small"><li>monto calza con el saldo a UF del 13-10 (UF 162,00)</li><li>RUT del pagador es parte de la póliza</li><li>transferencia a la cuenta de la compañía</li></ul>
+      <div class="pill-row"><span class="btn p">Confirmar pago</span><span class="btn">Otra cuota…</span><span class="btn">No es un pago</span></div></div>
+  </div>
+</div>
+
+<h3>14.3 · The payer portal <code>/pay/:token</code> (public, broker-branded, mobile-first)</h3>
+<div class="grid g3" style="align-items:start">
+  <div class="phone"><div class="top"><div style="font-size:12px;opacity:.85">Corredora Ossa · pago de seguros</div><b>Hola, Viña Santa Alicia</b></div>
+    <div class="row"><span>☑ HDI · Vehículos · cuota 3/10<br><span class="muted small">venció 12-10</span></span><b>$165.312</b></div>
+    <div class="row"><span>☑ Sura · Hogar · cuota 7/12<br><span class="muted small">vence 20-10</span></span><b>$48.900</b></div>
+    <div class="row" style="background:var(--paper-2)"><span>Total (UF del 16-10)</span><b>$214.212</b></div>
+    <div class="pay" style="background:var(--brand);color:#fff">Pagar con Webpay</div>
+    <div class="pay" style="border:1px solid var(--line-strong)">Transferencia (TEF)</div>
+    <div class="pay" style="border:1px dashed var(--line-strong);color:var(--ink-3)">Inscribir PAC para las próximas</div></div>
+  <div class="phone"><div class="top"><div style="font-size:12px;opacity:.85">Corredora Ossa · pago de seguros</div><b>Cuota de Mapfre</b></div>
+    <div class="row"><span>Mapfre · Ingeniería · cuota 1/1</span><b>UF 88,50</b></div>
+    <div style="padding:12px 14px" class="small"><b>Mapfre recibe este pago directamente:</b><br>Banco Santander · Cta. Cte. 0-000-1234567-8<br>RUT 96.508.210-7 · pagos@mapfre.cl<br>Indica el n° de póliza en el comentario.</div>
+    <div class="pay" style="border:1px solid var(--line-strong)">Ir al portal de Mapfre ↗</div>
+    <div class="pay" style="background:var(--warn-soft);color:var(--warn-text)">Ya pagué · subir comprobante</div></div>
+  <div class="card"><h4>One portal, both levels</h4><p class="small">Nivel 2 cuotas get checkout buttons. Nivel 1 cuotas get the insurer's own instructions and <b>“Ya pagué”</b>, which lets the payer upload a comprobante straight into <code>payment_evidence</code> without the broker's mailbox in between. A payer with cuotas from both kinds of insurer sees both on one page.</p><p class="small">The UF→CLP conversion uses the day the payer opens the page. The total recomputes at checkout.</p><p class="small">The route follows the existing <code>public/offering-decision.tsx</code> pattern. It ships no app chrome or JWT and returns a narrow projection.</p></div>
+</div>
+
+<h3>14.4 · Every frontend change</h3>
+<div class="tbl-wrap"><table>
+<tr><th>Surface</th><th>Change</th><th>Status today</th></tr>
+<tr><td>Sidebar / nav</td><td>Cobranza becomes a menu entry with an overdue counter. The <b>bell</b> (Por hacer / Para saber) goes next to <b>+ Nuevo</b>. Until the Dashboard exists, Radal opens on Cobranza (team P1).</td><td>No bell, no Cobranza entry</td></tr>
+<tr><td><code>pages/collections/*</code></td><td>Rebuild as the list in 14.1 with buckets, filters, the level badge, row actions and side panels: <i>Registrar pago</i>, <i>Registrar gestión</i>, <i>PAC rechazado</i>, <i>Confirmar pago</i>, <i>Generar/Reenviar link</i>, <i>Pausar avisos</i>. Add a cuota drawer with a timeline of avisos, link opens, payments, evidence and gestiones.</td><td>Only <code>InstallmentLedger</code> + <code>Art528Timeline</code> exist</td></tr>
+<tr><td>Pagos detectados</td><td>New inbox (14.2) with a counter in the Cobranza header.</td><td>new</td></tr>
+<tr><td>Estado de pago de la compañía (C6)</td><td>Upload, then the result (“142 calzan · 9 diferencias”), then the differences tray with the four actions.</td><td>new</td></tr>
+<tr><td>Ficha de la póliza · Plan de pago</td><td>Cuotas grouped by origin, payments with their evidence level, the mandate if any, and level and reason.</td><td>partial</td></tr>
+<tr><td>Plan de pago step (end of every vía)</td><td>Preloaded from the reader, confirmed in one click, can be skipped. <b>This step decides whether a policy enters Cobranza at all</b>, so it ships first.</td><td>Reader extracts cuotas, but they are not committed (<code>extraction_commit.py</code> warns only)</td></tr>
+<tr><td><code>/pay/:token</code></td><td>New public route (14.3).</td><td>new</td></tr>
+<tr><td>Configuración → Correo</td><td>Connect Google or Microsoft (OAuth), or IMAP/POP3 with SMTP (form plus test). Status, last sync, filters, “usar para enviar avisos”.</td><td>new</td></tr>
+<tr><td>Configuración → Cobranza</td><td>Cadence editor, tolerances, templates per level with preview and <i>Aprobar mensajes</i>, native opt-in with the list of live insurers.</td><td>new</td></tr>
+<tr><td>Configuración → Compañías</td><td>A read-only <b>Cobro</b> column: <span class="chip l2">Forpay activo</span> <span class="chip l1">En incorporación · 30-10</span> <span class="chip l1">Instrucciones</span> <span class="chip l0">Sin datos</span></td><td>Compañías is its own nav row today</td></tr>
+<tr><td>i18n</td><td>New namespaces <code>payments</code>, <code>mailboxes</code>, <code>portal</code>, <code>notifications</code>. Extend <code>collections</code>. <b>No dynamic keys</b> for levels or states: use explicit maps checked by <code>check:locales</code> (non-negotiable #4).</td><td>—</td></tr>
+</table></div>
+</section>
+
+<!-- ============================================================ 15 -->
+<section id="journey">
+<h2><span class="n">15</span>Partial journeys: what changes outside Cobranza</h2>
+<p>The plan-v12 analysis of the team's v14 still holds. v15 changed details, such as <i>+ Nuevo</i> no longer asking for the vía, but the machine is the same. Restated here only as far as Cobranza depends on it:</p>
+<div class="grid g2">
+  <div class="card"><h4>Must land before Cobranza</h4>
+  <ul class="small">
+    <li><b>Entry points + <code>skipped</code> stage events</b> (R6, R34). A policy uploaded into a colocación in <i>Interés</i> moves it to <i>Póliza emitida → Vigente</i>, with the stages in between marked <i>omitida</i>. Today it stays in <code>lead</code>.</li>
+    <li><b>Policy upload → suggest/confirm</b>. Today <code>POST /policies/upload</code> commits without confirmation (plan-v12 §1.2). <i>Confirmar datos</i> becomes the main door, and the plan de pago comes out of it.</li>
+    <li><b>Per-broker insured</b> (plan-v12 §1.1, R33). This is compliance, and avisos would otherwise go to contacts another broker entered.</li>
+    <li><b><code>policy_party</code></b> with contratante and pagador contacts.</li>
+  </ul></div>
+  <div class="card"><h4>The journey UI becomes “only what you entered”</h4>
+  <ul class="small">
+    <li>The journey rail on <i>Resumen</i> draws <b>entered</b> stages solid and <b>omitted</b> ones as thin grey ticks, labelled “omitida”. A 2b account shows one solid node, <i>Póliza</i>, and seven ticks.</li>
+    <li>Account tabs for omitted stages are hidden by default and reachable through “Ver etapas omitidas”.</li>
+    <li>Home moves from the group list to <b>Cobranza</b>, then to the Dashboard once it exists. The groups stay in the sidebar (plan-v12 D2).</li>
+  </ul></div>
+</div>
+<div class="callout q"><b>The rule still open from the meeting:</b> you wanted skipped stages to be <i>activatable</i>; the team's R6 says an omitted stage never reopens. <b>Proposed reconciliation:</b> an omitted stage can be <b>activated while the colocación has no policy</b>. That is the same window in which R37 already lets the vía change with one click. Once a policy exists, the colocación's history is fixed and changes go through endoso or <i>Corregir dato</i>. Both readings fit inside that rule.</div>
+</section>
+
+<!-- ============================================================ 16 -->
+<section id="plan">
+<h2><span class="n">16</span>Build plan</h2>
+<p>Estimates are in focused engineer-weeks with agents, ±30%, including tests and a live-browser check. Phases 0–2 depend only on us. Phase 3 is gated by Forpay sandbox access and at least one insurer reaching <code>sandbox</code>.</p>
+<div class="card">
+  <div class="phase"><div class="ph">PHASE 0<br><span class="muted small">foundations</span></div><div><b>Alembic baseline</b> · per-broker insured fix · policy upload → confirm · <b>commit cuotas from the reader</b> · <code>policy_party</code> · stage entry points + <code>skipped</code> · <code>payment</code> + computed cuota state · <code>currency_rate</code> · <b>infra</b>: EventBridge Scheduler, SQS, worker Lambda, <code>job_run</code>, egress (NAT) · <code>notification</code> + bell</div><div class="est">4–5 wk</div></div>
+  <div class="phase"><div class="ph">PHASE 1<br><span class="muted small">Nivel 0 · Registro</span></div><div>Cobranza screen (menu and Portafolio tab), C1–C4, cadence clock, gestiones with promises, Riesgo de término, cancelación por no pago → endoso tipo 7. The <b>Plan de pago step</b> at the end of every vía.</div><div class="est">2–3 wk</div></div>
+  <div class="phase"><div class="ph">PHASE 2<br><span class="muted small">Nivel 1 · Asistida</span></div><div><code>insurer_collection_profile</code> + instructions (seed the first 10 insurers, incl. each <code>receipt_email</code>) · templates + approval · avisos via SES, then via broker mailbox · <b>forwarding address first</b> (SES inbound) · <b>ingress</b> (API GW + Lambda) · mailbox connections (Microsoft, IMAP, then Google after CASA; POP3 only if asked) · classifier, extractor, matcher, <i>Pagos detectados</i> · insurer statement (C6) · payer portal with “Ya pagué”</div><div class="est">4–5 wk</div></div>
+  <div class="phase"><div class="ph">PHASE 3<br><span class="muted small">Nivel 2 · Forpay pilot</span></div><div><code>PaymentProvider</code> + <code>ForpayProvider</code> (JWT/JWE auth, WHITE_LABEL) · <code>provider_account</code> setup · intents → OnePay <code>isMall</code> via the portal · TEF (ETPay) · webhook HMAC verification + processing · <code>payments.sync</code> / <code>payments.payouts</code> on <code>/receivables</code> · paid-outside sync (<code>installments/status/change</code>) · <b>one pilot insurer, one pilot broker</b> · runbook for refunds and chargebacks</div><div class="est">3–4 wk</div></div>
+  <div class="phase"><div class="ph">PHASE 4<br><span class="muted small">recurring</span></div><div>PAC convenios + OneClick inscriptions (<code>payment_mandate</code>), automated rejections, WhatsApp channel for avisos, <i>Marcar enviada</i> from mail (team “fase posterior”)</div><div class="est">3 wk</div></div>
+</div>
+<div class="mermaid">
+gantt
+  dateFormat YYYY-MM-DD
+  axisFormat %d-%m
+  title Indicative, starting Monday 19-10-2026
+  section Foundations
+  Phase 0 · structure + infra      :p0, 2026-10-19, 32d
+  section Cobranza
+  Phase 1 · Registro               :p1, after p0, 17d
+  Phase 2 · Asistida               :p2, after p1, 32d
+  Phase 3 · Forpay pilot           :crit, p3, after p2, 25d
+  Phase 4 · Recurring              :p4, after p3, 21d
+  section External (parallel)
+  Forpay contract + sandbox keys   :ext1, 2026-10-19, 30d
+  First insurer onboarding         :ext2, 2026-11-02, 45d
+  Google restricted-scope review   :ext3, 2026-11-16, 40d
+</div>
+</section>
+
+<!-- ============================================================ 17 -->
+<section id="questions">
+<h2><span class="n">17</span>Open questions</h2>
+<div class="grid g2">
+  <div class="card warn"><h4>For Forpay (JT's technical meeting)</h4><ol class="small" id="forpay-questions">
+    <li><b>Multi-insurer setup.</b> Can one Radal integration operate many insurer RUTs: several <code>commerce</code> under one api key, or one credential set per insurer? Is there an API, or only a manual process, to onboard a company?</li>
+    <li><b>PAC and TEF routing.</b> Whose convenio, Forpay's or each insurer's? How does money reach “Cuenta / Convenio Aseguradora N”? Can a single TEF payment split across insurers?</li>
+    <li><b>Mall scope.</b> Is <code>isMall</code> limited to OnePay with Webpay/Oneclick, or can a DYNAMIC mandate route each installment to a different child code? Who signs each insurer's Transbank child-store affiliation?</li>
+    <li><b>Insurer onboarding.</b> KYC and documents (RUT, escrituras, bank certificate), lead time and cost per insurer.</li>
+    <li>What are portal <b>options 3A and 3B</b>? Can Forpay's Portal de Pagos be white-labelled per broker? (We plan <code>WHITE_LABEL</code> plus our own portal.)</li>
+    <li><b>Webhooks.</b> Retry schedule and count. Global configuration instead of per mandate. Source IPs. The exact HMAC field order for OnePay, TEF and PAC payment webhooks.</li>
+    <li><b>Links.</b> OnePay and Magic Link validity: can we set it?</li>
+    <li><b>Refunds and reversals</b> (state 12): is there an API or only the backoffice? How are chargebacks assigned per insurer?</li>
+    <li><b>Reconciliation.</b> Is there a rendición export per insurer beyond <code>/receivables</code> payouts? What does the “Invoices / facturación electrónica” API cover?</li>
+    <li><b>Production.</b> Base URL, Postman collection, rate limits, sandbox credentials for Radal.</li>
+    <li><b>Pricing in writing</b> per rail (the CTO's TEF 0.013–0.055 UF, PAC 0.04 + 0.025 UF, cards 1–2%), and who is billed: Radal or the insurer.</li>
+    <li>Does Forpay take any position on whether a payer's payment through Radal's Mall <b>discharges the premium</b> (art. 527) without each insurer's written acknowledgement?</li>
+  </ol></div>
+  <div class="card"><h4>For the CTO / team</h4><ol class="small">
+    <li>Is <b>Radal</b> the mall owner (merchant of record) with insurers as stores, or does each <b>broker</b> get a mall? The diagram says “Mall RADAL”, so we assume Radal.</li>
+    <li>Who pays rail fees: insurer, broker, payer (surcharge), or Radal as part of pricing?</li>
+    <li>Does an <b>insurer's</b> agreement cover <b>all</b> brokers on Radal automatically? We assume yes: the profile is canonical.</li>
+    <li>Do we tell the insurer which broker intermediated each payment? It matters for their commission and reconciliation.</li>
+    <li>Do avisos go out from the <b>broker's own mailbox</b> by default (our recommendation) or from a Radal domain?</li>
+    <li>Rodrigo Sandoval's R26 answer (how endorsements re-price cuotas) is still pending and affects plan rebuilding.</li>
+    <li>The tolerance (±1% or $1,000) needs validating against real statements.</li>
+    <li>Is POP3 really needed, or will IMAP cover every custom server we'll meet?</li>
+  </ol></div>
+</div>
+</section>
+
+<!-- ============================================================ 18 -->
+<section id="risks">
+<h2><span class="n">18</span>Risks</h2>
+<div class="tbl-wrap"><table>
+<tr><th>Risk</th><th>Why it matters</th><th>Mitigation</th></tr>
+<tr><td><b>Money custody by accident</b></td><td>Any design where funds touch a Radal or broker account changes our regulatory posture (<a href="#rules">§05</a>).</td><td>Settlement goes only to insurer stores, accounts and convenios. No Radal clearing account, ever. Document this in the Forpay contract.</td></tr>
+<tr><td><b>Webhooks lost or replayed</b></td><td>A paid cuota that stays “vencida” triggers wrong reminders and erodes trust.</td><td>An inbox with unique <code>event_id</code>, a <code>payments.sync</code> poll and a reminder job that re-checks status <b>right before sending</b>.</td></tr>
+<tr><td><b>Reminding a payer who already paid</b></td><td>This is the most visible failure, because the customer sees it.</td><td>Don't send avisos while a payment evidence is <i>suggested</i>. Use a short-circuit window after any “Ya pagué” upload. Templates say “si ya pagaste, ignora este mensaje”.</td></tr>
+<tr><td><b>Mailbox scope and privacy</b></td><td>Restricted scopes need a Google security assessment. Brokers may resist granting inbox access.</td><td>Shared collections mailbox, prefilter-before-store, a visible list of what was read, and IMAP as a fallback.</td></tr>
+<tr><td><b>UF/CLP drift</b></td><td>A link amount that is wrong by one day produces a partial payment.</td><td>Compute CLP at checkout. Use tolerance as data. Parcial is a flag, not an error.</td></tr>
+<tr><td><b>Reader quality on plan de pago</b></td><td>Money-core extraction is already flagged as unreliable (CLAUDE.md).</td><td>The Plan de pago step is a confirmation screen. The Σ cuotas = prima bruta check already exists (<code>check_installment_total</code>).</td></tr>
+<tr><td><b>First stateful infra</b></td><td>Jobs, queues and egress are new operational surface.</td><td>DLQs with CloudWatch alarms, the <code>job_run</code> ledger and an admin page listing the last runs.</td></tr>
+<tr><td><b>Double collection across levels</b></td><td>A Nivel 2 cuota is paid at the insurer's portal while Forpay still has the installment pending (or a PAC charge is due).</td><td>Radal pushes every non-Forpay payment to Forpay right away (<code>installments/status/change</code> → 2 or 6), and <code>payments.sync</code> re-checks. The portal never shows a cuota that has an active payment.</td></tr>
+<tr><td><b>Forpay competes with what we build</b></td><td>Forpay also sells reminders, a payment portal and reconciliation. In HYBRID mode it emails payers itself.</td><td><code>WHITE_LABEL</code> on every account, and the broker-branded voice stays Radal's. Decide this explicitly in the contract.</td></tr>
+<tr><td><b>Per-insurer Forpay companies</b></td><td>If PAC/TEF need one Forpay company per insurer, Radal holds many credential sets and many HMAC keys.</td><td><code>provider_account</code> + Secrets Manager rotation, with the account id in every webhook URL. Onboarding becomes a Radal-team runbook, not a broker feature.</td></tr>
+<tr><td><b>Schema change size</b></td><td>The biggest change since v2.</td><td>Alembic first, rehearsed on a dev RDS snapshot, with nothing destructive in Phase 0.</td></tr>
+</table></div>
+</section>
+
+<footer>
+  Sources: team spec “RADAL · Clic a clic” v15 (01-10-2026) and <code>catalogo_ramos.csv</code>; CTO diagram “RADAL x Forpay”; code on <code>dev</code> at <code>51ada38</code> (<code>models/collection.py</code>, <code>routers/collections.py</code>, <code>models/insurer.py</code>, <code>services/extraction_commit.py</code>, <code>docs/deployment.md</code>); prior analysis <code>docs/plan-v12-tres-vias.md</code> and <code>docs/v14-vs-meeting.html</code>; web research cited in §04 and §05.
+</footer>
+</main>
+</div>
+
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+mermaid.initialize({
+  startOnLoad: true, securityLevel: "loose", theme: "base",
+  themeVariables: {
+    fontFamily: "Inter, system-ui, sans-serif", fontSize: "13px",
+    primaryColor: "#ffffff", primaryBorderColor: "#d9d9d5", primaryTextColor: "#17191a",
+    lineColor: "#6b7075", secondaryColor: "#f4f4f2", tertiaryColor: "#fafaf9",
+    noteBkgColor: "#fff7ea", noteBorderColor: "#e5a54c",
+    actorBkg: "#ffffff", actorBorder: "#0e7c70", signalColor: "#41464a",
+    clusterBkg: "#fafaf9", clusterBorder: "#d9d9d5"
+  },
+  flowchart: { curve: "basis", htmlLabels: true },
+  sequence: { mirrorActors: false, showSequenceNumbers: true }
+});
+</script>
+<script>
+hljs.highlightAll();
+// TOC highlight
+const links=[...document.querySelectorAll("nav.toc a")];
+const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.toggle("active",l.getAttribute("href")==="#"+e.target.id))}}),{rootMargin:"-30% 0px -65% 0px"});
+document.querySelectorAll("main section[id]").forEach(s=>obs.observe(s));
+// Simulator
+const S={ins:"none",met:"coupon",con:"yes",mbx:"no",instr:"yes"};
+document.querySelectorAll(".seg").forEach(seg=>seg.addEventListener("click",ev=>{
+  const b=ev.target.closest("button"); if(!b) return;
+  seg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+  S[seg.dataset.k]=b.dataset.v; render();
+}));
+function render(){
+  const lv=document.getElementById("sim-level"), dl=document.getElementById("sim-dl");
+  let level, color, rows=[];
+  const nativeMethod = ["coupon","transfer","card","pac_radal"].includes(S.met);
+  if(S.con==="no"){
+    level="Nivel 0 · Registro"; color="var(--l0)";
+    rows=[["Badge","Registro · falta contacto del pagador"],["Avisos","None. Bell alerts to the ejecutivo only (−15 … +10)."],["Detects payment","Manual only (Registrar pago), or an insurer statement if one is uploaded"],["Evidence","declared → insurer_confirmed"],["Falta: X","Contacto del pagador → sin avisos"]];
+  } else if(S.ins==="live" && nativeMethod){
+    level="Nivel 2 · Nativa (Forpay)"; color="var(--l2)";
+    const ch = S.met==="pac_radal" ? "Forpay DYNAMIC mandate (ForPAC: Clave Única + e-signature = written consent). Forpay charges each cuota; webhook state 2 or -99" : (S.met==="card" ? "Webpay / Oneclick Mall: installment carries the insurer store f_commerceCode" : "Webpay Mall or TEF (ETPay) to the insurer");
+    rows=[["Badge","Forpay · link enviado"],["Aviso contains","Radal portal link /pay/{token} → Forpay OnePay created at the click, cuotas in UF (currencyConvert TO_DAY)"],["Rail",ch],["Money goes to","The insurer directly (store / account / convenio). Never Radal or the broker"],["Detects payment","Signed webhook → payment committed automatically"],["Evidence","provider_confirmed → settled (abono reconciled)"]];
+  } else if(S.ins==="live" && S.met==="pac_ins"){
+    level="Nivel 1 · Asistida"; color="var(--l1)";
+    rows=[["Badge","Asistida · PAC de la compañía"],["Why not native","The insurer's own PAC runs outside Forpay, so Radal can't see the charge. Offer “Inscribir PAC vía Radal” in the portal"],["Avisos","Only around the due date: “se cargará tu PAC el …”"],["Detects payment",S.mbx==="yes"?"Rejection emails → suggested PAC rechazado; statement confirms":"Insurer statement (C6) or manual"],["Evidence","insurer_confirmed"]];
+  } else if(S.instr==="no"){
+    level="Nivel 0 · Registro"; color="var(--l0)";
+    rows=[["Badge","Registro · sin instrucciones de pago de la compañía"],["Avisos","Held. We won't tell a payer to pay without saying how"],["Fix","Radal team completes insurer_collection_profile.payment_instructions"],["Detects payment",S.mbx==="yes"?"Mailbox still detects comprobantes → suggestions":"Manual or statement"]];
+  } else {
+    level="Nivel 1 · Asistida"; color="var(--l1)";
+    const why = S.ins==="onb" ? "Insurer onboarding on Forpay (estimated date shown). Upgrades automatically when live" : (S.ins==="live" ? "Method not covered by an active Forpay channel" : "Insurer not on Forpay");
+    rows=[["Badge","Asistida · "+(S.ins==="onb"?"≈ fecha estimada":"instrucciones de la Cía.")],["Why",why],["Aviso contains","Insurer instructions (portal URL, bank account, n° póliza) + portal link with “Ya pagué · subir comprobante”"],["Detects payment",S.mbx==="yes"?"Mailbox comprobantes + payer uploads → AI suggestion → ejecutivo confirms":"Payer uploads in the portal + insurer statement (C6). Connect a mailbox to catch forwarded comprobantes"],["Evidence","detected → insurer_confirmed"]];
+  }
+  lv.textContent=level; lv.style.color=color;
+  dl.innerHTML=rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join("");
+}
+render();
+</script>
+</body>
+</html>

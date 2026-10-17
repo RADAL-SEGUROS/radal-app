@@ -93,6 +93,12 @@ import {
   uf,
   usePerilLabel,
 } from "@/pages/proposals/shared";
+import {
+  COVERAGE_KIND_LABEL,
+  PROPOSAL_ORIGIN_LABEL,
+  PROPOSAL_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 const CLOSED_STATUSES = ["accepted", "rejected", "withdrawn", "expired"];
 
@@ -165,7 +171,7 @@ function ProposalHeader({ proposal: p }: { proposal: Proposal }) {
   const acceptHint = !canApprove.allowed
     ? t("decisions.noPermission")
     : closed
-      ? t("decisions.alreadyClosed", { status: t(`status.${p.status}`) })
+      ? t("decisions.alreadyClosed", { status: enumLabel(t, PROPOSAL_STATUS_LABEL, p.status) })
       : needsConfirmation
         ? t("decisions.confirmFirst")
         : null;
@@ -189,9 +195,9 @@ function ProposalHeader({ proposal: p }: { proposal: Proposal }) {
                 <MonoChip>CMF {p.insurer.cmf_code}</MonoChip>
               </>
             ) : null}
-            <StatusBadge value={p.status} label={t(`status.${p.status}`)} />
+            <StatusBadge value={p.status} label={enumLabel(t, PROPOSAL_STATUS_LABEL, p.status)} />
             <Badge variant={p.origin === "native" ? "brand" : "neutral"}>
-              {t(`origin.${p.origin}`)}
+              {enumLabel(t, PROPOSAL_ORIGIN_LABEL, p.origin)}
             </Badge>
             {p.is_confirmed ? (
               <Badge variant="success" className="gap-1">
@@ -248,7 +254,7 @@ function ProposalHeader({ proposal: p }: { proposal: Proposal }) {
                 !canApprove.allowed
                   ? t("decisions.noPermission")
                   : closed
-                    ? t("decisions.alreadyClosed", { status: t(`status.${p.status}`) })
+                    ? t("decisions.alreadyClosed", { status: enumLabel(t, PROPOSAL_STATUS_LABEL, p.status) })
                     : null
               }
             >
@@ -558,7 +564,7 @@ function CoveragesPanel({ proposal: p }: { proposal: Proposal }) {
               <SelectContent>
                 {COVERAGE_KINDS.map((k) => (
                   <SelectItem key={k} value={k}>
-                    {t(`coverageKind.${k}`)}
+                    {enumLabel(t, COVERAGE_KIND_LABEL, k)}
                   </SelectItem>
                 ))}
               </SelectContent>

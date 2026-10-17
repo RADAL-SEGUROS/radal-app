@@ -59,6 +59,7 @@ import {
   differs,
   uf,
 } from "@/pages/proposals/shared";
+import { QUOTE_PRIORITY_LABEL, QUOTE_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const PAGE_SIZE = 100;
 
@@ -147,7 +148,7 @@ export default function QuotesListPage() {
         cell: ({ row }) => (
           <StatusBadge
             value={row.original.priority}
-            label={t(`priority.${row.original.priority}`)}
+            label={enumLabel(t, QUOTE_PRIORITY_LABEL, row.original.priority)}
           />
         ),
       },
@@ -155,7 +156,7 @@ export default function QuotesListPage() {
         accessorKey: "status",
         header: () => t("table.status"),
         cell: ({ row }) => (
-          <StatusBadge value={row.original.status} label={t(`status.${row.original.status}`)} />
+          <StatusBadge value={row.original.status} label={enumLabel(t, QUOTE_STATUS_LABEL, row.original.status)} />
         ),
       },
       {
@@ -247,7 +248,7 @@ export default function QuotesListPage() {
               <SelectItem value="all">{t("filters.allStatuses")}</SelectItem>
               {QUOTE_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {t(`status.${s}`)}
+                  {enumLabel(t, QUOTE_STATUS_LABEL, s)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -448,7 +449,7 @@ function CreateQuoteDialog({
               <SelectContent>
                 {PRIORITIES.map((p) => (
                   <SelectItem key={p} value={p}>
-                    {t(`priority.${p}`)}
+                    {enumLabel(t, QUOTE_PRIORITY_LABEL, p)}
                   </SelectItem>
                 ))}
               </SelectContent>

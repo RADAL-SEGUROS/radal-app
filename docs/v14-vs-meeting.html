@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RADAL · Team v14 spec vs. what Benja understood</title>
+<style>
+  :root{
+    --ink:#14201d; --ink2:#3d4a47; --ink3:#6b7875; --line:#e3e8e6; --paper:#f7f8f7; --bone:#fff;
+    --brand:#2c6e63; --brand-soft:#e3efec;
+    --ok:#1f7a4d; --ok-soft:#e2f3ea;
+    --warn:#9a6300; --warn-soft:#fbf0d9;
+    --bad:#b3261e; --bad-soft:#fbe4e2;
+    --info:#3456a3; --info-soft:#e4eaf7;
+    --muted:#8a9491; --muted-soft:#eef0ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;color:var(--ink);background:var(--paper)}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  h1{font-size:30px;letter-spacing:-.02em;margin:0 0 6px}
+  h2{font-size:21px;letter-spacing:-.01em;margin:48px 0 6px}
+  .sub{color:var(--ink3);margin:0 0 4px}
+  .lead{color:var(--ink2);max-width:820px}
+  .card{background:var(--bone);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .t-ok{background:var(--ok-soft);color:var(--ok)}
+  .t-warn{background:var(--warn-soft);color:var(--warn)}
+  .t-bad{background:var(--bad-soft);color:var(--bad)}
+  .t-info{background:var(--info-soft);color:var(--info)}
+  .t-mut{background:var(--muted-soft);color:var(--ink3)}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 0}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:22px}
+  .kpi{background:var(--bone);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi b{display:block;font-size:28px;letter-spacing:-.02em}
+  .kpi span{font-size:12.5px;color:var(--ink3)}
+
+  /* stage machine */
+  .machine{overflow-x:auto}
+  .mt{border-collapse:separate;border-spacing:4px;min-width:960px;width:100%}
+  .mt th{font-size:11px;font-weight:600;color:var(--ink3);text-align:center;padding:4px 2px;vertical-align:bottom}
+  .mt th.row{text-align:left;font-size:13px;color:var(--ink);width:190px}
+  .mt td{height:30px;border-radius:6px;text-align:center;font-size:10.5px;font-weight:600}
+  .c-in{background:var(--brand);color:#fff}
+  .c-run{background:var(--brand-soft)}
+  .c-om{background:repeating-linear-gradient(45deg,#f1f3f2,#f1f3f2 5px,#e6e9e8 5px,#e6e9e8 10px);color:var(--muted)}
+  .steps td{height:22px;background:var(--ink);color:#fff;font-size:11px}
+  .note{font-size:13px;color:var(--ink2);margin-top:12px}
+  .callout{border-left:4px solid var(--bad);background:var(--bad-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin-top:14px;font-size:14px}
+  .callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+  .callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+
+  /* menus */
+  .menu{background:#fafbfa;border:1px solid var(--line);border-radius:12px;padding:14px}
+  .menu h3{margin:0 0 2px;font-size:15px}
+  .menu .who{font-size:12px;color:var(--ink3);margin-bottom:12px}
+  .mi{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:8px;font-size:13.5px;margin-bottom:4px;background:var(--bone);border:1px solid var(--line)}
+  .mi.sec{background:none;border:none;font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;padding:10px 4px 4px}
+  .mi.add{border-color:var(--ok);box-shadow:inset 3px 0 0 var(--ok)}
+  .mi.gone{opacity:.55;text-decoration:line-through}
+  .mi.clash{border-color:var(--bad);box-shadow:inset 3px 0 0 var(--bad)}
+
+  /* matrix */
+  table.mx{width:100%;border-collapse:collapse;background:var(--bone);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .mx th{background:#fafbfa;text-align:left;font-size:12px;color:var(--ink3);font-weight:600;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .mx td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13.5px}
+  .mx tr:last-child td{border-bottom:none}
+  .mx td.topic{font-weight:600;width:190px}
+  .mx td.st{width:140px}
+  .mx .grp td{background:#f3f5f4;font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;padding:7px 14px}
+  .ref{font-size:11.5px;color:var(--ink3)}
+
+  /* timeline */
+  .lanes{display:grid;grid-template-columns:170px repeat(4,1fr);border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bone)}
+  .lanes > div{padding:10px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);min-height:52px}
+  .lanes .h{background:#fafbfa;font-size:12px;font-weight:700;color:var(--ink3)}
+  .lanes .lbl{font-weight:600;font-size:13px}
+  .chip{display:inline-block;font-size:12px;padding:3px 9px;border-radius:7px;margin:2px 3px 2px 0;background:var(--brand-soft);color:var(--ink)}
+  .chip.you{background:var(--info-soft);color:var(--info);border:1px dashed var(--info)}
+  .chip.bad{background:var(--bad-soft);color:var(--bad)}
+
+  .foot{margin-top:50px;font-size:12.5px;color:var(--ink3)}
+  @media (max-width:900px){.grid2,.grid3,.kpis{grid-template-columns:1fr}.lanes{grid-template-columns:120px repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="sub">RADAL · 29-09-2026 · for Benja</p>
+  <h1>Team spec (v14) vs. what you understood in the meeting</h1>
+  <p class="lead">The left side of every comparison is <b>“RADAL, clic a clic” v14</b> (24-09-2026). The right side is <b>your voice note</b> after the meeting. Where it matters, orange notes and the menu comparison show <b>what dev does today</b>, checked in the code at <code>51ada38</code>.</p>
+
+  <div class="legend">
+    <span class="tag t-ok">Aligned</span>
+    <span class="tag t-warn">Same idea, different timing or emphasis</span>
+    <span class="tag t-bad">Conflict: needs your decision</span>
+    <span class="tag t-info">Only in your idea</span>
+    <span class="tag t-mut">Only in the team doc</span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><b style="color:var(--ok)">6</b><span>aligned</span></div>
+    <div class="kpi"><b style="color:var(--warn)">3</b><span>different timing</span></div>
+    <div class="kpi"><b style="color:var(--bad)">4</b><span>conflicts to decide</span></div>
+    <div class="kpi"><b style="color:var(--info)">4</b><span>only in your idea</span></div>
+    <div class="kpi"><b style="color:var(--ink3)">7</b><span>only in the team doc</span></div>
+  </div>
+
+  <!-- ============ 1. The core idea ============ -->
+  <h2>1 · The core idea is the same: a “partial journey”</h2>
+  <p class="lead">You said: <i>“not everyone starts with antecedentes; some start with policies, some with budget proposals and need the comparison, others do the whole journey… disable the parts they didn’t do.”</i> The team calls this <b>“tres vías, una sola máquina”</b>: one state machine with several entry points, where the stages before the entry are marked <b>omitida</b>.</p>
+
+  <div class="card machine">
+    <table class="mt">
+      <tr>
+        <th class="row">Vía (entry)</th>
+        <th>1<br>Interés</th><th>2<br>Pre-suscr.</th><th>3<br>Bases téc.</th><th>4<br>Envío mercado</th><th>5<br>Cotiz. recibidas</th><th>6<br>Comparación</th><th>7<br>Decisión aseg.</th><th>8<br>Propuesta</th><th>9<br>Ratificación</th><th>10<br>Póliza emitida</th><th>11<br>Espejo</th><th>12<br>Vigente</th>
+      </tr>
+      <tr class="steps"><th class="row" style="color:var(--ink3)">7 steps the broker sees</th>
+        <td colspan="2">Antecedentes</td><td>Bases técnicas</td><td>En mercado</td><td colspan="3">Comparación</td><td colspan="2">Propuesta</td><td colspan="2">Emisión</td><td>Vigente</td></tr>
+      <tr><th class="row">1 · Tradicional<br><span class="ref">risky/complex, from zero</span></th>
+        <td class="c-in">IN</td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td></tr>
+      <tr><th class="row">1 · Renovación a mercado<br><span class="ref">everything inherited</span></th>
+        <td class="c-om">omit</td><td class="c-in">IN</td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td></tr>
+      <tr><th class="row">2b · Digital · comparador<br><span class="ref">“starts with budget proposals”</span></th>
+        <td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-in">IN</td><td class="c-run"></td><td class="c-run"></td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-run"></td><td class="c-run"></td><td class="c-run"></td></tr>
+      <tr><th class="row">2a · Digital · tengo la póliza<br><span class="ref">“starts only with policies”</span></th>
+        <td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-in">IN</td><td class="c-om">omit</td><td class="c-run"></td></tr>
+      <tr><th class="row">3 · Manual<br><span class="ref">no PDF, “Sin respaldo”</span></th>
+        <td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-om">omit</td><td class="c-in">IN</td><td class="c-om">omit</td><td class="c-run"></td></tr>
+    </table>
+    <p class="note"><span class="tag t-ok">Aligned</span>&nbsp; Your “partial journey” <b>is</b> their three vías. The colocación (today “cuenta”) stays the parent of everything: <b>every policy belongs to a colocación, and the vía that registers it creates one if needed</b> (R1). That is your “group account is still the main entity that fathers all of the children.”</p>
+
+    <div class="callout">
+      <b>Conflict · reactivating skipped stages.</b> You said: <i>“disabled options that you can activate in case you want to go through the whole journey.”</i> Their R6 says: <b>“Una etapa omitida no se reabre”</b>. A skipped stage can never be reopened; its documents are just uploaded to the colocación. Decide which one holds.
+    </div>
+    <div class="callout warn">
+      <b>Dev today:</b> none of this exists yet. There is no “omitida” concept, the machine only allows ±1 step plus two fixed skips, and a policy uploaded to a case in <code>lead</code> <b>leaves it in lead</b>. That breaks their R34. Dev also has <b>13</b> stages, not 12: <code>lead</code> and <code>intake</code> are separate.
+    </div>
+  </div>
+
+  <!-- ============ 2. Menu ============ -->
+  <h2>2 · The menu: the biggest visible gap</h2>
+  <p class="lead">You said: <i>“we’re still going to have the groups… analytics is really, really important… the group account doesn’t need to be the main view.”</i></p>
+
+  <div class="grid3">
+    <div class="menu">
+      <h3>Dev today</h3><div class="who">build 51ada38</div>
+      <div class="mi sec">Asegurados</div>
+      <div class="mi">Grupo A · Grupo B · … (≤ 8)</div>
+      <div class="mi">Ver todos · + Nuevo asegurado</div>
+      <div class="mi sec">Menu</div>
+      <div class="mi">Portafolio <span class="ref">9 tabs</span></div>
+      <div class="mi">Analítica</div>
+      <div class="mi">Agente</div>
+      <div class="mi">Compañías y apetito</div>
+      <div class="mi">Configuración</div>
+      <p class="note">Starts at the group list. No global “+ Nuevo”. No bell. Dashboard exists but is hidden and built on the old model.</p>
+    </div>
+
+    <div class="menu">
+      <h3>Team doc (v14)</h3><div class="who">“Pantallas y reglas”</div>
+      <div class="mi sec">Always visible</div>
+      <div class="mi add">+ Nuevo <span class="ref">the only create button</span></div>
+      <div class="mi add">🔔 Campana de alertas</div>
+      <div class="mi sec">Menu</div>
+      <div class="mi add">Dashboard <span class="ref">home</span></div>
+      <div class="mi">Portafolio <span class="ref">8 tabs</span></div>
+      <div class="mi add">Cobranza <span class="ref">own entry, overdue counter</span></div>
+      <div class="mi">Agentes IA</div>
+      <div class="mi add">Cotizadores <span class="tag t-mut">Pronto</span></div>
+      <div class="mi">Configuración <span class="ref">+ Compañías inside</span></div>
+      <div class="mi gone">Group list in sidebar</div>
+      <div class="mi gone">Analítica</div>
+    </div>
+
+    <div class="menu">
+      <h3>Your understanding</h3><div class="who">voice note</div>
+      <div class="mi sec">Menu</div>
+      <div class="mi clash">Groups stay in the sidebar <span class="tag t-bad">≠ doc</span></div>
+      <div class="mi clash">Analytics, “really important” <span class="tag t-bad">≠ doc</span></div>
+      <div class="mi">Portfolio / policies / renewals / insurer profiles as starting points</div>
+      <div class="mi">Cobranza, high priority</div>
+      <div class="mi">Group-account view: <i>one of</i> the views, not the main one</div>
+      <p class="note">You didn’t mention “+ Nuevo”, the bell or Cotizadores. Nothing you said contradicts them.</p>
+    </div>
+  </div>
+
+  <!-- ============ 3. Matrix ============ -->
+  <h2>3 · Topic by topic</h2>
+  <table class="mx">
+    <tr><th>Topic</th><th>Team doc (v14)</th><th>Your understanding</th><th>Status</th></tr>
+
+    <tr class="grp"><td colspan="4">Journey &amp; structure</td></tr>
+    <tr><td class="topic">Partial journeys</td><td>3 vías (Tradicional · Digital 2a/2b/2c · Manual), one machine, earlier stages <i>omitida</i> (R6, R34).</td><td>Some start with policies, some with budget proposals + comparison, some do the whole journey.</td><td class="st"><span class="tag t-ok">Aligned</span></td></tr>
+    <tr><td class="topic">Parent entity</td><td>Colocación (today “cuenta”) is parent of policies, cobranza, endosos, siniestros; Cliente → Vigencia → Colocación.</td><td>“Group account still the main entity which would father all of the children.”</td><td class="st"><span class="tag t-ok">Aligned</span></td></tr>
+    <tr><td class="topic">Journey overview</td><td>7-step bar on the colocación; client folder shows one card per ramo with its step.</td><td>Summary/overview of the journey in the main group view, showing where you are.</td><td class="st"><span class="tag t-ok">Aligned</span></td></tr>
+    <tr><td class="topic">Re-enabling skipped parts</td><td><b>No.</b> An omitted stage is never reopened (R6).</td><td><b>Yes.</b> Disabled options “you can activate” to do the whole journey.</td><td class="st"><span class="tag t-bad">Conflict</span></td></tr>
+    <tr><td class="topic">Where the broker lands</td><td>Dashboard (Cobranza until the dashboard exists).</td><td>Groups, policies, renewals or insurer profiles, depending on the broker.</td><td class="st"><span class="tag t-warn">Different emphasis</span></td></tr>
+
+    <tr class="grp"><td colspan="4">Cobranza &amp; payments</td></tr>
+    <tr><td class="topic">Cobranza priority</td><td>MVP, own menu entry. “Dolor número uno.” A record of plan, payments and gestiones, plus alerts to the ejecutivo.</td><td>High priority from the team.</td><td class="st"><span class="tag t-ok">Aligned</span></td></tr>
+    <tr><td class="topic">Cuotas from policies</td><td>The payment plan is read from the policy PDF (steps 1.15, 2.8); typed by hand in Manual.</td><td>“Cobranza direct process, data extracted from policies.”</td><td class="st"><span class="tag t-ok">Aligned</span><br><span class="ref">Dev reads them today but throws them away.</span></td></tr>
+    <tr><td class="topic">ForPay / payment links</td><td>Launch, as a <b>parallel project</b> (C6, issue 18). MVP only records payments.</td><td>A ForPay workflow creating payment links so users pay insurers directly, tracked for the broker. Felt central.</td><td class="st"><span class="tag t-warn">Different timing</span></td></tr>
+    <tr><td class="topic">Insurers not in ForPay</td><td>Load each insurer’s payment statement (C6) and reconcile manually.</td><td>“We will still need a partial solution” for insurers without a contact yet.</td><td class="st"><span class="tag t-ok">Aligned</span></td></tr>
+
+    <tr class="grp"><td colspan="4">Analytics &amp; visibility</td></tr>
+    <tr><td class="topic">Analytics</td><td><b>No Analítica in the menu.</b> Dashboard of clickable cards, then “Mi mes”. Reportería at launch, may be cut.</td><td>“Analytics is really, really important… track all of the funnel according to the group accounts.”</td><td class="st"><span class="tag t-bad">Conflict</span></td></tr>
+    <tr><td class="topic">Groups in sidebar</td><td>Not in the sidebar. Clients are reached through Portafolio → Clientes.</td><td>“We’re still going to have the groups.”</td><td class="st"><span class="tag t-bad">Conflict</span></td></tr>
+
+    <tr class="grp"><td colspan="4">Communication</td></tr>
+    <tr><td class="topic">Email</td><td>MVP sends <b>nothing</b> outside the corredora (R43). The broker sends every document from their own mail and RADAL only records it (R44). Mail to the contratante comes at launch (C5).</td><td>“We would need to add some mailing capabilities.”</td><td class="st"><span class="tag t-bad">Conflict</span><br><span class="ref">Unless mail is internal only</span></td></tr>
+    <tr><td class="topic">Send on behalf of broker</td><td>Not in the doc. “Enviar desde RADAL llega con las conexiones MCP” (R44).</td><td>“Send mails in representation of the broker and automate a couple of things.”</td><td class="st"><span class="tag t-info">Only yours</span></td></tr>
+    <tr><td class="topic">Sign-on (SSO)</td><td>Not mentioned.</td><td>“Probably a sign-on as well.”</td><td class="st"><span class="tag t-info">Only yours</span></td></tr>
+
+    <tr class="grp"><td colspan="4">Agents &amp; automation</td></tr>
+    <tr><td class="topic">Generic agent vs isolated agents</td><td>“Agentes IA” in the menu. WhatsApp agent in a later phase (issue 20, “no abrir aún”).</td><td>Competitors use isolated agents; we build one generic agent plus automations, but not yet.</td><td class="st"><span class="tag t-warn">Same idea, later</span></td></tr>
+    <tr><td class="topic">RPA into insurer portals</td><td>Only “Cotizadores · Pronto” and “conexiones MCP” in later phases.</td><td>Playwright plus a proxy to automate portal quoting and lead/plan search, offered as a service. “Superior to the competitor.”</td><td class="st"><span class="tag t-info">Only yours</span></td></tr>
+    <tr><td class="topic">Lead search agents</td><td>Not in the doc.</td><td>A competitor automates lead search; we could too.</td><td class="st"><span class="tag t-info">Only yours</span></td></tr>
+
+    <tr class="grp"><td colspan="4">In the doc, not in your note (all important)</td></tr>
+    <tr><td class="topic">R33 · no shared insured</td><td>No broker ever sees another broker’s data, even for the same RUT (Ley 21.719).</td><td>—</td><td class="st"><span class="tag t-mut">Only doc</span><br><span class="ref">Dev leaks today, verified.</span></td></tr>
+    <tr><td class="topic">Closed ramo catalog</td><td>18 ramos and 53 subtipos, common to all brokers. The subtipo suggests the vía (portal/mercado). Brokers create <i>Plantillas</i>, not ramos.</td><td>—</td><td class="st"><span class="tag t-mut">Only doc</span></td></tr>
+    <tr><td class="topic">+ Nuevo</td><td>One create button in 3 steps: what (vía) → for whom (RUT) → continue.</td><td>—</td><td class="st"><span class="tag t-mut">Only doc</span></td></tr>
+    <tr><td class="topic">Two roles</td><td>Administrador and Ejecutivo only.</td><td>—</td><td class="st"><span class="tag t-mut">Only doc</span><br><span class="ref">Dev has 7 broker roles.</span></td></tr>
+    <tr><td class="topic">Espejo never blocks</td><td>Differences are stored and resolved with a reason or an endorsement. The colocación goes to Vigente anyway (R42).</td><td>—</td><td class="st"><span class="tag t-mut">Only doc</span></td></tr>
+    <tr><td class="topic">Endosos, 9 types by object</td><td>Multiple movements per endorsement, with before/after.</td><td>—</td><td class="st"><span class="tag t-mut">Only doc</span></td></tr>
+    <tr><td class="topic">Renewals 90/60/30</td><td>Automatic entry at 90 days; Renovar opens the three vías, everything inherited.</td><td>Mentioned renovations as a starting point only.</td><td class="st"><span class="tag t-mut">Mostly doc</span></td></tr>
+  </table>
+
+  <!-- ============ 4. Timeline ============ -->
+  <h2>4 · When things happen</h2>
+  <p class="lead">Solid chips are where the <b>team doc</b> puts each item. Dashed blue chips are where <b>your note</b> implied it, when that differs.</p>
+  <div class="lanes">
+    <div class="h"></div><div class="h">P0 · Structure</div><div class="h">P1 · MVP</div><div class="h">P3 · Launch</div><div class="h">Later</div>
+
+    <div class="lbl">Journey</div>
+    <div><span class="chip">omitida + entry points</span><span class="chip">ramo catalog</span></div>
+    <div><span class="chip">3 vías</span><span class="chip">+ Nuevo</span><span class="chip">Espejo</span></div>
+    <div></div>
+    <div><span class="chip">2c · prepare before portal</span></div>
+
+    <div class="lbl">Cobranza</div>
+    <div><span class="chip">tables + cadence</span></div>
+    <div><span class="chip">record + alerts</span><span class="chip">cuotas from policy</span></div>
+    <div><span class="chip">ForPay / Fintoc</span><span class="chip">client notices</span><span class="chip">C6 reconcile</span></div>
+    <div><span class="chip you">ForPay central</span></div>
+
+    <div class="lbl">Analytics</div>
+    <div></div>
+    <div><span class="chip">Dashboard cards</span><span class="chip you">funnel per colocación</span></div>
+    <div><span class="chip">Reportería (may be cut)</span></div>
+    <div></div>
+
+    <div class="lbl">Communication</div>
+    <div></div>
+    <div><span class="chip">in-app bell only</span><span class="chip you">mailing</span></div>
+    <div><span class="chip">mail/WhatsApp to contratante</span><span class="chip you">SSO</span></div>
+    <div><span class="chip">MCP sending</span><span class="chip you">mail on behalf of broker</span></div>
+
+    <div class="lbl">Agents</div>
+    <div></div>
+    <div></div>
+    <div></div>
+    <div><span class="chip">MCP</span><span class="chip">WhatsApp agent</span><span class="chip">Cotizadores</span><span class="chip you">Playwright RPA</span><span class="chip you">lead-search agent</span><span class="chip you">generic agent</span></div>
+
+    <div class="lbl" style="border-bottom:none">Compliance</div>
+    <div style="border-bottom:none"><span class="chip bad">R33: stop the insured leak</span></div>
+    <div style="border-bottom:none"></div>
+    <div style="border-bottom:none"></div>
+    <div style="border-bottom:none"></div>
+  </div>
+
+  <!-- ============ 5. Decisions ============ -->
+  <h2>5 · What to take back to the team</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">Conflicts to settle</h3>
+      <ol style="padding-left:18px;margin:0">
+        <li><b>Reopen skipped stages?</b> Your “activate the disabled parts” vs their R6 “an omitted stage never reopens”.</li>
+        <li><b>Analítica stays in the menu</b>, with the funnel per colocación, or is folded into Dashboard.</li>
+        <li><b>Groups in the sidebar</b>: keep a recent-clients list, or not.</li>
+        <li><b>Mail in the MVP</b>: internal to the ejecutivo only (compatible with R43), or nothing.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Your ideas to add to their roadmap</h3>
+      <ul style="padding-left:18px;margin:0">
+        <li>SSO (Google/Microsoft) at launch.</li>
+        <li>Mail on behalf of the broker: needs per-broker domain setup, so it’s its own project.</li>
+        <li>Portal RPA (Playwright + proxy) and lead-search agents in the “Later” phase, after the machine exists. Settle credential custody and each insurer’s portal terms first.</li>
+        <li>One generic agent instead of many isolated ones: an architecture principle for the “Agentes IA” item.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout ok" style="margin-top:18px">
+    <b>Bottom line:</b> you and the team understood the same product. The core (partial journeys, the colocación as parent, cobranza first, policies feeding cobranza) is <b>fully aligned</b>. The differences are about the <b>menu</b> (Analítica, groups), <b>timing</b> (ForPay, agents, mail) and one rule (<b>reopening skipped stages</b>). Nothing here requires redesigning their document.
+  </div>
+
+  <p class="foot">Sources: “RADAL · Clic a clic” v14 (24-09-2026), catalogo_ramos.csv, your voice note (29-09), dev code at 51ada38. Full plan with estimates: docs/plan-v12-tres-vias.md.</p>
+</div>
+</body>
+</html>

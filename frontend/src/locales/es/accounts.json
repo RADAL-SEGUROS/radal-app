@@ -326,60 +326,23 @@
     "removeClient": "Quitar RUT de la cuenta",
     "create": {
       "title": "Nueva cuenta",
-      "subtitle": "Una cuenta es un ramo en una vigencia. Elige las fechas y los ramos.",
+      "subtitle": "Una cuenta es un ramo en una vigencia. Elige las fechas, los RUT y, por cada ramo, su subtipo y su vía.",
       "periodStart": "Inicio de vigencia",
       "periodEnd": "Término de vigencia",
-      "lines": "Ramos",
-      "linesHint": "Se crea una carpeta por ramo.",
-      "clients": "RUT de la cuenta",
-      "submit": "Crear las cuentas",
-      "success": "{{count}} cuentas creadas",
       "error": "No pudimos crear la cuenta",
       "results": "Cuentas creadas",
       "datesInvalid": "El término de la vigencia debe ser posterior al inicio.",
       "noExtraMembers": "El asegurado sólo tiene este RUT.",
-      "noLines": "La corredora todavía no tiene ramos activos.",
-      "linesRequired": "Elige al menos un ramo.",
-      "willCreate_one": "Se creará {{count}} carpeta, una por ramo.",
-      "willCreate_other": "Se crearán {{count}} carpetas, una por ramo.",
-      "ramos": "Ramos",
-      "ramosHint": "Se abre una carpeta por ramo, con su plantilla de Bases Técnicas ya asignada.",
-      "noRamos": "Todavía no hay ramos disponibles. Crea uno o adopta una plantilla recomendada.",
-      "ramosRequired": "Elige al menos un ramo.",
-      "ramoTemplate": "Plantilla",
-      "ramoCreate": "Crear ramo",
-      "ramoCreateTitle": "Nuevo ramo",
-      "ramoCreateHint": "Crea un ramo con los archivos que recomiendas reunir y asígnalo a la cuenta.",
-      "ramoName": "Nombre del ramo",
-      "ramoNamePlaceholder": "Incendio y Sismo",
-      "ramoLine": "Categoría de ramo",
-      "ramoLinePlaceholder": "Elige una categoría",
-      "ramoNoLines": "No hay categorías de ramo disponibles todavía.",
-      "ramoNeedName": "Ponle un nombre al ramo.",
-      "ramoNeedLine": "Elige una categoría de ramo.",
-      "ramoCreated": "Ramo creado",
-      "ramoNoCreatePermission": "Tu rol no permite crear ramos; puedes adoptar una plantilla existente.",
-      "ramoAssignFailed": "La cuenta se creó, pero no pudimos asignar el ramo.",
-      "ramo": "Ramo",
-      "ramoHint": "Elige el ramo de la cuenta. Se abre una carpeta con su plantilla de Bases Técnicas ya asignada.",
-      "ramoPlaceholder": "Elige un ramo",
-      "ramoFileCount_one": "· {{count}} archivo recomendado",
-      "ramoFileCount_other": "· {{count}} archivos recomendados",
-      "ramoRequired": "Elige un ramo.",
-      "ramoLineOptional": "Categoría de ramo (opcional)",
-      "ramoFiles": "Archivos recomendados",
-      "ramoFilesHint": "Los documentos que se sugerirán al reunir los antecedentes.",
-      "ramoAddFile": "Agregar archivo",
-      "ramoFileLabel": "Nombre del archivo",
-      "ramoFileType": "Tipo de documento",
-      "ramoFileRequired": "Obligatorio",
-      "ramoFileDescription": "Descripción o contexto (opcional)",
-      "ramoFormat": {
-        "pdf": "PDF",
-        "word": "Word",
-        "pdf/word": "PDF o Word",
-        "image": "Imagen"
-      }
+      "ramo": "Ramos y subtipos",
+      "ramoHint": "Se abre una cuenta por ramo en esta vigencia. El ramo y el subtipo salen del catálogo de Radal.",
+      "ramoRequired": "Elige el ramo y el subtipo de cada fila.",
+      "ramoDuplicate": "Este ramo ya está en el formulario: se abre una sola cuenta por ramo y vigencia.",
+      "rowTitle": "Ramo {{n}}",
+      "addRamo": "Agregar otro ramo",
+      "removeRamo": "Quitar este ramo",
+      "openExisting": "Ver esa cuenta",
+      "submit_one": "Crear la cuenta",
+      "submit_other": "Crear las {{count}} cuentas"
     },
     "noCreatePermission": "No tienes permiso para crear cuentas.",
     "openCase": "Ver expediente completo",
@@ -418,7 +381,9 @@
       "description": "El comparador incremental de las ofertas recibidas para esta cuenta.",
       "hint": "Sube cada cotización y compáralas lado a lado antes de emitir la propuesta.",
       "open": "Abrir comparador",
-      "noPermission": "No tienes permiso para ver la comparación."
+      "noPermission": "No tienes permiso para ver la comparación.",
+      "portalSearch": "Cotizar en portales",
+      "portalSearchNoPermission": "No tienes permiso para cotizar en portales."
     },
     "policies": {
       "noCreatePermission": "No tienes permiso para registrar pólizas."
@@ -433,7 +398,7 @@
       "upload": "Subir",
       "uploadOther": "Otro archivo",
       "noRecommended": "Este ramo no tiene archivos recomendados",
-      "noRecommendedHint": "Sube los antecedentes con «Otro archivo» o edita el ramo.",
+      "noRecommendedHint": "Sube los antecedentes con «Otro archivo»: el catálogo de ramos no trae archivos recomendados para este.",
       "otherTitle": "Otros archivos",
       "otherHint": "Documentos que no corresponden a un archivo recomendado.",
       "otherEmpty": "Sin otros archivos.",
@@ -503,7 +468,28 @@
     "notes": {
       "internal": "Nota interna",
       "shared": "Nota"
-    }
+    },
+    "actions": {
+      "created": "Cuenta creada",
+      "updated": "Cuenta actualizada",
+      "transitioned": "Cambio de etapa",
+      "skipped_to": "Salto de etapa",
+      "stage_activated": "Etapa activada",
+      "versioned": "Nueva versión",
+      "renewed": "Renovación abierta",
+      "reperiod": "Cambio de vigencia",
+      "deleted": "Cuenta eliminada",
+      "pack_generated": "Paquete generado",
+      "pack_summary_confirmed": "Resumen del paquete confirmado",
+      "extraction_committed": "Extracción confirmada",
+      "note_created": "Nota agregada",
+      "policy_created": "Póliza registrada",
+      "policy_completed": "Póliza completada",
+      "policy_corrected": "Póliza corregida",
+      "other": "Movimiento registrado"
+    },
+    "skippedCollapsed_one": "{{count}} etapa omitida",
+    "skippedCollapsed_other": "{{count}} etapas omitidas"
   },
   "errors": {
     "period_locked": "La vigencia es una carpeta: para cambiar las fechas abre una vigencia nueva.",
@@ -563,7 +549,7 @@
       "antecedentes_unregistered": "El expediente de antecedentes está en borrador, falta registrarlo.",
       "proposals_unconfirmed": "Hay cotizaciones sin confirmar (sugerir → confirmar → registrar).",
       "comparison_unaligned": "La comparación tiene columnas sin alinear.",
-      "propuesta_missing": "La cuenta está en decisión pero no tiene una propuesta emitida.",
+      "propuesta_missing": "La cuenta está en decisión del asegurado y aún no tiene una propuesta.",
       "stage_blocked": "Faltan requisitos para avanzar a la siguiente etapa (por ejemplo, las bases técnicas). Revisa la Ruta para ver el detalle."
     },
     "severity": {
@@ -641,5 +627,50 @@
       "broker_proposal": "la propuesta",
       "proposal": "la cotización adjudicada"
     }
+  },
+  "journey": {
+    "skipped": "omitida",
+    "skippedHint": "Etapa omitida: la cuenta entró en una etapa posterior. Sus documentos se suben igual a la cuenta.",
+    "skipTo": "Saltar a…",
+    "skipNeedsPolicy": "Para saltar a la emisión o a vigente la colocación necesita una póliza: súbela o regístrala a mano.",
+    "activate": "Activar etapa",
+    "activateHasPolicy": "Ya tiene póliza: los cambios se hacen por endoso o corrección",
+    "noEditPermission": "No tienes permiso para mover el viaje de esta cuenta.",
+    "skipDialog": {
+      "title": "Saltar a {{stage}}",
+      "description": "Las etapas intermedias que no se hicieron quedan como omitidas, con el sistema como autor. Se pueden reactivar mientras la cuenta no tenga póliza.",
+      "willSkip": "Quedarán omitidas",
+      "noneSkipped": "No se omite ninguna etapa: todas las intermedias ya se hicieron.",
+      "note": "Motivo (opcional)",
+      "notePlaceholder": "Ej.: el asegurado ya cotizó en el portal",
+      "confirm": "Saltar",
+      "success": "Cuenta movida a {{stage}}"
+    },
+    "activateDialog": {
+      "title": "Activar {{stage}}",
+      "description": "La cuenta vuelve a esta etapa para hacerla ahora. Lo ya hecho queda en la bitácora.",
+      "confirm": "Activar etapa",
+      "success": "Etapa activada: {{stage}}"
+    },
+    "partial": "parcial",
+    "partialHint": "Etapa omitida dentro de esta fase: {{stages}}."
+  },
+  "hiddenTabs": {
+    "show_one": "Ver etapa omitida ({{count}})",
+    "show_other": "Ver etapas omitidas ({{count}})",
+    "hide": "Ocultar etapas omitidas",
+    "skippedMark": "omitida"
+  },
+  "viewer": {
+    "subtype": "Subtipo",
+    "policiesTitle": "Pólizas de la cuenta",
+    "policiesEmpty": "Esta cuenta todavía no tiene pólizas.",
+    "policiesEmptyHint": "Cuando la compañía emita, sube la póliza o regístrala a mano en la pestaña Pólizas.",
+    "openPolicies": "Ir a Pólizas",
+    "filesTitle": "Archivos de la cuenta",
+    "filesCount_one": "{{count}} archivo",
+    "filesCount_other": "{{count}} archivos",
+    "openFiles": "Ver antecedentes",
+    "cardNoPolicies": "Sin pólizas todavía"
   }
 }

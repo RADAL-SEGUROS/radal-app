@@ -48,7 +48,8 @@ of orientation and current state, nothing more.** When a pass adds detail, it go
 | 15 | [v4 — Agent & Porcelana UI](#15-v4--agent--porcelana-ui-as-built) | the tool-using agent and the current UI direction |
 | 16 | [v5·v6·v7 — Signal UI · Antecedentes → Bases Técnicas · broker Lines](#16-v5--v6--v7--signal-ui-antecedentes--bases-técnicas-broker-defined-lines-as-built) | the UI direction, the expediente/bases-técnicas builder, and broker-defined lines |
 | 17 | [v10 — Datos/Analítica, expediente completo, scope & exports](#17-v10--datosanalítica-el-expediente-completo-filtros-y-exportes-as-built) | the two analysis destinations, the account super-overview, the shared filter vocabulary and the export layer |
-| 18 | [v11 — Portafolio & Asegurados](#18-v11--portafolio--asegurados-as-built) | **the latest arc** — the broker-vocabulary rename and the nine-tab Portafolio, driven by team-filed issues #1 and #2 |
+| 18 | [v11 — Portafolio & Asegurados](#18-v11--portafolio--asegurados-as-built) | the broker-vocabulary rename and the nine-tab Portafolio, driven by team-filed issues #1 and #2 |
+| 19 | [v12 — policies first, three-level cobranza, Forpay, mail, share links, RPA, agent skills](#19-v12--policies-first-three-level-cobranza-forpay-mail-share-links-rpa-agent-skills) | **the latest arc (built, not deployed)** — data model + endpoint delta, RBAC, jobs runbook, webhook security, mail, share links, RPA (and how to fix a connector), agent skills, migration/deploy runbook, settings, traps |
 
 **Current state (verified 2026-09-14):** **757 backend tests passing in ~155 s** · `npx tsc -b
 --noEmit`, `npm run build` and `npm run check:locales` (**22 namespaces, 3 719 keys per locale**)
@@ -61,6 +62,13 @@ Antecedentes → Bases Técnicas · broker-defined Lines (§16)**, v8/v9 broker-
 tool-calling AI + expedient PDFs, **v10 Datos/Analítica · expediente completo · scope & exports (§17)**, and **v11 Portafolio &
 Asegurados — the first issue-driven pass (§18)**. The short "what changed + candid error log" companions are
 `docs/handoff-2026-09-09-v9.md` and `docs/handoff-2026-09-10-v10.md`.
+
+> **v12 (2026-10-17) is built but NOT committed, deployed or migrated** — branch
+> `feat/v12-policies-cobranza`: **1 404 backend tests**, 77 tables, 339 API operations, `tsc -b` /
+> `check:locales` (**30 namespaces, 5 839 keys per locale**) / `build` clean. It adds 27 tables and
+> 28 columns, so it **needs `migrate_case_files --pass v12` + `seed_v12` before the push**. Everything
+> about it is in **§19**; the infra it needs (egress, webhook ingress, schedules) is scripted, dry-run
+> only, in `deploy/v12/`.
 
 ---
 
@@ -195,6 +203,12 @@ Learned from the team's real documents; do not "simplify" these away.
   the official 44-row FECU/CMF taxonomy; `insurance_line` is the broker's operating catalogue.
 - Policy dates use a **contractual noon convention**; event dates (claims) do not — never fabricate
   an hourly franchise by defaulting one to the other.
+- **Contractual datetimes are offset-less America/Santiago wall-clock** (decision 2026-10-17):
+  `policy.period_start_at`/`period_end_at`, `endorsement.effective_at`/`ends_at`, the cobranza
+  `terminated_at`/`rehabilitated_at` and `claim.occurred_at` go through `WallClockDatetime`
+  (`app/schemas/wallclock.py`) — naive kept, aware converted to Santiago and stripped — and the
+  frontend sends `datetime-local` values as typed (`src/lib/wallclock.ts::toWallClock`), never
+  `toISOString()`. Event timestamps (`created_at`, `reported_at`, …) stay tz-aware UTC (`UtcDatetime`).
 - Warranty codes (`R-n`/`G-n`/`M-n`) thread inspection → policy → cobranza → denuncio → liquidación
   → endoso. That thread is the causality story a broker uses to defend a claim.
 - **Vigencia is a label over per-account full dates, not a shared date range.** The corpus proves
@@ -2195,7 +2209,8 @@ write endpoints; they are produced by `record_activity` from every other router.
 is never matched by name"*). `_apply_money` merges the patch over the current row and validates
 the **post-write** state through the same `reconcile_money` the proposals router uses
 (tolerance 0.02) → 422 with the error list. `_sync_period` fills `start_date`/`end_date` from
-`period_start_at`/`period_end_at` and back, using the Chilean **noon convention** (`12:00`).
+`period_start_at`/`period_end_at` and back, using the Chilean **noon convention** (`12:00`,
+offset-less wall-clock; an aware value is converted to America/Santiago first).
 
 `from-proposal` copies the money block, cover mode, dates, commission, rate, deductibles and
 every coverage line verbatim from the proposal (and client/asset/placement/line from the
@@ -3103,6 +3118,40 @@ pre-confirmed, so `GET /policies/{id}/mirror-diff` renders without ever calling 
 > entry states what was added, what changed in existing behaviour, and the verified state at the
 > end of the pass — with the commands and the numbers, so the next reader can re-run them.
 
+### 2026-10-17 — v12 · policies first, three-level cobranza, Forpay, mail, share links, RPA, agent skills
+
+Built as an orchestrated multi-lane pass against the contract in `docs/v12/` (`10-phase1-as-built.md`
+is the as-built record and wins over 01–09). **Not committed, not deployed, dev RDS not migrated, no
+AWS resource created.** Full reference: **§19**.
+
+**Added.** Policies as the home (`/policies`, manual entry, parties, "Falta"/operability, colocación on
+demand) and partial journeys (`skip-to`, `activate-stage`, skipped stage events) · the closed ramo
+catalogue (18 ramos × 54 subtipos, `/catalog/*`; broker ramo writes locked) · cobranza per cuota in
+three levels (`record`/`assisted`/`native`) with a `payment` ledger, evidence levels, reversals,
+promises, the daily clock and the bell (`notification`) · Forpay (provider accounts, channels,
+checkout intents, the generic signed webhook, reconciliation and payouts) with a platform
+**Mantenedor** console · mail (Zoho system box, broker custom SMTP/IMAP with an SSRF guard, payer
+reminders, status inquiries to insurers, privacy-first inbound classification → evidence a human
+confirms) · public share links (insured / insurer audiences, WhatsApp-ready) · HDI portal-search RPA
+on a JSON step map · 26 agent tools + 6 skills · nine scheduled jobs with an idempotent runner and
+three doors (CLI, `/internal/jobs`, `/events`) · `deploy/v12/` (fck-nat, webhook ingress, schedules —
+`DRY_RUN=1` default, never run).
+
+**Changed.** `/` redirects to `/policies`; executives (and commercials) gain Collections
+Create/Edit/Submit; three new RBAC modules (`Mail`, `Integrations`, `Platform`); legacy
+`/collections/{plan_id}` routes take `{plan_id:int}`; a legacy `paid_on` write becomes a payment;
+`collection_installment.status` is a cache; `POST /policies` is two-mode; `POST /policies/upload`
+commits the extracted cuotas.
+
+**Schema.** 27 new tables, 28 additive columns on 7 tables, no widening, no by-hand DDL →
+`scripts/migrate_case_files.py --pass v12` then `scripts/seed_v12.py --apply` (§19.12).
+
+**Verified.** `MEDIA_BACKEND=local .venv/bin/python -m pytest tests -q -p no:cacheprovider` → **1 404
+passed** (~4.5 min); `npx tsc -b --noEmit && node scripts/check-locales.mjs && npm run build` → clean,
+**30 namespaces, 5 839 keys per locale**. Live smoke at 1440/375 px (/policies, /collections, a logged-out share link, /platform) passed on a
+fresh demo DB — not the full QA walk. Not done: any AWS step, real Forpay/HDI credentials. The egress question (`docs/deployment.md` says "no NAT") is open —
+`deploy/v12/README.md` §0.
+
 ### 2026-09-14 — v11 · Portafolio & Asegurados (issues #1, #2)
 
 The first pass driven by **team-filed GitHub issues** rather than a spec. Both came from the same
@@ -3479,6 +3528,10 @@ branch `dev`, plus a fix round. Authoritative as-built detail: `docs/v2-case-fil
 Consolidated from `docs/v2-case-files-as-built.md` §3 and re-verified against the tree.
 Ordered by what will hurt soonest.
 
+> **v12 traps are in §19.14** — unverified Lambda egress, `PUBLIC_API_URL` before the first Forpay
+> mandate, `CREDENTIALS_KEY` as a one-way door, the `{plan_id:int}` converter, the cuota status cache,
+> `entry_origin` vs `origin`, sticky notification dismissals, and the internet-reachable job door.
+>
 > **v10 traps are in §17.4** — the axios `paramsSerializer` (a filter that silently did not apply),
 > `expose_headers` on CORS (a silently-lost export filename), the server-driven dimension catalog,
 > `PageHeader embedded`, and `ScopeFilterPayload`'s `extra="forbid"`.
@@ -4363,3 +4416,631 @@ del viaje se crea ese dato, y cómo sabe la aplicación a qué cuenta pertenece?
 - The repeated `stage` param checked **on the wire** through the real `@/lib/api` instance:
   `…&kind=account&stage=quotes_received&stage=comparison&…` — bare repeated keys, so the
   `paramsSerializer` trap (§12) is not biting.
+
+---
+
+## 19. v12 — policies first, three-level cobranza, Forpay, mail, share links, RPA, agent skills
+
+**Read this before touching anything that moves money, sends mail or runs on a schedule.** v12 is
+the largest pass since the v2 rebuild: 27 new tables, 28 new columns, 93 new API operations, nine
+scheduled jobs, two new external doors (a public webhook and public share links) and the first code
+that opens sockets to third parties other than DeepInfra and S3.
+
+**Status (2026-10-17).** Built on branch `feat/v12-policies-cobranza` (off `dev` @ `51ada38`),
+**uncommitted, not deployed, dev RDS not migrated, no AWS resource created.** The contract the build
+followed is `docs/v12/` — `00-orchestration.md` (product decisions, lanes), `01-data-model.md`
+(schema), `02-backend-api.md` (endpoints, with inline **As built** notes), the topic files `03`–`09`,
+and **`10-phase1-as-built.md`, which wins wherever it and 01–09 disagree** (it describes the code).
+`docs/v12/api_lookup.py` queries the frozen OpenAPI (`openapi-v12.json`) without reading 1.3 MB of
+JSON. The infra scripts are in `deploy/v12/` (README there; nothing applied).
+
+### 19.1 What the product owner decided (and the code now assumes)
+
+1. **Policies are the home** (`/` → `/policies`). Journeys are *partial*: a broker may start from a
+   policy PDF, from portal quotes, or from the full market process. The account (`case_file(kind=account)`)
+   becomes a viewer that shows only the stages that actually happened; skipped stages are recorded,
+   not faked.
+2. **Closed ramo catalogue.** 18 ramos × 54 subtipos are global Radal data; brokers can no longer
+   create ramos (`/line-record-schemas` writes → 403 for broker users).
+3. **Cobranza in three levels per cuota** — `record` (registro), `assisted` (asistida: Radal reminds
+   the payer and asks the insurer), `native` (Forpay checkout). Assisted is **always** available, for
+   any insurer, at any time; when an insurer goes native its open cuotas upgrade automatically. The
+   broker never sees an insurer's onboarding status or ETA.
+4. **Forpay is configured per insurer by RADAL** (Mantenedor console, platform users) with per-broker
+   overrides (contact e-mail, instructions, native opt-out).
+5. **One generic webhook** for every provider account, authenticated by query params + HMAC.
+6. **No comprobante matching** (payments land in the insurer's account, not the broker's). Instead:
+   mail that **asks the insurer** (status inquiries), inbound classification, and public share links —
+   every result is a *suggestion* a human confirms.
+7. Brokers are the only logged-in users; insurers and insureds answer through **public share links**
+   (WhatsApp-ready). No new viewer roles.
+8. Radal's own mail = Zoho `contacto@radalseguros.cl` over `smtplib`/`imaplib`; brokers may connect a
+   custom SMTP/IMAP server. **Google/Microsoft OAuth are visibly disabled "pronto"**, not built.
+9. The agent gains policy/cobranza/RPA tools and **skills** (on-demand instruction packs).
+10. **RPA**: Playwright, **HDI only**, as a showcase — a framework whose portal map is JSON.
+11. **WhatsApp**: an enum value and a disabled chip; nothing is sent.
+12. **Deployment**: NAT (cheapest first) — documented and scripted, not applied.
+13. Responsive web app; no native mobile app.
+
+Out of scope and still owed: per-broker `insured` (the R33 leak), OAuth mail, WhatsApp sending,
+comprobante matching, deleting legacy tables/routes.
+
+### 19.2 Data model delta
+
+`[ws]` = workspace (`broker_id` NOT NULL, indexed, CASCADE; every query filters it; another tenant's
+row is a 404). `[pl]` = platform (no `broker_id`; never listed through a broker endpoint). All 27
+tables live in 12 new model files, are registered in `app/models/__init__.py` / `app/db/base.py`,
+and every v12 enum is in `app/models/enums.py` (`V12_ENUMS`). **77 tables** (was 50).
+
+| area | table | scope | what it is |
+|---|---|---|---|
+| catalogue | `insurance_subtype` | pl | the 54 subtipos (`code` unique, e.g. `PRO-02`), `suggested_entry` (market/portal), `suggested_route` (traditional/digital/manual), `cmf_codes` JSON |
+| policy | `policy_party` | ws | who is who on a policy: `insured · policyholder · payer · beneficiary · additional_insured`, contact, `notify_collections` |
+| cobranza | `payment` | ws | one row per payment on a cuota: amount + currency (UF/USD/CLP) + `uf_rate`, normalised `amount_uf`, `source`, `evidence_level`, `status active/reversed` (never deleted), receipt, provider charge (unique) |
+| | `collection_settings` | ws | one per broker (lazy): cadence `[-15,-5,0,3,10]`, tolerances, master `notices_enabled` + approval, `default_sender`, `native_collection_enabled`, `auto_status_inquiries`, `inquiry_after_days` |
+| | `notice_template` | ws | broker overrides of the Spanish defaults in `app/db/seed_assets/notice_templates_es.json` |
+| | `collection_notice` | ws | one row per outbound reminder; `uq_collection_notice_once (installment_id, kind, cadence_level, channel)` |
+| | `notification` | ws | the bell: `tray todo/fyi`, 14 `kind`s, `level`, `(origin_type, origin_id)`, `status new/seen/closed`. **At most one non-closed row per (user, origin)** — enforced in `services/notifications.py`, not by a constraint |
+| platform ops | `job_run` | pl | one row per `(job, scheduled_for)` slot (unique) |
+| | `currency_rate` | pl | UF / USD observed per `rate_date` (unique) |
+| Forpay | `insurer_collection_profile` | pl | per insurer: onboarding status (internal), payment instructions JSON, `collections_email`, `sender_domains` |
+| | `broker_insurer_collection` | ws | broker override per insurer (contact, instructions field by field, `native_enabled`) |
+| | `provider_account` | pl | one Forpay credential set: env, base URL, headers, **`secret_ciphertext`** (api_key, password, hmac_key, public_key_pem…), `webhook_key` (public, unique) + **`webhook_secret_ciphertext`** |
+| | `insurer_payment_channel` | pl | `(insurer, channel)` unique: webpay/oneclick/bank_transfer/direct_debit, status, store code |
+| | `payment_intent` / `payment_intent_item` | ws | one checkout = one Forpay ONEPAY mandate; items carry `external_installment_id` (unique) |
+| | `provider_charge` | ws | one per Forpay installment we learn about; unique `(provider_account_id, provider_installment_id)` |
+| | `provider_payout` | pl | dispersions; unique `(provider_account_id, dispersion_id)` |
+| | `provider_event` | pl | the webhook inbox; unique `(provider, dedup_key)`, `signature_valid`, `processing_status`, plain `broker_id` (resolved, no FK) |
+| | `payment_mandate` | ws | PAC / Oneclick recurring (DYNAMIC mandate) |
+| mail | `mail_account` | ws, **`broker_id` nullable** | NULL = the Radal system box (IMAP cursor only); custom SMTP/IMAP with encrypted password, `sync_cursor`, status |
+| | `mail_message` | ws, **`broker_id` nullable** | outbound log (full body) and inbound rows (body only when classified as related); unique `(mail_account_id, provider_uid)` |
+| | `status_inquiry` | ws | "¿está pagada la cuota…?" to an insurer; `token` `INQ-XXXXXX` (unique), cuotas, share link |
+| | `payment_evidence` | ws | a *suggestion* that a cuota changed (`suggested → needs_review → confirmed/rejected/superseded`), source, reported status/amount, score + reasons |
+| share | `share_link` | ws | public token (`token_urlsafe(24)`, unique), entity, audience, permissions, expiry/revocation, view count |
+| RPA | `portal_credential` | ws | per `(broker, portal)` login, encrypted |
+| | `portal_search_run` / `portal_quote` | ws | a queued/executed portal search, its sanitised step log, error kind, screenshot document, connector version; parsed quotes |
+
+**Columns added to existing tables** (all nullable or `server_default` — the migration's contract):
+
+| table | added |
+|---|---|
+| `insurance_line` | `code` (global rows only), `sort_order` |
+| `case_file` | `insurance_subtype_id`, **`entry_origin`** (`CaseEntryOrigin{full_journey, quote_comparison, policy_upload, manual_entry, portal_rpa, migration}`), `route` (`PlacementRoute`) |
+| `case_file_stage_event` | `is_skipped` |
+| `policy` | `insurance_subtype_id`, `origin` (`PolicyOrigin{reader, manual, journey, portal_rpa, migration}`), `has_source_document`, `is_provisional`, `currency` (UF/USD), `payment_method`, `terminated_on`, `termination_reason` |
+| `collection_plan` | `origin`, `source` (reader/manual), `source_document_id`, `mandate_id` (`fk_collection_plan_mandate`, use_alter), `level_preference` (auto/assisted/record), `notices_enabled`, `notices_paused_until`, `notices_pause_reason` |
+| `collection_installment` | `currency`, `direct_debit_rejected_at`, `voided_by_endorsement_id`, `insurer_notice_sent_on` (Art. 528), `promise_until` |
+| `agent_thread` | `active_skills` |
+
+Existing enums grew without widening any column (`EntityType` + 8 values, longest still 18;
+`DocumentCategory` + 6, longest still 25), so `V12_WIDENED_COLUMNS` is empty. `MailMessageStatus`
+has `skipped` (sends while `MAIL_ENABLED=false`).
+
+**Two invariants worth knowing before you query:**
+
+- `collection_installment.status` is now a **cache** written by `services/collection/status.py`
+  (`refresh_installment_cache`) on every payment write and by the daily clock. The truth is
+  `compute_installment_state(inst, payments, today=…)` → `voided → paid → promised →
+  termination_risk → overdue → due_today → upcoming` plus flags (`partial`, `direct_debit_rejected`,
+  `unconfirmed`, `no_receipt`). A cuota with **no payment rows** whose cached status is paid is read as
+  a *legacy* paid cuota (so the clock never erases pre-v12 data); one payment row and the payments alone
+  decide.
+- **`case_file.entry_origin` ≠ `case_file.origin`.** The team's *origen* could not use `origin`,
+  which already is the v3 `new/renewal/period_change` axis (NOT NULL, used by renewals). Write
+  `entry_origin`; create on-demand folders with `origin=new`.
+
+### 19.3 Endpoints
+
+**339 operations** (338 in OpenAPI + `POST /events`, which is `include_in_schema=False`); HEAD had
+246. The 93 new ones below were generated by diffing the live route table of the working tree against
+`HEAD`, reading each route's dependency tree for its gate; the one-line purposes are the handlers'
+docstrings. `[B]` = broker-scoped (`get_current_broker_id`: platform users get 403, foreign rows 404).
+
+```bash
+python3 docs/v12/api_lookup.py list collections                       # paths containing 'collections'
+python3 docs/v12/api_lookup.py show /api/v1/collections/installments get
+python3 docs/v12/api_lookup.py schema InstallmentRow                  # one schema, refs expanded 1 level
+```
+
+| Method | Path (under `/api/v1` unless noted) | Gate | Purpose |
+|---|---|---|---|
+| **catalogue** ||||
+| GET | `/catalog/lines` | authenticated | the 18 ramos with their subtipos, in catalogue order (the cascade) |
+| GET | `/catalog/subtypes/{subtype_id}` | authenticated | one subtipo |
+| **policies (extended detail)** ||||
+| PUT | `/policies/{policy_id}/parties` | Policies.Edit [B] | replace who is who: exactly one policyholder, ≥ 1 insured, ≤ 1 payer |
+| **partial journey** ||||
+| POST | `/case-files/{case_id}/skip-to` | CaseFiles.Edit [B] | "Saltar a…": jump forward, writing `is_skipped` events for every stage never entered |
+| POST | `/case-files/{case_id}/activate-stage` | CaseFiles.Edit [B] | re-enter a skipped stage; 409 once the folder has a policy |
+| **cobranza** ||||
+| GET | `/collections/installments` | Collections.View [B] | THE Cobranza list: every cuota with live state, level and last gestión (`bucket`, `insurer_id`, `line_code`, `method`, `level`, `owner=me`, `q`) |
+| GET | `/collections/installments/{installment_id}/mode` | Collections.View [B] | which level applies now, why (Spanish), what is missing |
+| GET | `/collections/installments/{installment_id}/payments` | Collections.View [B] | every payment of the cuota, active and reversed |
+| POST | `/collections/installments/{installment_id}/payments` | Collections.Edit [B] | register a (partial) payment: `manual`, `declared` (or `insurer_confirmed`) |
+| POST | `/collections/installments/{installment_id}/promise` | Collections.Edit [B] | *Promete pagar el*: gestión note + `promise_until` |
+| POST | `/collections/installments/{installment_id}/direct-debit-rejected` | Collections.Edit [B] | PAC/card debit bounced (flag + to-do) |
+| POST | `/collections/payments/{payment_id}/reverse` | Collections.Edit [B] | reverse (never delete); the cuota reopens, its alert re-raises |
+| POST | `/collections/payments/{payment_id}/confirm` | Collections.Edit [B] | insurer confirmed → evidence `insurer_confirmed` |
+| POST | `/collections/plans` | Collections.Create [B] | register a plan de pago (Σ validated first); same handler as legacy `POST /collections` |
+| PATCH | `/collections/plans/{plan_id}` | Collections.Edit [B] | edit a plan incl. `notices_enabled`, `level_preference`, pause |
+| POST | `/collections/plans/{plan_id}/start` | Collections.Edit [B] | *Iniciar cobranza*: payer reminders ON — any insurer |
+| GET | `/collections/settings` | Collections.View [B] | broker cobranza settings (lazy-created) |
+| PUT | `/collections/settings` | Settings.Manage [B] | cadence, tolerances, master switch, sender, native/inquiry preferences |
+| GET | `/collections/templates` | Collections.View [B] | effective templates (broker rows, else Radal's Spanish defaults) |
+| PUT | `/collections/templates` | Settings.Manage [B] | override by slot; a content change withdraws the approval |
+| POST | `/collections/templates/approve` | Settings.Manage [B] | approve the effective set (defaults frozen into broker rows) |
+| GET | `/collections/evidence` | Collections.View [B] | "Respuestas por confirmar" (default: `suggested` + `needs_review`) |
+| POST | `/collections/evidence/{evidence_id}/confirm` | Collections.Edit [B] | evidence → payment through the ledger (or a recorded unpaid/cancelled decision) |
+| POST | `/collections/evidence/{evidence_id}/reject` | Collections.Edit [B] | reject a suggestion |
+| GET | `/collections/notices` | Collections.View [B] | sent avisos (`?installment_id=`) |
+| POST | `/collections/notices/preview` | Collections.Edit [B] | render a payer reminder for one cuota |
+| POST | `/collections/notices/send` | Collections.Edit [B] | send it now (one per cuota·kind·channel·Santiago day; `whatsapp` → 409 "pronto") |
+| **status inquiries** ||||
+| GET | `/inquiries` | Collections.View [B] | inquiries (`?status=`) |
+| POST | `/inquiries` | Collections.Edit [B] | ask the insurer about cuotas: `status_inquiry` + insurer share link + mail (`send_via auto/radal/account`) |
+| GET | `/inquiries/{inquiry_id}` | Collections.View [B] | one inquiry |
+| POST | `/inquiries/{inquiry_id}/resend` | Collections.Edit [B] | resend |
+| POST | `/inquiries/{inquiry_id}/cancel` | Collections.Edit [B] | cancel |
+| GET · POST | `/inquiries/evidence[/{evidence_id}/confirm\|reject]`, `/inquiries/notices[/preview\|send]` | as the `/collections/*` twins | **aliases** of the evidence/notice routes (same handlers); prefer `/collections/*` |
+| **mail** ||||
+| GET | `/mail/accounts` | Mail.View [B] | `{items, providers}`: `items[0]` is the virtual read-only Radal sender; `providers` lists `custom` + disabled Google/Microsoft with the "pronto" reason |
+| POST | `/mail/accounts` | Mail.Create [B] | connect a custom SMTP/IMAP box (password write-only); Google/Microsoft → 422 "pronto" |
+| PATCH | `/mail/accounts/{account_id}` | Mail.Create [B] (shared box: Settings.Manage) | edit / pause; changing servers or credentials puts it back to `draft` |
+| DELETE | `/mail/accounts/{account_id}` | Mail.Create [B] (shared box: Settings.Manage) | remove |
+| POST | `/mail/accounts/{account_id}/test` | Mail.Create [B] | SMTP + IMAP login (network) → `connected`/`error` |
+| GET | `/mail/messages` | Collections.View [B] | mail log (`?direction=&classification=`) |
+| **notifications (the bell)** ||||
+| GET | `/notifications` | own rows [B] | the user's notifications, last raised first (`?tray=&status=`) |
+| GET | `/notifications/count` | own rows [B] | `{todo_new, fyi_new}` |
+| POST | `/notifications/{notification_id}/seen` | own rows [B] | new → seen (idempotent) |
+| POST | `/notifications/{notification_id}/close` | own rows [B] | dismiss; the same alert at the same level is not raised again |
+| **payments / Forpay** ||||
+| GET | `/payments/intents` | Collections.View [B] | checkout intents |
+| POST | `/payments/intents` | Collections.Edit [B] | "Generar link de pago" over native-level cuotas |
+| GET | `/payments/intents/{intent_id}` | Collections.View [B] | one intent |
+| POST | `/payments/intents/{intent_id}/cancel` | Collections.Edit [B] | annul at the provider and cancel (409 once paid/closed) |
+| GET | `/payments/insurers` | Collections.View [B] | per insurer: `level_available` (native/assisted), channels, merged instructions, override — never onboarding status/ETA |
+| PUT | `/payments/insurers/{insurer_id}/override` | Settings.Manage [B] | upsert the broker override |
+| POST | `/webhooks/{provider}?account=&sig=` | **public** — query `sig` + payload HMAC | the generic provider webhook (§19.6) |
+| **Mantenedor (platform)** ||||
+| GET · POST | `/platform/insurer-profiles` | Platform.View · Create + platform user | every canonical insurer with its profile · create |
+| GET · PUT | `/platform/insurer-profiles/{insurer_id}` | Platform.View · Edit + platform user | read · upsert |
+| GET · POST | `/platform/provider-accounts` | Platform.View · Create + platform user | Forpay credential sets (secrets write-only: `has_secret`, `secret_keys[]`, `webhook_urls`) |
+| GET · PUT | `/platform/provider-accounts/{account_id}` | Platform.View · Edit + platform user | read · edit (activation needs every secret; production needs https) |
+| POST | `/platform/provider-accounts/{account_id}/verify` | Platform.Manage + platform user | login attempt → `last_verified_at` / `last_error` |
+| POST | `/platform/provider-accounts/{account_id}/rotate-webhook-secret` | Platform.Manage + platform user | new `sig` secret for NEW mandates; the previous one stays valid 30 days |
+| GET · PUT | `/platform/insurer-channels` | Platform.View · Edit + platform user | the channels matrix · bulk save (all-or-nothing) |
+| PUT | `/platform/insurer-channels/{insurer_id}/{channel}` | Platform.Edit + platform user | one channel |
+| GET | `/platform/events` · `/platform/events/{event_id}` | Platform.View + platform user | webhook inbox |
+| POST | `/platform/events/{event_id}/reprocess` | Platform.Manage + platform user | re-run a signature-valid event (never a second payment) |
+| GET | `/platform/jobs` | Platform.View + platform user | job runs |
+| **share links** ||||
+| POST | `/share-links` | View on the target's module [B] (checked in the handler) | mint a public link (`url`, `whatsapp_url`) |
+| GET | `/share-links?entity_type=&entity_id=` | same | links of one entity, revoked/expired included |
+| POST | `/share-links/{link_id}/revoke` | same | revoke (idempotent); public side 404 from then on |
+| GET | `/public/share/{token}` | **public** — token | the audience projection; counts a view |
+| GET | `/public/share/{token}/logo` | public — token | the broker's logo bytes (never its storage key) |
+| POST | `/public/share/{token}/report` | public — insurer link + `can_report_status` | insurer reports a cuota → `payment_evidence` (suggested) |
+| POST | `/public/share/{token}/receipt` | public — insured link + `can_upload_receipt` | payer uploads a comprobante → document + evidence |
+| POST | `/public/share/{token}/checkout` | public — insured link + `can_pay` | open a Forpay checkout for some of the link's cuotas |
+| **RPA** ||||
+| GET | `/portal-searches/portals` | Integrations.View [B] | built connectors (`available`/`maintenance`) + "pronto" portals |
+| PUT · DELETE | `/portal-searches/credentials/{portal}` | Settings.Manage [B] | store (encrypted, never returned) · remove the broker's portal login |
+| GET · POST | `/portal-searches` | Integrations.View · Submit [B] | runs, newest first · queue a search (validated; run by `rpa.run` or inline) |
+| GET | `/portal-searches/{run_id}` | Integrations.View [B] | run + sanitised steps + quotes + `user_message_key` + `alternatives` |
+| POST | `/portal-searches/{run_id}/retry` | Integrations.Submit [B] | a NEW run cloned from this one |
+| POST | `/portal-searches/{run_id}/cancel` | Integrations.Submit [B] | cancel queued/running (a running step finishes, the outcome is discarded) |
+| **agent** ||||
+| GET | `/ai/skills` | Dashboard.View [B] | skill catalogue `{key, title, description, tools[], triggers[]}` |
+| GET · POST | `/ai/threads/{thread_id}/skills` | Dashboard.View [B], thread owner | active skills of a thread · set them (unknown key 422) |
+| **jobs** ||||
+| POST | `/internal/jobs/{name}` | header `X-Radal-Job-Token` = `JOBS_TOKEN` (blank ⇒ 404) | run a job now (idempotent per slot); returns the `job_run` |
+| POST | **`/events`** (no prefix) | body `token` + `JOBS_EVENTS_ENABLED` (else 404) | EventBridge Scheduler → LWA entry point |
+
+**Existing endpoints whose behaviour changed:**
+
+- `GET /policies` (filters `q, insurer_id, line_code, subtype_id, status` (computed), `collection, origin,
+  missing, owner=me`; rows add `computed_status`, subtype/line, `collection_summary`, `missing[]`) ·
+  `GET /policies/summary` (v12 cards; legacy keys kept) · `GET /policies/{id}` (`parties`, `missing`,
+  `operability`, `collection_summary`, `journey`) · **`POST /policies` is two-mode** (manual v12 entry when
+  the body carries `insurance_subtype_id` or `insured_rut`: colocación on demand, 409 on duplicate,
+  `SIN-N-{id}` placeholder number; legacy register otherwise, 422 on duplicate) · `PATCH /policies/{id}`
+  ("Completar" fills NULLs; a correction needs `correction_reason`; `terminated_on` re-derives cuotas) ·
+  `POST /policies/upload` (needs `insurance_subtype_id` without a folder; commits the extracted cuotas
+  when Σ passes; `origin=reader`, `has_source_document`).
+- `POST /case-files` takes `insurance_subtype_id` + `route` and stamps `entry_origin=full_journey`;
+  `GET /case-files/{id}` adds `stages[]`, `has_policy`, `skip_targets[]`.
+- `POST/PUT/DELETE /line-record-schemas` → **403** for broker users ("Los ramos son un catálogo cerrado…");
+  platform users write global rows only.
+- Legacy `/collections/{plan_id}…` routes now use `{plan_id:int}` (so `/collections/summary` and friends
+  can never be swallowed — a non-numeric literal is 404); `PATCH …/installments/{n}` with `paid_on`
+  becomes a `payment(manual, declared)`; full-replace `PUT …/installments` is 422 once a cuota has a
+  payment; `GET /collections/summary` adds the v12 cards (broker-wide, scope ignored).
+- `/notes` accepts `entity_type=installment|payment` (module Collections).
+- `GET /auth/permissions` carries the three new modules.
+
+### 19.4 RBAC delta
+
+Three new modules — **`Mail`, `Integrations`, `Platform`** (20 → 23 modules). Diff of
+`roles_config.ROLES` against `HEAD`:
+
+| role | Collections | Mail | Integrations | Platform |
+|---|---|---|---|---|
+| `platform_admin` | ALL (unchanged) | ALL | ALL | ALL |
+| `broker_admin` | ALL (unchanged) | ALL | ALL | — |
+| `broker_executive` | **V C E Cm U S** (was V Cm U) | V C | V S | — |
+| `broker_commercial` | **V C E Cm U S** (derived from executive) | V C | V S | — |
+| `broker_collections` | ALL (unchanged) | V C | — | — |
+| every other role | unchanged | — | — | — |
+
+- **Platform endpoints need BOTH** `Platform.<action>` **and** `user_type == platform`
+  (`routers/platform.py::platform_gate`): a broker admin is 403 even if a matrix edit ever granted it.
+- Share-link gates are computed per request (`View` on the module of the target: policy → Policies;
+  plan/cuota/inquiry → Collections; case_file → CaseFiles narrowed by `CASE_VIEW_SCOPE`).
+- Notifications have no module gate — the bell is personal (`broker_id` AND `user_id`).
+- Frontend: `lib/permissions.ts` mirrors the modules; the rail shows Mantenedor only for platform users
+  (keyed off `user_type` from `/auth/permissions`, not a role), and `HomeRedirect` sends them to
+  `/platform` because every broker endpoint 403s for them.
+
+### 19.5 Jobs runbook
+
+**Framework** (`app/jobs/__init__.py`). A job is `fn(db, now) -> dict` registered with
+`@register_job(name, period)`. **`trigger_job` is the only way a job runs** and writes one `job_run`
+per slot, `scheduled_for` = `now` truncated to the period — `day` = America/Santiago midnight, `hour`/
+`minute` = UTC. The unique `(job, scheduled_for)` makes a slot run at most once: running/succeeded/
+skipped slots are returned untouched (`executed:false`); a **failed** slot may be re-triggered and
+reuses its row. A body that raises never escapes (row `failed` + `error`); a body returning
+`{"skipped": true}` is recorded `skipped`. `now` is always injected — jobs never read the wall clock.
+
+**Three doors, one runner:**
+
+| door | auth | use |
+|---|---|---|
+| `python -m app.jobs <name> [--now ISO]` · `--list` | shell access to the DB | local, backfills (exit 0 ok · 1 failed · 2 unknown) |
+| `POST /api/v1/internal/jobs/{name}` body `{"now"?}` | header `X-Radal-Job-Token` | operators/smoke tests. **Reachable from the internet through CloudFront** (it is under `/api/*`) — the token is the only lock; POSTs through CloudFront need `x-amz-content-sha256` |
+| `POST /events` body `{"job","token","now"?}` | body token + `JOBS_EVENTS_ENABLED=true` | EventBridge Scheduler → Lambda → LWA pass-through. Outside `/api/v1`, so CloudFront never forwards it |
+
+`JOBS_TOKEN` blank ⇒ both HTTP doors are **404**; wrong token ⇒ 401; unknown job ⇒ 404 (nothing
+recorded). Run history: `GET /api/v1/platform/jobs` (Mantenedor → Jobs), helpers
+`app.jobs.list_job_runs` / `latest_runs`.
+
+| job | schedule (America/Santiago) | slot | does | skips / network |
+|---|---|---|---|---|
+| `fx.daily` | `cron(0 8 * * ? *)` | day | GET `FX_SOURCE_URL` (mindicador.cl) → `parse_mindicador` → `upsert_rates` into `currency_rate` | blank URL → skipped · **outbound HTTPS** (the cheapest egress probe); failure → `failed`, re-runnable the same day |
+| `collection.clock` | `cron(30 6 * * ? *)` | day | per broker (own commit): refresh every open cuota's cache; raise/escalate/close cuota alerts (`-15/-5/0` fyi, `+3/+10` todo, `term`, promises broken); `plan_missing` every 7 days; `native_collection_available` once per insurer flip | none |
+| `collection.notices` | `cron(0 9 ? * MON-FRI *)` | day | payer reminders: only behind master switch + approved templates + plan `notices_enabled` + not paused + payer contact + level ≠ record; sends only the latest reached cadence step; failed steps retried in place | **SMTP** (Radal Zoho or broker box); `MAIL_ENABLED=false` ⇒ rows `skipped` |
+| `collection.inquiries` | `cron(0 10 ? * MON-FRI *)` | day | auto status inquiries when `auto_status_inquiries` and a cuota is `inquiry_after_days` overdue; one open inquiry per policy | SMTP |
+| `mail.poll` | `rate(5 minutes)` | minute | IMAP fetch (Radal box + each `receive_enabled` connected broker box), prefilter, classify, evidence (§19.7) | skipped while `MAIL_ENABLED=false` · **IMAP** |
+| `payments.sync` | `rate(30 minutes)` | minute | `GET /receivables` for every open intent (last `SYNC_LOOKBACK_DAYS`) through the webhook's idempotent core | skipped without an active provider account · **Forpay** |
+| `payments.payouts` | `cron(0 11 * * ? *)` | day | `hasPayout=true` → `provider_payout`, evidence → `settled` | same |
+| `rpa.run` | `rate(2 minutes)` | minute | fail orphaned `running` runs (> 20 min) as `timeout`, then execute ≤ 3 queued searches, oldest first | skipped while `RPA_ENABLED=false` · **Chromium → portal** |
+| `notifications.expire` | `cron(0 3 * * ? *)` | day | close `fyi` rows that are seen or ≥ 7 days old (all brokers) | none |
+| `noop` | — | minute | does nothing; the smoke test for the doors | — |
+
+The schedules are scripted, not applied: `deploy/v12/schedules.sh` (README §3 there — phase the
+frequent ones; every trigger writes a `job_run` row, even a skip).
+
+### 19.6 The webhook — security model
+
+One handler for every provider account: `POST /api/v1/webhooks/{provider}?account=<webhook_key>&sig=<hex>&kind=payment|activation`
+(`routers/webhooks.py`, core in `services/payments/webhooks.py`). The URL is built by
+`services.payments.accounts.webhook_url` from **`settings.public_api_url`** and handed to Forpay
+**inside each mandate** at creation.
+
+1. `account` → the `provider_account` by `webhook_key` → **404** when unknown, of another provider or
+   `disabled` (a `draft` account is accepted — sandbox).
+2. `sig = hex(HMAC-SHA256(webhook_secret, "forpay:<webhook_key>"))`, constant-time → **401**. Static per
+   account, rotatable; the previous secret is accepted for 30 days (`previous_webhook_secret` in the
+   encrypted JSON) so mandates already in flight keep working.
+3. Raw body ≤ 256 KB → **413**; a JSON object → else **400**.
+4. Forpay's own payload signature — Base64(HMAC-SHA256(`hmac_key`, concatenation of a **configurable
+   field list per event type**)) — verified constant-time, failing closed. The event is **stored either
+   way** (`signature_valid`); invalid → **401**, kept as `ignored` under `dedup_key='invalid:<sha256(body)>'`
+   so a forgery can never occupy a genuine event's key.
+5. Insert into `provider_event` with the dedup key built from **signed fields only**
+   (`internalId:state.id`) — a replay with a mutated unsigned field is the same event → 200
+   `{"status":"duplicate"}` (a duplicate whose first processing failed is processed again).
+6. Process in the same request. State 2 → one `payment(source=provider, evidence=provider_confirmed)`
+   per charge (unique `provider_charge_id`); −99 → `direct_debit_rejected` (recurring only); 12 →
+   chargeback reversal + `sensitive_action`. Any processing error → `failed` and **still 200** (the
+   provider must not retry-storm our bugs; `payments.sync` reconciles; Mantenedor can reprocess).
+
+A signed webhook is **not AI** and commits directly — the only money path without a human confirm.
+Behind CloudFront OAC a provider cannot POST (no `x-amz-content-sha256`), hence the separate ingress
+(`deploy/v12/webhook-ingress.sh`: API Gateway HTTP API, one route, throttled). The concatenation rule
+and the field order are not published by Forpay — they are a per-account setting (`signature_fields`
+in the secret JSON), defaults in `providers/base.py`. Not documented by Forpay and therefore not
+invented: refunds, link expiry, sub-merchant onboarding, webhook retry policy.
+
+### 19.7 Mail architecture
+
+- **One door out:** `services/mail/sender.py::send_mail`. Sender choice: an explicit broker mailbox
+  (must be the broker's, `connected`, `send_enabled` — otherwise a `failed` row, never a silent
+  re-route), `auto` (follows `collection_settings.default_sender`), or the **Radal system mailbox**:
+  `From: "{broker} vía Radal" <contacto@radalseguros.cl>`, `Reply-To` = the broker's contact (ordinary
+  replies reach the broker) **except inquiries**, whose `Reply-To` is the Radal address so the reply lands
+  in a box Radal polls. Plain text + simple HTML, our own `Message-ID` (kept even when nothing is sent,
+  so `In-Reply-To` can match). Every send is one `mail_message(outbound)`: `skipped` while
+  `MAIL_ENABLED=false` (no socket), else `sent`/`failed`. Never raises; the caller commits.
+- **Transport seam:** `services/mail/transport.py` — `SmtpImapTransport` (`smtplib` SSL/STARTTLS,
+  `imaplib` SSL, `SELECT INBOX` read-only, `UID SEARCH`, cursor `{uidvalidity, last_uid}`; a UIDVALIDITY
+  change re-reads 2 days, deduplicated by `Message-ID`). Tests install `FakeTransport` via the
+  `fake_transport` fixture (`_OVERRIDE`). Radal's box: Zoho `smtp.zoho.com:465 ssl` /
+  `imap.zoho.com:993 ssl`, app password in `RADAL_MAIL_PASSWORD` (env only).
+- **Broker custom servers** (`POST /mail/accounts`): password Fernet-encrypted, write-only.
+  **SSRF guard** (`check_mail_host`): ports limited to SMTP `{25, 465, 587, 2525}` / IMAP `{143, 993}`;
+  hosts that are or resolve to loopback/private/link-local/reserved/shared/multicast are refused — on
+  save without DNS (fast 422) and again right before connecting. Errors shown to brokers are a Spanish
+  category, never the server banner. Known gap: resolve-then-connect leaves a DNS-rebinding window.
+- **Inbound (`mail.poll`) — prefilter BEFORE storing anything (Ley 21.719).** A message is kept only
+  when (a) it carries a `RADAL-INQ-XXXXXX` token or an `In-Reply-To`/`References` id of one of our
+  outbound messages, (b) the sender's domain is in an insurer's `sender_domains` **and** the mailbox is a
+  broker box (never the shared Radal box), or (c) it is a bounce of one of ours. Everything else is
+  stored as `{provider_uid, occurred_at, status=ignored}` — no sender, subject or body — only so the UID
+  is never re-read. Kept mail: `.eml` saved as `document(email_message)` (rule 8), classified by AI
+  (`AITask.CLASSIFY_MAIL`, always an `extraction` row), then one `payment_evidence` per referenced cuota
+  with score + reasons, inquiry → `replied`, bell → `inquiry_reply`/`evidence_pending`. Bounces mark the
+  notice `bounced`; an unreadable box goes `error` + `mail_account_error`.
+- **Sender verification is From-header only** (no DKIM/SPF): an unverified sender adds
+  `sender_unverified` and caps the score below the suggest threshold (always `needs_review`). On a
+  broker mailbox a token match is scoped to that broker — a mailbox can never route mail across tenants.
+- Ops alerts: `services/mail/ops.py::notify_ops(db, subject, body)` → to `RADAL_OPS_EMAIL`, prefixed
+  `[Radal ops]`, `broker_id` NULL; never raises.
+
+### 19.8 Share links
+
+`services/share_links.py` + `routers/share.py` (authenticated) + `routers/public_share.py` (public).
+A link is a `share_link` row: `token_urlsafe(24)`, entity (`policy · collection_plan · installment ·
+case_file · status_inquiry`), audience, permissions, **mandatory expiry** (default 60 days, 1–365 — a
+router can never mint a permanent link), revocation, view counter. URL `{PUBLIC_APP_URL}/s/{token}`
+(SPA route outside the shell) + a WhatsApp deep link.
+
+| audience | defaults | can never |
+|---|---|---|
+| `insured` | `can_pay`, `can_upload_receipt` | report the insurer's status |
+| `insurer` | `can_report_status` | pay or upload (a `status_inquiry` link is insurer-only) |
+
+The public projection is narrow on purpose: broker brand, policy summary, the link's cuotas with state,
+amounts UF/CLP (CLP null without a rate in 40 days) and a per-cuota `action` (`pay` only when the level
+is native · `instructions` · `report` · `none`). **Never** other policies, storage keys, internal notes,
+commissions, payer contacts. Unknown/revoked/expired → 404. Public **writes are suggestions**
+(`payment_evidence(suggested)` + an `evidence_pending` to-do), never payments; the checkout goes to
+Forpay and books only through the signed webhook. Checkout and page share one scope
+(`resolve_share_scope`), so the page can never offer to pay a cuota the checkout would refuse.
+Rate limiting is meant to be infra (CloudFront/WAF); `_throttle` is a tiny in-process guard (30
+writes/token/10 min → 429) that does not survive across Lambda instances.
+
+### 19.9 RPA — the framework, and how to fix a broken connector
+
+`services/rpa/`: `base.py` (`PortalConnector`, `RunContext`, `PortalResult`), `errors.py` (one exception
+per `PortalErrorKind`), `interpreter.py` (`StepRunner` — executes a JSON step map on a Playwright page),
+`engine.py` (`execute_run`, maintenance, notifications), `registry.py` (`CONNECTORS = {"hdi": HdiConnector()}`
++ "pronto" portals), `connectors/hdi.py` (input validation for `VEH-01`), **`selectors/hdi.json`** (the
+portal itself: URLs, selectors, steps, captcha selectors, value maps, timeouts, `version`).
+
+- **Execution:** `POST /portal-searches` validates the input (bad form = 422, never a browser launch)
+  and queues; `rpa.run` executes. `RPA_INLINE=true` runs in a FastAPI BackgroundTask — **dev only**
+  (a Lambda freezes after the response). `RPA_ENABLED=false` ⇒ every portal reads maintenance
+  (`rpa_disabled`); blank `RPA_HDI_BASE_URL` ⇒ "Conector en configuración".
+- **Error taxonomy → who is told:** broker-fixable (`credentials_missing`, `login_failed` (also marks
+  the credential `invalid`), `no_results`) notify the user only; connector-side (`layout_changed`,
+  `timeout`, `captcha`, `portal_unavailable`, `unexpected`) also page the team (`notify_ops` + an ERROR
+  log line with connector key, version, error kind). The UI copy per `user_message_key` is in the `rpa`
+  namespace, always with alternatives: retry · upload the quote PDF · other portals ("pronto").
+- **Step log** never contains a value — only step name, op and (on failure) the selector. Failure
+  screenshots are `document(portal_screenshot)` without `case_file_id`.
+- **Maintenance:** two consecutive `layout_changed` outcomes of the **current connector version** in
+  24 h flip the portal — *globally* only when they came from ≥ 2 distinct brokers, otherwise for that
+  broker only (one tenant's locked account can't take HDI down for everyone). Self-heals with one
+  probe run after a cool-down; **bumping `version` clears it immediately**.
+
+**How to fix a broken connector (the usual case: HDI renamed a field).**
+
+1. Read the failed run: `GET /portal-searches/{id}` (`steps[]` names the failing step and selector,
+   `error_kind`, `screenshot_url`) or the ops mail / CloudWatch line `rpa: run … connector=hdi version=…`.
+2. Open the portal by hand, find the new selector/flow, and edit **`backend/app/services/rpa/selectors/hdi.json`**:
+   change the `selector`, add/reorder a step (`goto · fill · select · click · wait_for · extract_table`),
+   add a `failures` entry (`{"#new-error": "login_failed"}`), a `value_map`, or a `timeout_ms`/`on_timeout`.
+   Templates are `{input.<field>}` / `{credentials.<field>}`.
+3. **Bump `"version"`** (e.g. `2026.10.1` → `2026.10.2`) — it clears the maintenance flag and tags the
+   new runs.
+4. Reproduce against the local fake portal: update `tests/fixtures/rpa/fake_hdi/*.html` to mirror the
+   new page (there is a `fake_hdi_layout_changed/` overlay as a model) and run
+   `MEDIA_BACKEND=local .venv/bin/python -m pytest tests/test_v12_rpa.py tests/test_v12_rpa_browser.py -q`
+   (real Chromium, hermetic).
+5. Deploy. The map is read **once at import** (`registry.CONNECTORS`), and it ships inside the image —
+   a JSON edit is a code deploy, not a hot fix.
+
+Only a new *kind* of step or a new input field needs Python (`interpreter.py` / `connectors/hdi.py`
+`INPUT_FIELDS`, whose labels live in the `rpa` namespace). HDI's real credentials, flows and page maps
+have **not** been received; the shipped map drives the fake portal and `insurer.rut`/`cmf_code` are
+blank (quotes keep `insurer_id` NULL until filled — insurers are matched by RUT + CMF, never by name).
+
+### 19.10 Agent — tools and skills
+
+`services/agent_tools.py` now registers **37 tools** (11 before + 26 new). READ tools run inline with
+the caller's grants and fold 6–12 KB; WRITE tools only **propose** an `agent_action` the human confirms
+(rule 6) and, on confirm, call the same router functions (same transaction, activity rows, errors).
+
+| kind | tools (gate) |
+|---|---|
+| read | `list_policies`, `get_policy`, `check_policy_files` (Policies.View) · `list_installments`, `get_collection_overview`, `get_collection_mode`, `list_status_inquiries`, `list_pending_evidence` (Collections.View) · `check_case_files` (CaseFiles.View) · `get_catalog`, `list_notifications`, `load_skill` (Dashboard.View) · `list_portal_searches`, `get_portal_search` (Integrations.View) |
+| write | `create_policy_manual` (Policies.Create) · `update_policy_fields` (Policies.Edit) · `register_payment`, `record_payment_promise`, `start_collection`, `send_status_inquiry`, `send_payment_reminder`, `create_payment_link` (Collections.Edit) · `create_share_link` (Policies.View) · `skip_case_to_stage`, `activate_case_stage` (CaseFiles.Edit) · `run_portal_search` (Integrations.Submit; executed by the `rpa.run` job) |
+
+**Skills** (`services/agent_skills.py`, `SkillSpec{key, title, description, instructions, tools, triggers}`):
+progressive disclosure — the base prompt lists only titles and one-liners; the model calls the native
+READ tool `load_skill(key)` to pull the full Spanish playbook, and the key is appended to
+`agent_thread.active_skills`; while a thread has active skills their instructions ride in the system
+prompt (budget `MAX_ACTIVE_SKILLS_CHARS = 6 000`, truncated with the existing marker). Every skill's
+tools are validated against the registry at import. Shipped: `collections_review` · `policy_intake` ·
+`partial_journey` · `file_check` · `portfolio_analysis` (read-only) · `portal_quotes`.
+`MAX_TOOL_ITERATIONS = 6` / `MAX_TOOL_CALLS_PER_TURN = 12` were not raised. Gaps: no tool for
+`PUT /policies/{id}/parties`; share/checkout URLs in a confirmed result must open outside the SPA.
+
+### 19.11 Frontend surface (summary)
+
+Routes: `/` → `HomeRedirect` (`/policies`, or `/platform` for platform users) · `/policies` ·
+`/policies/new` · `/collections` · `/collections/evidence` · `/collections/inquiries` · `/portal-search`
+· `/notifications` · `/platform` (+ `insurers`, `provider-accounts`, `events`, `jobs`, behind
+`RequirePermission module="Platform"`) · public `/s/:token` outside the shell (own no-auth axios
+instance with the OAC body hash). Rail order: Pólizas · Cobranza (overdue chip from
+`/collections/summary`) · ASEGURADOS · Portafolio · Analítica · Agente · Cotizar en portales ·
+Compañías · Configuración · Mantenedor. Eight new i18n namespaces: `policies, collections,
+notifications, mail, share, platform, rpa, catalog`. The bell lives in the Topbar. Every lane's
+detail is in `docs/v12/07-frontend.md`; the API types live in each lane's own `src/api/<lane>.ts`.
+
+### 19.12 Migration & deploy runbook
+
+**Order is everything** — the same rule as every pass since the case-files one: `create_all` on Lambda
+boot creates the 27 new tables but **never ALTERs**, so code without the 28 columns 500s on nearly every
+policy/cobranza/case-file query.
+
+```bash
+cd backend
+# 0) review the plan offline (no connection): 27 CREATE TABLE, 28 ADD COLUMN, 124 CREATE INDEX,
+#    6 FOREIGN KEY (2 named use_alter: fk_collection_plan_mandate, fk_payment_evidence), no MODIFY
+.venv/bin/python -m scripts.migrate_case_files --dialect mysql --pass v12
+# 1) open RDS (docs/deployment.md "Option A": public access + your IP on sg-0da8dd955985aaa32:3306)
+# 2) SNAPSHOT the instance
+aws rds create-db-snapshot --profile radal --db-instance-identifier radal-dev-db \
+    --db-snapshot-identifier radal-dev-pre-v12-$(date +%Y%m%d)
+# 3) dry run (exit 1 = drift), apply, re-run must print nothing to do
+.venv/bin/python -m scripts.migrate_case_files --url "$RDS_URL"
+.venv/bin/python -m scripts.migrate_case_files --url "$RDS_URL" --apply
+# 4) data step — the 18 ramos / 54 subtipos, insurer profiles, broker settings (dry run by default)
+.venv/bin/python -m scripts.seed_v12 --url "$RDS_URL"
+.venv/bin/python -m scripts.seed_v12 --url "$RDS_URL" --apply      # a second run reports nothing to do
+# 5) REVERT public access + the SG rule (deployment.md), confirm only sg-065438bbc14858097 remains
+```
+
+Then: add the §19.13 keys to `s3://radal-dev-185011028331/deploy/backend.env` (**`CREDENTIALS_KEY`
+first**) → push to `dev` (CI syncs the env and deploys) → settle egress and run the `deploy/v12`
+scripts in the order of their README §5. No by-hand DDL is needed for v12 (the script emits everything;
+nothing is dropped or narrowed). The migration was rehearsed on SQLite
+(`tests/test_migrate_manifest.py`: pre-v12 schema → apply → zero drift; seeder twice → no change) and
+applied to the local `backend/radal.db`; never against MySQL. Locally: `seed_dev` calls the v12 seeders,
+so `import_fixtures --reset` + `seed_dev` gives a v12 world.
+
+### 19.13 Settings & environment
+
+All in `app/core/config.py`, all optional, all blanked by `tests/conftest.py` before any `app.*` import
+(non-negotiable #9 now also covers mail, FX, Forpay and RPA hosts → `127.0.0.1:9`). A blank boolean keeps
+its default instead of failing boot; mail security must be `ssl|starttls|none`.
+
+| setting | default | meaning |
+|---|---|---|
+| `MAIL_ENABLED` | `false` | master switch; false ⇒ every send is a `skipped` row, no socket |
+| `RADAL_MAIL_ADDRESS` / `_DISPLAY_NAME` | `contacto@radalseguros.cl` / `Radal` | the system sender |
+| `RADAL_MAIL_USERNAME` / `RADAL_MAIL_PASSWORD` | blank | Zoho login + **app password** (env / S3 only) |
+| `RADAL_MAIL_SMTP_HOST`/`_PORT`/`_SECURITY` | `smtp.zoho.com` / 465 / `ssl` | |
+| `RADAL_MAIL_IMAP_HOST`/`_PORT`/`_SECURITY` | `imap.zoho.com` / 993 / `ssl` | |
+| `RADAL_OPS_EMAIL` | blank | where RPA/job failures go; blank = nowhere |
+| `MAIL_TIMEOUT_SECONDS` | 20 | |
+| `JOBS_TOKEN` | blank | the job doors' shared secret; blank ⇒ both doors 404 |
+| `JOBS_EVENTS_ENABLED` | `false` | `/events` accepts scheduler events |
+| `CREDENTIALS_KEY` | blank ⇒ derived from `SECRET_KEY` | Fernet key for every `*_ciphertext` (mail, Forpay, portals). **Set it explicitly in deployed envs and back it up** |
+| `PUBLIC_APP_URL` | blank ⇒ first CORS origin | share links, mail links |
+| `PUBLIC_API_URL` | blank ⇒ `PUBLIC_APP_URL` | webhook URLs handed to Forpay (must be the ingress, §19.6) |
+| `FX_SOURCE_URL` | `https://mindicador.cl/api` | blank ⇒ `fx.daily` skips |
+| `FORPAY_DEFAULT_BASE_URL` | Forpay sandbox | the account's `base_url` wins |
+| `RPA_ENABLED` / `RPA_INLINE` / `RPA_HEADLESS` | `false` / `false` / `true` | `RPA_INLINE` must stay false on Lambda |
+| `RPA_HDI_BASE_URL` | blank | blank ⇒ "Conector en configuración" |
+
+Secrets rule (every one of them): stored **encrypted** in a `*_ciphertext` column with
+`app/core/crypto.py` (Fernet; a wrong key raises `SecretDecryptionError` without echoing), **write-only**
+in the API (`has_secret: bool`, `secret_keys[]` names only), never logged.
+
+### 19.14 Traps v12 introduces
+
+- **Egress is unverified.** `docs/deployment.md` says the VPC Lambda has no NAT and "only talks to RDS";
+  it already calls DeepInfra and S3, and v12 adds Zoho, Forpay, mindicador and HDI. Settle it with the
+  read-only checks in `deploy/v12/README.md` §0 before debugging any "provider down".
+- **`PUBLIC_API_URL` before the first mandate.** Forpay stores webhook URLs per mandate; a mandate
+  created while `PUBLIC_API_URL` pointed at CloudFront can never be delivered (OAC rejects the POST).
+- **`CREDENTIALS_KEY` is a one-way door.** Blank derives from `SECRET_KEY`; setting it later, or
+  rotating `SECRET_KEY` while blank, makes every stored secret unreadable.
+- **CI replaces the Lambda env wholesale** from S3 `deploy/backend.env` (4 KB cap): keys set in the
+  console vanish on the next push.
+- **`/collections/{plan_id:int}`.** The converter is what keeps `/collections/summary`, `/installments`,
+  `/settings`… from hitting the legacy int route (422). A new static `/collections/<word>` path is safe;
+  dropping the `:int` is not.
+- **`collection_installment.status` is a cache.** Write money through the ledger
+  (`services.collection.ledger.register_payment` / `after_installment_change`), never the column — the
+  ledger also tells Forpay the cuota was "paid outside" so an open link cannot charge it again.
+- **`case_file.entry_origin`, not `origin`** (§19.2).
+- **One open notification per (user, origin), and a dismissal sticks.** A repeat `notify()` with the
+  same kind+level after the user closed it creates nothing; pass `renotify=True` when the same event
+  genuinely happened again — that REOPENS the closed row (same id), it never adds a twin to the history.
+- **`uq_collection_notice_once` includes a nullable `cadence_level`** — NULLs never collide on SQLite or
+  MySQL, so one-off notices are deduplicated in code (per Santiago business day), not by the DB.
+- **Day slots are Santiago midnight; minute/hour slots are UTC.** If the image lacked tzdata, day slots
+  would fall back to UTC midnight (python:3.11-slim ships `/usr/share/zoneinfo`; unverified in the image).
+- **Every scheduled trigger writes a `job_run` row**, even a skip; there is no pruning job.
+- **`/api/v1/internal/jobs/*` is internet-reachable** behind CloudFront; `JOBS_TOKEN` is its only lock.
+- **The HDI map loads at import** and ships in the image — fixing a selector is a deploy.
+- **WhatsApp** exists as `NoticeChannel.whatsapp` and a disabled chip; any send path answers 409 "pronto".
+- **The share-link write throttle is per process**; real rate limiting must be CloudFront/WAF.
+
+### 19.16 Review fixes (2026-10-17 Chrome walk) — backend decisions
+
+The walk is `docs/handoff-2026-10-17-v12-review-fixes.md`; regressions in `tests/test_v12_review_fixes.py`.
+
+- **A cuota is never paid above gross + tolerance.** `ledger.register_payment` (manual payments and
+  evidence confirm; the legacy PATCH books exactly the balance) refuses a payment whose normalised amount exceeds the open balance +
+  `tolerance_uf` with **409** "El monto supera el saldo de la cuota (saldo UF X)"; the CLP/USD snap to the
+  balance still applies first, so an exact CLP settlement closes the cuota. `InstallmentState.paid_uf` is
+  **capped at gross**, so the board row, the plan page (`GET /collections/{id}/status` now reads the live
+  per-cuota state: paid = Σ capped paid incl. partials, outstanding = Σ balances) and "Cobrado este mes"
+  (`board.capped_payment_amounts`) agree even on pre-fix over-paid data.
+- **The prior *Declarado* payment is CONFIRMED, not superseded.** Confirming an insurer reply (mail,
+  insurer link, statement) that says the cuota is *paid* books only the open balance and raises the cuota's
+  earlier active `declared` payments to `insurer_confirmed` (activity `payment.confirmed`). When those
+  declared payments already cover the cuota, confirming writes no money — only the upgrade. A payer's
+  receipt books its own figure capped at the balance. Reassigning (*Otra cuota*) applies the same rules to
+  the chosen cuota; a paid/voided target is 409. `EvidenceRead` carries `installment_summary` and
+  `suggested_amount_uf` (the balance) for the form.
+- **Payer notices ask for the balance and greet the recipient**: `{{amount_uf}}`/`{{amount_clp}}` now read
+  the open balance; new variables `recipient_name` (payer party → policyholder → insured), `balance_uf`,
+  `balance_clp`, `paid_uf`, `gross_uf`, `paid_note` (" Ya registramos un pago de UF X de UF Y." when partial).
+- **Template approval is per template.** An edit withdraws only that template's approval; the job sends a
+  slot only when its own template is approved (`collection_settings.notices_approved_at` = "something is
+  approved", cleared only when nothing is). `POST /collections/templates/approve` takes `{items?}`.
+- **Native collection needs a VERIFIED account**: `provider_account.status = active` AND
+  `last_verified_at` set AND no `last_error` (a failed *Verificar* keeps the last success time and records
+  the error). Same rule for the cuota level, checkout (409 with the instructions/receipt sentence, never
+  502 for this case) and the "X ya cobra en línea" notice (closed when the rule stops holding).
+  Webhook URLs use `PUBLIC_API_URL`, else the origin of the API request — never the SPA host.
+- **No walking back from *Vigente*** (`BACKWARD_LOCKED_STAGES`): 409 on the transition; the options list
+  them with `direction="backward"`, never allowed.
+- **Bitácora prose is Spanish** (`services/stage_labels.py`, mirroring `cases.json`); a policy-driven entry
+  writes ONE activity "La cuenta entró con la póliza; N etapas omitidas" (per-stage events stay for the
+  rail); legacy system text is humanised on read; timeline/activity instants are tz-aware UTC and bare
+  dates are noon in Chile with `date_only=true`.
+- **Notifications**: `scope=all` (admins) = every open row of the broker, one per origin (most severe,
+  then newest) with `recipient_name`; plan writes (create, replace, read from a policy) sync each cuota's
+  cache and alert at once; collection risk feeds `GET /case-files/{id}/pending-actions`
+  (`collection_termination_risk` · `collection_overdue` · `collection_debit_rejected`).
+- **Inquiries**: one OPEN inquiry per cuota (409 `{code: inquiry_exists, existing_inquiry_id}`); the
+  inquiries job cancels unanswered inquiries whose cuotas are all paid; resending one is 409.
+- No schema change: everything above is derived from existing columns (no migration).
+
+### 19.15 Verified state & still open
+
+The handoff for this pass — as-built, the candid error log of the build and the full owed list — is
+`docs/handoff-2026-10-17-v12.md`.
+
+- Backend: **1 404 tests passing** (`MEDIA_BACKEND=local .venv/bin/python -m pytest tests -q -p no:cacheprovider`),
+  hermetic (no Forpay/Zoho/HDI/DeepInfra call; RPA browser tests drive a local fake portal with real
+  Chromium). Frontend: `npx tsc -b --noEmit`, `node scripts/check-locales.mjs`, `npm run build` clean.
+- Not done: RDS migration, any AWS resource (`deploy/v12/` is dry-run only), the full v12 browser QA walk
+  (only a smoke of /policies, /collections, a share link and /platform at 1440/375 px was run), real Forpay sandbox credentials and the
+  exact signature field order, HDI credentials and page maps.
+- Open from the build (`docs/v12/10-phase1-as-built.md` "Still open"): `GET /policies?missing=payer_contact`
+  filters in Python; after a Forpay chargeback a later genuine state 2 on the same charge books nothing;
+  receivables without `installment.id` match by `internalId` only; no per-(broker, portal) RPA
+  serialisation under `RPA_INLINE`; no ops override to clear RPA maintenance.
+- Product decisions applied 2026-10-17 (handoff §7): the 2b.5 FYI `policy_linked_insured` (origin
+  `policy_link`, tray `fyi`); contractual datetimes = Chile wall-clock; on-demand colocaciones take
+  their vía from the door (upload → `digital`, manual → `manual`, `policy_registry.route_for_entry`);
+  pending actions hiding antecedentes gaps from *Póliza emitida* and "Prima vigente" = the "Vigentes"
+  filter are confirmed as built (`tests/test_v12_product_decisions.py`).

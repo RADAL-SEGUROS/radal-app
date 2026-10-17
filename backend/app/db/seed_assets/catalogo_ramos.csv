@@ -1,0 +1,55 @@
+﻿ramo_codigo,ramo,subtipo_codigo,subtipo,entrada_sugerida
+VEH,Vehículos,VEH-01,Livianos,portal
+VEH,Vehículos,VEH-02,Motos,portal
+VEH,Vehículos,VEH-03,Mini flota,portal
+VEH,Vehículos,VEH-04,Pesados,portal
+VEH,Vehículos,VEH-05,Flota,mercado
+HOG,Hogar,HOG-01,Hogar (edificio y contenido),portal
+CON,Condominio,CON-01,Condominio (bienes comunes),portal
+PYM,PYME,PYM-01,PYME multirriesgo,portal
+PRO,Property,PRO-01,Nominada,mercado
+PRO,Property,PRO-02,Todo Riesgo,mercado
+PRO,Property,PRO-03,Perjuicio por paralización,mercado
+PRO,Property,PRO-04,Terrorismo,mercado
+PRO,Property,PRO-05,Robo,mercado
+RC,Responsabilidad Civil,RC-01,RC Personal,portal
+RC,Responsabilidad Civil,RC-02,RC Profesional,portal
+RC,Responsabilidad Civil,RC-03,RC Médica,portal
+RC,Responsabilidad Civil,RC-04,RC Empresa / Evento,portal
+RC,Responsabilidad Civil,RC-05,RC Construcción / MOP,portal
+RC,Responsabilidad Civil,RC-06,RC Administrador de copropiedad,portal
+RC,Responsabilidad Civil,RC-07,D&O,mercado
+RC,Responsabilidad Civil,RC-08,RC Productos / Contaminación,mercado
+TRA,Transporte,TRA-01,Terrestre nacional,portal
+TRA,Transporte,TRA-02,Internacional (marítimo / aéreo),mercado
+ING,Ingeniería,ING-01,Todo Riesgo Construcción,portal
+ING,Ingeniería,ING-02,Equipo móvil contratista,portal
+ING,Ingeniería,ING-03,Montaje,mercado
+ING,Ingeniería,ING-04,Avería de maquinaria,mercado
+ING,Ingeniería,ING-05,Equipo electrónico,mercado
+GYC,Garantía y Crédito,GYC-01,Póliza de garantía,mercado
+GYC,Garantía y Crédito,GYC-02,Fidelidad,mercado
+GYC,Garantía y Crédito,GYC-03,Crédito ventas a plazo,mercado
+GYC,Garantía y Crédito,GYC-04,Crédito a la exportación,mercado
+CIB,Cíber,CIB-01,Cíber,mercado
+CAS,Casco,CAS-01,Marítimo,mercado
+CAS,Casco,CAS-02,Aéreo,mercado
+AGR,Agrícola,AGR-01,Agrícola,mercado
+AP,Accidentes Personales,AP-01,AP individual,portal
+AP,Accidentes Personales,AP-02,AP colectivo,portal
+AP,Accidentes Personales,AP-03,AP + Vida guardias,portal
+AP,Accidentes Personales,AP-04,Asiento pasajero,portal
+VID,Vida,VID-01,Vida conductor,portal
+VID,Vida,VID-02,Vida individual temporal,portal
+VID,Vida,VID-03,Vida con ahorro / CUI,portal
+VID,Vida,VID-04,Desgravamen,portal
+VID,Vida,VID-05,Vida colectivo,mercado
+SAL,Salud,SAL-01,Salud individual,portal
+SAL,Salud,SAL-02,Salud complementario colectivo,portal
+ASV,Asistencia en viaje,ASV-01,Viaje individual,portal
+ASV,Asistencia en viaje,ASV-02,Viaje empresa,portal
+SOA,SOAP,SOA-01,SOAP,portal
+OTR,Otros,OTR-01,Cesantía,portal
+OTR,Otros,OTR-02,Extensión de garantía,portal
+OTR,Otros,OTR-03,Título,mercado
+OTR,Otros,OTR-04,Otro,mercado

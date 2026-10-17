@@ -41,6 +41,7 @@ import {
   resolveFileUrl,
 } from "@/pages/proposals/shared";
 import { PostsaleBadge, asRows, pick, renderValue } from "@/pages/policies/shared";
+import { CLAIM_RULING_LABEL, WARRANTY_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const SIGNAL_STATUSES = ["met_after_claim", "met_late", "breached"];
 
@@ -266,7 +267,7 @@ export function AdjusterReportPanel({
           value={
             <PostsaleBadge
               value={claim.coverage_ruling}
-              label={t(`claim.ruling.${claim.coverage_ruling}`)}
+              label={enumLabel(t, CLAIM_RULING_LABEL, claim.coverage_ruling)}
             />
           }
         />
@@ -319,7 +320,7 @@ export function AdjusterReportPanel({
                 {w.is_suspensive ? (
                   <Badge variant="warn">{t("warranty.flags.suspensive")}</Badge>
                 ) : null}
-                <PostsaleBadge value={w.status} label={t(`warranty.status.${w.status}`)} />
+                <PostsaleBadge value={w.status} label={enumLabel(t, WARRANTY_STATUS_LABEL, w.status)} />
               </li>
             ))}
           </ul>

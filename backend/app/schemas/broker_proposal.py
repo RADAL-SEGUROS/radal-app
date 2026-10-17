@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.broker_proposal import BrokerProposalStatus
+from app.schemas.utc import UtcDatetime
 
 
 class BrokerProposalCreate(BaseModel):
@@ -39,11 +40,11 @@ class BrokerProposalRead(BaseModel):
 
     status: BrokerProposalStatus
     is_ratified: bool = False
-    ratified_at: datetime | None = None
+    ratified_at: UtcDatetime | None = None
     ratified_by_id: int | None = None
 
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 class BrokerProposalRatify(BaseModel):

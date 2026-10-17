@@ -33,6 +33,7 @@ import { useCreateLead, useLeads, useLeadsSummary, useUpdateLead } from "@/api/l
 import { useCan } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import { LEAD_STATUSES, type Lead, type LeadStatus } from "@/api/types";
+import { LEAD_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const TONE: Record<LeadStatus, "neutral" | "action" | "brand" | "success" | "muted"> = {
   new: "neutral",
@@ -109,7 +110,7 @@ export default function LeadsPage({ embedded }: EmbeddablePageProps = {}) {
             return (
               <div key={status} className="flex min-w-0 flex-col gap-2">
                 <div className="flex items-center gap-2 px-1">
-                  <Badge variant={TONE[status]}>{t(`statuses.${status}`)}</Badge>
+                  <Badge variant={TONE[status]}>{enumLabel(t, LEAD_STATUS_LABEL, status)}</Badge>
                   <span className="text-caption tabular-nums text-text-muted">
                     {items.length}
                   </span>
@@ -179,7 +180,7 @@ function MoveRow({ lead, canEdit }: { lead: Lead; canEdit: boolean }) {
           disabled={!canEdit || update.isPending}
           onClick={() => update.mutate({ status: next })}
         >
-          {t("actions.moveTo", { status: t(`statuses.${next}`) })}
+          {t("actions.moveTo", { status: enumLabel(t, LEAD_STATUS_LABEL, next) })}
         </Button>
       </DisabledHint>
     </div>

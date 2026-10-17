@@ -51,6 +51,12 @@ import type {
   RamoSchema,
   RamoSection,
 } from "@/api/types";
+import {
+  ANTECEDENTES_SECTION_LABEL,
+  EXTRACTION_STATUS_LABEL,
+  RECORD_EXPEDIENTE_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 // =============================================================================
 // Schema-driven value shaping
@@ -227,7 +233,7 @@ export function AntecedentesReview({
           value={
             <StatusBadge
               value={extraction.status}
-              label={tp(`ai.statuses.${extraction.status}`, { defaultValue: extraction.status })}
+              label={enumLabel(tp, EXTRACTION_STATUS_LABEL, extraction.status)}
             />
           }
         />
@@ -241,7 +247,7 @@ export function AntecedentesReview({
           </Badge>
           <StatusBadge
             value={suggestion.status}
-            label={t(`status.${suggestion.status}`, { defaultValue: suggestion.status })}
+            label={enumLabel(t, RECORD_EXPEDIENTE_STATUS_LABEL, suggestion.status)}
           />
         </div>
 
@@ -323,7 +329,7 @@ function ReviewBody({
         return (
         <Section
           key={section.key}
-          title={t(`sections.${section.key}`, { defaultValue: section.label })}
+          title={enumLabel(t, ANTECEDENTES_SECTION_LABEL, section.key, section.label)}
           description={section.description ?? undefined}
           bodyClassName="p-0"
           actions={

@@ -1,0 +1,377 @@
+{
+  "title": "Policies",
+  "other": "Other",
+  "new": {
+    "title": "Register a policy by hand",
+    "description": "Enter a policy without a PDF: insured, insurer, line and subtype, term, premiums and contacts. You can complete whatever is missing later."
+  },
+  "actions": {
+    "upload": "Upload policy",
+    "manual": "Register by hand",
+    "more": "More actions",
+    "moreShort": "More"
+  },
+  "list": {
+    "subtitle": "Every policy of the brokerage, whether it came from a PDF, a hand entry or a full placement.",
+    "resultCount_one": "{{count}} policy",
+    "resultCount_other": "{{count}} policies",
+    "empty": "No policies yet",
+    "emptyHint": "Upload a policy PDF or register one by hand to get started.",
+    "emptyFiltered": "No policy matches the filters",
+    "emptyFilteredHint": "Try other filters or clear them to see every policy.",
+    "noNumber": "No number",
+    "overdueCount_one": "{{count}} overdue",
+    "overdueCount_other": "{{count}} overdue",
+    "allPaid": "All installments paid"
+  },
+  "columns": {
+    "insured": "Insured",
+    "line": "Line · Subtype",
+    "period": "Term",
+    "insurer": "Insurer",
+    "number": "Policy no.",
+    "premium": "Premium",
+    "collection": "Collections",
+    "missing": "Missing",
+    "status": "Status"
+  },
+  "kpi": {
+    "active": "In force",
+    "activeHint": "Policies in force today",
+    "premium": "Premium in force",
+    "premiumHint": "Gross premium of the policies in force, in UF",
+    "overdue": "Overdue installments",
+    "overdueHint": "No unpaid overdue installments",
+    "noPlan": "No payment plan",
+    "noPlanHint": "Live policies without installments: not in Collections",
+    "noSource": "No source",
+    "noSourceHint": "Registered without the policy PDF",
+    "provisionalHint_one": "{{count}} with a provisional premium",
+    "provisionalHint_other": "{{count}} with a provisional premium",
+    "expiring": "Expiring in 90 days",
+    "expiringHint": "Review them to renew on time"
+  },
+  "filters": {
+    "search": "Search by insured, RUT or policy number",
+    "toggle": "Filters",
+    "line": "Line",
+    "allLines": "All lines",
+    "subtype": "Subtype",
+    "allSubtypes": "All subtypes",
+    "pickLineFirst": "Pick a line first",
+    "insurer": "Insurer",
+    "allInsurers": "All insurers",
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "collection": "Collections",
+    "allCollection": "Any collection state",
+    "missing": "Missing",
+    "allMissing": "With or without gaps",
+    "missingOption": "Missing: {{label}}",
+    "mine": "Mine",
+    "clear": "Clear filters"
+  },
+  "pager": {
+    "previous": "Previous page",
+    "next": "Next page",
+    "page": "Page {{page}} of {{pages}}"
+  },
+  "status": {
+    "upcoming": "Upcoming",
+    "active": "In force",
+    "expired": "Expired",
+    "cancelled": "Cancelled"
+  },
+  "storedStatus": {
+    "draft": "Draft",
+    "renewed": "Renewed"
+  },
+  "collection": {
+    "overdue": "With overdue installments",
+    "due_soon": "Due soon",
+    "no_plan": "No payment plan",
+    "ok": "Up to date"
+  },
+  "marks": {
+    "noSource": "No source",
+    "provisional": "Provisional"
+  },
+  "missing": {
+    "source_document": "Policy PDF",
+    "policy_number": "Policy number",
+    "plan": "Payment plan",
+    "gross_premium": "Gross premium",
+    "payer_contact": "Collections contact",
+    "premiums": "Taxable and exempt premiums",
+    "commission": "Commission %"
+  },
+  "feature": {
+    "collections": "Collections",
+    "payer_notices": "Policyholder notices",
+    "endorsements": "Endorsements",
+    "claims": "Claims",
+    "premium_reports": "Premium reports",
+    "commission": "Estimated commission",
+    "source_document": "Source"
+  },
+  "missingBlock": {
+    "title": "Missing",
+    "subtitle": "What is missing for everything to work. Filling it in needs no reason.",
+    "line": "Missing: {{label}}"
+  },
+  "complete": {
+    "action": "Complete",
+    "hint": "Fill in the missing datum. Filling an empty field needs no reason.",
+    "premiumsHint": "Enter the premiums in the policy currency. Net = taxable + exempt; VAT = 19% of taxable; gross = net + VAT. The server checks they add up.",
+    "save": "Save",
+    "toast": "Saved",
+    "title": {
+      "policy_number": "Complete the policy number",
+      "premiums": "Complete the premiums",
+      "commission": "Complete the commission %"
+    },
+    "fields": {
+      "policy_number": "Policy number",
+      "taxable_premium_uf": "Taxable premium",
+      "exempt_premium_uf": "Exempt premium",
+      "total_premium_uf": "Gross premium",
+      "commission_pct": "Commission %"
+    }
+  },
+  "plan": {
+    "load": "Load payment plan",
+    "title": "Load payment plan",
+    "subtitle": "The installments must add up to the gross premium: {{gross}}.",
+    "method": "Payment method",
+    "count": "Installments",
+    "first": "First due date",
+    "columns": {
+      "number": "No.",
+      "due": "Due",
+      "amount": "Amount",
+      "amountUnit": "Amount ({{unit}})"
+    },
+    "add": "Add installment",
+    "remove": "Remove installment",
+    "balanced": "The installments add up to the gross premium.",
+    "unbalanced": "The installments do not add up to the gross premium: off by {{diff}}.",
+    "save": "Save plan",
+    "toast": "Payment plan loaded",
+    "error": "Could not load the payment plan",
+    "needsGross": "Complete the gross premium first: the installments must add up to it.",
+    "pastDue_one": "{{count}} instalment falls due before today ({{today}}): it will be overdue as soon as you save. Check the date if the insurer has not charged it yet.",
+    "pastDue_other": "{{count}} instalments fall due before today ({{today}}): they will be overdue as soon as you save. Check the dates if the insurer has not charged them yet.",
+    "startCollection": "Start collection on save",
+    "startHint": "Radal will send the cadence reminders to the payer from today.",
+    "notStartedHint": "The plan is loaded with no reminders to the payer. You can start collection later from the collection panel.",
+    "startNoPermission": "Your role cannot start collection: the plan is loaded with no reminders.",
+    "toastStarted": "Payment plan loaded and collection started",
+    "toastNotStarted": "Payment plan loaded. Collection has not started."
+  },
+  "party": {
+    "title": "Parties",
+    "edit": "Edit parties",
+    "editTitle": "Policy parties",
+    "editHint": "One policyholder, at least one insured and, if needed, one payer. Third parties keep only name, RUT and contact: they do not become clients.",
+    "empty": "This policy has no parties registered yet.",
+    "noContact": "No email or phone: collections has no one to notify.",
+    "payerDefault": "No payer registered: the policyholder pays.",
+    "add": "Add party",
+    "remove": "Remove party",
+    "save": "Save parties",
+    "toast": "Parties saved",
+    "role": {
+      "insured": "Insured",
+      "policyholder": "Policyholder",
+      "payer": "Payer",
+      "beneficiary": "Beneficiary",
+      "additional_insured": "Additional insured"
+    },
+    "fields": {
+      "role": "Role",
+      "name": "Name",
+      "rut": "RUT",
+      "email": "Email",
+      "phone": "Phone",
+      "beneficiaryKind": "Beneficiary type",
+      "beneficiaryKindHint": "For example: mortgage lender",
+      "notifyCollections": "Receives collection notices"
+    },
+    "errors": {
+      "holder": "There must be exactly one policyholder.",
+      "insured": "There must be at least one insured.",
+      "payer": "There can be at most one payer.",
+      "name": "Every party needs a name.",
+      "rut": "A RUT is not valid.",
+      "email": "An email is not valid."
+    },
+    "fieldErrors": {
+      "name": "Enter the name.",
+      "rut": "This RUT is not valid: check the check digit.",
+      "email": "This email is not valid."
+    }
+  },
+  "collectionBlock": {
+    "title": "Collections",
+    "openPlan": "View payment plan",
+    "noPlan": "This policy has no installments: it is not in Collections and raises no due-date notices.",
+    "next": "Next due date",
+    "nextAmount": "Installment amount",
+    "progress": "Installments paid",
+    "progressValue": "{{paid}} of {{total}}",
+    "overdue": "Overdue",
+    "method": "Payment method: {{method}}"
+  },
+  "journeyBlock": {
+    "title": "Journey",
+    "origin": "Origin: {{origin}}",
+    "openAccount": "View placement",
+    "empty": "This policy did not go through placement stages.",
+    "skipped": "skipped",
+    "viewerHint": "The placement shows only the stages that happened and their files."
+  },
+  "origin": {
+    "reader": "PDF read",
+    "manual": "Hand entry",
+    "journey": "Full placement",
+    "portal_rpa": "Insurer portal",
+    "migration": "Migration"
+  },
+  "stage": {
+    "lead": "Interest",
+    "intake": "Intake",
+    "pre_underwriting": "Pre-underwriting",
+    "technical_basis": "Technical basis",
+    "market_submission": "Market submission",
+    "quotes_received": "Quotes received",
+    "comparison": "Comparison",
+    "insured_decision": "Insured decision",
+    "proposal_issued": "Proposal issued",
+    "ratified": "Ratification",
+    "policy_issued": "Policy issued",
+    "mirror_validation": "Mirror validation",
+    "active": "In force",
+    "renewal_review": "Renewal review"
+  },
+  "paymentMethod": {
+    "coupon_book": "Coupon (manual payment)",
+    "direct_debit": "PAC (account debit)",
+    "card_debit": "PAT (card debit)",
+    "transfer": "Transfer",
+    "single_charge": "Single payment",
+    "other": "Other"
+  },
+  "share": {
+    "action": "Share"
+  },
+  "clientPicker": {
+    "placeholder": "Search a client by name or RUT",
+    "none": "No client matches",
+    "change": "Change",
+    "error": "We could not search clients. Try again."
+  },
+  "upload": {
+    "noTarget": "Choose the subtype before uploading the PDF.",
+    "subtype": "Line · Subtype",
+    "subtypeHint": "The policy is filed in that line's placement; if there is none, one is created.",
+    "subtypeFirst": "Pick the line and subtype first",
+    "client": "Insured (optional)",
+    "clientHint": "Leave it blank to use the RUT read from the PDF.",
+    "unresolvedTitle": "We do not know which insured this policy belongs to",
+    "suggestion": "Read from the PDF",
+    "createClient": "Create this insured and continue",
+    "pickClient": "Or pick a client from the book",
+    "useClient": "Use this client",
+    "tryAnother": "Upload another PDF"
+  },
+  "form": {
+    "submit": "Save policy",
+    "cancel": "Cancel",
+    "toast": {
+      "created": "Policy {{number}} registered",
+      "error": "Could not register the policy"
+    },
+    "insuredMode": {
+      "client": "Client from the book",
+      "rut": "By RUT"
+    },
+    "sections": {
+      "insured": "Insured",
+      "insuredHint": "The RUT rules: if it is already in the book, that insured is used.",
+      "policy": "Policy",
+      "premiums": "Premiums",
+      "premiumsHint": "Optional. With the gross premium you can load the payment plan later; taxable and exempt premiums feed the reports.",
+      "parties": "Policyholder and payer",
+      "partiesHint": "Collections goes to the policyholder. By default it is the insured, and the policyholder pays.",
+      "notes": "Notes"
+    },
+    "fields": {
+      "client": "Client",
+      "insuredRut": "Insured RUT",
+      "insuredName": "Name or company name",
+      "insurer": "Insurer",
+      "subtype": "Line · Subtype",
+      "startDate": "Term start",
+      "endDate": "Term end",
+      "policyNumber": "Policy number",
+      "paymentMethod": "Payment method",
+      "isProvisional": "Provisional premium",
+      "currency": "Currency",
+      "taxable": "Taxable premium",
+      "exempt": "Exempt premium",
+      "total": "Gross premium",
+      "commission": "Commission %",
+      "holderSame": "The policyholder is the insured",
+      "holderName": "Policyholder name",
+      "holderEmail": "Collections email",
+      "rut": "RUT",
+      "email": "Email",
+      "phone": "Phone",
+      "payerSame": "The policyholder pays",
+      "payerName": "Payer name"
+    },
+    "hints": {
+      "insuredRut": "With or without dots; the check digit is validated.",
+      "policyNumber": "Optional. Without a number the policy cannot be endorsed.",
+      "paymentMethod": "Optional. Suggested when loading the payment plan.",
+      "isProvisional": "Charged in advance and adjusted later with what is declared.",
+      "total": "Optional. Switches on the payment plan and collections.",
+      "commission": "Optional. Adds to the estimated commission.",
+      "contact": "Collection notices go to this email."
+    },
+    "placeholders": {
+      "insurer": "Pick the insurer",
+      "paymentMethod": "Not set"
+    },
+    "preview": {
+      "net": "Net: {{value}}",
+      "vat": "VAT: {{value}}",
+      "total": "Gross: {{value}}",
+      "mismatch": "The gross premium entered does not match net + VAT."
+    },
+    "errors": {
+      "required": "This field is required.",
+      "rut": "The RUT is not valid.",
+      "email": "The email is not valid.",
+      "number": "Enter a number, for example 12.5.",
+      "pct": "The percentage cannot exceed 100.",
+      "endBeforeStart": "The term end must be after the start.",
+      "client": "Pick a client.",
+      "subtype": "Choose the subtype. If the line has only one, it is selected when you pick the line.",
+      "insurer": "Pick the insurer.",
+      "ambiguous": "Ambiguous amount: use a comma for decimals (12,345) or type it without dots (12345).",
+      "totalMismatch": "The gross premium does not match net + VAT. Fix it or leave it blank to derive it."
+    }
+  },
+  "noPermission": {
+    "create": "Your role cannot register policies.",
+    "upload": "Your role cannot upload documents.",
+    "edit": "Your role cannot edit policies.",
+    "plan": "Your role cannot create payment plans.",
+    "share": "Your role cannot share this policy.",
+    "insurers": "Your role cannot view insurers.",
+    "clients": "Your role cannot view clients.",
+    "collections": "Your role cannot view collections.",
+    "cases": "Your role cannot view case folders."
+  }
+}

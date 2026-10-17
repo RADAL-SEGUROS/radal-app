@@ -44,6 +44,7 @@ from app.models.enums import CaseFileStatus, EntityType
 from app.models.insured import Insured
 from app.models.policy import Claim, Policy
 from app.models.user import User
+from app.services.stage_labels import humanize_system_text
 from app.schemas.account_group import (
     AccountGroupAttachClient,
     AccountGroupClientRead,
@@ -330,16 +331,42 @@ def _naive_utc(value: datetime | None) -> datetime | None:
     return value
 
 
+def _date_noon_utc(value: date) -> datetime:
+    """A calendar date as noon in Chile, in naive UTC.
+
+    A policy start / an as-of date has no time of day: placed at midnight UTC it
+    rendered as a fake "00:00" (or as 21:00 of the day BEFORE once converted to
+    Chile time). Noon in America/Santiago keeps the day right in any viewer, and
+    the entry carries ``date_only=True`` so the UI prints the date alone.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+
+        local = datetime(value.year, value.month, value.day, 12, tzinfo=ZoneInfo("America/Santiago"))
+        return local.astimezone(timezone.utc).replace(tzinfo=None)
+    except Exception:  # noqa: BLE001 - no tzdata: 16:00 UTC is noon in Chile (UTC-4)
+        return datetime(value.year, value.month, value.day, 16)
+
+
 def _instant(*candidates: Any) -> datetime | None:
-    """First present value, as a naive-UTC datetime (a ``date`` at midnight)."""
+    """First present value, as a naive-UTC datetime (a ``date`` at noon in Chile)."""
     for value in candidates:
         if value is None:
             continue
         if isinstance(value, datetime):
             return _naive_utc(value)
         if isinstance(value, date):
-            return datetime(value.year, value.month, value.day)
+            return _date_noon_utc(value)
     return None
+
+
+def _date_only(*candidates: Any) -> bool:
+    """True when the first present candidate is a bare ``date`` (no time of day)."""
+    for value in candidates:
+        if value is None:
+            continue
+        return isinstance(value, date) and not isinstance(value, datetime)
+    return False
 
 
 # =============================================================================
@@ -650,7 +677,7 @@ def get_group_timeline(
     entries: list[GroupTimelineEntry] = []
 
     def _add(entry: GroupTimelineEntry) -> None:
-        if cutoff is not None and entry.occurred_at >= cutoff:
+        if cutoff is not None and _naive_utc(entry.occurred_at) >= cutoff:
             return
         entries.append(entry)
 
@@ -673,7 +700,10 @@ def get_group_timeline(
                     title=event.to_stage.value,
                     from_stage=event.from_stage.value if event.from_stage else None,
                     to_stage=event.to_stage.value,
-                    detail=event.note,
+                    # A system note (no user) is prose Radal wrote: legacy rows
+                    # still carried stage codes / rule ids (review v12 #3).
+                    detail=event.note if event.user_id else humanize_system_text(event.note),
+                    is_skipped=bool(event.is_skipped),
                 )
             )
 
@@ -696,7 +726,7 @@ def get_group_timeline(
                     occurred_at=moment,
                     case_file_id=activity.entity_id,
                     title=activity.action,
-                    detail=activity.description,
+                    detail=humanize_system_text(activity.description),
                 )
             )
 
@@ -735,6 +765,7 @@ def get_group_timeline(
                 GroupTimelineEntry(
                     kind="policy",
                     occurred_at=moment,
+                    date_only=_date_only(policy.issued_at, policy.start_date, policy.created_at),
                     case_file_id=policy.case_file_id,
                     policy_id=policy.id,
                     title=policy.policy_number,
@@ -759,6 +790,9 @@ def get_group_timeline(
                 GroupTimelineEntry(
                     kind="endorsement",
                     occurred_at=moment,
+                    date_only=_date_only(
+                        endorsement.issued_at, endorsement.effective_at, endorsement.created_at
+                    ),
                     case_file_id=endorsement.case_file_id,
                     policy_id=endorsement.policy_id,
                     title=str(
@@ -782,6 +816,9 @@ def get_group_timeline(
                 GroupTimelineEntry(
                     kind="claim",
                     occurred_at=moment,
+                    date_only=_date_only(
+                        claim.reported_at, claim.reported_date, claim.event_date, claim.created_at
+                    ),
                     case_file_id=claim.case_file_id,
                     policy_id=claim.policy_id,
                     title=str(claim.claim_number or claim.id),
@@ -804,6 +841,7 @@ def get_group_timeline(
                 GroupTimelineEntry(
                     kind="collection",
                     occurred_at=moment,
+                    date_only=_date_only(plan.as_of_date, plan.created_at),
                     case_file_id=plan.case_file_id,
                     policy_id=plan.policy_id,
                     title=str(plan.plan_number or plan.id),

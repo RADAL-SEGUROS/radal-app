@@ -16,8 +16,18 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import CollectionPlanStatus, InstallmentStatus, PaymentMode
+from app.models.enums import (
+    CollectionLevelPreference,
+    CollectionPlanOrigin,
+    CollectionPlanSource,
+    CollectionPlanStatus,
+    InstallmentStatus,
+    PaymentMode,
+    PolicyCurrency,
+)
 from app.schemas.proposal import MONEY_TOLERANCE
+from app.schemas.utc import UtcDatetime
+from app.schemas.wallclock import WallClockDatetime
 
 
 def _d(value: Any) -> Decimal:
@@ -102,8 +112,14 @@ class InstallmentRead(InstallmentBase):
     id: int
     broker_id: int
     collection_plan_id: int
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    # v12 cobranza (``status`` above is the CACHE the state machine writes).
+    currency: PolicyCurrency = PolicyCurrency.UF
+    direct_debit_rejected_at: date | None = None
+    voided_by_endorsement_id: int | None = None
+    insurer_notice_sent_on: date | None = None
+    promise_until: date | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 class InstallmentReplace(BaseModel):
@@ -138,6 +154,13 @@ class CollectionPlanCreate(CollectionPlanBase):
     policy_id: int = Field(gt=0)
     case_file_id: int | None = Field(default=None, gt=0)
     installments: list[InstallmentCreate] = Field(default_factory=list)
+    # v12: where the plan came from and how it is collected.
+    origin: CollectionPlanOrigin | None = None
+    source: CollectionPlanSource | None = None
+    level_preference: CollectionLevelPreference = CollectionLevelPreference.AUTO
+    #: Start cobranza on save (payer reminders ON), like ``POST
+    #: /collections/plans/{id}/start`` — review v12 #15.
+    start_collection: bool = False
 
 
 class CollectionPlanUpdate(BaseModel):
@@ -152,13 +175,18 @@ class CollectionPlanUpdate(BaseModel):
     monthly_interest_rate_pct: Decimal | None = Field(default=None, ge=0, le=100)
     status: CollectionPlanStatus | None = None
     as_of_date: date | None = None
-    terminated_at: datetime | None = None
-    rehabilitated_at: datetime | None = None
+    terminated_at: WallClockDatetime | None = None
+    rehabilitated_at: WallClockDatetime | None = None
     days_without_cover: int | None = Field(default=None, ge=0)
     rehabilitation_cost_uf: Decimal | None = None
     art528_events: list[Any] | dict[str, Any] | None = None
     management_note: str | None = None
     case_file_id: int | None = Field(default=None, gt=0)
+    # v12 (``PATCH /collections/plans/{id}``; also accepted by the legacy PATCH).
+    notices_enabled: bool | None = None
+    level_preference: CollectionLevelPreference | None = None
+    notices_paused_until: date | None = None
+    notices_pause_reason: str | None = Field(default=None, max_length=2000)
 
 
 class CollectionPlanRead(CollectionPlanBase):
@@ -168,12 +196,24 @@ class CollectionPlanRead(CollectionPlanBase):
     broker_id: int
     policy_id: int
     case_file_id: int | None = None
-    terminated_at: datetime | None = None
-    rehabilitated_at: datetime | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    terminated_at: WallClockDatetime | None = None
+    rehabilitated_at: WallClockDatetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
+    # v12 cobranza
+    origin: CollectionPlanOrigin | None = None
+    source: CollectionPlanSource | None = None
+    source_document_id: int | None = None
+    mandate_id: int | None = None
+    level_preference: CollectionLevelPreference = CollectionLevelPreference.AUTO
+    notices_enabled: bool = False
+    notices_paused_until: date | None = None
+    notices_pause_reason: str | None = None
 
     installments: list[InstallmentRead] = Field(default_factory=list)
+    #: Spanish heads-ups from the write that produced this read (e.g. cuotas
+    #: born overdue because their due date is already past). Empty on reads.
+    warnings: list[str] = Field(default_factory=list)
 
 
 class CollectionPlanPage(BaseModel):

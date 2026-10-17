@@ -51,6 +51,12 @@ import {
 import { RequestFormDialog } from "./components/RequestFormDialog";
 import { CancelRequestDialog } from "./components/CancelRequestDialog";
 import { InspectionFormDialog } from "./components/InspectionFormDialog";
+import {
+  INSPECTION_REQUEST_STATUS_LABEL,
+  INSPECTION_STATUS_LABEL,
+  INSPECTION_URGENCY_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 /**
  * Inspections hub: the requests queue and the reports themselves, the two
@@ -147,7 +153,7 @@ export default function InspectionsPage({ embedded }: EmbeddablePageProps = {}) 
         header: t("requests.columns.urgency"),
         cell: ({ row }) => (
           <Badge variant={URGENCY_VARIANT[row.original.urgency] ?? "neutral"}>
-            {t(`urgency.${row.original.urgency}`)}
+            {enumLabel(t, INSPECTION_URGENCY_LABEL, row.original.urgency)}
           </Badge>
         ),
       },
@@ -161,7 +167,7 @@ export default function InspectionsPage({ embedded }: EmbeddablePageProps = {}) 
         header: t("requests.columns.status"),
         cell: ({ row }) => (
           <Badge variant={REQUEST_STATUS_VARIANT[row.original.status]}>
-            {t(`status.request.${row.original.status}`)}
+            {enumLabel(t, INSPECTION_REQUEST_STATUS_LABEL, row.original.status)}
           </Badge>
         ),
       },
@@ -281,7 +287,7 @@ export default function InspectionsPage({ embedded }: EmbeddablePageProps = {}) 
         header: t("reports.columns.status"),
         cell: ({ row }) => (
           <Badge variant={REPORT_STATUS_VARIANT[row.original.status]}>
-            {t(`status.report.${row.original.status}`)}
+            {enumLabel(t, INSPECTION_STATUS_LABEL, row.original.status)}
           </Badge>
         ),
       },
@@ -374,7 +380,7 @@ export default function InspectionsPage({ embedded }: EmbeddablePageProps = {}) 
                   <SelectItem value={ALL}>{t("filters.all")}</SelectItem>
                   {INSPECTION_REQUEST_STATUSES.map((status) => (
                     <SelectItem key={status} value={status}>
-                      {t(`status.request.${status}`)}
+                      {enumLabel(t, INSPECTION_REQUEST_STATUS_LABEL, status)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -398,7 +404,7 @@ export default function InspectionsPage({ embedded }: EmbeddablePageProps = {}) 
                   <SelectItem value={ALL}>{t("filters.all")}</SelectItem>
                   {INSPECTION_STATUSES.map((status) => (
                     <SelectItem key={status} value={status}>
-                      {t(`status.report.${status}`)}
+                      {enumLabel(t, INSPECTION_STATUS_LABEL, status)}
                     </SelectItem>
                   ))}
                 </SelectContent>

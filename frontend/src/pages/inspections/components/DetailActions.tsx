@@ -25,6 +25,7 @@ import {
 } from "@/api/inspections";
 import type { Inspection, InspectionStatus, UserSummary } from "@/api/types";
 import { Field, GuardedButton, STATUS_TRANSITIONS, type Guard } from "./shared";
+import { INSPECTION_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 /** Assign / clear the inspector — `POST /inspections/{id}/assign`. */
 export function AssignInspectorDialog({
@@ -231,7 +232,7 @@ export function StatusActions({
               )
             }
           >
-            {t("detail.moveTo", { status: t(`status.report.${target}`) })}
+            {t("detail.moveTo", { status: enumLabel(t, INSPECTION_STATUS_LABEL, target) })}
           </GuardedButton>
         );
       })}

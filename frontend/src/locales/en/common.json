@@ -45,7 +45,11 @@
     "soon": "Soon",
     "analytics": "Analytics",
     "backToGroups": "Back to insureds",
-    "data": "Portfolio"
+    "data": "Portfolio",
+    "portalSearch": "Portal quotes",
+    "platform": "Maintainer",
+    "notifications": "Notifications",
+    "overdueInstallments": "Overdue installments: {{count}}"
   },
   "sidebar": {
     "collapse": "Collapse sidebar",
@@ -95,7 +99,8 @@
       "assets": "Assets",
       "quotes": "Quotes",
       "proposals": "Proposals"
-    }
+    },
+    "error": "We could not search right now. Try again."
   },
   "th": {
     "cliente": "Client",
@@ -169,6 +174,21 @@
     "loading": "Loading…",
     "empty": "No data",
     "error": "Failed to load",
-    "underConstruction": "Under construction"
+    "underConstruction": "Under construction",
+    "noAccess": "No access",
+    "noAccessHint": "Your role is not allowed to view this section. If you think this is a mistake, ask an administrator for access."
+  },
+  "moneyRule": {
+    "fields": {
+      "generic": "Amounts",
+      "total_premium_uf": "The gross premium",
+      "net_premium_uf": "The net premium",
+      "vat_uf": "The VAT",
+      "exempt_premium_uf": "The exempt premium",
+      "taxable_premium_uf": "The taxable premium",
+      "installments": "The instalment total"
+    },
+    "mismatch": "The amounts do not add up: {{field}} should be {{expected}} but {{received}} was received.",
+    "generic": "The amounts do not add up ({{field}}). Check the figures."
   }
 }

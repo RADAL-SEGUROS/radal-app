@@ -56,6 +56,7 @@ import {
   apiError,
   uf,
 } from "@/pages/proposals/shared";
+import { OFFERING_CHANNEL_LABEL, OFFERING_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 export default function OfferingsListPage({ embedded }: EmbeddablePageProps = {}) {
   const { t } = useTranslation("offerings");
@@ -160,12 +161,12 @@ export default function OfferingsListPage({ embedded }: EmbeddablePageProps = {}
                     <TableCell>
                       <StatusBadge
                         value={offering.status}
-                        label={t(`status.${offering.status}`)}
+                        label={enumLabel(t, OFFERING_STATUS_LABEL, offering.status)}
                       />
                     </TableCell>
                     <TableCell>
                       {offering.sent_via ? (
-                        <Badge variant="action">{t(`channels.${offering.sent_via}`)}</Badge>
+                        <Badge variant="action">{enumLabel(t, OFFERING_CHANNEL_LABEL, offering.sent_via)}</Badge>
                       ) : (
                         <span className="text-text-muted">—</span>
                       )}

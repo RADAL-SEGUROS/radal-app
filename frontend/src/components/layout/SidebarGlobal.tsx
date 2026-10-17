@@ -1,45 +1,54 @@
 /**
  * GLOBAL-mode content of the single context-switching sidebar.
  *
- * Rendered by `Sidebar.tsx` whenever the route is outside a group. Sections,
- * top to bottom: GRUPOS (<=8 groups with open counts — no nested vigencias, the
- * vigencia level lives in group mode), then five plain rows: Datos, Analitica,
- * Agente, Companias, Configuracion. The user card and tenant chip belong to the
+ * Rendered by `Sidebar.tsx` whenever the route is outside a group. Order, top to
+ * bottom (v12, `docs/v12/07-frontend.md` §1):
+ *
+ *   Pólizas · Cobranza (overdue-cuotas chip) · ASEGURADOS (<=8 groups with open
+ *   counts) · Portafolio · Analítica · Agente · Cotizar en portales · Compañías ·
+ *   Configuración · Mantenedor
+ *
+ * **Policies lead since v12**: journeys are partial, a broker often starts from
+ * a policy PDF, and the group/account works more as a viewer than a creator.
+ * Cobranza sits right under it because the overdue count is the one number a
+ * broker checks every morning. The user card and tenant chip belong to the
  * `Sidebar` shell, not to either mode.
  *
- * **MAS is gone, and so is the ADMINISTRACION header.** MAS held a flat list of
- * a dozen entity routes (Leads, Expedientes, Clientes, Colocaciones,
- * Cotizaciones, Propuestas, Polizas, Inspecciones, Siniestros, Ofertas) plus two
- * greyed "pronto" stubs. That list answered a question the app now answers
- * better in three places: **rows live in Datos**, **shape lives en Analitica**,
- * and **one account's detail lives inside its grupo**. The routes themselves
- * stay alive — deep links from group pages still resolve — they simply do not
- * need a rail entry each.
- *
- * Two rules still constrain every entry:
+ * Rules that constrain every entry:
  *
  * 1. **The server decides what is visible.** Each item names its RBAC module
  *    and is filtered through `can(perms, module, "View")`. While the matrix is
  *    in flight only Dashboard-gated anchors render, so nothing pops away a
  *    moment later.
- * 2. **No dead buttons.** Every row here resolves to a real route. The two
- *    not-yet-built modules (Finanzas, Reporteria) no longer appear at all
- *    rather than as permanent "pronto" chips: Reporteria IS Analitica now, and
- *    Finanzas has no surface to point at.
+ * 2. **No dead buttons.** Every row resolves to a real route.
+ * 3. **A platform user has no broker workspace.** `user_type` comes from the
+ *    same matrix response; for a platform user the broker rows — and the two
+ *    broker-scoped fetches behind them (navigator, collections summary) — stay
+ *    off, and the rail shows the maintainer console. Nothing 403s on render.
+ * 4. **The overdue chip tolerates a missing endpoint.** `GET
+ *    /collections/summary` may 404/422 or omit `overdue` on an older backend;
+ *    the chip then simply does not render. It never shows a guessed number.
  */
 import * as React from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
   Bot,
   Building2,
   Database,
   Folder,
+  Globe,
   Plus,
   Settings,
+  ShieldCheck,
+  Wallet,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
+import api from "@/lib/api";
+import { qk } from "@/api/keys";
 import { useNavigator } from "@/api/navigator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -97,15 +106,63 @@ interface NavItem {
 const MAX_RAIL_GROUPS = 8;
 
 /** A leaf link. `end` gives exact matching; without it a parent matches by prefix. */
-function NavRow({ item, label }: { item: NavItem; label: string }) {
+function NavRow({
+  item,
+  label,
+  trailing,
+}: {
+  item: NavItem;
+  label: string;
+  /** Right-aligned extra, e.g. the Cobranza overdue chip. */
+  trailing?: React.ReactNode;
+}) {
   const Icon = item.icon;
   return (
     <li>
       <NavLink to={item.to} end={item.end} className={({ isActive }) => railRowClass(isActive)}>
         <Icon className="h-[16px] w-[16px] shrink-0" strokeWidth={1.5} />
         <span className="truncate">{label}</span>
+        {trailing}
       </NavLink>
     </li>
+  );
+}
+
+/**
+ * The slice of `GET /collections/summary` the rail reads. Every field optional
+ * on purpose: the endpoint lands with lane B2, and until then (or on an older
+ * backend) the response may be absent or shaped differently.
+ */
+interface CollectionsSummaryLike {
+  overdue?: { count?: number | null } | null;
+}
+
+/** Overdue-installments count for the Cobranza row, or `null` when unknown. */
+function useOverdueCount(enabled: boolean): number | null {
+  const { data } = useQuery({
+    queryKey: qk.collections.summary(),
+    enabled,
+    staleTime: 60 * 1000,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await api.get<CollectionsSummaryLike>("/collections/summary");
+      return data;
+    },
+  });
+  const count = data?.overdue?.count;
+  return typeof count === "number" && Number.isFinite(count) ? count : null;
+}
+
+/** Overdue cuotas: a negative-tone pill — the rail's only alarm colour. */
+function OverdueChip({ count, title }: { count: number; title: string }) {
+  return (
+    <span
+      title={title}
+      aria-label={title}
+      className="ml-auto shrink-0 rounded-full bg-neg-soft px-1.5 text-[11px] font-medium tabular-nums leading-[18px] text-neg-text"
+    >
+      {count}
+    </span>
   );
 }
 
@@ -136,8 +193,16 @@ export function SidebarGlobal() {
     [perms, permsLoading],
   );
 
-  const canSeeGroups = gate("Groups");
-  const canCreateGroup = !permsLoading && can(perms, "Groups", "Create");
+  // A platform user carries no broker: every workspace row (and its fetch)
+  // stays off, and only the maintainer console is offered. `user_type` is the
+  // server's own answer, not a role guess.
+  const isPlatformUser = perms?.user_type === "platform";
+  const ws = (module: PermissionModule) => !isPlatformUser && gate(module);
+
+  const canSeeGroups = ws("Groups");
+  const canCreateGroup = canSeeGroups && can(perms, "Groups", "Create");
+  const canSeeCollections = ws("Collections");
+  const overdue = useOverdueCount(canSeeCollections);
 
   // The rail is the navigator's only consumer here; do not fetch it for a role
   // that cannot see groups at all. (`rail`, not `navigator` — the latter
@@ -148,10 +213,36 @@ export function SidebarGlobal() {
 
   return (
     <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-      {/* GRUPOS — the front door */}
+      {/* Pólizas · Cobranza — the v12 front door. */}
+      {ws("Policies") || canSeeCollections ? (
+        <ul className="flex flex-col gap-0.5 pt-1">
+          {ws("Policies") ? (
+            <NavRow
+              item={{ to: "/policies", labelKey: "nav.policies", icon: ShieldCheck, module: "Policies" }}
+              label={t("nav.policies")}
+            />
+          ) : null}
+          {canSeeCollections ? (
+            <NavRow
+              item={{ to: "/collections", labelKey: "nav.collections", icon: Wallet, module: "Collections" }}
+              label={t("nav.collections")}
+              trailing={
+                overdue !== null && overdue > 0 ? (
+                  <OverdueChip
+                    count={overdue}
+                    title={t("nav.overdueInstallments", { count: overdue })}
+                  />
+                ) : null
+              }
+            />
+          ) : null}
+        </ul>
+      ) : null}
+
+      {/* ASEGURADOS — the groups block, unchanged */}
       {canSeeGroups ? (
         <>
-          <RailSectionLabel className="pt-1">{t("nav.groups")}</RailSectionLabel>
+          <RailSectionLabel>{t("nav.groups")}</RailSectionLabel>
           {railLoading && groups.length === 0 ? (
             <div className="flex flex-col gap-1.5 px-3 py-1">
               <Skeleton className="h-5 w-full" />
@@ -225,29 +316,35 @@ export function SidebarGlobal() {
         </>
       ) : null}
 
-      {/* Datos · Analítica · Agente · Compañías · Configuración.
-          Five plain rows, no section headers: with MÁS gone there is no longer
-          a "rest of the app" to fold away. */}
+      {/* Portafolio · Analítica · Agente · Cotizar en portales · Compañías ·
+          Configuración · Mantenedor. Plain rows, no section headers: with MÁS
+          gone there is no longer a "rest of the app" to fold away. */}
       <ul className="mt-5 flex flex-col gap-0.5">
-        {gate("Dashboard") ? (
+        {ws("Dashboard") ? (
           <NavRow
             item={{ to: "/data", labelKey: "nav.data", icon: Database, module: "Dashboard" }}
             label={t("nav.data")}
           />
         ) : null}
-        {gate("Dashboard") ? (
+        {ws("Dashboard") ? (
           <NavRow
             item={{ to: "/analytics", labelKey: "nav.analytics", icon: BarChart3, module: "Dashboard" }}
             label={t("nav.analytics")}
           />
         ) : null}
-        {gate("Dashboard") ? (
+        {ws("Dashboard") ? (
           <NavRow
             item={{ to: "/agent", labelKey: "nav.agent", icon: Bot, module: "Dashboard" }}
             label={t("nav.agent")}
           />
         ) : null}
-        {gate("Insurers") ? (
+        {ws("Integrations") ? (
+          <NavRow
+            item={{ to: "/portal-search", labelKey: "nav.portalSearch", icon: Globe, module: "Integrations" }}
+            label={t("nav.portalSearch")}
+          />
+        ) : null}
+        {ws("Insurers") ? (
           <NavRow
             item={{ to: "/insurers", labelKey: "nav.insurersAppetite", icon: Building2, module: "Insurers" }}
             label={t("nav.insurersAppetite")}
@@ -262,6 +359,14 @@ export function SidebarGlobal() {
               <span className="truncate">{t("nav.settings")}</span>
             </NavLink>
           </li>
+        ) : null}
+        {/* Mantenedor — the Radal console. No broker role holds Platform.View,
+            so this row exists only for platform users. */}
+        {!permsLoading && can(perms, "Platform", "View") ? (
+          <NavRow
+            item={{ to: "/platform", labelKey: "nav.platform", icon: Wrench, module: "Platform" }}
+            label={t("nav.platform")}
+          />
         ) : null}
       </ul>
 

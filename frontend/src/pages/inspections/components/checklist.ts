@@ -24,6 +24,15 @@ export const RESULT_TOKENS = [
 
 export type ResultToken = (typeof RESULT_TOKENS)[number] | "unknown";
 
+/** Every result token → its literal label key (no dynamic keys). */
+export const RESULT_LABEL = {
+  ok: "inspections:result.ok",
+  observation: "inspections:result.observation",
+  critical: "inspections:result.critical",
+  not_applicable: "inspections:result.not_applicable",
+  unknown: "inspections:result.unknown",
+} as const satisfies Record<ResultToken, string>;
+
 export interface ChecklistItem {
   /** Stable local key so React keeps inputs focused while editing. */
   uid: string;

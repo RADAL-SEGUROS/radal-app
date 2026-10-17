@@ -46,6 +46,7 @@ import { formatNumber } from "@/lib/format";
 import { num } from "@/api/types";
 import { AssetStatusBadge } from "@/pages/clients/status";
 import { SoonButton } from "@/pages/clients/Soon";
+import { ASSET_STATUS_LABEL, ASSET_TYPE_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * The assets (bienes asegurables) of one client.
@@ -226,7 +227,7 @@ function CreateAssetDialog({
               <SelectContent>
                 {ASSET_STATUSES.map((value) => (
                   <SelectItem key={value} value={value}>
-                    {t(`clients:assets.status.${value}`)}
+                    {enumLabel(t, ASSET_STATUS_LABEL, value)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -360,9 +361,7 @@ export function AssetsPanel({ clientId }: { clientId: number }) {
                         {asset.name}
                       </p>
                       <p className="truncate text-caption text-text-muted">
-                        {t(`clients:assets.types.${asset.asset_type}`, {
-                          defaultValue: asset.asset_type,
-                        })}
+                        {enumLabel(t, ASSET_TYPE_LABEL, asset.asset_type)}
                       </p>
                     </div>
                   </div>
@@ -407,9 +406,7 @@ export function AssetsPanel({ clientId }: { clientId: number }) {
               <SheetHeader>
                 <SheetTitle>{selected.name}</SheetTitle>
                 <SheetDescription>
-                  {t(`clients:assets.types.${selected.asset_type}`, {
-                    defaultValue: selected.asset_type,
-                  })}
+                  {enumLabel(t, ASSET_TYPE_LABEL, selected.asset_type)}
                 </SheetDescription>
               </SheetHeader>
               <div className="mt-5 flex flex-col">

@@ -11,6 +11,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.core import roles_config
+from app.schemas.utc import UtcDatetime
 
 # --- Shared field validators -------------------------------------------------
 
@@ -54,9 +55,9 @@ class UserRead(UserSummary):
     broker_id: int | None = None
     insurer_id: int | None = None
     insured_id: int | None = None
-    last_login_at: datetime | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    last_login_at: UtcDatetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 class UserListResponse(BaseModel):

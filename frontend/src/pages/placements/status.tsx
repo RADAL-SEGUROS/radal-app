@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PLACEMENT_STATUSES, type PlacementStatus } from "@/api/types";
+import { PLACEMENT_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * The placement status pipeline, in the order the backend's state machine walks
@@ -47,7 +48,7 @@ export function PlacementStatusBadge({
   const { t } = useTranslation("placements");
   return (
     <Badge variant={STATUS_VARIANT[status]} className={className}>
-      {t(`status.${status}`)}
+      {enumLabel(t, PLACEMENT_STATUS_LABEL, status)}
     </Badge>
   );
 }

@@ -28,6 +28,7 @@ import { FadeUp } from "@/components/common/motion";
 import { ChartPngButton } from "@/components/common/ExportMenu";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProposalInsurerCount } from "@/api/types";
+import { CASE_KIND_LABEL, CASE_STAGE_LABEL, CASE_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const AXIS_TICK = { fontSize: 12, fill: "var(--ink-3)" } as const;
 
@@ -570,11 +571,11 @@ export function useBucketLabel(dimension: string): (bucket: BucketDatum) => stri
       const fallback = bucket.label || bucket.key;
       switch (dimension) {
         case "stage":
-          return tCases(`stages.${bucket.key}`, { defaultValue: fallback });
+          return enumLabel(tCases, CASE_STAGE_LABEL, bucket.key, fallback);
         case "status":
-          return tCases(`statuses.${bucket.key}`, { defaultValue: fallback });
+          return enumLabel(tCases, CASE_STATUS_LABEL, bucket.key, fallback);
         case "kind":
-          return tCases(`kinds.${bucket.key}`, { defaultValue: fallback });
+          return enumLabel(tCases, CASE_KIND_LABEL, bucket.key, fallback);
         case "month": {
           // "2026-09" -> "sep 2026", in the active locale.
           const match = /^(\d{4})-(\d{2})$/.exec(bucket.key);

@@ -25,6 +25,7 @@ from enum import Enum
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
+from app.schemas.utc import UtcDatetime
 
 
 def _enum_value(value: Any) -> Any:
@@ -212,9 +213,9 @@ class ExtractionRead(ApiModel):
     error: str | None = None
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    created_at: datetime | None = None
+    started_at: UtcDatetime | None = None
+    finished_at: UtcDatetime | None = None
+    created_at: UtcDatetime | None = None
 
 
 class ExtractionSuggestionResponse(ApiModel):
@@ -288,7 +289,7 @@ class ProposalRead(ApiModel):
     extraction_confidence: Decimal | None = None
     is_confirmed: bool
     confirmed_by_id: int | None = None
-    confirmed_at: datetime | None = None
+    confirmed_at: UtcDatetime | None = None
 
     coverages: list[ProposalCoverageRead] = Field(default_factory=list)
 
@@ -313,8 +314,8 @@ class ThreadRead(ApiModel):
     entity_id: int | None = None
     title: str | None = None
     is_archived: bool
-    last_message_at: datetime | None = None
-    created_at: datetime | None = None
+    last_message_at: UtcDatetime | None = None
+    created_at: UtcDatetime | None = None
 
 
 class ThreadList(ApiModel):
@@ -337,7 +338,7 @@ class MessageRead(ApiModel):
     context_refs: list[dict[str, Any]] | None = None
     model: str | None = None
     tokens: int | None = None
-    created_at: datetime | None = None
+    created_at: UtcDatetime | None = None
 
 
 class MessageList(ApiModel):
@@ -407,8 +408,8 @@ class AgentActionRead(ApiModel):
     status: AgentActionStatusLiteral
     result: dict[str, Any] | None = None
     error: str | None = None
-    confirmed_at: datetime | None = None
-    created_at: datetime | None = None
+    confirmed_at: UtcDatetime | None = None
+    created_at: UtcDatetime | None = None
     allowed: bool = False
 
 

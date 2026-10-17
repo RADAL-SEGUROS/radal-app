@@ -30,6 +30,7 @@ import { useClaims } from "@/api/claims";
 import { CLAIM_STATUSES, num, type Claim, type ClaimStatus } from "@/api/types";
 import { EmptyState, ErrorBanner, MonoChip, uf } from "@/pages/proposals/shared";
 import { DateTimeValue, PostsaleBadge } from "@/pages/policies/shared";
+import { CLAIM_RULING_LABEL, CLAIM_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 export default function ClaimsListPage() {
   const { t } = useTranslation("postsale");
@@ -117,7 +118,7 @@ export default function ClaimsListPage() {
         cell: ({ row }) => (
           <PostsaleBadge
             value={row.original.status}
-            label={t(`claim.status.${row.original.status}`)}
+            label={enumLabel(t, CLAIM_STATUS_LABEL, row.original.status)}
           />
         ),
       },
@@ -128,7 +129,7 @@ export default function ClaimsListPage() {
         cell: ({ row }) => (
           <PostsaleBadge
             value={row.original.coverage_ruling}
-            label={t(`claim.ruling.${row.original.coverage_ruling}`)}
+            label={enumLabel(t, CLAIM_RULING_LABEL, row.original.coverage_ruling)}
           />
         ),
       },
@@ -187,7 +188,7 @@ export default function ClaimsListPage() {
               <SelectItem value="all">{t("policy.filters.allStatuses")}</SelectItem>
               {CLAIM_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {t(`claim.status.${s}`)}
+                  {enumLabel(t, CLAIM_STATUS_LABEL, s)}
                 </SelectItem>
               ))}
             </SelectContent>

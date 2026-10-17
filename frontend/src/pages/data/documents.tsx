@@ -38,6 +38,7 @@ import {
   useUrlParam,
 } from "./shared";
 import { useScopeParams } from "@/components/common/ScopeFilter";
+import { DOCUMENT_CATEGORY_LABEL, ENTITY_TYPE_LABEL, enumLabel } from "@/i18n/labels";
 
 /** "1,2 MB" — compact size with the app's decimal comma. */
 function formatBytes(bytes: number | null | undefined): string {
@@ -116,7 +117,7 @@ export default function DocumentsTab() {
     () =>
       ENTITY_TYPES.map((value) => ({
         value,
-        label: tSettings(`entities.${value}`, { defaultValue: value }),
+        label: enumLabel(tSettings, ENTITY_TYPE_LABEL, value),
       })),
     [tSettings],
   );
@@ -124,7 +125,7 @@ export default function DocumentsTab() {
     () =>
       DOCUMENT_CATEGORIES.map((value) => ({
         value,
-        label: tDocuments(`categories.${value}`, { defaultValue: value }),
+        label: enumLabel(tDocuments, DOCUMENT_CATEGORY_LABEL, value),
       })),
     [tDocuments],
   );
@@ -149,18 +150,14 @@ export default function DocumentsTab() {
         accessorKey: "category",
         header: t("columns.category"),
         cell: ({ row }) =>
-          tDocuments(`categories.${row.original.category}`, {
-            defaultValue: row.original.category,
-          }),
+          enumLabel(tDocuments, DOCUMENT_CATEGORY_LABEL, row.original.category),
       },
       {
         accessorKey: "entity_type",
         header: t("columns.entityType"),
         cell: ({ row }) => (
           <span className="text-ink-2">
-            {tSettings(`entities.${row.original.entity_type}`, {
-              defaultValue: row.original.entity_type,
-            })}
+            {enumLabel(tSettings, ENTITY_TYPE_LABEL, row.original.entity_type)}
           </span>
         ),
       },

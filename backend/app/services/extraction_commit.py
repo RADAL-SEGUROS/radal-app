@@ -137,6 +137,10 @@ class _Ctx:
     #: v8 policy: force the commit even when the fixed core is incomplete (the
     #: broker's confirmed "register it anyway"). Ignored by every other target.
     override: bool = False
+    #: v12 policy: the insured the caller resolved for this upload (a member of
+    #: the folder). A policy CREATED by this commit is registered under it, not
+    #: under the folder's primary RUT. Ignored by every other target.
+    policy_client_id: int | None = None
 
     @property
     def user_id(self) -> int | None:
@@ -249,6 +253,90 @@ def _resolve_policy(ctx: _Ctx, policy_number: str | None = None) -> Policy | Non
     return None
 
 
+#: Number prefixes of a policy row that is a stand-in for the issued one: the
+#: vía Manual placeholder and the from-proposal draft.
+_STAND_IN_PREFIXES = ("SIN-N-", "BORRADOR-")
+
+
+def _stands_in_for(policy: Policy, number: str, client_id: int | None) -> bool:
+    """May the issued document read as ``number`` overwrite ``policy``?
+
+    Yes when it IS that policy (same number, or the reader found no number),
+    or when the row is a stand-in the definitiva replaces: a draft, a
+    provisional certificate, or a placeholder number. A policy of another RUT of
+    the folder is never a stand-in for this one.
+    """
+    if client_id is not None and policy.client_id != client_id:
+        return False
+    current = (policy.policy_number or "").strip()
+    if not number or current == number:
+        return True
+    if policy.status == PolicyStatus.DRAFT or bool(getattr(policy, "is_provisional", False)):
+        return True
+    return current.startswith(_STAND_IN_PREFIXES)
+
+
+def _resolve_issued_policy(ctx: _Ctx, policy_number: str | None) -> Policy | None:
+    """The policy an issued 08 updates — folio FIRST, then a stand-in.
+
+    v12 lets a folder hold several policies (a fleet, a second building, one
+    per RUT: "Subir otra póliza, una por una"). So, unlike the other committers'
+    :func:`_resolve_policy`, the folder's policy is only updated when the
+    document is that policy or the folder's row merely stands in for it. A
+    different issued number in the same folder is a NEW policy, never an
+    overwrite. A folio that belongs to another folder is a 422.
+    """
+    db, broker_id = ctx.db, ctx.broker_id
+    number = (policy_number or "").strip()
+    case = ctx.case_file
+    if number:
+        by_folio = db.scalars(
+            select(Policy).where(Policy.broker_id == broker_id, Policy.policy_number == number)
+        ).first()
+        if by_folio is not None:
+            allowed = {None}
+            if case is not None:
+                allowed |= {case.id, case.parent_case_file_id}
+            if case is not None and by_folio.case_file_id not in allowed:
+                raise CommitError(
+                    {
+                        "code": "policy_in_other_account",
+                        "reason": (
+                            f"La póliza n° {number} ya está registrada en otra cuenta: "
+                            "ábrela desde su carpeta en vez de subirla aquí."
+                        ),
+                        "policy_id": by_folio.id,
+                        "case_file_id": by_folio.case_file_id,
+                    }
+                )
+            return by_folio
+    if case is None:
+        return None
+    candidates: list[Policy] = []
+    if case.policy_id is not None:
+        anchor = db.scalars(
+            select(Policy).where(Policy.id == case.policy_id, Policy.broker_id == broker_id)
+        ).first()
+        if anchor is not None:
+            candidates.append(anchor)
+    for folder_id in (case.id, case.parent_case_file_id):
+        if folder_id is None:
+            continue
+        candidates += db.scalars(
+            select(Policy)
+            .where(Policy.case_file_id == folder_id, Policy.broker_id == broker_id)
+            .order_by(Policy.id.desc())
+        ).all()
+    seen: set[int] = set()
+    for candidate in candidates:
+        if candidate.id in seen:
+            continue
+        seen.add(candidate.id)
+        if _stands_in_for(candidate, number, ctx.policy_client_id):
+            return candidate
+    return None
+
+
 def _require_policy(ctx: _Ctx, policy_number: str | None, why: str) -> Policy:
     policy = _resolve_policy(ctx, policy_number)
     if policy is None:
@@ -290,10 +378,11 @@ def _sync_policy_period(policy: Policy) -> None:
         policy.start_date = policy.period_start_at.date()
     if policy.period_end_at is not None and policy.end_date is None:
         policy.end_date = policy.period_end_at.date()
+    # Offset-less Chile wall-clock noon (contractual datetimes, 2026-10-17).
     if policy.start_date is not None and policy.period_start_at is None:
-        policy.period_start_at = datetime.combine(policy.start_date, _NOON, tzinfo=timezone.utc)
+        policy.period_start_at = datetime.combine(policy.start_date, _NOON)
     if policy.end_date is not None and policy.period_end_at is None:
-        policy.period_end_at = datetime.combine(policy.end_date, _NOON, tzinfo=timezone.utc)
+        policy.period_end_at = datetime.combine(policy.end_date, _NOON)
 
 
 # --- Sign-preserving delta money (endorsements) -------------------------------
@@ -1271,6 +1360,9 @@ def _commit_collection_status(ctx: _Ctx) -> CommitResult:
             "(09) before its collection status"
         )
 
+    from app.services.collection.status import plan_termination_date  # noqa: PLC0415
+
+    previous_end = plan_termination_date(plan)
     if payload.as_of_date is not None:
         plan.as_of_date = payload.as_of_date
     summary = payload.situation_summary
@@ -1313,6 +1405,16 @@ def _commit_collection_status(ctx: _Ctx) -> CommitResult:
         status = CollectionPlanStatus.OVERDUE
     if status is not None:
         plan.status = status
+    # A termination / rehabilitation read from the document must void / reopen
+    # the cuotas exactly like the PATCH does (lane B2's ledger owns the rule).
+    if plan_termination_date(plan) != previous_end:
+        from app.services.collection import ledger  # noqa: PLC0415
+        from app.services.policy_registry import today_santiago  # noqa: PLC0415
+
+        db.flush()
+        ledger.reconcile_plan_installments(
+            db, plan, previous_end=previous_end, today=today_santiago()
+        )
 
     warranty_updates = 0
     for row in payload.warranty_status:
@@ -1722,7 +1824,7 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
             }
         )
 
-    policy = _resolve_policy(ctx, payload.policy_number)
+    policy = _resolve_issued_policy(ctx, payload.policy_number)
     created = policy is None
     if created:
         insurer_ref = payload.insurer
@@ -1777,14 +1879,19 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
         number = (payload.policy_number or "").strip()
         if not number:
             raise CommitError("The payload has no policy_number — a policy cannot be created without one")
+        from app.models.enums import PolicyOrigin
+
         policy = Policy(
             broker_id=ctx.broker_id,
-            client_id=case.client_id,
+            client_id=_policy_client_for(ctx, case),
             placement_id=case.placement_id,
             insurance_line_id=case.insurance_line_id,
+            insurance_subtype_id=getattr(case, "insurance_subtype_id", None),
             insurer_id=insurer.id,
             policy_number=number,
             status=PolicyStatus.ACTIVE,
+            origin=PolicyOrigin.READER,
+            currency=_policy_currency(payload.currency),
         )
         db.add(policy)
     elif payload.policy_number:
@@ -1819,6 +1926,8 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
     # --- As-issued identity ---------------------------------------------------
     policy.case_file_id = case.id
     policy.source_document_id = ctx.document.id
+    # v12 *respaldo*: the issued PDF is on file ("Sin respaldo" goes away, 3.6).
+    policy.has_source_document = True
     if payload.period_start_at is not None:
         policy.period_start_at = payload.period_start_at
         policy.start_date = payload.period_start_at.date()
@@ -1934,11 +2043,14 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
         db.flush()
         warranty_ids.append(row.id)
 
+    plan_committed = False
     if payload.installments:
-        ctx.warnings.append(
-            "The policy's payment schedule was not committed — confirm the "
-            "payment plan document (09) to create the collection ledger"
-        )
+        plan_committed = _commit_policy_installments(ctx, policy, case)
+        if not plan_committed:
+            ctx.warnings.append(
+                "The policy's payment schedule was not committed — confirm the "
+                "payment plan document (09) to create the collection ledger"
+            )
 
     if case.policy_id is None:
         case.policy_id = policy.id
@@ -1968,9 +2080,180 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
             "warranty_ids": warranty_ids,
             "is_core_valid": verdict["is_core_valid"],
             "overridden": bool(not verdict["is_core_valid"] and ctx.override),
+            "plan_committed": plan_committed,
         },
         warnings=ctx.warnings,
     )
+
+
+def _policy_client_for(ctx: _Ctx, case: CaseFile) -> int:
+    """The RUT a newly created policy is registered under: the insured the
+    caller resolved when it is the folder's client or one of its members, else
+    the folder's primary client (the pre-v12 behaviour)."""
+    from app.models.account_client import AccountClient
+
+    wanted = ctx.policy_client_id
+    if wanted is None or wanted == case.client_id:
+        return case.client_id
+    member = ctx.db.scalar(
+        select(AccountClient.id).where(
+            AccountClient.broker_id == ctx.broker_id,
+            AccountClient.case_file_id == case.id,
+            AccountClient.client_id == wanted,
+        )
+    )
+    if member is None:
+        ctx.warnings.append(
+            "El asegurado indicado no es parte de la cuenta: la póliza quedó a nombre "
+            "del cliente principal de la cuenta."
+        )
+        return case.client_id
+    return wanted
+
+
+def _policy_currency(text: Any):
+    """``USD`` when the document says dollars, else ``UF`` (the default)."""
+    from app.models.enums import PolicyCurrency
+
+    norm = _norm(text)
+    if norm and ("usd" in norm or "dolar" in norm or "dólar" in norm or "us$" in norm):
+        return PolicyCurrency.USD
+    return PolicyCurrency.UF
+
+
+def _plan_is_engaged(db: Session, plan: CollectionPlan, policy: Policy) -> bool:
+    """True when a plan's cuotas already carry downstream work.
+
+    A re-upload replaces the cuotas of a reader plan by deleting and recreating
+    them. That is only safe while nothing hangs off them yet. A payment, a
+    checkout item (ON DELETE CASCADE: an open checkout would lose its items), a
+    payer evidence, a sent notice, a provider charge or an insurer status
+    inquiry pins the plan. So does a plan whose avisos were started
+    (``notices_enabled``) or that carries a mandate.
+    """
+    from app.models.collection_settings import CollectionNotice
+    from app.models.mail import PaymentEvidence, StatusInquiry
+    from app.models.payment import Payment, PaymentIntentItem
+    from app.models.provider import ProviderCharge
+
+    if plan.notices_enabled or plan.mandate_id is not None:
+        return True
+    installment_ids = select(CollectionInstallment.id).where(
+        CollectionInstallment.collection_plan_id == plan.id
+    )
+    for model in (Payment, PaymentIntentItem, PaymentEvidence, CollectionNotice, ProviderCharge):
+        hit = db.scalar(
+            select(model.id).where(model.installment_id.in_(installment_ids)).limit(1)
+        )
+        if hit is not None:
+            return True
+    inquiry = db.scalar(
+        select(StatusInquiry.id)
+        .where(StatusInquiry.broker_id == plan.broker_id, StatusInquiry.policy_id == policy.id)
+        .limit(1)
+    )
+    return inquiry is not None
+
+
+def _commit_policy_installments(ctx: _Ctx, policy: Policy, case: CaseFile) -> bool:
+    """v12: the policy's OWN payment schedule becomes its collection plan.
+
+    Committed only when Σ cuotas equals the policy gross + Σ endorsement deltas
+    (``check_installment_total`` with the shared ``MONEY_TOLERANCE``) — the same
+    ledger rule the collections router enforces. Returns False (the caller keeps
+    the warning) when the schedule does not balance, has no amounts, or the
+    policy already carries a plan that was not read from a document (a manual
+    plan, or one with payments, is never overwritten by a re-upload).
+    """
+    from app.models.enums import (
+        CollectionPlanOrigin,
+        CollectionPlanSource,
+    )
+    from app.schemas.collection import check_installment_total
+    from app.services.collection.totals import endorsement_delta_total
+
+    db, payload = ctx.db, ctx.payload
+    rows = [row for row in payload.installments if row.gross_amount_uf is not None]
+    if not rows:
+        return False
+    received = sum((row.gross_amount_uf for row in rows), Decimal("0"))
+    # The router's rule, shared: only ISSUED deltas count (applied ones are
+    # already in the premium; draft/proposed/rejected/cancelled are not real).
+    deltas = endorsement_delta_total(db, broker_id=ctx.broker_id, policy_id=policy.id)
+    mismatch = check_installment_total(
+        installments_total=received,
+        policy_gross_uf=policy.total_premium_uf,
+        endorsement_delta_uf=deltas,
+    )
+    if policy.total_premium_uf is None or mismatch is not None:
+        if mismatch is not None:
+            ctx.warnings.append(
+                "Las cuotas de la póliza no cuadran con su prima bruta "
+                f"(esperado {mismatch['expected']} UF, leído {mismatch['received']} UF): "
+                "el plan de pago no se registró."
+            )
+        return False
+
+    existing = db.scalars(
+        select(CollectionPlan)
+        .where(
+            CollectionPlan.broker_id == ctx.broker_id,
+            CollectionPlan.policy_id == policy.id,
+        )
+        .order_by(CollectionPlan.id.asc())
+    ).first()
+    if existing is not None:
+        if existing.source != CollectionPlanSource.READER or _plan_is_engaged(
+            db, existing, policy
+        ):
+            ctx.warnings.append(
+                "La póliza ya tiene un plan de pago: las cuotas leídas no lo reemplazan."
+            )
+            return False
+        plan = existing
+        for old_row in list(plan.installments):
+            db.delete(old_row)
+        db.flush()
+    else:
+        plan = CollectionPlan(broker_id=ctx.broker_id, policy_id=policy.id)
+        db.add(plan)
+
+    plan.case_file_id = case.id
+    plan.origin = CollectionPlanOrigin.POLICY
+    plan.source = CollectionPlanSource.READER
+    plan.source_document_id = ctx.document.id
+    plan.payment_mode = _payment_mode(payload.payment_mode)
+    plan.installment_count = len(rows)
+    plan.total_premium_uf = received
+    db.flush()
+    for index, row in enumerate(rows):
+        db.add(
+            CollectionInstallment(
+                broker_id=ctx.broker_id,
+                collection_plan_id=plan.id,
+                number=row.number or index + 1,
+                coupon_number=(row.coupon_number or None),
+                due_date=row.due_date,
+                gross_amount_uf=row.gross_amount_uf,
+                net_premium_uf=row.net_premium_uf,
+                commission_uf=row.commission_uf,
+                # The schedule of an issued policy proves no payment: the cuota
+                # state comes from ``payment`` rows (03 §1), never from the PDF.
+                status=InstallmentStatus.PENDING,
+                currency=policy.currency,
+            )
+        )
+    policy.payment_method = plan.payment_mode
+    db.flush()
+    # Cuotas already past due raise their alerts now (review v12 #5d).
+    from app.services.collection import ledger as _ledger  # noqa: PLC0415 - heavy import
+    from app.services.collection.clock import business_today as _today  # noqa: PLC0415
+
+    _ledger.sync_plan_installments(db, plan, today=_today())
+    ctx.warnings.append(
+        f"Plan de pago registrado desde la póliza ({len(rows)} cuota(s))."
+    )
+    return True
 
 
 # =============================================================================
@@ -2070,8 +2353,12 @@ def commit_extraction(
     broker_id: int,
     user: User | None,
     override: bool = False,
+    policy_client_id: int | None = None,
 ) -> CommitResult:
     """Dispatch a confirmed payload to its category's committer.
+
+    ``policy_client_id`` (POLICY only): the insured a newly created policy is
+    registered under, when it is a member of the folder.
 
     Flushes, never commits: the caller owns the transaction and commits once
     the confirmation stamp is staged too. Raises :class:`CommitError` (-> 422)
@@ -2116,5 +2403,6 @@ def commit_extraction(
         document=document,
         case_file=_resolve_case_file(db, extraction, document, broker_id),
         override=override,
+        policy_client_id=policy_client_id,
     )
     return committer(ctx)

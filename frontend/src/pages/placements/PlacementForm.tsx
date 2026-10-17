@@ -39,6 +39,7 @@ import {
 import { cn } from "@/lib/utils";
 import { SoonNote } from "@/pages/clients/Soon";
 import { useInsuranceLines } from "@/pages/placements/useInsuranceLines";
+import { PLACEMENT_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 function serverMessage(error: unknown, fallback: string): string {
   if (error instanceof AxiosError) {
@@ -429,7 +430,7 @@ export function TransitionDialog({
     try {
       await transition.mutateAsync({ status: target, note: note.trim() || null });
       toast.success(
-        t("placements:toast.transitioned", { status: t(`placements:status.${target}`) }),
+        t("placements:toast.transitioned", { status: enumLabel(t, PLACEMENT_STATUS_LABEL, target) }),
       );
       onOpenChange(false);
     } catch (error) {
@@ -445,7 +446,7 @@ export function TransitionDialog({
           <DialogDescription>
             {target
               ? t("placements:transition.description", {
-                  status: t(`placements:status.${target}`),
+                  status: enumLabel(t, PLACEMENT_STATUS_LABEL, target),
                 })
               : null}
           </DialogDescription>

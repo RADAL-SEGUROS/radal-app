@@ -20,6 +20,7 @@ from app.models.enums import Priority
 from app.models.placement import PlacementStatus
 from app.models.quote import QuoteRequestStatus
 from app.schemas.analytics import GroupedSummary
+from app.schemas.utc import UtcDatetime
 
 # UF is stored Numeric(14,4); source documents round to 2 decimals, so a cent of
 # slack keeps honest data from tripping the invariant.
@@ -131,14 +132,14 @@ class QuoteRequestRead(BaseModel):
     requested_coverages: str | None
     desired_start: date | None
     desired_end: date | None
-    sent_at: datetime | None
+    sent_at: UtcDatetime | None
     due_at: datetime | None
     priority: Priority
     status: QuoteRequestStatus
     recipient_insurer_ids: list[Any] | None
     created_by_id: int | None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     line_items: list[QuoteLineItemRead] = Field(default_factory=list)
     # Derived, never stored: the sum the invariant is checked against.

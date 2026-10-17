@@ -1,0 +1,316 @@
+{
+  "title": "Maintainer",
+  "description": "Radal console: per-insurer collection profiles, provider accounts, webhook events and scheduled jobs.",
+  "back": "Maintainer",
+  "nav": {
+    "insurers": "Insurers & payment",
+    "providerAccounts": "Provider accounts",
+    "events": "Events",
+    "jobs": "Scheduled jobs"
+  },
+  "common": {
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "close": "Close",
+    "never": "Never",
+    "none": "—",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "{{from}}–{{to}} of {{total}}",
+    "copyUrl": "Copy URL"
+  },
+  "guard": {
+    "noEdit": "Your role cannot edit in the Maintainer.",
+    "noCreate": "Your role cannot create in the Maintainer.",
+    "noManage": "Your role cannot run this action in the Maintainer."
+  },
+  "onboarding": {
+    "not_contacted": "Not contacted",
+    "in_conversation": "In conversation",
+    "onboarding": "Onboarding",
+    "sandbox": "Sandbox",
+    "active": "Active",
+    "suspended": "Suspended"
+  },
+  "channel": {
+    "webpay": "Webpay",
+    "oneclick": "Oneclick",
+    "bank_transfer": "Transfer",
+    "direct_debit": "Direct debit"
+  },
+  "channelStatus": {
+    "pending": "Pending",
+    "sandbox": "Sandbox",
+    "active": "Active",
+    "suspended": "Suspended",
+    "none": "Not set"
+  },
+  "owner": {
+    "radal_mall": "Radal (mall)",
+    "insurer": "Insurer"
+  },
+  "environment": {
+    "sandbox": "Sandbox",
+    "production": "Production"
+  },
+  "accountStatus": {
+    "draft": "Draft",
+    "active": "Active",
+    "disabled": "Disabled"
+  },
+  "eventStatus": {
+    "received": "Received",
+    "processed": "Processed",
+    "ignored": "Ignored",
+    "failed": "Failed"
+  },
+  "jobStatus": {
+    "running": "Running",
+    "succeeded": "Succeeded",
+    "failed": "Failed",
+    "skipped": "Skipped"
+  },
+  "instruction": {
+    "portal_url": "Payment portal",
+    "bank_name": "Bank",
+    "account_type": "Account type",
+    "account_number": "Account number",
+    "account_holder": "Holder",
+    "account_rut": "Holder RUT",
+    "transfer_email": "Email to notify the transfer",
+    "receipt_email": "Email to send the receipt",
+    "notes": "Other instructions"
+  },
+  "insurers": {
+    "title": "Insurers & payment",
+    "description": "Onboarding status, payment instructions, collections email, sender domains and the payment-channel matrix of each insurer.",
+    "tabs": {
+      "profiles": "Profiles",
+      "channels": "Payment channels"
+    },
+    "search": "Search by name or RUT",
+    "allStatuses": "All statuses",
+    "empty": "No insurers match those filters.",
+    "noProfile": "No profile",
+    "columns": {
+      "insurer": "Insurer",
+      "status": "Onboarding",
+      "email": "Collections email",
+      "domains": "Domains",
+      "channels": "Active channels",
+      "updated": "Updated"
+    },
+    "activeChannels": "{{count}} active",
+    "activeChannels_one": "1 active",
+    "activeChannels_other": "{{count}} active",
+    "noChannels": "None",
+    "sheet": {
+      "title": "{{name}}",
+      "description": "What Radal knows about the insurer to collect. Brokers see the instructions and the email, never the onboarding status.",
+      "statusTitle": "Forpay onboarding",
+      "onboarding": "Status",
+      "statusNote": "Internal note",
+      "expectedLive": "Expected go-live date",
+      "contactTitle": "Email and domains",
+      "collectionsEmail": "Collections email",
+      "collectionsEmailHint": "Brokers' payment status inquiries reach this email.",
+      "senderDomains": "Sender domains",
+      "senderDomainsHint": "Mail from these domains is recognised as the insurer's replies.",
+      "domainPlaceholder": "hdi.cl",
+      "addDomain": "Add",
+      "removeDomain": "Remove {{domain}}",
+      "instructionsTitle": "Payment instructions",
+      "instructionsHint": "Brokers (and their insureds) see them when the insurer has no online payment.",
+      "channelsTitle": "Channels",
+      "channelsHint": "Edited in the Payment channels tab.",
+      "saved": "Profile saved",
+      "invalidEmail": "Invalid email",
+      "invalidDomain": "Invalid domain",
+      "duplicateDomain": "That domain is already there",
+      "tooManyDomains": "Up to 20 domains",
+      "invalidUrl": "Must start with http:// or https://"
+    }
+  },
+  "channels": {
+    "description": "Each insurer × channel: status, provider account and store code. An active channel with an active account moves installments to online payment.",
+    "onlyConfigured": "Only insurers with channels",
+    "empty": "No insurers to show.",
+    "edit": "Edit {{channel}} for {{insurer}}",
+    "dialog": {
+      "title": "{{channel}} · {{insurer}}",
+      "description": "Activating the channel moves the insurer's open installments to online payment.",
+      "account": "Provider account",
+      "noAccount": "No account",
+      "storeCode": "Store code",
+      "status": "Status",
+      "activeNeedsAccount": "An active channel needs a provider account.",
+      "saved": "Channel saved",
+      "activatedAt": "Active since {{date}}"
+    }
+  },
+  "providerAccounts": {
+    "title": "Provider accounts",
+    "description": "Forpay and other provider accounts: credentials (write-only), webhook URL, verification and secret rotation.",
+    "add": "New account",
+    "empty": "No provider accounts yet.",
+    "baseUrl": "Base URL",
+    "verify": "Verify",
+    "verifying": "Verifying…",
+    "verifiedOk": "Account verified",
+    "verifyFailed": "The account could not be verified",
+    "lastVerified": "Verified on {{date}}",
+    "neverVerified": "Never verified",
+    "rotate": "Rotate secret",
+    "rotateTitle": "Rotate the webhook secret of {{label}}?",
+    "rotateDescription": "A new secret is generated for new mandates. The previous one stays valid for 30 days, so in-flight webhooks are not lost.",
+    "rotateConfirm": "Rotate secret",
+    "rotated": "Secret rotated",
+    "previousValid": "The previous secret is valid until {{date}}",
+    "webhook": "Webhook",
+    "webhookKind": {
+      "payment": "Payments",
+      "activation": "Mandate activation"
+    },
+    "webhookKey": "Account key",
+    "noWebhook": "No webhook URL: the public API URL is not configured.",
+    "secrets": "Secrets",
+    "noSecrets": "No secrets saved",
+    "secret": {
+      "api_key": "API key",
+      "password": "Password",
+      "hmac_key": "HMAC key",
+      "public_key_pem": "Public key (PEM)",
+      "jwe_alg": "JWE algorithm",
+      "jwe_enc": "JWE encryption",
+      "signature_fields": "Signed fields"
+    },
+    "form": {
+      "createTitle": "New provider account",
+      "editTitle": "Edit {{label}}",
+      "description": "Secrets are write-only: they are never shown again.",
+      "identityTitle": "Account",
+      "label": "Name",
+      "owner": "Account owner",
+      "insurer": "Insurer",
+      "insurerPlaceholder": "Choose the insurer",
+      "noInsurer": "None",
+      "environment": "Environment",
+      "status": "Status",
+      "connectionTitle": "Connection",
+      "baseUrl": "Base URL",
+      "baseUrlHint": "Empty = Forpay's default URL.",
+      "baseUrlHintEdit": "Empty = the current URL is kept.",
+      "commerce": "Commerce",
+      "channelHeader": "Channel (header)",
+      "processId": "Process",
+      "username": "Username",
+      "salesExecutiveId": "Sales executive",
+      "secretsTitle": "Secrets",
+      "secretsHint": "Write-only. Empty = the saved one is kept.",
+      "saved": "Saved ✓",
+      "clear": "Clear",
+      "willClear": "Will be cleared on save",
+      "undo": "Undo",
+      "signatureFieldsHint": "JSON: a list of fields, or an object with a list per event type.",
+      "invalidJson": "Invalid JSON: must be a list of strings or an object of string lists.",
+      "labelRequired": "Enter a name",
+      "insurerRequired": "An insurer account needs the insurer",
+      "invalidUrl": "Must start with https://",
+      "created": "Account created",
+      "updated": "Account updated",
+      "statusHint": "Activating it needs the username plus the access and signing secrets.",
+      "keepPlaceholder": "Saved — type to replace it"
+    },
+    "emptyHint": "Create Radal's mall account or an insurer's own one to switch on its online collection.",
+    "verification": "Verification",
+    "lastError": "Last error",
+    "copied": "URL copied",
+    "verifyState": {
+      "ok": "Verified",
+      "failed": "Verification failed",
+      "never": "Not verified"
+    },
+    "verifyFailedSince": "The last verification failed (last success on {{date}}). It does not collect online until verified again.",
+    "verifyFailedNever": "Verification failed. It does not collect online until verified."
+  },
+  "events": {
+    "title": "Provider events",
+    "description": "Inbox of received webhooks, with their status and the option to reprocess.",
+    "allStatuses": "All statuses",
+    "allSignatures": "Any signature",
+    "validSig": "Valid signature",
+    "invalidSig": "Invalid signature",
+    "allAccounts": "All accounts",
+    "empty": "No events match those filters.",
+    "columns": {
+      "received": "Received",
+      "type": "Type",
+      "account": "Account",
+      "signature": "Signature",
+      "status": "Status",
+      "attempts": "Attempts",
+      "error": "Error"
+    },
+    "sigValid": "Valid",
+    "sigInvalid": "Invalid",
+    "noType": "No type",
+    "detail": {
+      "title": "Event #{{id}}",
+      "dedup": "Deduplication key",
+      "broker": "Broker",
+      "payload": "Received payload",
+      "noPayload": "No payload stored.",
+      "reprocess": "Reprocess",
+      "reprocessing": "Reprocessing…",
+      "reprocessed": "Event reprocessed",
+      "reprocessHint": "Idempotent: never books a payment twice.",
+      "invalidSignature": "Only events with a valid signature can be reprocessed.",
+      "noAccount": "The event has no current provider account.",
+      "provider": "Provider"
+    },
+    "noAccount": "No account",
+    "type": {
+      "payment": "Payment",
+      "activation": "Mandate activation"
+    }
+  },
+  "jobs": {
+    "title": "Scheduled jobs",
+    "description": "Latest runs of each scheduled job.",
+    "latest": "Last run",
+    "never": "No recent runs",
+    "allJobs": "All jobs",
+    "allStatuses": "All statuses",
+    "empty": "No runs match those filters.",
+    "columns": {
+      "job": "Job",
+      "scheduled": "Scheduled",
+      "status": "Status",
+      "duration": "Duration",
+      "result": "Result"
+    },
+    "seconds": "{{value}} s",
+    "statsTitle": "Run result",
+    "noStats": "No data.",
+    "viewDetail": "View detail",
+    "label": {
+      "noop": "Scheduler test",
+      "mail_poll": "Mailbox reading",
+      "fx_daily": "Daily UF and dollar",
+      "collection_clock": "Collections clock",
+      "notifications_expire": "Notification cleanup",
+      "payments_sync": "Payment sync",
+      "payments_payouts": "Payment payouts",
+      "rpa_run": "Portal quoting",
+      "collection_notices": "Collection reminders",
+      "collection_inquiries": "Insurer inquiries"
+    },
+    "noRegistered": "No jobs are registered.",
+    "latestError": "Could not read the latest run.",
+    "history": "History",
+    "startedAt": "Started",
+    "finishedAt": "Finished"
+  }
+}

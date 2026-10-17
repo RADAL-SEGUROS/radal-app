@@ -42,6 +42,7 @@ import { ActivityPanel } from "@/pages/clients/ActivityPanel";
 import { SoonButton } from "@/pages/clients/Soon";
 import { formatRut } from "@/pages/clients/rut";
 import { DaysChip, PlacementStatusBadge } from "@/pages/placements/status";
+import { PERSON_TYPE_LABEL, enumLabel } from "@/i18n/labels";
 
 function serverMessage(error: unknown, fallback: string): string {
   if (error instanceof AxiosError) {
@@ -256,7 +257,7 @@ export default function ClientDetailPage() {
             />
             <InfoRow
               label={t("clients:fields.personType")}
-              value={t(`clients:personType.${insured.person_type}`)}
+              value={enumLabel(t, PERSON_TYPE_LABEL, insured.person_type)}
             />
             <InfoRow
               label={t("clients:fields.taxActivity")}

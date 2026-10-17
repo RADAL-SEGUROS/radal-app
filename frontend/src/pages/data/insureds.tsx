@@ -31,6 +31,11 @@ import { useSetUrlParams, useUrlParam } from "./shared";
 
 export type InsuredsSub = "clients" | "accounts";
 
+const SUB_LABEL = {
+  clients: "analytics:insureds.clients",
+  accounts: "analytics:insureds.accounts",
+} as const satisfies Record<InsuredsSub, string>;
+
 /** Sub-view → the `POST /exports/{entity}` entity it lists. */
 export const INSUREDS_EXPORT: Record<InsuredsSub, ExportEntity> = {
   clients: "clients",
@@ -86,7 +91,7 @@ export default function InsuredsTab() {
           <TabsList>
             {granted.map((view) => (
               <TabsTrigger key={view} value={view}>
-                {t(`insureds.${view}`)}
+                {t(SUB_LABEL[view])}
               </TabsTrigger>
             ))}
           </TabsList>

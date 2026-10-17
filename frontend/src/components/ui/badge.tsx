@@ -43,8 +43,12 @@ const dotColor: Record<
   outline: "bg-ink-3",
 };
 
+/**
+ * Rendered as a `<span>` (it is `inline-flex` anyway) so a badge can sit inside
+ * a `<p>` without a `validateDOMNesting` warning.
+ */
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {
   /** Renders a 6px status dot in the variant's strong color. */
   dot?: boolean;
@@ -52,7 +56,7 @@ export interface BadgeProps
 
 function Badge({ className, variant, dot, children, ...props }: BadgeProps) {
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props}>
+    <span className={cn(badgeVariants({ variant }), className)} {...props}>
       {dot && (
         <span
           aria-hidden
@@ -63,7 +67,7 @@ function Badge({ className, variant, dot, children, ...props }: BadgeProps) {
         />
       )}
       {children}
-    </div>
+    </span>
   );
 }
 

@@ -37,6 +37,57 @@ from app.models.enums import (
     WarrantyStatus,
     sql_enum,
 )
+# v12 vocabulary — every v12 enum lives in ``app.models.enums`` (V12_ENUMS).
+from app.models.enums import (
+    CaseEntryOrigin,
+    ChannelStatus,
+    CollectionLevelPreference,
+    CollectionPlanOrigin,
+    CollectionPlanSource,
+    CredentialStatus,
+    EventProcessing,
+    EvidenceLevel,
+    EvidenceSource,
+    EvidenceStatus,
+    InboundClass,
+    InquiryStatus,
+    IntentStatus,
+    JobStatus,
+    MailAccountStatus,
+    MailDirection,
+    MailMessageStatus,
+    MailProvider,
+    MailSecurity,
+    MailSender,
+    MandateStatus,
+    NoticeChannel,
+    NoticeKind,
+    NoticeStatus,
+    NotificationKind,
+    NotificationStatus,
+    NotificationTray,
+    OnboardingStatus,
+    PartyRole,
+    PaymentChannel,
+    PaymentCurrency,
+    PaymentProviderName,
+    PaymentSource,
+    PaymentStatus,
+    PlacementRoute,
+    PolicyCurrency,
+    PolicyOrigin,
+    PortalErrorKind,
+    PortalRunStatus,
+    ProviderAccountStatus,
+    ProviderEnvironment,
+    ProviderOwner,
+    ReportedStatus,
+    ReversalReason,
+    ShareAudience,
+    ShareEntity,
+    SuggestedEntry,
+    TerminationReason,
+)
 
 # --- Identity & organisations ------------------------------------------------
 from app.models.broker import Broker, BrokerStatus
@@ -108,6 +159,24 @@ from app.models.sales_lead import SalesLead
 from app.models.endorsement import Endorsement
 from app.models.collection import CollectionInstallment, CollectionPlan
 from app.models.warranty import Warranty
+
+# --- v12: closed catalogue, policies as the main view, cobranza --------------
+from app.models.catalog import InsuranceSubtype
+from app.models.policy_party import PolicyParty
+from app.models.payment import Payment, PaymentIntent, PaymentIntentItem, PaymentMandate
+from app.models.collection_settings import CollectionNotice, CollectionSettings, NoticeTemplate
+from app.models.notification import Notification
+from app.models.jobs import JobRun
+from app.models.currency import CurrencyRate
+from app.models.insurer_collection import (
+    BrokerInsurerCollection,
+    InsurerCollectionProfile,
+    InsurerPaymentChannel,
+)
+from app.models.provider import ProviderAccount, ProviderCharge, ProviderEvent, ProviderPayout
+from app.models.mail import MailAccount, MailMessage, PaymentEvidence, StatusInquiry
+from app.models.share_link import ShareLink
+from app.models.rpa import PortalCredential, PortalQuote, PortalSearchRun
 
 # --- Access & AI -------------------------------------------------------------
 from app.models.access import (
@@ -238,4 +307,81 @@ __all__ = [
     "AgentScope",
     "AgentMessage",
     "AgentRole",
+    # v12 tables
+    "InsuranceSubtype",
+    "PolicyParty",
+    "Payment",
+    "PaymentIntent",
+    "PaymentIntentItem",
+    "PaymentMandate",
+    "CollectionSettings",
+    "NoticeTemplate",
+    "CollectionNotice",
+    "Notification",
+    "JobRun",
+    "CurrencyRate",
+    "InsurerCollectionProfile",
+    "BrokerInsurerCollection",
+    "InsurerPaymentChannel",
+    "ProviderAccount",
+    "ProviderCharge",
+    "ProviderPayout",
+    "ProviderEvent",
+    "MailAccount",
+    "MailMessage",
+    "StatusInquiry",
+    "PaymentEvidence",
+    "ShareLink",
+    "PortalCredential",
+    "PortalSearchRun",
+    "PortalQuote",
+    # v12 enums
+    "CaseEntryOrigin",
+    "ChannelStatus",
+    "CollectionLevelPreference",
+    "CollectionPlanOrigin",
+    "CollectionPlanSource",
+    "CredentialStatus",
+    "EventProcessing",
+    "EvidenceLevel",
+    "EvidenceSource",
+    "EvidenceStatus",
+    "InboundClass",
+    "InquiryStatus",
+    "IntentStatus",
+    "JobStatus",
+    "MailAccountStatus",
+    "MailDirection",
+    "MailMessageStatus",
+    "MailProvider",
+    "MailSecurity",
+    "MailSender",
+    "MandateStatus",
+    "NoticeChannel",
+    "NoticeKind",
+    "NoticeStatus",
+    "NotificationKind",
+    "NotificationStatus",
+    "NotificationTray",
+    "OnboardingStatus",
+    "PartyRole",
+    "PaymentChannel",
+    "PaymentCurrency",
+    "PaymentProviderName",
+    "PaymentSource",
+    "PaymentStatus",
+    "PlacementRoute",
+    "PolicyCurrency",
+    "PolicyOrigin",
+    "PortalErrorKind",
+    "PortalRunStatus",
+    "ProviderAccountStatus",
+    "ProviderEnvironment",
+    "ProviderOwner",
+    "ReportedStatus",
+    "ReversalReason",
+    "ShareAudience",
+    "ShareEntity",
+    "SuggestedEntry",
+    "TerminationReason",
 ]

@@ -26,6 +26,7 @@ from app.core.permissions import has_permission, resolve_role
 from app.models.activity import Activity, Note
 from app.models.enums import EntityType
 from app.models.user import User
+from app.services.stage_labels import humanize_system_text
 from app.schemas.note import (
     ActivityListResponse,
     ActivityRead,
@@ -61,12 +62,15 @@ MODULE_BY_ENTITY: dict[EntityType, str] = {
     EntityType.ENDORSEMENT: "Endorsements",
     EntityType.COLLECTION_PLAN: "Collections",
     EntityType.WARRANTY: "Policies",
+    # v12: cuota gestión notes (promises, rejected debits) and payment notes.
+    EntityType.INSTALLMENT: "Collections",
+    EntityType.PAYMENT: "Collections",
 }
 
 
 def _module_for(entity_type: EntityType) -> str:
     module = MODULE_BY_ENTITY.get(entity_type)
-    if module is None:  # pragma: no cover - EntityType is exhaustively mapped
+    if module is None:  # v12 system entities (share links, mail accounts…) take no notes
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Notes cannot be attached to '{entity_type.value}'",
@@ -93,9 +97,12 @@ def _resolve_target(
         EntityType.ENDORSEMENT,
         EntityType.COLLECTION_PLAN,
         EntityType.WARRANTY,
+        EntityType.INSTALLMENT,
+        EntityType.PAYMENT,
     ):
         from app.models.case_file import CaseFile
-        from app.models.collection import CollectionPlan
+        from app.models.collection import CollectionInstallment, CollectionPlan
+        from app.models.payment import Payment
         from app.models.endorsement import Endorsement
         from app.models.sales_lead import SalesLead
         from app.models.warranty import Warranty
@@ -106,6 +113,8 @@ def _resolve_target(
             EntityType.ENDORSEMENT: Endorsement,
             EntityType.COLLECTION_PLAN: CollectionPlan,
             EntityType.WARRANTY: Warranty,
+            EntityType.INSTALLMENT: CollectionInstallment,
+            EntityType.PAYMENT: Payment,
         }[entity_type]
         row = db.get(model, entity_id)
         if row is None or row.broker_id != broker_id:
@@ -335,7 +344,10 @@ def list_activities(
     return ActivityListResponse(
         items=[
             ActivityRead.model_validate(row).model_copy(
-                update={"user_name": names.get(row.user_id) if row.user_id else None}
+                update={
+                    "user_name": names.get(row.user_id) if row.user_id else None,
+                    "description": humanize_system_text(row.description),
+                }
             )
             for row in rows
         ],

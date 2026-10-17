@@ -26,6 +26,7 @@ import {
 } from "@/api/users";
 import type { AssignableRole, User } from "@/api/types";
 import { Field } from "./shared";
+import { USER_ROLE_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * Per-user write dialogs. Each is mounted only while its user is selected, so
@@ -137,7 +138,7 @@ export function ChangeRoleDialog({ user, onDone }: { user: User; onDone: () => v
             <SelectContent>
               {options.map((entry) => (
                 <SelectItem key={entry.role} value={entry.role}>
-                  {t(`roles.${entry.role}`, entry.role)}
+                  {enumLabel(t, USER_ROLE_LABEL, entry.role)}
                 </SelectItem>
               ))}
             </SelectContent>

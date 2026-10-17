@@ -93,7 +93,7 @@
     "templates": "Plantillas recomendadas",
     "current": "Asignada",
     "assign": "Asignar",
-    "adopt": "Adoptar",
+    "adopt": "Usar",
     "noOptions": "No tienes líneas para este ramo. Adopta una plantilla o créala en Configuración → Líneas.",
     "assigned": "Línea asignada",
     "error": "No pudimos asignar la línea.",

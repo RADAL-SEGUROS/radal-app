@@ -3,8 +3,9 @@
  *
  * One rail with two context modes decided by the URL:
  *
- *  - **GLOBAL** (any route outside a group): `SidebarGlobal` — groups,
- *    Analítica, Agente, Compañías, the collapsed MÁS section, Administración.
+ *  - **GLOBAL** (any route outside a group): `SidebarGlobal` — Pólizas,
+ *    Cobranza, the groups, Portafolio, Analítica, Agente, Cotizar en portales,
+ *    Compañías, Configuración, Mantenedor (v12 order).
  *  - **GROUP** (`/groups/:id/**`): `GroupSidebar` — slim since v5: the back
  *    affordance, the group name, Resumen, one row per vigencia, pinned
  *    Analítica. The tree itself lives in the central view now.
@@ -48,9 +49,13 @@ import {
   Building2,
   Folder,
   FolderOpen,
+  Globe,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  ShieldCheck,
+  Wallet,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -136,6 +141,9 @@ function CollapsedNav({ groupId }: { groupId: number | null }) {
   // Dashboard-gated anchors render, so nothing pops away a moment later.
   const gate = (module: PermissionModule) =>
     permsLoading ? module === "Dashboard" : can(perms, module, "View");
+  // Same rule as `SidebarGlobal`: a platform user has no broker workspace, so
+  // only the maintainer console is offered.
+  const ws = (module: PermissionModule) => perms?.user_type !== "platform" && gate(module);
 
   if (groupId !== null) {
     return (
@@ -156,20 +164,32 @@ function CollapsedNav({ groupId }: { groupId: number | null }) {
 
   return (
     <ul className="flex flex-col items-center gap-1">
-      {gate("Groups") ? (
+      {ws("Policies") ? (
+        <CollapsedRow to="/policies" icon={ShieldCheck} label={t("nav.policies")} />
+      ) : null}
+      {ws("Collections") ? (
+        <CollapsedRow to="/collections" icon={Wallet} label={t("nav.collections")} />
+      ) : null}
+      {ws("Groups") ? (
         <CollapsedRow to="/groups" icon={Folder} label={t("nav.groups")} />
       ) : null}
-      {gate("Dashboard") ? (
+      {ws("Dashboard") ? (
         <CollapsedRow to="/analytics" icon={BarChart3} label={t("nav.analytics")} />
       ) : null}
-      {gate("Dashboard") ? (
+      {ws("Dashboard") ? (
         <CollapsedRow to="/agent" icon={Bot} label={t("nav.agent")} />
       ) : null}
-      {gate("Insurers") ? (
+      {ws("Integrations") ? (
+        <CollapsedRow to="/portal-search" icon={Globe} label={t("nav.portalSearch")} />
+      ) : null}
+      {ws("Insurers") ? (
         <CollapsedRow to="/insurers" icon={Building2} label={t("nav.insurersAppetite")} />
       ) : null}
       {isAdmin ? (
         <CollapsedRow to="/settings" icon={Settings} label={t("nav.settings")} />
+      ) : null}
+      {!permsLoading && can(perms, "Platform", "View") ? (
+        <CollapsedRow to="/platform" icon={Wrench} label={t("nav.platform")} />
       ) : null}
     </ul>
   );

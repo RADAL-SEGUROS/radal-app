@@ -44,6 +44,7 @@ import type {
   DocumentCategory,
   RamoRecommendedFile,
 } from "@/api/types";
+import { DOCUMENT_CATEGORY_LABEL, enumLabel } from "@/i18n/labels";
 
 const ACCEPT = ".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.gif,image/*,application/pdf";
 
@@ -144,7 +145,9 @@ export function AntecedentesFiles({
 
   const slotLabel = (rf: RamoRecommendedFile): string =>
     rf.label ??
-    (rf.category ? td(`categories.${rf.category}`, { defaultValue: rf.doc_type ?? rf.category }) : rf.doc_type ?? "—");
+    (rf.category
+      ? enumLabel(td, DOCUMENT_CATEGORY_LABEL, rf.category, rf.doc_type ?? rf.category)
+      : rf.doc_type ?? "—");
 
   const openPicker = (slotKey: string, category: DocumentCategory) => {
     setActiveSlot(slotKey);
@@ -353,7 +356,7 @@ export function AntecedentesFiles({
                     <div className="min-w-0 flex-1">
                       <span className="block truncate text-body text-ink">{doc.original_name}</span>
                       <span className="text-caption text-ink-3">
-                        {td(`categories.${doc.category}`, { defaultValue: doc.category_label })}
+                        {enumLabel(td, DOCUMENT_CATEGORY_LABEL, doc.category, doc.category_label)}
                         {sizeLabel(doc.size_bytes) ? ` · ${sizeLabel(doc.size_bytes)}` : ""}
                         {doc.created_at ? ` · ${formatDate(doc.created_at)}` : ""}
                       </span>
@@ -405,7 +408,7 @@ function ExtractionCard({ item }: { item: AntecedentesDocumentExtraction }) {
           {item.document_name}
         </span>
         <Badge variant="muted" className="px-1.5 py-0">
-          {td(`categories.${item.category}`, { defaultValue: item.category })}
+          {enumLabel(td, DOCUMENT_CATEGORY_LABEL, item.category)}
         </Badge>
         {item.confidence !== null && item.confidence !== undefined ? (
           <ConfidenceBadge value={item.confidence} />

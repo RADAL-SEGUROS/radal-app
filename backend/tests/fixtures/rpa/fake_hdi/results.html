@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>Resultados (fake)</title></head>
+<body>
+  <h1>Planes disponibles</h1>
+  <div id="calculating">Calculando…</div>
+  <div id="slot"></div>
+  <script>
+    // The server substitutes the delay so a test can simulate a slow portal.
+    var DELAY_MS = __RESULTS_DELAY_MS__;
+    var q = new URLSearchParams(window.location.search);
+    var plate = q.get('plate') || '';
+    function render() {
+      document.getElementById('calculating').style.display = 'none';
+      var slot = document.getElementById('slot');
+      if (plate === 'CAPT01') {
+        slot.innerHTML = '<div id="captcha-challenge">Confirma que no eres un robot</div>';
+        return;
+      }
+      if (plate === 'ZZZZ99') {
+        slot.innerHTML = '<p id="no-results">No hay planes para este vehículo</p>';
+        return;
+      }
+      slot.innerHTML =
+        '<table id="results-table"><thead><tr><th>Plan</th><th>UF</th><th>CLP</th><th>Deducible</th><th>Coberturas</th></tr></thead><tbody>' +
+        '<tr><td class="plan">Full Cobertura</td><td class="premium-uf">UF 24,50</td><td class="premium-clp">$ 950.000</td><td class="deductible">UF 3</td><td class="coverages">Daños propios; Responsabilidad civil; Robo</td></tr>' +
+        '<tr><td class="plan">Pérdida Total</td><td class="premium-uf">UF 12,7500</td><td class="premium-clp">$ 494.250</td><td class="deductible">UF 10</td><td class="coverages">Pérdida total; Robo</td></tr>' +
+        '</tbody></table>';
+    }
+    if (DELAY_MS > 0) { setTimeout(render, DELAY_MS); } else { render(); }
+  </script>
+</body>
+</html>

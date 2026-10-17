@@ -14,6 +14,11 @@
  * The premium block re-derives `net = taxable + exempt`, `vat = 0.19 * taxable`
  * and `total = net + vat` on the client purely to SHOW a mismatch. It never
  * corrects the stored figures — the server owns that and answers 422.
+ *
+ * v12 (lane F1): the header reads the COMPUTED status and the marks (Sin
+ * respaldo, Condicionada), carries "Compartir" (public link, WhatsApp-ready),
+ * and the summary tab opens with the v12 blocks in the team's order —
+ * "Falta: X" → Partes · Cobranza → Viaje (`PolicyV12Blocks`).
  */
 import * as React from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -22,20 +27,14 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowLeft,
-  ArrowRight,
   CheckCircle2,
   FileText,
-  FolderOpen,
-  Plus,
-  Receipt,
-  Siren,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { FadeUp } from "@/components/common/motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -57,7 +56,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/format";
-import { useCan } from "@/lib/permissions";
 import { usePolicy } from "@/api/policies";
 import { useCreateEndorsement, useEndorsements } from "@/api/endorsements";
 import { useCollectionPlans } from "@/api/collections";
@@ -69,13 +67,10 @@ import {
   type Policy,
 } from "@/api/types";
 import {
-  DisabledHint,
-  EmptyState,
   ErrorBanner,
   KeyValue,
   MonoChip,
   Section,
-  SoonButton,
   apiError,
   permille,
   pct,
@@ -92,11 +87,25 @@ import { SubFunnel } from "@/pages/policies/SubFunnel";
 import { MirrorDiffPanel } from "@/pages/policies/MirrorDiffPanel";
 import { WarrantyTracker } from "@/pages/policies/WarrantyTracker";
 import {
-  OpenSourceLink,
   PolicyPayloadPanel,
 } from "@/components/policies/PolicyPayloadPanel";
+import { PolicyV12Blocks } from "@/components/policies/PolicyV12Blocks";
+import { StatusCell } from "@/components/policies/PolicyCells";
+import { PolicyHeaderActions } from "@/components/policies/PolicyHeaderActions";
+import { toWallClock } from "@/lib/wallclock";
+import {
+  CLAIM_STATUS_LABEL,
+  COLLECTION_PLAN_STATUS_LABEL,
+  ENDORSEMENT_KIND_LABEL,
+  ENDORSEMENT_STATUS_LABEL,
+  POLICY_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
-/** An `<input type="datetime-local">` value -> the ISO instant the API stores. */
+/**
+ * An `<input type="datetime-local">` value -> a UTC instant. Only for EVENT
+ * timestamps (`reported_at`); contractual ones go through `toWallClock`.
+ */
 function toIso(value: string): string | null {
   return value ? new Date(value).toISOString() : null;
 }
@@ -194,7 +203,8 @@ function NewEndorsementDialog({
         kind,
         status: "draft",
         motive: motive.trim() || null,
-        effective_at: effectiveAt ? toIso(effectiveAt) : null,
+        // Contractual: Chile wall-clock as typed, never a UTC instant.
+        effective_at: toWallClock(effectiveAt),
       });
       onOpenChange(false);
       setMotive("");
@@ -222,7 +232,7 @@ function NewEndorsementDialog({
               <SelectContent>
                 {ENDORSEMENT_KINDS.map((k) => (
                   <SelectItem key={k} value={k}>
-                    {t(`endorsement.kind.${k}`)}
+                    {enumLabel(t, ENDORSEMENT_KIND_LABEL, k)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -286,7 +296,7 @@ function NewClaimDialog({
       const created = await create.mutateAsync({
         policy_id: policyId,
         claim_number: number.trim() || null,
-        occurred_at: occurredAt ? toIso(occurredAt) : null,
+        occurred_at: toWallClock(occurredAt),
         reported_at: reportedAt ? toIso(reportedAt) : null,
         description: description.trim() || null,
         status: "reported",
@@ -379,9 +389,9 @@ function RelatedPanels({ policy }: { policy: Policy }) {
                     <span className="text-caption tabular-nums text-text-tertiary">
                       E{e.sequence_no}
                     </span>{" "}
-                    {t(`endorsement.kind.${e.kind}`)}
+                    {enumLabel(t, ENDORSEMENT_KIND_LABEL, e.kind)}
                   </span>
-                  <PostsaleBadge value={e.status} label={t(`endorsement.status.${e.status}`)} />
+                  <PostsaleBadge value={e.status} label={enumLabel(t, ENDORSEMENT_STATUS_LABEL, e.status)} />
                 </Link>
               </li>
             ))}
@@ -408,7 +418,7 @@ function RelatedPanels({ policy }: { policy: Policy }) {
                   </span>
                   <PostsaleBadge
                     value={plan.status}
-                    label={t(`collection.status.${plan.status}`)}
+                    label={enumLabel(t, COLLECTION_PLAN_STATUS_LABEL, plan.status)}
                   />
                 </Link>
               </li>
@@ -434,7 +444,7 @@ function RelatedPanels({ policy }: { policy: Policy }) {
                       {formatDate(claim.event_date ?? claim.occurred_at)}
                     </span>
                   </span>
-                  <PostsaleBadge value={claim.status} label={t(`claim.status.${claim.status}`)} />
+                  <PostsaleBadge value={claim.status} label={enumLabel(t, CLAIM_STATUS_LABEL, claim.status)} />
                 </Link>
               </li>
             ))}
@@ -452,12 +462,11 @@ function RelatedPanels({ policy }: { policy: Policy }) {
 export function PolicyDetailBody({ policyId }: { policyId: number }) {
   const id = policyId;
   const { t } = useTranslation("postsale");
+  const { t: tp } = useTranslation("policies");
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
 
   const policy = usePolicy(Number.isFinite(id) ? id : undefined);
-  const canEndorse = useCan("Endorsements", "Create");
-  const canClaim = useCan("Claims", "Create");
 
   const [endorsementOpen, setEndorsementOpen] = React.useState(false);
   const [claimOpen, setClaimOpen] = React.useState(false);
@@ -486,6 +495,9 @@ export function PolicyDetailBody({ policyId }: { policyId: number }) {
   }
 
   const p = policy.data;
+  // A hand-typed policy without its number stores a `SIN-N-{id}` stand-in;
+  // the broker reads "Sin n°", never the placeholder.
+  const shownNumber = p.has_policy_number === false ? tp("list.noNumber") : p.policy_number;
   const remaining = daysBetween(new Date().toISOString(), p.period_end_at ?? p.end_date);
 
   return (
@@ -497,11 +509,33 @@ export function PolicyDetailBody({ policyId }: { policyId: number }) {
             {t("policy.title")}
           </Link>
         }
-        title={t("policy.detail.heading", { number: p.policy_number })}
+        // The title owns its row at every width (six actions used to squeeze
+        // it into "Póliza / CHB- / TT-55102" at 1440 px, review v12 #11); on
+        // desktop the number never wraps — it truncates with the full text
+        // in the tooltip if it is ever longer than the column.
+        className="md:flex-col md:items-stretch"
+        title={
+          <span
+            className="block md:truncate"
+            title={t("policy.detail.heading", { number: shownNumber })}
+          >
+            {t("policy.detail.heading", { number: shownNumber })}
+          </span>
+        }
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            <PostsaleBadge value={p.status} label={t(`policy.status.${p.status}`)} />
+            {p.computed_status ? (
+              <StatusCell policy={p} />
+            ) : (
+              <PostsaleBadge value={p.status} label={enumLabel(t, POLICY_STATUS_LABEL, p.status)} />
+            )}
             {p.insurer_name ? <Badge variant="brand">{p.insurer_name}</Badge> : null}
+            {p.line ? (
+              <span className="text-text-muted">
+                {p.line.name}
+                {p.subtype ? ` · ${p.subtype.name}` : ""}
+              </span>
+            ) : null}
             {p.client_legal_name ? (
               <span className="text-text-muted">{p.client_legal_name}</span>
             ) : null}
@@ -509,44 +543,11 @@ export function PolicyDetailBody({ policyId }: { policyId: number }) {
           </span>
         }
         actions={
-          <>
-            {p.case_file_id ? (
-              <Button asChild variant="secondary" size="sm">
-                <Link to={`/cases/${p.case_file_id}`}>
-                  <FolderOpen className="h-4 w-4" />
-                  {t("policy.actions.openCase")}
-                </Link>
-              </Button>
-            ) : null}
-
-            <OpenSourceLink documentId={p.source_document_id} />
-
-            <DisabledHint hint={canEndorse.allowed ? null : t("endorsement.noPermission")}>
-              <Button
-                size="sm"
-                disabled={!canEndorse.allowed}
-                onClick={() => setEndorsementOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                {t("policy.actions.newEndorsement")}
-              </Button>
-            </DisabledHint>
-
-            <DisabledHint hint={canClaim.allowed ? null : t("claim.noPermission")}>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={!canClaim.allowed}
-                onClick={() => setClaimOpen(true)}
-              >
-                <Siren className="h-4 w-4" />
-                {t("policy.actions.newClaim")}
-              </Button>
-            </DisabledHint>
-
-            {/* Renewal case creation is API-only in this pass. */}
-            <SoonButton reason={t("shared.soonRenewal")}>{t("policy.actions.renew")}</SoonButton>
-          </>
+          <PolicyHeaderActions
+            policy={p}
+            onNewEndorsement={() => setEndorsementOpen(true)}
+            onNewClaim={() => setClaimOpen(true)}
+          />
         }
       />
 
@@ -566,10 +567,14 @@ export function PolicyDetailBody({ policyId }: { policyId: number }) {
         </TabsList>
 
         <TabsContent value="summary" className="mt-4 flex flex-col gap-[18px]">
+          <FadeUp className="flex flex-col gap-[18px]">
+            <PolicyV12Blocks policy={p} />
+          </FadeUp>
+
           <FadeUp>
             <Section title={t("policy.detail.identity")} description={t("policy.noonHint")}>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <KeyValue label={t("policy.fields.policyNumber")} value={p.policy_number} mono />
+                <KeyValue label={t("policy.fields.policyNumber")} value={shownNumber} mono />
                 <KeyValue label={t("policy.fields.insurer")} value={p.insurer_name ?? "—"} />
                 <KeyValue label={t("policy.fields.client")} value={p.client_legal_name ?? "—"} />
                 <KeyValue label={t("policy.fields.coverMode")} value={p.cover_mode ?? "—"} />
@@ -696,7 +701,7 @@ export function PolicyDetailBody({ policyId }: { policyId: number }) {
         </TabsContent>
 
         <TabsContent value="mirror" className="mt-4">
-          <MirrorDiffPanel policyId={p.id} />
+          <MirrorDiffPanel policyId={p.id} hasProposal={p.proposal_id != null} />
         </TabsContent>
 
         <TabsContent value="warranties" className="mt-4">
@@ -704,23 +709,9 @@ export function PolicyDetailBody({ policyId }: { policyId: number }) {
         </TabsContent>
       </Tabs>
 
-      {p.endorsements_count === 0 && p.claims_count === 0 ? (
-        <Card>
-          <EmptyState
-            title={t("subFunnel.empty")}
-            hint={t("subFunnel.emptyHint")}
-            icon={<Receipt className="h-6 w-6" />}
-            action={
-              <Button asChild variant="ghost" size="sm">
-                <Link to="/cases">
-                  {t("policy.actions.openCase")}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            }
-          />
-        </Card>
-      ) : null}
+      {/* No page-wide "sin casos de post-venta" card here: it sat under
+          EVERY tab and contradicted the Post-venta tab's own list (review
+          v12). The SubFunnel owns that empty state, in its tab. */}
     </>
   );
 }

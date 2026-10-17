@@ -46,6 +46,29 @@ from app.models.policy import Policy
 from app.models.proposal import Proposal, ProposalStatus
 from app.models.quote import QuoteRequest
 from app.models.user import User
+from app.services.stage_labels import stage_label, stage_list, stages_omitted
+
+#: Placement statuses in Spanish (prose only — the enum stays the identifier).
+PLACEMENT_STATUS_LABELS_ES: dict[PlacementStatus, str] = {
+    PlacementStatus.DRAFT: "Borrador",
+    PlacementStatus.INSPECTION: "Inspección",
+    PlacementStatus.PRE_UNDERWRITING: "Presuscripción",
+    PlacementStatus.QUOTING: "Cotizando",
+    PlacementStatus.NEGOTIATING: "Negociando",
+    PlacementStatus.AWARDED: "Adjudicada",
+    PlacementStatus.ACTIVE: "Vigente",
+    PlacementStatus.CLOSED: "Cerrada",
+}
+
+
+def placement_status_label(status: PlacementStatus | str | None) -> str:
+    if status is None:
+        return "—"
+    try:
+        return PLACEMENT_STATUS_LABELS_ES.get(PlacementStatus(str(getattr(status, "value", status))), "—")
+    except ValueError:
+        return "—"
+
 
 __all__ = [
     "CASE_STAGE_FLOW",
@@ -72,6 +95,17 @@ __all__ = [
     "is_period_locked",
     "account_member_client_ids",
     "find_open_folder",
+    # --- Partial journeys (v12) -----------------------------------------
+    "SKIP_TO_TARGETS",
+    "BACKWARD_LOCKED_STAGES",
+    "REASON_BACKWARD_LOCKED",
+    "CaseStageConflict",
+    "skip_forward",
+    "skip_to",
+    "activate_stage",
+    "stage_states",
+    "advance_to_active",
+    "case_has_policy",
 ]
 
 
@@ -155,6 +189,16 @@ CASE_STAGE_SKIPS: dict[CaseFileKind, dict[CaseStage, tuple[CaseStage, ...]]] = {
 }
 
 
+#: Stages a folder never walks BACK from (review v12 #9: no moving back once the
+#: account is *Vigente*). ``transition_options`` lists the stages behind as
+#: ``direction="backward"``, never allowed, with :data:`REASON_BACKWARD_LOCKED`.
+BACKWARD_LOCKED_STAGES: frozenset[CaseStage] = frozenset({CaseStage.ACTIVE})
+
+REASON_BACKWARD_LOCKED = (
+    "no se puede volver atrás desde «Vigente»: los cambios se hacen por endoso o corrección"
+)
+
+
 def _build_transitions() -> dict[CaseFileKind, dict[CaseStage, tuple[CaseStage, ...]]]:
     """Forward one step + documented skips + one step back + ``closed``."""
     table: dict[CaseFileKind, dict[CaseStage, tuple[CaseStage, ...]]] = {}
@@ -175,7 +219,10 @@ def _build_transitions() -> dict[CaseFileKind, dict[CaseStage, tuple[CaseStage, 
                 index = chain.index(stage)
                 if index + 1 < len(chain):
                     allowed.append(chain[index + 1])
-                if index > 0:
+                # One step back corrects a mis-click — except from ``active``:
+                # a Vigente account never walks back (review v12 #9; changes
+                # after issuance go through an endorsement or a correction).
+                if index > 0 and stage not in BACKWARD_LOCKED_STAGES:
                     allowed.append(chain[index - 1])
             for target in skips.get(stage, ()):  # documented skips / side moves
                 if target not in allowed:
@@ -224,6 +271,9 @@ class TransitionOption:
     to_stage: CaseStage
     allowed: bool
     reason: str | None = None
+    #: ``forward`` | ``backward`` | ``current`` | ``close`` | ``side`` — lets the
+    #: UI drop the moves it must not offer (e.g. backward from *Vigente*).
+    direction: str = "forward"
 
 
 # =============================================================================
@@ -480,11 +530,36 @@ def transition_options(db: Session, case: CaseFile) -> list[TransitionOption]:
         chain.append(CaseStage.CLOSED)
 
     structurally = allowed_stages(case)
+    flow = list(CASE_STAGE_FLOW.get(case.kind, ()))
+    current_index = flow.index(case.stage) if case.stage in flow else None
+
+    def _direction(stage: CaseStage) -> str:
+        if stage == case.stage:
+            return "current"
+        if stage == CaseStage.CLOSED:
+            return "close"
+        if current_index is None or stage not in flow:
+            return "side"
+        return "backward" if flow.index(stage) < current_index else "forward"
+
     options: list[TransitionOption] = []
     for stage in chain:
+        direction = _direction(stage)
         if stage == case.stage:
             options.append(
-                TransitionOption(to_stage=stage, allowed=False, reason="etapa actual")
+                TransitionOption(
+                    to_stage=stage, allowed=False, reason="etapa actual", direction=direction
+                )
+            )
+            continue
+        if direction == "backward" and case.stage in BACKWARD_LOCKED_STAGES:
+            options.append(
+                TransitionOption(
+                    to_stage=stage,
+                    allowed=False,
+                    reason=REASON_BACKWARD_LOCKED,
+                    direction=direction,
+                )
             )
             continue
         if stage not in structurally:
@@ -492,15 +567,23 @@ def transition_options(db: Session, case: CaseFile) -> list[TransitionOption]:
                 TransitionOption(
                     to_stage=stage,
                     allowed=False,
-                    reason=f"no alcanzable desde '{case.stage.value}'",
+                    # Spanish label, never the enum code (QA v12 leaked 'active').
+                    reason=f"no se puede pasar desde «{_stage_label_es(case.stage)}»",
+                    direction=direction,
                 )
             )
             continue
         reason = guard_reason(db, case, stage)
         options.append(
-            TransitionOption(to_stage=stage, allowed=reason is None, reason=reason)
+            TransitionOption(
+                to_stage=stage, allowed=reason is None, reason=reason, direction=direction
+            )
         )
     return options
+
+
+def _stage_label_es(stage: CaseStage | None) -> str:
+    return stage_label(stage)
 
 
 def record_stage_event(
@@ -532,7 +615,9 @@ def record_stage_event(
             entity_type=EntityType.CASE_FILE,
             entity_id=case.id,
             description=(
-                f"Etapa {from_stage.value if from_stage else '—'} → {to_stage.value}"
+                f"Etapa {stage_label(from_stage)} → {stage_label(to_stage)}"
+                if from_stage is not None
+                else f"Etapa inicial: {stage_label(to_stage)}"
             ),
             meta={
                 "from": from_stage.value if from_stage else None,
@@ -570,9 +655,11 @@ def _sync_placement(db: Session, case: CaseFile, to_stage: CaseStage) -> str | N
             continue
         if target not in ALLOWED_TRANSITIONS.get(placement.status, ()):
             return (
-                f"El placement no puede pasar de '{placement.status.value}' a "
-                f"'{target.value}', que exige la etapa '{to_stage.value}'."
+                f"La colocación no puede pasar de «{placement_status_label(placement.status)}» "
+                f"a «{placement_status_label(target)}», que exige la etapa "
+                f"«{stage_label(to_stage)}»."
             )
+        previous_status = placement.status
         placement.status = target
         db.add(
             Activity(
@@ -582,9 +669,14 @@ def _sync_placement(db: Session, case: CaseFile, to_stage: CaseStage) -> str | N
                 entity_type=EntityType.PLACEMENT,
                 entity_id=placement.id,
                 description=(
-                    f"Estado {placement.status.value} (por expediente {case.id})"
+                    f"Colocación: {placement_status_label(previous_status)} → "
+                    f"{placement_status_label(target)}"
                 ),
-                meta={"to": target.value, "case_file_id": case.id},
+                meta={
+                    "from": previous_status.value,
+                    "to": target.value,
+                    "case_file_id": case.id,
+                },
             )
         )
     return None
@@ -608,15 +700,27 @@ def apply_transition(
     previous = case.stage
     if to_stage == previous:
         raise CaseTransitionError(
-            f"La carpeta ya se encuentra en la etapa '{to_stage.value}'."
+            f"La carpeta ya se encuentra en la etapa «{stage_label(to_stage)}»."
+        )
+
+    flow = CASE_STAGE_FLOW.get(case.kind, ())
+    if (
+        previous in BACKWARD_LOCKED_STAGES
+        and previous in flow
+        and to_stage in flow
+        and flow.index(to_stage) < flow.index(previous)
+    ):
+        raise CaseStageConflict(
+            "La cuenta está Vigente: no se puede volver a etapas anteriores. "
+            "Los cambios se hacen por endoso o corrección."
         )
 
     allowed = allowed_stages(case)
     if to_stage not in allowed:
         raise CaseTransitionError(
-            f"No se puede mover una carpeta '{case.kind.value}' de "
-            f"'{previous.value}' a '{to_stage.value}'. Permitidas: "
-            f"{', '.join(s.value for s in allowed) or 'ninguna (terminal)'}"
+            f"No se puede mover la carpeta de «{stage_label(previous)}» a "
+            f"«{stage_label(to_stage)}». Permitidas: "
+            f"{stage_list(allowed) or 'ninguna (etapa terminal)'}."
         )
 
     if not force:
@@ -884,3 +988,507 @@ def find_open_folder(
     if exclude_id is not None:
         stmt = stmt.where(CaseFile.id != exclude_id)
     return db.scalars(stmt.order_by(CaseFile.id.asc()).limit(1)).first()
+
+
+# =============================================================================
+# Partial journeys (v12, docs/v12/02-backend-api.md §3, team R6/R34)
+# =============================================================================
+#
+# A colocación may ENTER the account chain at a later stage (portal quotes, an
+# uploaded policy, a typed-in one). Every stage it jumps over is written as a
+# ``case_file_stage_event`` with ``is_skipped=True`` ("omitida", user = system),
+# so the rail draws entered stages solid and skipped ones as thin ticks — the
+# timeline stays rows, never JSON, and nothing is ever deleted. A stage that was
+# really entered before (a walk back and forth) is kept as completed and gets
+# no skipped row (R6: "conserva las completadas").
+
+#: Where ``POST /case-files/{id}/skip-to`` may land an account folder.
+SKIP_TO_TARGETS: tuple[CaseStage, ...] = (
+    CaseStage.QUOTES_RECEIVED,
+    CaseStage.INSURED_DECISION,
+    CaseStage.POLICY_ISSUED,
+    CaseStage.ACTIVE,
+)
+
+#: Targets that only make sense once the folder holds a policy.
+_POLICY_TARGETS: frozenset[CaseStage] = frozenset({CaseStage.POLICY_ISSUED, CaseStage.ACTIVE})
+
+
+class CaseStageConflict(CaseTransitionError):
+    """A partial-journey move that conflicts with the folder's state -> 409."""
+
+
+def case_has_policy(db: Session, case: CaseFile) -> bool:
+    """True when any policy hangs off the folder (its own, its placement's)."""
+    return case.policy_id is not None or bool(case_policies(db, case))
+
+
+def _entered_stages(db: Session, case: CaseFile) -> set[CaseStage]:
+    """Stages the folder REALLY entered at some point (non-skipped events)."""
+    return set(
+        db.scalars(
+            select(CaseFileStageEvent.to_stage).where(
+                CaseFileStageEvent.case_file_id == case.id,
+                CaseFileStageEvent.is_skipped.is_(False),
+            )
+        ).all()
+    )
+
+
+def _placement_path(
+    current: PlacementStatus, target: PlacementStatus
+) -> list[PlacementStatus] | None:
+    """Shortest legal walk through the placement machine (BFS), excluding the
+    start. ``[]`` when already there, ``None`` when unreachable. ``closed`` is
+    never used as a stepping stone (it is terminal)."""
+    if current == target:
+        return []
+    from collections import deque
+
+    from app.api.routers.placements import ALLOWED_TRANSITIONS
+
+    queue: deque[tuple[PlacementStatus, list[PlacementStatus]]] = deque([(current, [])])
+    seen = {current}
+    while queue:
+        status, path = queue.popleft()
+        for nxt in ALLOWED_TRANSITIONS.get(status, ()):
+            if nxt in seen:
+                continue
+            if nxt == target:
+                return [*path, nxt]
+            if nxt == PlacementStatus.CLOSED:
+                continue
+            seen.add(nxt)
+            queue.append((nxt, [*path, nxt]))
+    return None
+
+
+def _walk_placements(db: Session, case: CaseFile, to_stage: CaseStage) -> str | None:
+    """Move every placement of the folder to the status ``to_stage`` demands,
+    stepping through the placement machine (a jump never bypasses it). Returns
+    a Spanish reason when ANY placement cannot get there; the caller rolls back
+    so the fan-out stays all-or-nothing."""
+    if case.kind not in ACCOUNT_KINDS:
+        return None
+    target = STAGE_TO_PLACEMENT_STATUS.get(to_stage)
+    if target is None:
+        return None
+    placements = case_placements(db, case)
+    plans: list[tuple[Placement, list[PlacementStatus]]] = []
+    for placement in placements:
+        path = _placement_path(placement.status, target)
+        if path is None:
+            return (
+                f"La colocación no puede pasar de «{placement_status_label(placement.status)}» "
+                f"a «{placement_status_label(target)}», que exige la etapa "
+                f"«{stage_label(to_stage)}»."
+            )
+        plans.append((placement, path))
+    for placement, path in plans:
+        if not path:
+            continue
+        previous = placement.status
+        placement.status = path[-1]
+        db.add(
+            Activity(
+                broker_id=case.broker_id,
+                user_id=None,
+                action="placement.transitioned",
+                entity_type=EntityType.PLACEMENT,
+                entity_id=placement.id,
+                description=(
+                    f"Colocación: {placement_status_label(previous)} → "
+                    f"{placement_status_label(placement.status)}"
+                ),
+                meta={
+                    "from": previous.value,
+                    "to": placement.status.value,
+                    "path": [step.value for step in path],
+                    "case_file_id": case.id,
+                },
+            )
+        )
+    return None
+
+
+def _event_clock(now):
+    """A strictly increasing clock for one burst of events, so the timeline's
+    ``occurred_at`` order equals the write order even inside one request."""
+    from datetime import datetime, timedelta, timezone
+
+    base = now or datetime.now(timezone.utc)
+    if base.tzinfo is None:
+        base = base.replace(tzinfo=timezone.utc)
+    step = 0
+
+    def tick():
+        nonlocal step
+        value = base + timedelta(microseconds=step)
+        step += 1
+        return value
+
+    return tick
+
+
+def skip_forward(
+    db: Session,
+    *,
+    case: CaseFile,
+    target: CaseStage,
+    user: User | None,
+    note: str | None = None,
+    include_current: bool = False,
+    now=None,
+    reason: str | None = None,
+    write_activity: bool = True,
+    skipped_out: list[str] | None = None,
+) -> list[CaseFileStageEvent]:
+    """Jump ``case`` forward to ``target``, writing one ``is_skipped`` event for
+    every intermediate stage it never entered, then the (non-skipped) arrival.
+
+    ``include_current`` treats the current stage as never entered too (a folder
+    created on demand for a policy: it was born at the entry point, so even its
+    first stage is *omitida*). Placements walk the placement machine step by
+    step to the target's status. No §5.2 guard runs on skipped stages — they did
+    not happen. Raises :class:`CaseStageConflict` when ``target`` is not ahead
+    of the current stage and :class:`CaseTransitionError` when a placement
+    refuses. Flushes nothing itself; the caller commits.
+
+    The per-stage ``case_file_stage_event`` rows are always written (the rail
+    reads them); the bitácora gets ONE ``activity`` row — or none with
+    ``write_activity=False`` (the caller writes a collapsed one; the skipped
+    stage values are appended to ``skipped_out``).
+    """
+    chain = CASE_STAGE_FLOW.get(case.kind, ())
+    if target not in chain:
+        raise CaseTransitionError(
+            f"La etapa «{stage_label(target)}» no pertenece a este tipo de carpeta."
+        )
+    target_index = chain.index(target)
+    if case.stage in chain:
+        current_index = chain.index(case.stage)
+    else:
+        raise CaseStageConflict(
+            f"La carpeta está en «{stage_label(case.stage)}»: no se puede saltar a "
+            f"«{stage_label(target)}»."
+        )
+    start = current_index if include_current else current_index + 1
+    if target_index < start or (not include_current and target_index <= current_index):
+        raise CaseStageConflict(
+            f"La etapa «{stage_label(target)}» no está más adelante que la etapa actual "
+            f"«{stage_label(case.stage)}»: para volver atrás usa la barra del viaje."
+        )
+
+    placement_error = _walk_placements(db, case, target)
+    if placement_error:
+        raise CaseTransitionError(placement_error)
+
+    entered = _entered_stages(db, case)
+    tick = _event_clock(now)
+    why = reason or f"Etapa omitida: la colocación entró en «{stage_label(target)}»."
+    events: list[CaseFileStageEvent] = []
+    previous: CaseStage | None = None if include_current else case.stage
+    skipped_values: list[str] = []
+    for stage in chain[start:target_index]:
+        if stage in entered and not (include_current and stage == case.stage):
+            previous = stage
+            continue
+        event = CaseFileStageEvent(
+            broker_id=case.broker_id,
+            case_file_id=case.id,
+            from_stage=previous,
+            to_stage=stage,
+            occurred_at=tick(),
+            user_id=None,  # quién = sistema (R6)
+            note=why,
+            meta={"skipped": True, "target": target.value},
+            is_skipped=True,
+        )
+        db.add(event)
+        events.append(event)
+        skipped_values.append(stage.value)
+        previous = stage
+
+    origin_stage = case.stage
+    case.stage = target
+    arrival = CaseFileStageEvent(
+        broker_id=case.broker_id,
+        case_file_id=case.id,
+        from_stage=previous,
+        to_stage=target,
+        occurred_at=tick(),
+        user_id=user.id if user else None,
+        note=note,
+        meta={"skipped_stages": skipped_values} if skipped_values else None,
+    )
+    db.add(arrival)
+    events.append(arrival)
+    if skipped_out is not None:
+        skipped_out.extend(skipped_values)
+    if write_activity:
+        db.add(
+            Activity(
+                broker_id=case.broker_id,
+                user_id=user.id if user else None,
+                action="case_file.skipped_to",
+                entity_type=EntityType.CASE_FILE,
+                entity_id=case.id,
+                description=skip_description(origin_stage, target, len(skipped_values)),
+                meta={
+                    "from": origin_stage.value,
+                    "to": target.value,
+                    "skipped": skipped_values,
+                    "note": note,
+                },
+            )
+        )
+    return events
+
+
+def skip_description(origin: CaseStage, target: CaseStage, skipped: int) -> str:
+    """``"Saltó de Interés a Cotizaciones recibidas; 4 etapas omitidas"``."""
+    text = f"Saltó de {stage_label(origin)} a {stage_label(target)}"
+    if skipped:
+        text += f"; {stages_omitted(skipped)}"
+    return text
+
+
+def skip_to(
+    db: Session,
+    *,
+    case: CaseFile,
+    target: CaseStage,
+    user: User | None,
+    note: str | None = None,
+    now=None,
+) -> list[CaseFileStageEvent]:
+    """``POST /case-files/{id}/skip-to`` — the broker's "Saltar a…" menu.
+
+    Accounts only, open folders only, targets in :data:`SKIP_TO_TARGETS`;
+    ``policy_issued`` / ``active`` need a policy on the folder (422 otherwise).
+    """
+    if case.kind not in ACCOUNT_KINDS:
+        raise CaseTransitionError("Solo una colocación (cuenta) puede saltar etapas.")
+    if case.status != CaseFileStatus.OPEN:
+        raise CaseTransitionError("La carpeta no está abierta: no se pueden saltar etapas.")
+    if target not in SKIP_TO_TARGETS:
+        raise CaseTransitionError(
+            "Solo se puede saltar a: " + stage_list(SKIP_TO_TARGETS) + "."
+        )
+    if target in _POLICY_TARGETS and not case_has_policy(db, case):
+        raise CaseTransitionError(
+            "Para saltar a la emisión o a vigente la colocación necesita una póliza: "
+            "súbela o regístrala a mano."
+        )
+    return skip_forward(db, case=case, target=target, user=user, note=note, now=now)
+
+
+def activate_stage(
+    db: Session,
+    *,
+    case: CaseFile,
+    stage: CaseStage,
+    user: User | None,
+    note: str | None = None,
+    now=None,
+) -> CaseFileStageEvent:
+    """``POST /case-files/{id}/activate-stage`` — re-enter a SKIPPED stage.
+
+    Only while the folder has NO policy (409 — after issuance the changes go
+    through an endorsement or a correction). The folder moves to ``stage`` with
+    a normal (non-skipped) event; placements walk back with it.
+
+    Accounts only, open folders only, and only a skipped stage BEHIND the
+    current one: re-entering never jumps forward (that is ``skip-to``, with
+    its own targets and guards).
+    """
+    if case.kind not in ACCOUNT_KINDS:
+        raise CaseTransitionError("Solo una colocación (cuenta) puede activar etapas omitidas.")
+    if case.status != CaseFileStatus.OPEN:
+        raise CaseTransitionError(
+            "La carpeta no está abierta: no se pueden activar etapas omitidas."
+        )
+    chain = list(CASE_STAGE_FLOW.get(case.kind, ()))
+    if (
+        stage not in chain
+        or case.stage not in chain
+        or chain.index(stage) >= chain.index(case.stage)
+    ):
+        raise CaseTransitionError(
+            f"La etapa «{stage_label(stage)}» no está antes de la etapa actual: solo se "
+            "reactiva una etapa omitida anterior."
+        )
+    if case_has_policy(db, case):
+        raise CaseStageConflict(
+            "Ya tiene póliza: los cambios se hacen por endoso o corrección"
+        )
+    states = {row["stage"]: row for row in stage_states(db, case)}
+    row = states.get(stage)
+    if row is None or row["state"] != "skipped":
+        raise CaseTransitionError(
+            f"La etapa «{stage_label(stage)}» no está omitida: solo se activa una etapa omitida."
+        )
+    placement_error = _walk_placements(db, case, stage)
+    if placement_error:
+        raise CaseTransitionError(placement_error)
+    previous = case.stage
+    case.stage = stage
+    tick = _event_clock(now)
+    event = CaseFileStageEvent(
+        broker_id=case.broker_id,
+        case_file_id=case.id,
+        from_stage=previous,
+        to_stage=stage,
+        occurred_at=tick(),
+        user_id=user.id if user else None,
+        note=note or "Etapa omitida activada",
+        meta={"activated": True},
+    )
+    db.add(event)
+    db.add(
+        Activity(
+            broker_id=case.broker_id,
+            user_id=user.id if user else None,
+            action="case_file.stage_activated",
+            entity_type=EntityType.CASE_FILE,
+            entity_id=case.id,
+            description=(
+                f"Etapa omitida {stage_label(stage)} activada (desde {stage_label(previous)})"
+            ),
+            meta={"from": previous.value, "to": stage.value, "note": note},
+        )
+    )
+    return event
+
+
+def stage_states(db: Session, case: CaseFile) -> list[dict]:
+    """The rail: every stage of the folder's chain with its state.
+
+    ``state`` is ``current`` (the folder's stage), ``done`` (entered before),
+    ``skipped`` (*omitida* — an ``is_skipped`` event is the latest for it, or a
+    stage behind the current one that was never entered at all, e.g. a legacy
+    documented skip) or ``pending`` (ahead, never entered). ``entered_at`` is
+    the latest event's instant for the stage; ``skipped`` is True when the
+    stage counts as omitted.
+    """
+    chain = list(CASE_STAGE_FLOW.get(case.kind, ()))
+    events = db.scalars(
+        select(CaseFileStageEvent)
+        .where(CaseFileStageEvent.case_file_id == case.id)
+        .order_by(CaseFileStageEvent.occurred_at.asc(), CaseFileStageEvent.id.asc())
+    ).all()
+    latest: dict[CaseStage, CaseFileStageEvent] = {}
+    for event in events:
+        latest[event.to_stage] = event
+    current_index = chain.index(case.stage) if case.stage in chain else len(chain)
+
+    rows: list[dict] = []
+    for index, stage in enumerate(chain):
+        event = latest.get(stage)
+        if stage == case.stage:
+            state = "current"
+        elif event is not None and event.is_skipped:
+            state = "skipped"
+        elif index < current_index:
+            state = "done" if event is not None else "skipped"
+        else:
+            state = "pending"
+        rows.append(
+            {
+                "stage": stage,
+                "state": state,
+                "entered_at": event.occurred_at if event is not None else None,
+                "skipped": state == "skipped",
+            }
+        )
+    if case.stage not in chain:
+        event = latest.get(case.stage)
+        rows.append(
+            {
+                "stage": case.stage,
+                "state": "current",
+                "entered_at": event.occurred_at if event is not None else None,
+                "skipped": False,
+            }
+        )
+    return rows
+
+
+def advance_to_active(
+    db: Session,
+    *,
+    case: CaseFile,
+    user: User | None,
+    fresh: bool = False,
+    now=None,
+    note: str | None = None,
+) -> list[CaseFileStageEvent]:
+    """Registering a policy closes the colocación: jump to ``policy_issued``
+    (skipping what never happened) and on to ``active`` (R34, R42 — the mirror
+    never blocks; an un-run mirror validation is written as *omitida*).
+
+    ``fresh`` = the folder was just created for this policy (no events yet).
+    A folder already at/after ``active``, closed or not an account is left as is.
+    Raises :class:`CaseTransitionError` when a placement refuses the walk.
+    """
+    if case.kind not in ACCOUNT_KINDS:
+        return []
+    chain = CASE_STAGE_FLOW.get(case.kind, ())
+    if case.stage not in chain or case.stage == CaseStage.ACTIVE:
+        return []
+    events: list[CaseFileStageEvent] = []
+    origin_stage = case.stage
+    skipped: list[str] = []
+    issued_index = chain.index(CaseStage.POLICY_ISSUED)
+    reason = "Etapa omitida: la colocación entró con la póliza."
+    if fresh or chain.index(case.stage) < issued_index:
+        events += skip_forward(
+            db,
+            case=case,
+            target=CaseStage.POLICY_ISSUED,
+            user=user,
+            note=note or "Póliza registrada",
+            include_current=fresh,
+            now=now,
+            reason=reason,
+            write_activity=False,
+            skipped_out=skipped,
+        )
+    # policy_issued / mirror_validation -> active.
+    from datetime import datetime, timedelta, timezone
+
+    later = (now or datetime.now(timezone.utc)) + timedelta(microseconds=len(events) + 1)
+    events += skip_forward(
+        db,
+        case=case,
+        target=CaseStage.ACTIVE,
+        user=user,
+        note="Colocación vigente",
+        now=later,
+        # The mirror never blocks; an un-run validation is simply omitted.
+        reason="Etapa omitida: la validación espejo no se realizó (no bloquea la vigencia).",
+        write_activity=False,
+        skipped_out=skipped,
+    )
+    # ONE bitácora line for the whole entry (review v12 #3) — the per-stage
+    # events above stay in ``case_file_stage_event`` for the rail.
+    db.add(
+        Activity(
+            broker_id=case.broker_id,
+            user_id=user.id if user else None,
+            action="case_file.skipped_to",
+            entity_type=EntityType.CASE_FILE,
+            entity_id=case.id,
+            description=(
+                "La cuenta entró con la póliza"
+                + (f"; {stages_omitted(len(skipped))}" if skipped else "")
+            ),
+            meta={
+                "from": origin_stage.value,
+                "to": CaseStage.ACTIVE.value,
+                "skipped": skipped,
+                "via": "policy",
+            },
+        )
+    )
+    return events

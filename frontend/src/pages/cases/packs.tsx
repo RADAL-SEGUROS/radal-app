@@ -44,6 +44,15 @@ import {
 import { useCan } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/format";
 import { PACK_KINDS, type CasePack, type PackKind, type PackPart } from "@/api/types";
+import {
+  PACK_KIND_DESCRIPTION,
+  PACK_KIND_TITLE,
+  PACK_PART_LABEL,
+  PACK_PART_MISSING,
+  PACK_RECIPIENT_LEVEL_LABEL,
+  PACK_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 export default function CasePacksPage() {
   const { caseId: caseIdParam } = useParams();
@@ -106,8 +115,8 @@ export default function CasePacksPage() {
             return (
               <Section
                 key={kind}
-                title={t(`kinds.${kind}.title`)}
-                description={t(`kinds.${kind}.description`)}
+                title={t(PACK_KIND_TITLE[kind])}
+                description={t(PACK_KIND_DESCRIPTION[kind])}
                 actions={
                   <DisabledHint hint={gateHint}>
                     <Button
@@ -137,7 +146,7 @@ export default function CasePacksPage() {
                         value={
                           <StatusBadge
                             value={pack.status}
-                            label={t(`statuses.${pack.status}`, { defaultValue: pack.status })}
+                            label={enumLabel(t, PACK_STATUS_LABEL, pack.status)}
                           />
                         }
                       />
@@ -213,9 +222,7 @@ export default function CasePacksPage() {
                     </p>
                     {r.resolution_level ? (
                       <Badge variant="muted" className="self-start">
-                        {t(`recipients.levels.${r.resolution_level}`, {
-                          defaultValue: r.resolution_level,
-                        })}
+                        {enumLabel(t, PACK_RECIPIENT_LEVEL_LABEL, r.resolution_level)}
                       </Badge>
                     ) : null}
                   </li>
@@ -259,7 +266,7 @@ function PackDownload({ pack, part }: { pack: CasePack; part: PackPart }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <DisabledHint hint={documentId ? null : t(`download.missing.${part}`)}>
+      <DisabledHint hint={documentId ? null : t(PACK_PART_MISSING[part])}>
         <Button
           size="sm"
           variant="secondary"
@@ -267,7 +274,7 @@ function PackDownload({ pack, part }: { pack: CasePack; part: PackPart }) {
           onClick={() => void open()}
         >
           <Icon className="h-4 w-4" />
-          {t(`download.${part}`)}
+          {t(PACK_PART_LABEL[part])}
           <Download className="h-3.5 w-3.5" />
         </Button>
       </DisabledHint>

@@ -50,6 +50,15 @@ import {
   useUrlParam,
 } from "./shared";
 import { useScopeParams } from "@/components/common/ScopeFilter";
+import {
+  CLAIM_RULING_LABEL,
+  CLAIM_STATUS_LABEL,
+  COLLECTION_PLAN_STATUS_LABEL,
+  ENDORSEMENT_KIND_LABEL,
+  ENDORSEMENT_STATUS_LABEL,
+  PAYMENT_MODE_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 /** A signed UF delta: `+UF 10,54` / `−UF 1,86` / `—`. The sign is the meaning. */
 function signedUf(value: string | null): string {
@@ -103,7 +112,7 @@ export function EndorsementsTab() {
     () =>
       ENDORSEMENT_STATUSES.map((s) => ({
         value: s,
-        label: tPostsale(`endorsement.status.${s}`, { defaultValue: s }),
+        label: enumLabel(tPostsale, ENDORSEMENT_STATUS_LABEL, s),
       })),
     [tPostsale],
   );
@@ -124,9 +133,7 @@ export function EndorsementsTab() {
         header: t("columns.kind"),
         cell: ({ row }) => (
           <Badge variant="neutral">
-            {tPostsale(`endorsement.kind.${row.original.kind}`, {
-              defaultValue: row.original.kind,
-            })}
+            {enumLabel(tPostsale, ENDORSEMENT_KIND_LABEL, row.original.kind)}
           </Badge>
         ),
       },
@@ -151,9 +158,7 @@ export function EndorsementsTab() {
         cell: ({ row }) => (
           <StatusBadge
             value={row.original.status}
-            label={tPostsale(`endorsement.status.${row.original.status}`, {
-              defaultValue: row.original.status,
-            })}
+            label={enumLabel(tPostsale, ENDORSEMENT_STATUS_LABEL, row.original.status)}
           />
         ),
       },
@@ -224,7 +229,7 @@ export function CollectionsTab() {
     () =>
       COLLECTION_PLAN_STATUSES.map((s) => ({
         value: s,
-        label: tPostsale(`collection.status.${s}`, { defaultValue: s }),
+        label: enumLabel(tPostsale, COLLECTION_PLAN_STATUS_LABEL, s),
       })),
     [tPostsale],
   );
@@ -242,9 +247,7 @@ export function CollectionsTab() {
         accessorKey: "payment_mode",
         header: t("columns.paymentMode"),
         cell: ({ row }) =>
-          tPostsale(`collection.paymentMode.${row.original.payment_mode}`, {
-            defaultValue: row.original.payment_mode,
-          }),
+          enumLabel(tPostsale, PAYMENT_MODE_LABEL, row.original.payment_mode),
       },
       {
         id: "installments",
@@ -273,9 +276,7 @@ export function CollectionsTab() {
         cell: ({ row }) => (
           <StatusBadge
             value={row.original.status}
-            label={tPostsale(`collection.status.${row.original.status}`, {
-              defaultValue: row.original.status,
-            })}
+            label={enumLabel(tPostsale, COLLECTION_PLAN_STATUS_LABEL, row.original.status)}
           />
         ),
       },
@@ -346,7 +347,7 @@ export function ClaimsTab() {
     () =>
       CLAIM_STATUSES.map((s) => ({
         value: s,
-        label: tPostsale(`claim.status.${s}`, { defaultValue: s }),
+        label: enumLabel(tPostsale, CLAIM_STATUS_LABEL, s),
       })),
     [tPostsale],
   );
@@ -396,9 +397,7 @@ export function ClaimsTab() {
         cell: ({ row }) => (
           <StatusBadge
             value={row.original.coverage_ruling}
-            label={tPostsale(`claim.ruling.${row.original.coverage_ruling}`, {
-              defaultValue: row.original.coverage_ruling,
-            })}
+            label={enumLabel(tPostsale, CLAIM_RULING_LABEL, row.original.coverage_ruling)}
           />
         ),
       },
@@ -408,9 +407,7 @@ export function ClaimsTab() {
         cell: ({ row }) => (
           <StatusBadge
             value={row.original.status}
-            label={tPostsale(`claim.status.${row.original.status}`, {
-              defaultValue: row.original.status,
-            })}
+            label={enumLabel(tPostsale, CLAIM_STATUS_LABEL, row.original.status)}
           />
         ),
       },

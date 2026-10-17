@@ -17,6 +17,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.asset import AssetStatus
+from app.schemas.utc import UtcDatetime
 
 Name = Annotated[str, Field(min_length=1, max_length=255)]
 ShortText = Annotated[str, Field(max_length=255)]
@@ -109,8 +110,8 @@ class AssetListItem(BaseModel):
     land_area_m2: Decimal | None = None
     construction_year: int | None = None
     activity: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     client: AssetClientSummary | None = None
     placements_count: int = 0

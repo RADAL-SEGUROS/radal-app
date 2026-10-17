@@ -9,6 +9,9 @@ Mounted at ``{API_V1_PREFIX}/ai``.
     GET    /ai/threads                        list the caller's threads
     GET    /ai/threads/{id}/messages          full transcript
     POST   /ai/threads/{id}/messages          one turn (persists user + assistant)
+    GET    /ai/skills                         agent skill catalogue (v12)
+    GET    /ai/threads/{id}/skills            the thread's active skills (v12)
+    POST   /ai/threads/{id}/skills            replace the thread's active skills (v12)
 
 Two invariants this module enforces on every path:
 
@@ -72,6 +75,7 @@ from app.schemas.ai import (
     ThreadList,
     ThreadRead,
 )
+from app.schemas.agent_skills import SkillRead, ThreadSkillsRead, ThreadSkillsUpdate
 from app.schemas.extraction.registry import registry_as_json
 from app.services import ai as ai_service
 from app.services import extraction_commit
@@ -990,6 +994,94 @@ def _load_own_action(
             detail="This action belongs to another user's thread",
         )
     return action, thread
+
+
+# --- 8. Skills (v12, docs/v12/05-agent.md §3) ---------------------------------
+#
+# The catalogue is the server registry (``services.agent_skills``); a thread's
+# ``active_skills`` put their playbooks into its system prompt. Skills are prose
+# — they never widen what a tool may do.
+
+
+def _skill_read(spec) -> SkillRead:  # noqa: ANN001
+    return SkillRead(
+        key=spec.key,
+        title=spec.title,
+        description=spec.description,
+        tools=list(spec.tools),
+        triggers=list(spec.triggers),
+        version=spec.version,
+    )
+
+
+def _thread_skills_read(thread: AgentThread) -> ThreadSkillsRead:
+    from app.services import agent_skills
+
+    return ThreadSkillsRead(
+        thread_id=thread.id,
+        active_skills=[
+            _skill_read(agent_skills.SKILLS[key])
+            for key in agent_skills.active_keys(thread.active_skills)
+        ],
+    )
+
+
+@router.get(
+    "/skills",
+    response_model=list[SkillRead],
+    summary="The agent skill catalogue (titles/descriptions are Spanish copy)",
+)
+def list_skills(
+    _broker_id: int = Depends(get_current_broker_id),
+    _user: User = Depends(require_permission("Dashboard", "View")),
+) -> list[SkillRead]:
+    from app.services import agent_skills
+
+    return [_skill_read(spec) for spec in agent_skills.list_skills()]
+
+
+@router.get(
+    "/threads/{thread_id}/skills",
+    response_model=ThreadSkillsRead,
+    summary="The skills active in one of the caller's threads",
+)
+def get_thread_skills(
+    thread_id: int,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("Dashboard", "View")),
+) -> ThreadSkillsRead:
+    return _thread_skills_read(_load_own_thread(db, thread_id, broker_id, current_user))
+
+
+@router.post(
+    "/threads/{thread_id}/skills",
+    response_model=ThreadSkillsRead,
+    summary="Set (replace) the skills active in one of the caller's threads",
+)
+def set_thread_skills(
+    thread_id: int,
+    payload: ThreadSkillsUpdate,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("Dashboard", "View")),
+) -> ThreadSkillsRead:
+    """Owner only (another tenant's thread 404, a colleague's 403 — the thread
+    privacy rule). An unknown key is a 422 and changes nothing."""
+    from app.services import agent_skills
+
+    thread = _load_own_thread(db, thread_id, broker_id, current_user)
+    try:
+        keys = agent_skills.normalize_skill_keys(payload.skills)
+    except agent_skills.UnknownSkill as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "unknown_skill", "keys": exc.keys, "reason": str(exc)},
+        ) from exc
+    thread.active_skills = keys or None
+    db.commit()
+    db.refresh(thread)
+    return _thread_skills_read(thread)
 
 
 def _require_pending(action: AgentAction) -> None:

@@ -21,13 +21,15 @@ import {
 } from "@/components/ui/breadcrumb";
 import { formatDate } from "@/lib/format";
 import { apiError } from "@/components/common/kit";
+import type { CaseFileStatus, CaseOrigin, CaseStage, IsoDate } from "@/api/types";
 import {
-  ACCOUNT_ERROR_CODES,
-  type CaseFileStatus,
-  type CaseOrigin,
-  type CaseStage,
-  type IsoDate,
-} from "@/api/types";
+  ACCOUNT_ERROR_LABEL,
+  CASE_ORIGIN_LABEL,
+  CASE_STAGE_LABEL,
+  CASE_STATUS_LABEL,
+  enumLabel,
+  keyFor,
+} from "@/i18n/labels";
 
 /** Translate function of the `accounts` namespace, as these helpers need it. */
 export type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -87,9 +89,8 @@ export function errorCode(error: unknown): string | null {
  */
 export function accountErrorMessage(error: unknown, t: Translate): string {
   const code = errorCode(error);
-  if (code && (ACCOUNT_ERROR_CODES as readonly string[]).includes(code)) {
-    return t(`errors.${code}`);
-  }
+  const key = keyFor(ACCOUNT_ERROR_LABEL, code);
+  if (key) return t(key);
   return apiError(error, t("errors.generic"));
 }
 
@@ -143,8 +144,9 @@ const ORIGIN_TONE: Record<CaseOrigin, "neutral" | "brand" | "warn"> = {
 };
 
 /**
- * How the folder came to exist. Dynamic key — `accounts:origin.*` covers every
- * `CaseOrigin` member in both locales, so this can never print a raw key.
+ * How the folder came to exist. `CASE_ORIGIN_LABEL` maps every `CaseOrigin`
+ * member to a literal key, so a new origin fails `tsc` instead of printing a
+ * raw key.
  */
 export function OriginChip({
   origin,
@@ -153,7 +155,7 @@ export function OriginChip({
   origin: CaseOrigin;
   t: Translate;
 }) {
-  return <Badge variant={ORIGIN_TONE[origin]}>{t(`origin.${origin}`)}</Badge>;
+  return <Badge variant={ORIGIN_TONE[origin]}>{enumLabel(t, CASE_ORIGIN_LABEL, origin)}</Badge>;
 }
 
 const STATUS_TONE: Record<CaseFileStatus, "neutral" | "brand" | "success" | "warn" | "muted"> = {
@@ -168,7 +170,7 @@ const STATUS_TONE: Record<CaseFileStatus, "neutral" | "brand" | "success" | "war
 /** The journey stage, labelled from the `cases` namespace (29 members, both locales). */
 export function StageBadge({ stage }: { stage: CaseStage }) {
   const { t } = useTranslation("cases");
-  return <Badge variant="neutral">{t(`stages.${stage}`, { defaultValue: stage })}</Badge>;
+  return <Badge variant="neutral">{enumLabel(t, CASE_STAGE_LABEL, stage)}</Badge>;
 }
 
 /** The folder's own status — open / closed / won / lost. */
@@ -176,7 +178,7 @@ export function CaseStatusBadge({ status }: { status: CaseFileStatus }) {
   const { t } = useTranslation("cases");
   return (
     <Badge variant={STATUS_TONE[status]} dot>
-      {t(`statuses.${status}`, { defaultValue: status })}
+      {enumLabel(t, CASE_STATUS_LABEL, status)}
     </Badge>
   );
 }

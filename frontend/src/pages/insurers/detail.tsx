@@ -34,6 +34,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { safeHttpUrl } from "@/lib/url";
 import {
   Dialog,
   DialogContent,
@@ -70,6 +71,12 @@ import {
   StatusBadge,
   apiError,
 } from "@/pages/proposals/shared";
+import {
+  CONTACT_MATCH_LEVEL_LABEL,
+  CONTACT_SCOPE_LABEL,
+  INSURER_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 export default function InsurerDetailPage() {
   const { insurerId } = useParams<{ insurerId: string }>();
@@ -105,6 +112,9 @@ export default function InsurerDetailPage() {
   }
 
   const i = insurer.data;
+  // Only an absolute http(s) URL becomes a link; anything else (a typo, a
+  // `javascript:` URL) is shown as plain text and the portal button explains why.
+  const paymentHref = safeHttpUrl(i.payment_url);
 
   return (
     <>
@@ -123,20 +133,22 @@ export default function InsurerDetailPage() {
             <Badge variant={i.is_native ? "brand" : "neutral"}>
               {i.is_native ? t("origin.native") : t("origin.external")}
             </Badge>
-            <StatusBadge value={i.status} label={t(`status.${i.status}`)} />
+            <StatusBadge value={i.status} label={enumLabel(t, INSURER_STATUS_LABEL, i.status)} />
           </span>
         }
         actions={
           <>
-            {i.payment_url ? (
+            {paymentHref ? (
               <Button variant="secondary" size="sm" asChild>
-                <a href={i.payment_url} target="_blank" rel="noreferrer">
+                <a href={paymentHref} target="_blank" rel="noopener noreferrer">
                   <CreditCard className="h-4 w-4" />
                   {t("detail.paymentPortal")}
                 </a>
               </Button>
             ) : (
-              <DisabledHint hint={t("detail.noPaymentUrl")}>
+              <DisabledHint
+                hint={i.payment_url ? t("detail.invalidPaymentUrl") : t("detail.noPaymentUrl")}
+              >
                 <Button variant="secondary" size="sm" disabled>
                   <CreditCard className="h-4 w-4" />
                   {t("detail.paymentPortal")}
@@ -168,12 +180,12 @@ export default function InsurerDetailPage() {
           <KeyValue
             label={t("fields.paymentUrl")}
             value={
-              i.payment_url ? (
-                <a href={i.payment_url} target="_blank" rel="noreferrer" className="truncate">
-                  {i.payment_url}
+              paymentHref ? (
+                <a href={paymentHref} target="_blank" rel="noopener noreferrer" className="truncate">
+                  {paymentHref}
                 </a>
               ) : (
-                "—"
+                <span className="break-all">{i.payment_url || "—"}</span>
               )
             }
           />
@@ -270,7 +282,7 @@ function ResolvedContactCard({ insurerId }: { insurerId: number }) {
             </p>
           </div>
         </div>
-        <Badge variant="action">{t(`contacts.matchLevel.${match_level}`)}</Badge>
+        <Badge variant="action">{enumLabel(t, CONTACT_MATCH_LEVEL_LABEL, match_level)}</Badge>
       </Card>
     </FadeUp>
   );
@@ -403,7 +415,7 @@ function ContactsPanel({ insurer }: { insurer: Insurer }) {
                     <TableCell className="text-text-secondary">{contact.role || "—"}</TableCell>
                     <TableCell>
                       <Badge variant={contact.scope === "broker" ? "action" : "neutral"}>
-                        {t(`contacts.scopes.${contact.scope}`)}
+                        {enumLabel(t, CONTACT_SCOPE_LABEL, contact.scope)}
                       </Badge>
                     </TableCell>
                     <TableCell>

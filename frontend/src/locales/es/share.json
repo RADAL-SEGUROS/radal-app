@@ -1,0 +1,249 @@
+{
+  "title": "Enlace compartido",
+  "description": "Tu corredora compartió esta información contigo. Aquí verás la póliza y sus cuotas.",
+  "noPermission": "No tienes acceso para compartir este elemento.",
+  "dialog": {
+    "title": "Compartir enlace",
+    "description": "Crea un enlace seguro a {{entity}}, sin necesidad de iniciar sesión. Ideal para enviarlo por WhatsApp."
+  },
+  "entity": {
+    "policy": "esta póliza",
+    "collection_plan": "este plan de pago",
+    "installment": "esta cuota",
+    "case_file": "este expediente",
+    "status_inquiry": "esta consulta de estado"
+  },
+  "refusal": {
+    "caseFileInsurer": "Un expediente solo se comparte con el asegurado; para la compañía comparte la póliza.",
+    "inquiryInsured": "Una consulta de estado solo se comparte con la compañía."
+  },
+  "audience": {
+    "label": "¿Con quién lo compartes?",
+    "insured": "Asegurado",
+    "insurer": "Compañía",
+    "insuredHint": "Verá la póliza y sus cuotas, con la forma de pago de cada una.",
+    "insurerHint": "Verá la póliza y sus cuotas, y podrá informarte su estado de pago."
+  },
+  "perm": {
+    "label": "Qué puede hacer",
+    "can_pay": "Pagar en línea",
+    "can_payHint": "Solo en cuotas de compañías con cobro en línea habilitado.",
+    "can_upload_receipt": "Subir comprobante",
+    "can_upload_receiptHint": "Te llega como respuesta por confirmar; nada se marca pagado solo.",
+    "can_report_status": "Informar estado de pago",
+    "can_report_statusHint": "Cada informe te llega como respuesta por confirmar."
+  },
+  "expiry": {
+    "label": "Vigencia del enlace",
+    "d7": "7 días",
+    "d30": "30 días",
+    "d60": "60 días",
+    "d90": "90 días",
+    "d180": "6 meses",
+    "d365": "1 año"
+  },
+  "labelField": "Etiqueta (opcional)",
+  "labelPlaceholder": "Ej.: Enviado a Juan por WhatsApp",
+  "create": "Crear enlace",
+  "created": "Enlace creado",
+  "createAnother": "Crear otro enlace",
+  "createdTitle": "Enlace listo para enviar",
+  "copy": "Copiar",
+  "copied": "Enlace copiado",
+  "copiedShort": "Copiado",
+  "whatsapp": "Enviar por WhatsApp",
+  "whatsappShort": "WhatsApp",
+  "open": "Abrir",
+  "revoke": "Revocar",
+  "revoked": "Enlace revocado",
+  "revokeError": "No se pudo revocar el enlace.",
+  "revokeConfirm": "Quien tenga este enlace dejará de verlo de inmediato.",
+  "cancel": "Cancelar",
+  "state": {
+    "live": "Activo",
+    "revoked": "Revocado",
+    "expired": "Expirado"
+  },
+  "list": {
+    "title": "Enlaces creados",
+    "count_one": "{{count}} enlace",
+    "count_other": "{{count}} enlaces",
+    "empty": "Todavía no hay enlaces para este elemento.",
+    "createdAt": "Creado el {{date}}",
+    "revokedAt": "Revocado el {{date}}",
+    "expiresAt": "Vence el {{date}}",
+    "expiredAt": "Venció el {{date}}",
+    "views_one": "{{count}} visita · última {{date}}",
+    "views_other": "{{count}} visitas · última {{date}}",
+    "notViewed": "Sin visitas aún"
+  },
+  "public": {
+    "brokerFallback": "tu corredora",
+    "header": {
+      "broker": "Corredora de seguros",
+      "secure": "Enlace seguro"
+    },
+    "footer": {
+      "validUntil": "Este enlace es válido hasta el {{date}}.",
+      "poweredBy": "Compartido con"
+    },
+    "gone": {
+      "title": "Este enlace ya no está disponible",
+      "hint": "Puede que haya expirado, que la corredora lo haya revocado o que la dirección no esté completa. Pídele a tu corredora un enlace nuevo."
+    },
+    "error": {
+      "title": "No pudimos cargar la información",
+      "hint": "Revisa tu conexión e inténtalo de nuevo en unos segundos.",
+      "retry": "Reintentar"
+    },
+    "return": {
+      "title": "Volviste del pago en línea",
+      "hint": "Si completaste el pago, la cuota se actualizará en unos minutos. No necesitas hacer nada más.",
+      "dismiss": "Cerrar aviso"
+    },
+    "policy": {
+      "title": "Póliza",
+      "number": "N° {{number}}",
+      "noNumber": "Número por confirmar",
+      "insured": "Asegurado",
+      "line": "Ramo",
+      "period": "Vigencia",
+      "periodValue": "{{start}} al {{end}}"
+    },
+    "state": {
+      "upcoming": "Por vencer",
+      "due_today": "Vence hoy",
+      "overdue": "Vencida",
+      "termination_risk": "Riesgo de término",
+      "promised": "En acuerdo",
+      "paid": "Pagada",
+      "voided": "Anulada",
+      "unknown": "Sin estado"
+    },
+    "installment": {
+      "number": "Cuota {{number}}",
+      "coupon": "Cupón {{coupon}}",
+      "partial": "Parcial",
+      "due": "Vence el {{date}}",
+      "noDue": "Sin fecha de vencimiento",
+      "daysLate_one": "{{count}} día de atraso",
+      "daysLate_other": "{{count}} días de atraso",
+      "paidLate_one": "Pagada con {{count}} día de atraso",
+      "paidLate_other": "Pagada con {{count}} días de atraso",
+      "paidOf": "Pagado {{paid}} de {{total}}",
+      "clp": "≈ {{amount}} al valor de hoy"
+    },
+    "insured": {
+      "title": "Detalle de tu póliza",
+      "greeting": "Hola, {{name}}",
+      "lead": "{{broker}} te comparte el estado de las cuotas de tu póliza.",
+      "openCount": "Cuotas por pagar",
+      "overdueCount": "Cuotas atrasadas",
+      "installmentsTitle": "Cuotas",
+      "noInstallments": "Esta póliza todavía no tiene cuotas registradas.",
+      "emptyTitle": "No hay información para mostrar",
+      "emptyHint": "Tu corredora aún no registra la póliza de este enlace. Pídele que lo revise.",
+      "paidNote": "Esta cuota está pagada. Gracias.",
+      "payDirect": "Esta cuota se paga directamente a {{insurer}}. Ver cómo pagar.",
+      "payDirectNoInsurer": "Esta cuota se paga directamente a la compañía. Ver cómo pagar.",
+      "thenUpload": "Después, sube tu comprobante aquí.",
+      "payDirectNoInstructions": "Esta cuota se paga directamente a {{insurer}}; tu corredora te indicará cómo.",
+      "payDirectNoInstructionsNoInsurer": "Esta cuota se paga directamente a la compañía; tu corredora te indicará cómo."
+    },
+    "pay": {
+      "button": "Pagar",
+      "opening": "Abriendo el pago…",
+      "hint": "Te llevaremos a la página de pago segura.",
+      "error": "No pudimos abrir el pago en línea. Puedes pagar con las instrucciones de la compañía y luego subir tu comprobante aquí.",
+      "inReviewHint": "Ya enviaste un comprobante de esta cuota: espera la revisión de tu corredora antes de pagar de nuevo."
+    },
+    "instructions": {
+      "title": "Cómo pagar",
+      "lead": "Paga directamente a {{insurer}} con estos datos.",
+      "leadNoInsurer": "Paga directamente a la compañía con estos datos.",
+      "empty": "La compañía aún no publica sus datos de pago. Tu corredora te los enviará.",
+      "bank_name": "Banco",
+      "account_type": "Tipo de cuenta",
+      "account_number": "N° de cuenta",
+      "account_holder": "Titular",
+      "account_rut": "RUT",
+      "transfer_email": "Correo para la transferencia",
+      "receipt_email": "Correo para enviar el comprobante",
+      "portal": "Pagar en el portal de la compañía",
+      "copyLabel": "Copiar {{field}}"
+    },
+    "receipt": {
+      "open": "Ya pagué · subir comprobante",
+      "title": "Subir comprobante",
+      "hint": "Tu corredora lo revisará y confirmará el pago.",
+      "file": "Comprobante",
+      "pick": "Elegir archivo",
+      "limits": "PDF, JPG o PNG, hasta 10 MB.",
+      "currencyHint": "Indica el monto tal como aparece en tu comprobante; si pagaste en pesos, elige CLP.",
+      "submit": "Enviar comprobante",
+      "errors": {
+        "fileRequired": "Elige el comprobante que quieres enviar.",
+        "fileType": "Sube el comprobante en PDF, JPG o PNG.",
+        "fileSize": "El comprobante supera el máximo de 10 MB."
+      },
+      "pending": "Comprobante enviado el {{date}} · en revisión por tu corredora.",
+      "pendingNoDate": "Comprobante enviado · en revisión por tu corredora.",
+      "openAnother": "Enviar otro comprobante",
+      "inReviewBadge": "Comprobante en revisión",
+      "inReviewTitle": "Comprobante en revisión"
+    },
+    "form": {
+      "paidOn": "Fecha de pago (opcional)",
+      "amountPaid": "Monto pagado (opcional)",
+      "currency": "Moneda",
+      "amountPlaceholder": "Ej.: 12,50",
+      "amountPlaceholderClp": "Ej.: {{amount}}",
+      "comment": "Comentario (opcional)",
+      "errors": {
+        "future": "La fecha de pago no puede estar en el futuro.",
+        "amount": "Ingresa un monto válido, por ejemplo 12,50.",
+        "amountClp": "Ingresa el monto en pesos, sin decimales, por ejemplo 150.000.",
+        "send": "No pudimos enviar la información. Inténtalo de nuevo."
+      }
+    },
+    "insurer": {
+      "title": "Consulta de estado de pago",
+      "lead": "{{broker}} les pide confirmar el estado de pago de estas cuotas. Pueden informarlo aquí mismo.",
+      "leadReadOnly": "{{broker}} comparte con ustedes el detalle de estas cuotas.",
+      "inquiry": "Consulta {{reference}}",
+      "installmentsTitle": "Cuotas consultadas",
+      "noInstallments": "No hay cuotas en esta consulta.",
+      "emptyTitle": "No hay información para mostrar",
+      "emptyHint": "La póliza de este enlace ya no está disponible. Contacten a la corredora."
+    },
+    "report": {
+      "open": "Informar estado",
+      "again": "Informar de nuevo",
+      "last": "Informaron «{{status}}» el {{date}}.",
+      "statusLabel": "Estado de la cuota",
+      "status": {
+        "paid": "Pagada",
+        "unpaid": "Impaga",
+        "partial": "Pago parcial",
+        "cancelled": "Anulada",
+        "unknown": "Sin información"
+      },
+      "statusHint": {
+        "paid": "La compañía recibió el pago completo.",
+        "unpaid": "No hay pago registrado.",
+        "partial": "Se recibió solo una parte.",
+        "cancelled": "La cuota o la póliza se anuló."
+      },
+      "amount": "Monto recibido (opcional)",
+      "amountRequired": "Monto recibido",
+      "commentPlaceholder": "Ej.: pago recibido por transferencia, folio 12345",
+      "note": "La corredora revisará y confirmará la información antes de registrarla.",
+      "submit": "Enviar informe",
+      "errors": {
+        "status": "Elige el estado de la cuota.",
+        "partialAmount": "Indica el monto recibido en un pago parcial."
+      }
+    }
+  },
+  "createdRevoked": "Revocaste este enlace: ya no funciona y no se puede enviar. Crea uno nuevo si lo necesitas."
+}

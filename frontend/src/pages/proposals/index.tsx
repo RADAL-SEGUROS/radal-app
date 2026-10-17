@@ -47,6 +47,7 @@ import {
   pct,
   uf,
 } from "@/pages/proposals/shared";
+import { PROPOSAL_ORIGIN_LABEL, PROPOSAL_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 export default function ProposalsListPage() {
   const { t } = useTranslation("proposals");
@@ -95,7 +96,7 @@ export default function ProposalsListPage() {
             <div className="mt-0.5 flex items-center gap-1.5">
               <MonoChip>{row.original.insurer?.cmf_code ?? "—"}</MonoChip>
               <Badge variant={row.original.origin === "native" ? "brand" : "neutral"}>
-                {t(`origin.${row.original.origin}`)}
+                {enumLabel(t, PROPOSAL_ORIGIN_LABEL, row.original.origin)}
               </Badge>
             </div>
           </div>
@@ -141,7 +142,7 @@ export default function ProposalsListPage() {
         accessorKey: "status",
         header: () => t("table.status"),
         cell: ({ row }) => (
-          <StatusBadge value={row.original.status} label={t(`status.${row.original.status}`)} />
+          <StatusBadge value={row.original.status} label={enumLabel(t, PROPOSAL_STATUS_LABEL, row.original.status)} />
         ),
       },
       {
@@ -222,7 +223,7 @@ export default function ProposalsListPage() {
               <SelectItem value="all">{t("filters.allStatuses")}</SelectItem>
               {PROPOSAL_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {t(`status.${s}`)}
+                  {enumLabel(t, PROPOSAL_STATUS_LABEL, s)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -236,7 +237,7 @@ export default function ProposalsListPage() {
               <SelectItem value="all">{t("filters.allOrigins")}</SelectItem>
               {PROPOSAL_ORIGINS.map((o) => (
                 <SelectItem key={o} value={o}>
-                  {t(`origin.${o}`)}
+                  {enumLabel(t, PROPOSAL_ORIGIN_LABEL, o)}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -2,17 +2,21 @@
 
     python -m app.db.seed_dev
 
-Creates the schema and exactly ONE row: a Radal platform administrator. Nothing
+Creates the schema and exactly ONE user: a Radal platform administrator. Nothing
 else — the fixture corpus lives in ``app.db.import_fixtures`` and this module
 must stay small enough to run against a production-shaped database without
 inventing domain data.
+
+Since v12 it also upserts the closed ramo CATALOGUE (``app.db.seed_v12``): the
+18 global ramos and their subtipos are Radal reference data, not domain data,
+and an empty catalogue would leave every "Nueva cuenta" dropdown blank.
 
 A platform user is deliberately homeless: ``broker_id`` / ``insurer_id`` /
 ``insured_id`` are all NULL, because Radal staff are not a tenant. They are the
 only actor that can exist before the first broker is onboarded.
 
 Idempotent: running it twice updates the existing admin's password and role
-rather than failing on the unique email.
+rather than failing on the unique email, and re-upserts the catalogue by code.
 """
 from __future__ import annotations
 
@@ -24,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
 from app.db.base import Base
+from app.db.seed_v12 import seed_catalog, seed_collection_defaults
 from app.db.session import SessionLocal, engine
 from app.models import User
 from app.models.enums import UserType
@@ -79,9 +84,19 @@ def main(argv: list[str] | None = None) -> int:
         user, created = ensure_platform_admin(
             db, email=args.email, password=args.password, full_name=args.name
         )
+        catalog = seed_catalog(db)
+        defaults = seed_collection_defaults(db)
         db.commit()
         verb = "created" if created else "updated"
         print(f"platform admin {verb}: {user.email} / {args.password} (role={user.role})")
+        print(
+            "catalogue: "
+            f"{catalog['lines_created']} ramos created, {catalog['lines_updated']} updated; "
+            f"{catalog['subtypes_created']} subtipos created, "
+            f"{catalog['subtypes_updated']} updated; "
+            f"{defaults['profiles_created']} insurer profiles, "
+            f"{defaults['settings_created']} broker settings created"
+        )
         return 0
     except Exception:
         db.rollback()

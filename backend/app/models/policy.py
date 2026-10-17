@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,7 +30,11 @@ from app.models.enums import (
     ClaimItemKind,
     ClaimRuling,
     CoverageKind,
+    PaymentMode,
+    PolicyCurrency,
+    PolicyOrigin,
     StrEnum,
+    TerminationReason,
     sql_enum,
 )
 from app.models.base_class import Base, TimestampMixin
@@ -39,6 +44,7 @@ if TYPE_CHECKING:
     from app.models.asset import Asset
     from app.models.broker import Broker
     from app.models.case_file import CaseFile
+    from app.models.catalog import InsuranceSubtype
     from app.models.client import Client
     from app.models.collection import CollectionPlan
     from app.models.ai import Extraction
@@ -47,6 +53,7 @@ if TYPE_CHECKING:
     from app.models.insurance_line import InsuranceLine
     from app.models.insurer import Insurer
     from app.models.placement import Placement
+    from app.models.policy_party import PolicyParty
     from app.models.proposal import Proposal
     from app.models.warranty import Warranty
 
@@ -175,6 +182,34 @@ class Policy(Base, TimestampMixin):
         ForeignKey("extraction.id", ondelete="SET NULL"), index=True
     )
 
+    # --- v12: policies are the main view ------------------------------------
+    insurance_subtype_id: Mapped[int | None] = mapped_column(
+        ForeignKey("insurance_subtype.id", ondelete="SET NULL"), index=True
+    )
+    # How the policy entered Radal (reader / manual / journey / portal / migration).
+    origin: Mapped[PolicyOrigin | None] = mapped_column(sql_enum(PolicyOrigin))
+    # Team *respaldo*: False => the UI shows "Sin respaldo" (no source PDF).
+    has_source_document: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    # Team *Condicionada*: a certificado de cobertura, not yet the issued policy.
+    is_provisional: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    currency: Mapped[PolicyCurrency] = mapped_column(
+        sql_enum(PolicyCurrency),
+        default=PolicyCurrency.UF,
+        server_default=PolicyCurrency.UF.value,
+        nullable=False,
+    )
+    # The payment plan's method, mirrored here so the list filters without a join.
+    payment_method: Mapped[PaymentMode | None] = mapped_column(sql_enum(PaymentMode))
+    # Cancellation effective date + why.
+    terminated_on: Mapped[date | None] = mapped_column(Date)
+    termination_reason: Mapped[TerminationReason | None] = mapped_column(
+        sql_enum(TerminationReason)
+    )
+
     # --- Relationships ------------------------------------------------------
     broker: Mapped["Broker"] = relationship()
     client: Mapped["Client"] = relationship(back_populates="policies")
@@ -184,6 +219,15 @@ class Policy(Base, TimestampMixin):
     insurer: Mapped["Insurer"] = relationship(back_populates="policies")
     insurance_line: Mapped["InsuranceLine | None"] = relationship(
         foreign_keys=[insurance_line_id]
+    )
+    insurance_subtype: Mapped["InsuranceSubtype | None"] = relationship(
+        foreign_keys=[insurance_subtype_id]
+    )
+    # Insured / policyholder / payer / beneficiaries (v12).
+    parties: Mapped[list["PolicyParty"]] = relationship(
+        back_populates="policy",
+        cascade="all, delete-orphan",
+        order_by="PolicyParty.id",
     )
     # The account case that produced this policy.
     case_file: Mapped["CaseFile | None"] = relationship(

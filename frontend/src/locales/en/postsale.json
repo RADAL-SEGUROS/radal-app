@@ -18,7 +18,7 @@
     "no": "No",
     "soonEmail": "Email delivery is coming soon.",
     "soonExport": "Export is coming soon.",
-    "soonRenewal": "Renewals are API-only in this release."
+    "soonRenewal": "This policy is not in an account: renewals are opened from the insured's account (line and period)."
   },
   "policy": {
     "title": "Policies",
@@ -116,7 +116,7 @@
       "exportPolicy": "Export policy"
     },
     "upload": {
-      "title": "Register policy",
+      "title": "Upload policy",
       "subtitle": "Upload the file issued by the carrier and we read it automatically.",
       "dropTitle": "Drag the policy PDF here or click to choose it",
       "dropHint": "A single PDF file.",
@@ -139,7 +139,7 @@
       "inspect": "View policy"
     },
     "overview": {
-      "upload": "Register policy",
+      "upload": "Upload policy",
       "uploadHint": "Have the issued file? Upload it to register the policy.",
       "empty": "This account has no policies yet.",
       "emptyHint": "A policy is born from the file issued by the carrier.",
@@ -207,7 +207,6 @@
     "description": "The issued policy against the issuance proposal, field by field. Nothing self-corrects: each difference is resolved with an endorsement.",
     "empty": "The policy matches the proposal",
     "emptyHint": "No differences between what was proposed and what was issued.",
-    "missingSources": "Confirmed extractions are missing for the comparison: {{sources}}",
     "columns": {
       "field": "Field",
       "expected": "Proposed",
@@ -221,7 +220,15 @@
     "queued_other": "{{count}} draft endorsements",
     "suggestedKind": "Suggested endorsement: {{kind}}",
     "noSuggestion": "No suggested endorsement kind",
-    "noPermission": "You need permission to create endorsements."
+    "noPermission": "You need permission to create endorsements.",
+    "notApplicable": "Not applicable: this policy has no proposal",
+    "notApplicableHint": "Mirror validation compares the issued policy with the issuance proposal. This policy was registered without a proposal, so there is nothing to compare.",
+    "pendingTitle": "Nothing to compare yet",
+    "sources": {
+      "issuance_proposal": "The issuance proposal's extraction is not confirmed yet.",
+      "policy": "The policy's extraction is not confirmed yet.",
+      "other": "A confirmed extraction is missing."
+    }
   },
   "warranty": {
     "title": "Warranties and recommendations",

@@ -6,6 +6,7 @@ import { StandardPage } from "@/components/layout/StandardPage";
 
 const StyleLabPage = React.lazy(() => import("@/pages/style-lab"));
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { HomeRedirect, RequirePermission } from "@/components/layout/RequirePermission";
 import { UnderConstruction } from "@/components/common/UnderConstruction";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -79,6 +80,20 @@ const deferredPages = import.meta.glob([
   // AI assistants (v3, spec §5.2 / §5.4)
   "./pages/ai/reader.tsx",
   "./pages/ai/comparator.tsx",
+  // v12 (docs/v12/07-frontend.md §1). Phase 1 ships a placeholder for each;
+  // the owning lane replaces the file, never this list.
+  "./pages/policies/new.tsx",
+  "./pages/collections/index.tsx",
+  "./pages/collections/evidence.tsx",
+  "./pages/collections/inquiries.tsx",
+  "./pages/portal-search/index.tsx",
+  "./pages/notifications/index.tsx",
+  "./pages/platform/index.tsx",
+  "./pages/platform/insurers.tsx",
+  "./pages/platform/provider-accounts.tsx",
+  "./pages/platform/events.tsx",
+  "./pages/platform/jobs.tsx",
+  "./pages/public/share.tsx",
 ]);
 
 type PageModule = { default: React.ComponentType };
@@ -133,8 +148,9 @@ function deferredRoute(
  *      family, which renders its own contextual rail through `GroupShell` and
  *      must not remount on navigation.
  *
- * The app STARTS AT GROUPS: `/` redirects to `/groups` and the dashboard lives
- * at `/dashboard`. A route exists here only once a real endpoint is behind the
+ * v12: the app STARTS AT POLICIES — `/` redirects to `/policies` (a platform
+ * user, who has no broker workspace, goes to `/platform`); groups stay at
+ * `/groups` and the dashboard at `/dashboard`. A route exists here only once a real endpoint is behind the
  * page it renders; modules still to land are shown greyed with a "pronto" chip
  * in the sidebar rather than as links that resolve to an empty screen.
  */
@@ -146,6 +162,12 @@ export default function App() {
       {/* The insured-decision surface. Unauthenticated by design — the share
           token IS the credential — and outside the app shell entirely. */}
       <Route path="/o/:token" element={<OfferingDecisionPage />} />
+      {/* v12 share links (insured / insurer audiences), WhatsApp-ready. Same
+          rule: the token is the credential, no shell, no app auth. */}
+      <Route
+        path="/s/:token"
+        element={deferredRoute("./pages/public/share.tsx", "share:title", "Enlace compartido")}
+      />
       {/* Style lab: the three candidate visual directions for the restart.
           Public and outside the shell on purpose — it must render with ZERO
           inheritance from the deprecated theme, and the team opens it without
@@ -164,8 +186,9 @@ export default function App() {
         <Route element={<AppShell />}>
           {/* ---- Standard pages: reading column + motion remount ---- */}
           <Route element={<StandardPage />}>
-            {/* The front door is the group list, not the dashboard. */}
-            <Route index element={<Navigate to="/groups" replace />} />
+            {/* The front door is the policy list (v12): policies are the main
+                view; journeys are partial and the group is a viewer. */}
+            <Route index element={<HomeRedirect />} />
             <Route path="dashboard" element={<DashboardPage />} />
             {/* The portfolio, split in two: Datos holds every consolidated
                 table, Analítica holds the visuals. They used to be one page.
@@ -223,6 +246,11 @@ export default function App() {
               path="policies"
               element={deferredRoute("./pages/policies/index.tsx", "nav.policies", "Pólizas")}
             />
+            {/* static before dynamic: /policies/new must not match :policyId */}
+            <Route
+              path="policies/new"
+              element={deferredRoute("./pages/policies/new.tsx", "nav.policies", "Pólizas")}
+            />
             <Route
               path="policies/:policyId"
               element={deferredRoute("./pages/policies/detail.tsx", "nav.policies", "Pólizas")}
@@ -233,6 +261,33 @@ export default function App() {
                 "./pages/endorsements/detail.tsx",
                 "nav.endorsements",
                 "Endosos",
+              )}
+            />
+            {/* Cobranza (v12): the cuota-level list and its two inboxes. The
+                static paths sit before `:planId` for readability; the router
+                ranks static segments first anyway. */}
+            <Route
+              path="collections"
+              element={deferredRoute(
+                "./pages/collections/index.tsx",
+                "nav.collections",
+                "Cobranza",
+              )}
+            />
+            <Route
+              path="collections/evidence"
+              element={deferredRoute(
+                "./pages/collections/evidence.tsx",
+                "nav.collections",
+                "Cobranza",
+              )}
+            />
+            <Route
+              path="collections/inquiries"
+              element={deferredRoute(
+                "./pages/collections/inquiries.tsx",
+                "nav.collections",
+                "Cobranza",
               )}
             />
             <Route
@@ -268,6 +323,54 @@ export default function App() {
 
             {/* The AI agent, with SSE streaming and a non-streaming fallback. */}
             <Route path="agent" element={<AgentPage />} />
+
+            {/* v12: portal-search RPA and the full notifications list. */}
+            <Route
+              path="portal-search"
+              element={deferredRoute(
+                "./pages/portal-search/index.tsx",
+                "nav.portalSearch",
+                "Cotizar en portales",
+              )}
+            />
+            <Route
+              path="notifications"
+              element={deferredRoute(
+                "./pages/notifications/index.tsx",
+                "nav.notifications",
+                "Notificaciones",
+              )}
+            />
+
+            {/* Mantenedor — the Radal maintainer console. Gated as a family on
+                Platform.View (no broker role holds it); the server still
+                enforces every endpoint behind these pages. */}
+            <Route path="platform" element={<RequirePermission module="Platform" />}>
+              <Route
+                index
+                element={deferredRoute("./pages/platform/index.tsx", "nav.platform", "Mantenedor")}
+              />
+              <Route
+                path="insurers"
+                element={deferredRoute("./pages/platform/insurers.tsx", "nav.platform", "Mantenedor")}
+              />
+              <Route
+                path="provider-accounts"
+                element={deferredRoute(
+                  "./pages/platform/provider-accounts.tsx",
+                  "nav.platform",
+                  "Mantenedor",
+                )}
+              />
+              <Route
+                path="events"
+                element={deferredRoute("./pages/platform/events.tsx", "nav.platform", "Mantenedor")}
+              />
+              <Route
+                path="jobs"
+                element={deferredRoute("./pages/platform/jobs.tsx", "nav.platform", "Mantenedor")}
+              />
+            </Route>
           </Route>
 
           {/* ---- The group family: GroupShell owns the contextual rail and
@@ -325,8 +428,9 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* Fallback — the app starts at groups, never at /leads. */}
-      <Route path="*" element={<Navigate to="/groups" replace />} />
+      {/* Fallback — back to the front door, which decides policies vs. the
+          maintainer console (`HomeRedirect`), never /leads. */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

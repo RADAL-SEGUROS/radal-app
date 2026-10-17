@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { DisabledHint } from "@/pages/proposals/shared";
 import type { CaseOrigin } from "@/api/types";
+import { CASE_ORIGIN_HINT, CASE_ORIGIN_LABEL, enumLabel } from "@/i18n/labels";
 
 /** Renewal is the affirmative outcome; a period change is a correction. */
 const TONE: Record<CaseOrigin, "neutral" | "brand" | "warn"> = {
@@ -38,11 +39,11 @@ export function OriginBadge({
   const { t } = useTranslation("accounts");
   const badge = (
     <Badge variant={TONE[origin] ?? "neutral"} className={className}>
-      {t(`origin.${origin}`)}
+      {enumLabel(t, CASE_ORIGIN_LABEL, origin)}
     </Badge>
   );
   if (!withHint) return badge;
-  return <DisabledHint hint={t(`originHint.${origin}`)}>{badge}</DisabledHint>;
+  return <DisabledHint hint={enumLabel(t, CASE_ORIGIN_HINT, origin)}>{badge}</DisabledHint>;
 }
 
 /** Explicit alias for modules that also import the insurer `OriginBadge`. */

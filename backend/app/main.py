@@ -145,6 +145,42 @@ def create_app() -> FastAPI:
     app.include_router(collections.router, prefix=prefix)
     app.include_router(claims.router, prefix=prefix)
 
+    # --- v12: policies-first, cobranza, mail, share links, RPA --------------
+    # Mounted once, here, in phase 1 (main.py is frozen for the lanes). Each
+    # router names its owning lane in its module docstring.
+    from app.api.routers import (
+        catalog,
+        inquiries,
+        internal_jobs,
+        mail_accounts,
+        notifications,
+        payments,
+        platform,
+        portal_searches,
+        public_share,
+        share,
+        webhooks,
+    )
+
+    app.include_router(catalog.router, prefix=prefix)
+    app.include_router(notifications.router, prefix=prefix)
+    app.include_router(payments.router, prefix=prefix)
+    # Public: security is the account key + sig query params + the payload HMAC.
+    app.include_router(webhooks.router, prefix=prefix)
+    app.include_router(platform.router, prefix=prefix)
+    app.include_router(mail_accounts.router, prefix=prefix)
+    app.include_router(inquiries.router, prefix=prefix)
+    # 02 §6 contract paths for the evidence inbox + payer notices (same handlers).
+    app.include_router(inquiries.collections_router, prefix=prefix)
+    app.include_router(share.router, prefix=prefix)
+    # Unauthenticated, like offerings.public_router: the token IS the credential.
+    app.include_router(public_share.router, prefix=prefix)
+    app.include_router(portal_searches.router, prefix=prefix)
+    app.include_router(internal_jobs.router, prefix=prefix)
+    # EventBridge Scheduler -> LWA -> POST /events. OUTSIDE the API prefix on
+    # purpose: CloudFront only forwards /api/*, so the internet cannot reach it.
+    app.include_router(internal_jobs.events_router)
+
     return app
 
 

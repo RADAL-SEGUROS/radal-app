@@ -11,6 +11,12 @@ import {
 
 export type ExportFormat = "word" | "excel" | "pdf";
 
+const FORMAT_LABEL = {
+  word: "common:export.word",
+  excel: "common:export.excel",
+  pdf: "common:export.pdf",
+} as const satisfies Record<ExportFormat, string>;
+
 interface ExportButtonProps {
   /** Optional real handler; when absent, shows a stub toast. */
   onExport?: (format: ExportFormat) => void;
@@ -29,7 +35,7 @@ export function ExportButton({ onExport, disabled }: ExportButtonProps) {
       onExport(format);
     } else {
       toast(t("state.underConstruction"), {
-        description: t(`export.${format}`),
+        description: t(FORMAT_LABEL[format]),
       });
     }
   };

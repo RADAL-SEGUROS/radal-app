@@ -19,11 +19,12 @@ import api from "@/lib/api";
 import { useNavigator } from "@/api/navigator";
 import { cn } from "@/lib/utils";
 import { AgentChip, makeChip, RefIcon, RefEntityType } from "@/components/agent/refs";
+import { MENTION_SECTION_LABEL_KEY } from "@/components/agent/labels";
 
 export interface MentionOption {
   id: string;
   chip: AgentChip;
-  /** i18n key under `agent:mention.*`. */
+  /** Section id; its label comes from `MENTION_SECTION_LABEL_KEY`. */
   section: "groups" | "recent" | "clients" | "quotes" | "proposals";
 }
 
@@ -155,7 +156,7 @@ export function MentionPopover({
   onSelect: (option: MentionOption) => void;
   listboxId: string;
 }) {
-  const { t } = useTranslation("agent");
+  const { t } = useTranslation("dashboard");
 
   const sections = SECTION_ORDER.map((section) => ({
     section,
@@ -166,18 +167,18 @@ export function MentionPopover({
     <div
       id={listboxId}
       role="listbox"
-      aria-label={t("mention.label")}
+      aria-label={t("agent.mention.label")}
       className="absolute inset-x-0 bottom-full z-30 mb-2 max-h-[320px] overflow-y-auto rounded-lg bg-bg-surface p-1.5 shadow-overlay"
     >
       {sections.length === 0 ? (
         <p className="px-2.5 py-3 text-caption text-text-muted">
-          {isSearching ? t("mention.searching") : t("mention.empty", { query })}
+          {isSearching ? t("agent.mention.searching") : t("agent.mention.empty", { query })}
         </p>
       ) : (
         sections.map(({ section, items }) => (
           <div key={section} role="presentation">
             <p className="px-2.5 pb-1 pt-2 font-mono text-mono-sm uppercase text-text-muted">
-              {t(`mention.${section}`)}
+              {t(MENTION_SECTION_LABEL_KEY[section])}
             </p>
             {items.map((option) => (
               <button
@@ -212,7 +213,7 @@ export function MentionPopover({
         ))
       )}
       <p className="border-t border-line px-2.5 pb-1 pt-1.5 text-caption text-text-muted">
-        {t("mention.hint")}
+        {t("agent.mention.hint")}
       </p>
     </div>
   );

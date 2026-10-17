@@ -44,11 +44,27 @@ export function AppShell() {
     setNavOpen(false);
   }, [location]);
 
+  // The document itself never scrolls while the shell is mounted: `main` is
+  // the one scroller. Without this lock, anything absolutely positioned
+  // against the initial containing block — Radix's hidden native
+  // `<select>`/`<input>` behind every Select/Checkbox — stretched the document
+  // past `h-screen` and the wheel over the rail scrolled `html` away, leaving
+  // a blank screen. The class (not an inline style) keeps public pages
+  // (`/s/…`, `/login`), which mount without the shell, free to scroll.
+  React.useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("app-shell-locked");
+    return () => root.classList.remove("app-shell-locked");
+  }, []);
+
   return (
-    <div className="flex min-h-screen w-full bg-bg-app text-text-primary">
+    <div className="flex h-screen w-full overflow-hidden bg-bg-app text-text-primary">
       <Sidebar className="sticky top-0 hidden h-screen self-start lg:flex" />
 
-      <main className="flex h-screen min-w-0 flex-1 flex-col overflow-y-auto">
+      {/* `relative` makes `main` the containing block of every absolutely
+          positioned descendant (Radix's visually-hidden native inputs), so
+          they scroll WITH the page instead of overflowing the document. */}
+      <main className="relative flex h-screen min-w-0 flex-1 flex-col overflow-y-auto">
         <Topbar
           navTrigger={
             <Sheet open={navOpen} onOpenChange={setNavOpen}>

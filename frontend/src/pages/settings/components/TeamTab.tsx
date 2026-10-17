@@ -20,6 +20,7 @@ import type { User } from "@/api/types";
 import { GuardedButton, SectionCard, type Guard } from "./shared";
 import { InviteUserDialog } from "./InviteUserDialog";
 import { ChangeRoleDialog, EditUserDialog, ToggleStatusDialog } from "./UserDialogs";
+import { USER_ROLE_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * Team & roles — `GET /users` with the invite/edit/role/status writes.
@@ -96,7 +97,7 @@ export function TeamTab() {
         accessorKey: "role",
         header: t("team.columns.role"),
         cell: ({ row }) => (
-          <Badge variant="brand">{t(`roles.${row.original.role}`, row.original.role)}</Badge>
+          <Badge variant="brand">{enumLabel(t, USER_ROLE_LABEL, row.original.role)}</Badge>
         ),
       },
       {
@@ -199,7 +200,7 @@ export function TeamTab() {
             <SelectItem value={ALL}>{t("team.allRoles")}</SelectItem>
             {roles.map((entry) => (
               <SelectItem key={entry.role} value={entry.role}>
-                {t(`roles.${entry.role}`, entry.role)}
+                {enumLabel(t, USER_ROLE_LABEL, entry.role)}
               </SelectItem>
             ))}
           </SelectContent>

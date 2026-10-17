@@ -99,6 +99,7 @@
     "notFound": "No encontramos esta aseguradora",
     "paymentPortal": "Portal de pago",
     "noPaymentUrl": "Esta compañía no tiene portal de pago registrado",
+    "invalidPaymentUrl": "La URL de pago registrada no es un enlace http(s) válido",
     "readOnly": "Compañía global de Radal: tu corredora no puede editarla",
     "brokerOwned": "Registrada por tu corredora",
     "platformOwned": "Registrada por Radal",

@@ -36,7 +36,10 @@ python-docx>=1.1,<2.0
 # `pip install`: `playwright install chromium` (+ `--with-deps` on Linux/CI).
 playwright>=1.47,<2.0
 
-# --- Test suite (backend/tests) ---
-# httpx backs fastapi.testclient.TestClient.
-pytest>=8.0,<10.0
+# --- v12 outbound HTTP (RUNTIME) ---
+# httpx: the Forpay client (services/payments/providers/forpay.py) and the
+# fx.daily job (app/jobs/collections.py). It also backs fastapi's TestClient.
 httpx>=0.27,<0.29
+
+# --- Test suite (backend/tests) ---
+pytest>=8.0,<10.0

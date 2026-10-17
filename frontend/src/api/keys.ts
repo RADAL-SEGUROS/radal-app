@@ -150,7 +150,58 @@ export const qk = {
     installments: (id: number) =>
       ["collections", "detail", String(id), "installments"] as const,
     status: (id: number) => ["collections", "detail", String(id), "status"] as const,
+    // v12 — the cuota-level Cobranza list and its satellites. All nested under
+    // "collections" so `invalidateQueries(qk.collections.all)` refreshes the
+    // rail's overdue chip (`summary()`) along with everything else.
+    installmentRows: (params?: QueryParams) =>
+      ["collections", "installment-rows", params ?? {}] as const,
+    installmentMode: (id: number) =>
+      ["collections", "installment-rows", String(id), "mode"] as const,
+    evidence: (params?: QueryParams) => ["collections", "evidence", params ?? {}] as const,
+    notices: (params?: QueryParams) => ["collections", "notices", params ?? {}] as const,
+    settings: ["collections", "settings"] as const,
+    templates: ["collections", "templates"] as const,
   },
+
+  // --- v12. Published in phase 1 so no lane has to edit this file -----------
+  catalog: {
+    all: ["catalog"] as const,
+    lines: ["catalog", "lines"] as const,
+    subtype: (id: number) => ["catalog", "subtypes", String(id)] as const,
+  },
+  notifications: {
+    ...scope("notifications"),
+    count: ["notifications", "count"] as const,
+  },
+  payments: {
+    ...scope("payments"),
+    insurers: ["payments", "insurers"] as const,
+    intent: (id: number) => ["payments", "intents", String(id)] as const,
+  },
+  inquiries: scope("inquiries"),
+  mail: {
+    all: ["mail"] as const,
+    accounts: ["mail", "accounts"] as const,
+    messages: (params?: QueryParams) => ["mail", "messages", params ?? {}] as const,
+  },
+  shareLinks: scope("share-links"),
+  publicShare: {
+    all: ["public-share"] as const,
+    detail: (token: string) => ["public-share", token] as const,
+  },
+  platform: {
+    all: ["platform"] as const,
+    insurerProfiles: scope("platform-insurer-profiles"),
+    providerAccounts: scope("platform-provider-accounts"),
+    insurerChannels: ["platform", "insurer-channels"] as const,
+    events: (params?: QueryParams) => ["platform", "events", params ?? {}] as const,
+    jobs: ["platform", "jobs"] as const,
+  },
+  portalSearches: {
+    ...scope("portal-searches"),
+    portals: ["portal-searches", "portals"] as const,
+  },
+  aiSkills: ["ai", "skills"] as const,
   claims: {
     ...scope("claims"),
     items: (id: number) => ["claims", "detail", String(id), "items"] as const,

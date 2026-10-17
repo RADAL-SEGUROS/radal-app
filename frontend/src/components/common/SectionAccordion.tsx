@@ -24,6 +24,7 @@ import { DownloadDocButton } from "@/components/common/DownloadDocButton";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CaseDocument, CaseDocumentGroups, CategorySpec } from "@/api/types";
+import { CASE_SECTION_LABEL, DOCUMENT_CATEGORY_LABEL, enumLabel } from "@/i18n/labels";
 
 function sizeLabel(bytes: number | null): string {
   if (!bytes) return "—";
@@ -89,7 +90,7 @@ export function SectionAccordion({
               <span className="flex items-center gap-2.5">
                 <span className="font-medium">
                   {group.section
-                    ? td(`sections.${group.section}`, { defaultValue: group.label })
+                    ? enumLabel(td, CASE_SECTION_LABEL, group.section, group.label)
                     : td("sections.unfiled", { defaultValue: group.label })}
                 </span>
                 <Badge variant="neutral">{group.documents.length}</Badge>
@@ -112,9 +113,7 @@ export function SectionAccordion({
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-body font-medium text-ink">
-                          {td(`categories.${doc.category}`, {
-                            defaultValue: doc.category_label,
-                          })}
+                          {enumLabel(td, DOCUMENT_CATEGORY_LABEL, doc.category, doc.category_label)}
                         </p>
                         <p className="truncate text-caption text-ink-3">
                           {doc.original_name} · {formatDate(doc.created_at)} ·{" "}

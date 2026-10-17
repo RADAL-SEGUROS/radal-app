@@ -52,6 +52,7 @@ import {
   uf,
 } from "@/pages/proposals/shared";
 import { PostsaleBadge } from "@/pages/policies/shared";
+import { WARRANTY_SOURCE_LABEL, WARRANTY_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const MET: WarrantyStatus[] = ["met_on_time", "met_late", "met_after_claim"];
 
@@ -136,7 +137,7 @@ function WarrantyRow({
       </TableCell>
 
       <TableCell className="align-top text-caption text-text-secondary">
-        {t(`warranty.source.${warranty.source}`)}
+        {enumLabel(t, WARRANTY_SOURCE_LABEL, warranty.source)}
       </TableCell>
 
       <TableCell className="align-top whitespace-nowrap">
@@ -164,7 +165,7 @@ function WarrantyRow({
         <div className="flex flex-col items-start gap-1.5">
           <PostsaleBadge
             value={warranty.status}
-            label={t(`warranty.status.${warranty.status}`)}
+            label={enumLabel(t, WARRANTY_STATUS_LABEL, warranty.status)}
           />
           <DisabledHint hint={gate}>
             <Select
@@ -178,7 +179,7 @@ function WarrantyRow({
               <SelectContent>
                 {WARRANTY_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {t(`warranty.status.${s}`)}
+                    {enumLabel(t, WARRANTY_STATUS_LABEL, s)}
                   </SelectItem>
                 ))}
               </SelectContent>

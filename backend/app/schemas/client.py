@@ -24,6 +24,7 @@ from app.models.client import ClientStatus
 from app.models.enums import PersonType
 from app.schemas.analytics import GroupedSummary
 from app.services.identifiers import validate_rut
+from app.schemas.utc import UtcDatetime
 
 # --- Shared aliases ----------------------------------------------------------
 
@@ -150,8 +151,8 @@ class ClientListItem(BaseModel):
     contact_name: str | None = None
     contact_email: str | None = None
     contact_phone: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     insured: InsuredSummary
     account_manager: UserSummary | None = None

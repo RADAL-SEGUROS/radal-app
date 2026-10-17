@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.models.enums import LeadStatus
 from app.schemas.analytics import GroupedSummary
 from app.services.identifiers import InvalidRut, validate_rut
+from app.schemas.utc import UtcDatetime
 
 
 def _optional_rut(value: str | None) -> str | None:
@@ -97,8 +98,8 @@ class LeadRead(BaseModel):
     converted_client_id: int | None = None
     converted_case_file_id: int | None = None
     summary: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     insurance_line_name: str | None = None
     notes_count: int = 0

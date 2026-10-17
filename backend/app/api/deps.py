@@ -84,7 +84,10 @@ def get_current_broker_id(current_user: User = Depends(get_current_user)) -> int
     if broker_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="This user is not attached to a broker workspace",
+            detail=(
+                "Esta sección es del espacio de trabajo de una corredora y tu usuario "
+                "no pertenece a ninguna."
+            ),
         )
     return broker_id
 

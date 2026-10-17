@@ -59,6 +59,14 @@ import {
   EditPlacementDialog,
   TransitionDialog,
 } from "@/pages/placements/PlacementForm";
+import {
+  PLACEMENT_INSPECTION_STATUS_LABEL,
+  PLACEMENT_PROPOSAL_ORIGIN_LABEL,
+  PLACEMENT_PROPOSAL_STATUS_LABEL,
+  PLACEMENT_QUOTE_STATUS_LABEL,
+  PLACEMENT_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 function serverMessage(error: unknown, fallback: string): string {
   if (error instanceof AxiosError) {
@@ -155,7 +163,7 @@ function Pipeline({
                       : "text-text-muted",
                   )}
                 >
-                  {t(`placements:status.${status}`)}
+                  {enumLabel(t, PLACEMENT_STATUS_LABEL, status)}
                 </span>
               </li>
             );
@@ -176,7 +184,7 @@ function Pipeline({
                 onClick={() => onPick(status)}
               >
                 {t("placements:pipeline.moveTo", {
-                  status: t(`placements:status.${status}`),
+                  status: enumLabel(t, PLACEMENT_STATUS_LABEL, status),
                 })}
               </Button>
             );
@@ -186,7 +194,7 @@ function Pipeline({
               <TooltipTrigger asChild>
                 <span className="inline-flex">
                   <Button variant="secondary" size="sm" disabled>
-                    {t(`placements:status.${status}`)}
+                    {enumLabel(t, PLACEMENT_STATUS_LABEL, status)}
                   </Button>
                 </span>
               </TooltipTrigger>
@@ -194,7 +202,7 @@ function Pipeline({
                 {!canEdit
                   ? t("placements:permissions.noEdit")
                   : t("placements:pipeline.notAllowed", {
-                      status: t(`placements:status.${current}`),
+                      status: enumLabel(t, PLACEMENT_STATUS_LABEL, current),
                     })}
               </TooltipContent>
             </Tooltip>
@@ -249,7 +257,7 @@ function QuotesTab({ placementId }: { placementId: number }) {
                   </span>
                 ) : null}
                 <Badge variant="action">
-                  {t(`placements:quoteStatus.${quote.status}`)}
+                  {enumLabel(t, PLACEMENT_QUOTE_STATUS_LABEL, quote.status)}
                 </Badge>
               </Card>
             </FadeUp>
@@ -291,7 +299,7 @@ function ProposalsTab({ placementId }: { placementId: number }) {
                     </p>
                   </div>
                   <Badge variant={proposal.origin === "native" ? "brand" : "neutral"}>
-                    {t(`placements:proposals.origin.${proposal.origin}`)}
+                    {enumLabel(t, PLACEMENT_PROPOSAL_ORIGIN_LABEL, proposal.origin)}
                   </Badge>
                 </div>
                 <div className="mt-3 flex items-end justify-between gap-3">
@@ -313,7 +321,7 @@ function ProposalsTab({ placementId }: { placementId: number }) {
                             : "action"
                       }
                     >
-                      {t(`placements:proposalStatus.${proposal.status}`)}
+                      {enumLabel(t, PLACEMENT_PROPOSAL_STATUS_LABEL, proposal.status)}
                     </Badge>
                     {proposal.is_confirmed ? (
                       <p className="mt-1 text-caption text-pos-text">
@@ -368,7 +376,7 @@ function InspectionsTab({ placementId }: { placementId: number }) {
                   </p>
                 </div>
                 <Badge variant="warn">
-                  {t(`placements:inspectionStatus.${request.status}`)}
+                  {enumLabel(t, PLACEMENT_INSPECTION_STATUS_LABEL, request.status)}
                 </Badge>
               </Card>
             </FadeUp>

@@ -15,11 +15,15 @@ This module locks the three properties the RDS window depends on
 2. ``case_file.origin`` is emitted as ``ADD COLUMN ... NOT NULL DEFAULT 'new'``
    — without the injected literal SQLite refuses the ALTER and MySQL cannot
    backfill existing rows;
-3. no new table declares a ``use_alter`` FK — ``CreateTable`` omits those and
-   the create-table path never emits ``AddConstraint``, so such a constraint
-   would silently vanish from a migrated database.
+3. every ``use_alter`` FK on a new table is NAMED and re-emitted by the plan as
+   a deferred ``ADD CONSTRAINT`` — MySQL's ``CreateTable`` omits those (v12's
+   ``payment.evidence_id`` is the first one), so without the deferred statement
+   the constraint would silently vanish from a migrated database.
 
-Everything here is offline: no database is contacted and no DDL is executed.
+The v12 pass (docs/v12/01-data-model.md §10) adds a REHEARSAL on top: a real
+SQLite file is built with the PRE-v12 schema (a metadata copy that omits the v12
+tables and columns), the online planner migrates it, and the result must show
+zero drift. Everything else is offline; the rehearsal touches only a temp file.
 """
 from __future__ import annotations
 
@@ -29,8 +33,10 @@ import sys
 from pathlib import Path
 
 import pytest
+from sqlalchemy import Index, MetaData, Table, UniqueConstraint, create_engine, inspect, text
 from sqlalchemy.dialects import mysql as mysql_dialect
 from sqlalchemy.dialects import sqlite as sqlite_dialect
+from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from scripts.migrate_case_files import (
@@ -41,9 +47,15 @@ from scripts.migrate_case_files import (
     GROUPS_WIDENED_COLUMNS,
     MANIFESTS,
     OFFLINE_PASSES,
+    V12_ADDED_COLUMNS,
+    V12_MANIFEST,
+    V12_NEW_TABLES,
+    V12_WIDENED_COLUMNS,
     Plan,
     _literal_default,
+    apply_plan,
     build_offline_plan,
+    build_online_plan,
     validate_manifest,
 )
 
@@ -107,8 +119,11 @@ def test_both_passes_are_registered_in_order():
         "agent",
         "antecedentes",
         "repurpose",
+        "v12",
     ]
-    assert set(OFFLINE_PASSES) == {"all", "groups", "agent", "antecedentes", "repurpose"}
+    assert set(OFFLINE_PASSES) == {
+        "all", "groups", "agent", "antecedentes", "repurpose", "v12",
+    }
 
 
 def test_validate_manifest_is_clean_against_the_models():
@@ -146,17 +161,53 @@ def test_validate_manifest_reports_an_unknown_name():
 
 
 # ---------------------------------------------------------------------------
-# CREATE TABLE path: no use_alter FKs on any new table
+# CREATE TABLE path: use_alter FKs on new tables are deferred, never dropped
 # ---------------------------------------------------------------------------
-def test_no_new_table_declares_a_use_alter_foreign_key():
-    """``CreateTable`` omits use_alter FKs and the plan never re-adds them."""
-    for manifest in MANIFESTS:
-        for name in manifest.new_tables:
-            for constraint in Base.metadata.tables[name].foreign_key_constraints:
-                assert not constraint.use_alter, (
-                    f"[{manifest.key}] {name} declares a use_alter FK "
-                    f"({constraint.name}); the create-table path would drop it"
-                )
+def _use_alter_fks_of_new_tables(manifests) -> list[tuple[str, str]]:
+    return [
+        (name, constraint.name)
+        for manifest in manifests
+        for name in manifest.new_tables
+        for constraint in Base.metadata.tables[name].foreign_key_constraints
+        if constraint.use_alter
+    ]
+
+
+def test_every_use_alter_fk_on_a_new_table_is_named():
+    """The deferred ADD CONSTRAINT must be reviewable and re-runnable by name."""
+    for table_name, name in _use_alter_fks_of_new_tables(MANIFESTS):
+        assert name, f"{table_name} declares an unnamed use_alter FK"
+    # v12 introduced the first one; the guard must actually be exercised.
+    assert ("payment", "fk_payment_evidence") in _use_alter_fks_of_new_tables([V12_MANIFEST])
+
+
+@pytest.mark.parametrize("passes", ["all", "v12"])
+def test_use_alter_fks_of_new_tables_are_re_added_on_mysql(passes):
+    """MySQL's CREATE TABLE omits them; the plan must ADD CONSTRAINT after it."""
+    plan = build_offline_plan(mysql_dialect.dialect(), passes=passes)
+    selected = MANIFESTS if passes == "all" else [V12_MANIFEST]
+    fks = _statements(plan, "add_foreign_key")
+    creates = _statements(plan, "create_table")
+    last_create = max(i for i, (k, _) in enumerate(plan.statements) if k == "create_table")
+    for table_name, name in _use_alter_fks_of_new_tables(selected):
+        create = next(sql for sql in creates if re.match(rf"CREATE TABLE {table_name}\b", sql))
+        assert name not in create, f"{name} unexpectedly inline in CREATE TABLE {table_name}"
+        matches = [
+            i for i, (k, sql) in enumerate(plan.statements)
+            if k == "add_foreign_key" and f"ADD CONSTRAINT {name} " in sql
+        ]
+        assert len(matches) == 1, (name, fks)
+        # Deferred: both ends of the cycle exist by then.
+        assert matches[0] > last_create
+
+
+def test_sqlite_inlines_use_alter_fks_and_defers_nothing():
+    plan = build_offline_plan(sqlite_dialect.dialect(), passes="v12")
+    create = next(
+        sql for sql in _statements(plan, "create_table") if sql.startswith("CREATE TABLE payment ")
+    )
+    assert "fk_payment_evidence" in create
+    assert _statements(plan, "add_foreign_key") == []
 
 
 def test_added_columns_are_nullable_or_carry_a_scalar_default():
@@ -329,3 +380,180 @@ def test_cli_refuses_offline_apply():
     )
     assert result.returncode == 2
     assert "offline" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# v12 (docs/v12/01-data-model.md §10)
+# ---------------------------------------------------------------------------
+@pytest.fixture(scope="module")
+def mysql_v12_plan() -> Plan:
+    return build_offline_plan(mysql_dialect.dialect(), passes="v12")
+
+
+def test_v12_manifest_names_exist_and_validate():
+    assert validate_manifest([V12_MANIFEST]) == []
+    tables = Base.metadata.tables
+    assert len(V12_NEW_TABLES) == len(set(V12_NEW_TABLES)) == 27
+    for name in V12_NEW_TABLES:
+        assert name in tables, name
+    for table_name, columns in V12_ADDED_COLUMNS.items():
+        assert table_name in tables, table_name
+        assert table_name not in V12_NEW_TABLES, table_name
+        for column in columns:
+            assert column in tables[table_name].columns, f"{table_name}.{column}"
+    # No pre-existing enum VARCHAR grows in v12.
+    assert V12_WIDENED_COLUMNS == []
+
+
+def test_v12_manifest_covers_every_table_added_since_the_previous_passes():
+    """A table in the metadata that no manifest creates would never reach RDS."""
+    created = {name for manifest in MANIFESTS for name in manifest.new_tables}
+    # Tables that predate the first manifest (the v2 baseline on RDS).
+    baseline = set(Base.metadata.tables) - created
+    for name in V12_NEW_TABLES:
+        assert name not in baseline
+    assert not (baseline & set(V12_NEW_TABLES))
+
+
+def test_v12_added_columns_are_nullable_or_server_defaulted():
+    """Contract rule: every ALTERed column is nullable OR carries a server_default."""
+    for table_name, columns in V12_ADDED_COLUMNS.items():
+        for name in columns:
+            column = Base.metadata.tables[table_name].columns[name]
+            assert column.nullable or column.server_default is not None, f"{table_name}.{name}"
+
+
+def test_v12_enum_additions_do_not_widen_existing_columns():
+    from app.models.document import DocumentCategory
+    from app.models.enums import EntityType
+
+    assert max(len(m.value) for m in EntityType) == len("inspection_request")
+    assert max(len(m.value) for m in DocumentCategory) == len("conditional_pronouncement")
+    for value in ("payment", "installment", "share_link", "status_inquiry", "mail_account",
+                  "portal_search", "insurance_subtype", "payment_intent"):
+        assert EntityType(value)
+    for value in ("payment_receipt", "email_message", "cancellation_letter", "payment_consent",
+                  "portal_screenshot", "insurer_statement_upload"):
+        assert DocumentCategory(value)
+
+
+def test_v12_offline_plan_creates_adds_and_never_modifies(mysql_v12_plan):
+    creates = _statements(mysql_v12_plan, "create_table")
+    for name in V12_NEW_TABLES:
+        assert any(re.match(rf"CREATE TABLE {name}\b", sql) for sql in creates), name
+    assert len(creates) == len(V12_NEW_TABLES)
+    adds = _statements(mysql_v12_plan, "add_column")
+    for table_name, columns in V12_ADDED_COLUMNS.items():
+        for column in columns:
+            assert any(
+                sql.startswith(f"ALTER TABLE {table_name} ADD COLUMN {column} ") for sql in adds
+            ), f"{table_name}.{column}"
+    assert _statements(mysql_v12_plan, "modify_column") == []
+    # The NOT NULL additions carry their backfill literal.
+    by_column = {sql.split(" ADD COLUMN ")[1].split(" ")[0] + "@" + sql.split()[2]: sql
+                 for sql in adds}
+    assert "DEFAULT 'UF'" in by_column["currency@policy"]
+    assert "DEFAULT 'UF'" in by_column["currency@collection_installment"]
+    assert "DEFAULT 'auto'" in by_column["level_preference@collection_plan"]
+    assert "DEFAULT false" in by_column["is_skipped@case_file_stage_event"]
+    assert "DEFAULT '0'" in by_column["sort_order@insurance_line"]
+    # The v3 origin axis is untouched; the team origen is a separate column.
+    assert "origin@case_file" not in by_column
+    assert "entry_origin@case_file" in by_column
+
+
+def test_cli_offline_v12_pass_prints_a_plan():
+    result = subprocess.run(
+        [sys.executable, "scripts/migrate_case_files.py", "--dialect", "mysql", "--pass", "v12"],
+        cwd=BACKEND_DIR,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "pass: v12" in result.stdout
+    assert "CREATE TABLE payment " in result.stdout
+    assert "ADD CONSTRAINT fk_payment_evidence" in result.stdout
+    assert "ADD CONSTRAINT fk_collection_plan_mandate" in result.stdout
+
+
+# --- The rehearsal: a pre-v12 SQLite database migrated to zero drift ----------
+def _pre_v12_metadata() -> MetaData:
+    """A copy of the live metadata WITHOUT the v12 tables and v12 columns.
+
+    Built column by column (``Column._copy()``) because SQLite cannot portably
+    DROP an indexed / FK column after a full ``create_all``. Column-flag
+    indexes and uniques (``index=True`` / ``unique=True``) are re-created by the
+    copied columns themselves; only table-level ones are copied by hand.
+    """
+    pre = MetaData()
+    for table in Base.metadata.sorted_tables:
+        if table.name in V12_NEW_TABLES:
+            continue
+        dropped = set(V12_ADDED_COLUMNS.get(table.name, ()))
+        columns = [column._copy() for column in table.columns if column.name not in dropped]
+        copy = Table(table.name, pre, *columns)
+        for index in table.indexes:
+            names = [c.name for c in index.columns]
+            if getattr(index, "_column_flag", False) or set(names) & dropped:
+                continue
+            Index(index.name, *[copy.c[n] for n in names], unique=index.unique)
+        for constraint in table.constraints:
+            if not isinstance(constraint, UniqueConstraint) or getattr(
+                constraint, "_column_flag", False
+            ):
+                continue
+            names = [c.name for c in constraint.columns]
+            if set(names) & dropped:
+                continue
+            copy.append_constraint(UniqueConstraint(*names, name=constraint.name))
+    return pre
+
+
+def test_rehearsal_pre_v12_sqlite_database_migrates_to_zero_drift(tmp_path, capsys):
+    engine = create_engine(f"sqlite:///{tmp_path / 'pre_v12.db'}", future=True)
+    try:
+        _pre_v12_metadata().create_all(engine)
+        names = set(inspect(engine).get_table_names())
+        assert not names & set(V12_NEW_TABLES)
+        assert "code" not in {c["name"] for c in inspect(engine).get_columns("insurance_line")}
+
+        # A POPULATED pre-existing table: the NOT NULL additions must backfill.
+        with engine.begin() as conn:
+            conn.execute(text(
+                "INSERT INTO insurance_line (name, requires_inspection, is_active, "
+                "created_at, updated_at) VALUES ('Incendio', 0, 1, "
+                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            ))
+
+        plan = build_online_plan(engine)
+        assert plan.has_drift
+        # Only the v12 pass is pending — every earlier pass is in the copy.
+        assert plan.pending_passes() == ["v12"]
+        assert len([k for k, _ in plan.statements if k == "create_table"]) == len(V12_NEW_TABLES)
+        assert len([k for k, _ in plan.statements if k == "add_column"]) == sum(
+            len(cols) for cols in V12_ADDED_COLUMNS.values()
+        )
+
+        apply_plan(engine, plan)
+        verify = build_online_plan(engine)
+        assert not verify.has_drift, [sql for _, sql in verify.statements]
+        assert set(V12_NEW_TABLES) <= set(inspect(engine).get_table_names())
+
+        with engine.connect() as conn:
+            row = conn.execute(text("SELECT code, sort_order FROM insurance_line")).one()
+        assert row.code is None and row.sort_order == 0
+
+        # The data step runs on the migrated database, and is idempotent.
+        from app.db.seed_v12 import run
+
+        with Session(engine) as session:
+            first = run(session)
+            session.commit()
+            second = run(session)
+            session.commit()
+        assert first["lines_created"] == 18 and first["subtypes_created"] == 54
+        assert sum(second.values()) == 0
+    finally:
+        engine.dispose()
+    capsys.readouterr()

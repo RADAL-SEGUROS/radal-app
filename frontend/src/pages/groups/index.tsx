@@ -12,6 +12,7 @@
  * (`q`, `status`, `page`, `page_size`) — nothing is filtered behind the user's
  * back, so the counts on screen always match the page they came from.
  */
+import { formatRut } from "@/pages/clients/rut";
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -40,6 +41,7 @@ import { useAccountGroups } from "@/api/accountGroups";
 import { useCan } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import type { AccountGroup, AccountGroupStatus } from "@/api/types";
+import { GROUP_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const ALL = "__all__";
 const PAGE_SIZE = 25;
@@ -101,7 +103,7 @@ export default function GroupsPage() {
             <div className="min-w-0">
               <div className="truncate text-body text-ink-2">{client.legal_name}</div>
               <div className="mt-0.5 text-caption tabular-nums text-ink-3">
-                {client.rut}
+                {formatRut(client.rut)}
               </div>
             </div>
           );
@@ -154,7 +156,7 @@ export default function GroupsPage() {
         accessorFn: (row) => row.status,
         cell: ({ row }) => (
           <Badge variant={row.original.status === "active" ? "success" : "muted"} dot>
-            {t(`group.status.${row.original.status}`)}
+            {enumLabel(t, GROUP_STATUS_LABEL, row.original.status)}
           </Badge>
         ),
       },

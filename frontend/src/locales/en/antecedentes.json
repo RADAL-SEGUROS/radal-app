@@ -93,7 +93,7 @@
     "templates": "Recommended templates",
     "current": "Assigned",
     "assign": "Assign",
-    "adopt": "Adopt",
+    "adopt": "Use",
     "noOptions": "You have no lines for this ramo. Adopt a template or create one in Settings → Lines.",
     "assigned": "Line assigned",
     "error": "We could not assign the line.",

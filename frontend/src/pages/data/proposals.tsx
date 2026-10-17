@@ -40,6 +40,7 @@ import {
   useUrlParam,
 } from "./shared";
 import { useScopeParams } from "@/components/common/ScopeFilter";
+import { PROPOSAL_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 export default function ProposalsTab() {
   const { t } = useTranslation("analytics");
@@ -73,7 +74,7 @@ export default function ProposalsTab() {
     () =>
       PROPOSAL_STATUSES.map((s) => ({
         value: s,
-        label: tProposals(`status.${s}`, { defaultValue: s }),
+        label: enumLabel(tProposals, PROPOSAL_STATUS_LABEL, s),
       })),
     [tProposals],
   );
@@ -149,9 +150,7 @@ export default function ProposalsTab() {
         cell: ({ row }) => (
           <StatusBadge
             value={row.original.status}
-            label={tProposals(`status.${row.original.status}`, {
-              defaultValue: row.original.status,
-            })}
+            label={enumLabel(tProposals, PROPOSAL_STATUS_LABEL, row.original.status)}
           />
         ),
       },

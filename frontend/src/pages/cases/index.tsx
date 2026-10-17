@@ -22,6 +22,7 @@ import { ErrorBanner, MonoChip, StatusBadge } from "@/pages/proposals/shared";
 import { useCaseFiles, useCaseFilesSummary } from "@/api/caseFiles";
 import { formatDate } from "@/lib/format";
 import { CASE_FILE_KINDS, type CaseFile, type CaseFileKind } from "@/api/types";
+import { CASE_KIND_LABEL, CASE_STAGE_LABEL, CASE_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 export default function CasesPage() {
   const { t } = useTranslation("cases");
@@ -77,7 +78,7 @@ export default function CasesPage() {
         header: t("table.kind"),
         cell: ({ row }) => (
           <Badge variant="neutral">
-            {t(`kinds.${row.original.kind}`, { defaultValue: row.original.kind })}
+            {enumLabel(t, CASE_KIND_LABEL, row.original.kind)}
           </Badge>
         ),
       },
@@ -86,7 +87,7 @@ export default function CasesPage() {
         header: t("table.stage"),
         cell: ({ row }) => (
           <Badge variant="brand">
-            {t(`stages.${row.original.stage}`, { defaultValue: row.original.stage })}
+            {enumLabel(t, CASE_STAGE_LABEL, row.original.stage)}
           </Badge>
         ),
       },
@@ -96,7 +97,7 @@ export default function CasesPage() {
         cell: ({ row }) => (
           <StatusBadge
             value={row.original.status}
-            label={t(`statuses.${row.original.status}`, { defaultValue: row.original.status })}
+            label={enumLabel(t, CASE_STATUS_LABEL, row.original.status)}
           />
         ),
       },
@@ -169,7 +170,7 @@ export default function CasesPage() {
               variant={kindParam === kind ? "teal" : "secondary"}
               onClick={() => setKind(kind)}
             >
-              {t(`kinds.${kind}`)}
+              {enumLabel(t, CASE_KIND_LABEL, kind)}
               <Badge variant="muted" className="ml-1 px-1.5 py-0">
                 {summary.data?.by_kind?.[kind] ?? 0}
               </Badge>

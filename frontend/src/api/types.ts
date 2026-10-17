@@ -10,7 +10,8 @@
  *    with {@link num} before formatting or arithmetic — never with `+value`
  *    scattered through components.
  * 2. **Enums are the backend's lowercase English tokens.** They are values, not
- *    copy: the UI renders them through i18n (`t("status." + value)`), never raw.
+ *    copy: the UI renders them through an explicit enum → literal-key map
+ *    (`src/i18n/labels.ts`), never raw and never as a constructed key.
  */
 
 /** A `Decimal` field as it arrives on the wire (e.g. `"1234.5600"`). */
@@ -2010,7 +2011,7 @@ export type PendingActionSeverity = "info" | "warning" | "blocker";
 
 /**
  * One actionable gap in the account, for the overview Journey and the account
- * SUMMARY. `code` is an English token (dynamic-key labelled), `tab` names the
+ * SUMMARY. `code` is an English token (labelled via an explicit map), `tab` names the
  * desk that owns the fix (server vocabulary: `record | comparison | proposal |
  * journey`), `reason` is the server's own human sentence, `count` is how many
  * items the gap covers.
@@ -3155,7 +3156,7 @@ export type AccountClientRole = (typeof ACCOUNT_CLIENT_ROLES)[number];
  * `case_file` (origin / version / post-sale). A renewal folder is a SIBLING in
  * time of the prior vigencia, never a child of it.
  *
- * Rendered through i18n: ``t(`accounts:origin.${origin}`)``.
+ * Rendered through i18n via `CASE_ORIGIN_LABEL` (`src/i18n/labels.ts`).
  */
 export const CASE_ORIGINS = ["new", "renewal", "period_change"] as const;
 export type CaseOrigin = (typeof CASE_ORIGINS)[number];

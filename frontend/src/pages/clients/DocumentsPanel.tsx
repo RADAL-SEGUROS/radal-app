@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 import { FadeUp, Stagger } from "@/components/common/motion";
 import { SoonButton } from "@/pages/clients/Soon";
+import { CLIENT_DOCUMENT_CATEGORY_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * The documents tab, shared by the client and placement detail pages.
@@ -147,7 +148,7 @@ export function DocumentsPanel({
             <SelectContent>
               {categories.map((value) => (
                 <SelectItem key={value} value={value}>
-                  {t(`clients:documents.categories.${value}`)}
+                  {enumLabel(t, CLIENT_DOCUMENT_CATEGORY_LABEL, value)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -211,7 +212,7 @@ export function DocumentsPanel({
                     {doc.original_name}
                   </p>
                   <p className="truncate text-caption text-text-muted">
-                    {t(`clients:documents.categories.${doc.category}`)} ·{" "}
+                    {enumLabel(t, CLIENT_DOCUMENT_CATEGORY_LABEL, doc.category)} ·{" "}
                     {humanSize(doc.size_bytes)} · {formatDateTime(doc.created_at)}
                   </p>
                 </div>

@@ -45,7 +45,6 @@ import {
 import { AntecedentesReview } from "@/components/common/AntecedentesReview";
 import {
   useAssignLine,
-  useCreateRamoSchema,
   useExpediente,
   useExpedientePdf,
   useProcessAntecedentes,
@@ -63,6 +62,11 @@ import type {
   RamoRequiredField,
   RamoSchema,
 } from "@/api/types";
+import {
+  ANTECEDENTES_SECTION_LABEL,
+  RECORD_EXPEDIENTE_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 // =============================================================================
 // Value helpers
@@ -244,7 +248,7 @@ export function ExpedienteView({ caseId }: ExpedienteViewProps) {
         </span>
         <StatusBadge
           value={data.status}
-          label={t(`status.${data.status}`, { defaultValue: data.status })}
+          label={enumLabel(t, RECORD_EXPEDIENTE_STATUS_LABEL, data.status)}
         />
         {data.registered_at ? (
           <span className="text-caption text-ink-3">
@@ -379,7 +383,6 @@ function ChangeLineDialog({
   const { t } = useTranslation("antecedentes");
   const schemas = useRamoSchemas();
   const assign = useAssignLine(caseId);
-  const create = useCreateRamoSchema();
 
   const forRamo = React.useMemo(
     () =>
@@ -391,7 +394,7 @@ function ChangeLineDialog({
   const brokerLines = forRamo.filter((s) => !s.is_template);
   const templates = forRamo.filter((s) => s.is_template);
 
-  const busy = assign.isPending || create.isPending;
+  const busy = assign.isPending;
 
   const doAssign = (schemaId: number) =>
     assign.mutate(
@@ -405,20 +408,10 @@ function ChangeLineDialog({
       },
     );
 
-  // Adopt a template = clone it into a broker line (its ramo + definition),
-  // then assign that new line to the account.
-  const doAdopt = (template: LineRecordSchema) =>
-    create.mutate(
-      {
-        name: template.name,
-        insurance_line_id: template.insurance_line_id,
-        definition: template.definition,
-      },
-      {
-        onSuccess: (line) => doAssign(line.id),
-        onError: (error) => toast.error(apiError(error, t("assign.error"))),
-      },
-    );
+  // v12: ramos are a closed Radal catalogue — a broker can no longer clone a
+  // template into its own line (POST /line-record-schemas answers 403). A
+  // template is a GLOBAL row the broker may read, so it is assigned as is.
+  const doAdopt = (template: LineRecordSchema) => doAssign(template.id);
 
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
@@ -472,10 +465,14 @@ function ChangeLineDialog({
                       <Sparkles className="h-3.5 w-3.5 shrink-0 text-brand" />
                       <span className="truncate text-label font-medium text-ink">{template.name}</span>
                     </span>
-                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => doAdopt(template)}>
-                      <Copy className="h-3.5 w-3.5" />
-                      {t("assign.adopt")}
-                    </Button>
+                    {template.id === currentSchemaId ? (
+                      <Badge variant="success">{t("assign.current")}</Badge>
+                    ) : (
+                      <Button size="sm" variant="secondary" disabled={busy} onClick={() => doAdopt(template)}>
+                        <Copy className="h-3.5 w-3.5" />
+                        {t("assign.adopt")}
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -512,7 +509,7 @@ function ExpedienteSections({
         return (
           <Section
             key={section.key}
-            title={t(`sections.${section.key}`, { defaultValue: section.label })}
+            title={enumLabel(t, ANTECEDENTES_SECTION_LABEL, section.key, section.label)}
             description={section.description ?? undefined}
           >
             <div className="grid gap-x-6 gap-y-4 md:grid-cols-2">

@@ -42,6 +42,7 @@ import {
   useUrlParam,
 } from "./shared";
 import { useScopeParams } from "@/components/common/ScopeFilter";
+import { CASE_STAGE_LABEL, CASE_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 // =============================================================================
 // Macro-phase map — LOCAL copy of spec §3.2 for the board columns only.
@@ -61,6 +62,17 @@ const ACCOUNT_PHASES = [
   "vigente",
 ] as const;
 type AccountPhase = (typeof ACCOUNT_PHASES)[number] | "renovacion";
+
+/** Every board column → its literal label key (no dynamic keys). */
+const PHASE_LABEL = {
+  antecedentes: "cases:journey.phases.antecedentes",
+  mercado: "cases:journey.phases.mercado",
+  comparacion: "cases:journey.phases.comparacion",
+  propuesta: "cases:journey.phases.propuesta",
+  poliza: "cases:journey.phases.poliza",
+  vigente: "cases:journey.phases.vigente",
+  renovacion: "cases:journey.phases.renovacion",
+} as const satisfies Record<AccountPhase, string>;
 
 const PHASE_BY_STAGE: Partial<Record<CaseStage, AccountPhase>> = {
   lead: "antecedentes",
@@ -142,7 +154,7 @@ export default function AccountsTab() {
     () =>
       [...CASE_STAGE_FLOW.renewal, "closed" as const].map((s) => ({
         value: s,
-        label: tCases(`stages.${s}`, { defaultValue: s }),
+        label: enumLabel(tCases, CASE_STAGE_LABEL, s),
       })),
     [tCases],
   );
@@ -150,7 +162,7 @@ export default function AccountsTab() {
     () =>
       CASE_FILE_STATUSES.map((s) => ({
         value: s,
-        label: tCases(`statuses.${s}`, { defaultValue: s }),
+        label: enumLabel(tCases, CASE_STATUS_LABEL, s),
       })),
     [tCases],
   );
@@ -340,7 +352,7 @@ function AccountsBoard({
             <div key={phase} className="flex flex-col gap-2 rounded-lg bg-bg-recessed p-2">
               <div className="flex items-baseline justify-between px-1 pt-0.5">
                 <span className="text-caption font-medium text-text-muted">
-                  {tCases(`journey.phases.${phase}`, { defaultValue: phase })}
+                  {tCases(PHASE_LABEL[phase])}
                 </span>
                 <span className="text-caption tabular-nums text-text-muted">{rows.length}</span>
               </div>

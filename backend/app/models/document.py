@@ -118,6 +118,15 @@ class DocumentCategory(StrEnum):
     # (``entity_type=case_file``); its id lives in ``record_expediente.pdf_document_id``.
     ANTECEDENTES_PACK = "antecedentes_pack"  # 17 < 25: no widening
 
+    # --- v12 cobranza / mail / RPA (docs/v12/01-data-model.md §9) -----------
+    # Longest is ``insurer_statement_upload`` (24) < 25: the VARCHAR stays 37.
+    PAYMENT_RECEIPT = "payment_receipt"  # comprobante uploaded by broker/payer
+    EMAIL_MESSAGE = "email_message"  # the .eml of a kept inbound/outbound mail
+    CANCELLATION_LETTER = "cancellation_letter"  # art. 528 / término notice
+    PAYMENT_CONSENT = "payment_consent"  # PAC / Oneclick mandate consent
+    PORTAL_SCREENSHOT = "portal_screenshot"  # RPA failure evidence
+    INSURER_STATEMENT_UPLOAD = "insurer_statement_upload"  # insurer cobranza sheet
+
 
 class Document(Base, TimestampMixin):
     """One stored file, attached polymorphically to a domain entity."""

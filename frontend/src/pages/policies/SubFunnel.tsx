@@ -25,6 +25,12 @@ import { usePolicyCaseFiles } from "@/api/caseFiles";
 import { CASE_FILE_KINDS, type CaseFileKind, type CaseFileRef } from "@/api/types";
 import { EmptyState, ErrorBanner, LoadingRows, Section } from "@/pages/proposals/shared";
 import { PostsaleBadge } from "@/pages/policies/shared";
+import {
+  CASE_STAGE_LABEL,
+  CASE_STATUS_LABEL,
+  SUB_FUNNEL_KIND_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 interface Group {
   kind: CaseFileKind;
@@ -72,8 +78,8 @@ function CaseRow({ row, muted }: { row: CaseFileRef; muted?: boolean }) {
       <span className="min-w-0 flex-1 truncate text-body text-text-primary">{row.title}</span>
 
       <Badge variant="outline">{t("subFunnel.version", { n: row.version })}</Badge>
-      <PostsaleBadge value={row.stage} label={tCases(`stages.${row.stage}`)} />
-      <PostsaleBadge value={row.status} label={tCases(`statuses.${row.status}`)} />
+      <PostsaleBadge value={row.stage} label={enumLabel(tCases, CASE_STAGE_LABEL, row.stage)} />
+      <PostsaleBadge value={row.status} label={enumLabel(tCases, CASE_STATUS_LABEL, row.status)} />
 
       <span className="whitespace-nowrap text-caption text-text-muted">
         {formatDate(row.opened_at)}
@@ -93,7 +99,10 @@ function CaseRow({ row, muted }: { row: CaseFileRef; muted?: boolean }) {
 export function SubFunnel({ policyId }: { policyId: number }) {
   const { t } = useTranslation("postsale");
   const cases = usePolicyCaseFiles(policyId);
-  const groups = group(cases.data ?? []);
+  // The policy's own account folder is where it lives, not a post-sale case:
+  // listing it as "Cuenta · Caso · 1" beside "no tiene casos de post-venta"
+  // read as a contradiction (review v12).
+  const groups = group((cases.data ?? []).filter((row) => row.kind !== "account"));
 
   return (
     <Section title={t("subFunnel.title")} description={t("subFunnel.description")}>
@@ -113,7 +122,7 @@ export function SubFunnel({ policyId }: { policyId: number }) {
         {groups.map((g) => (
           <div key={g.kind} className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <PostsaleBadge value={g.kind} label={t(`subFunnel.kind.${g.kind}`)} />
+              <PostsaleBadge value={g.kind} label={enumLabel(t, SUB_FUNNEL_KIND_LABEL, g.kind)} />
               <span className="text-caption text-text-muted">
                 {t("subFunnel.columns.case")} · {g.chains.length}
               </span>

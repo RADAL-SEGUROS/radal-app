@@ -65,6 +65,12 @@ import type {
   ExpedienteJourneyStep,
   ExpedienteStepStatus,
 } from "@/api/types";
+import {
+  ACCOUNT_CLIENT_ROLE_LABEL,
+  EXPEDIENTE_COMPARISON_STATUS_LABEL,
+  EXPEDIENTE_MONEY_SOURCE_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 // =============================================================================
 // Small shared pieces
@@ -341,7 +347,7 @@ export default function ExpedienteCompletoPage() {
                   </Link>
                   {client.role ? (
                     <Badge variant={client.is_contratante ? "brand" : "muted"}>
-                      {t(`expediente.role.${client.role}`, { defaultValue: client.role })}
+                      {enumLabel(t, ACCOUNT_CLIENT_ROLE_LABEL, client.role)}
                     </Badge>
                   ) : null}
                   <span className="text-caption tabular-nums text-ink-3">
@@ -432,9 +438,7 @@ export default function ExpedienteCompletoPage() {
                 />
                 <Fact
                   label={t("expediente.status")}
-                  value={t(`expediente.comparisonStatus.${data.comparison.status}`, {
-                    defaultValue: data.comparison.status,
-                  })}
+                  value={enumLabel(t, EXPEDIENTE_COMPARISON_STATUS_LABEL, data.comparison.status)}
                 />
               </dl>
 
@@ -579,9 +583,7 @@ export default function ExpedienteCompletoPage() {
 
               <p className="text-caption text-ink-3">
                 {t("expediente.moneySource", {
-                  source: t(`expediente.moneySourceValue.${data.money.source}`, {
-                    defaultValue: data.money.source,
-                  }),
+                  source: enumLabel(t, EXPEDIENTE_MONEY_SOURCE_LABEL, data.money.source),
                 })}
               </p>
 

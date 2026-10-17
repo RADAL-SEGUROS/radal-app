@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/providers/AuthProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { SearchDropdown } from "@/components/common/SearchDropdown";
+import { usePermissions } from "@/lib/permissions";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +40,10 @@ export function Topbar({ navTrigger }: TopbarProps = {}) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  // The global search (and its Cmd+K) is a broker-workspace search: a Radal
+  // platform user has no broker, so /search 403s. Hidden, like the rail rows.
+  const { data: perms } = usePermissions();
+  const showSearch = !!perms && perms.user_type !== "platform";
 
   const lang = i18n.language?.startsWith("en") ? "en" : "es";
 
@@ -50,27 +56,31 @@ export function Topbar({ navTrigger }: TopbarProps = {}) {
   // fill, press = scale(0.98). `transform` is named because Tailwind's
   // `scale-*` utilities apply through the transform property.
   const iconBtn =
-    "grid h-[38px] w-[38px] place-items-center rounded-sm border border-line bg-bone text-ink-3 transition-[background-color,border-color,color,transform] duration-150 ease-out hover:border-line-strong hover:bg-paper-2 hover:text-ink active:scale-[0.98]";
+    "grid h-[38px] w-[38px] shrink-0 place-items-center rounded-sm border border-line bg-bone text-ink-3 transition-[background-color,border-color,color,transform] duration-150 ease-out hover:border-line-strong hover:bg-paper-2 hover:text-ink active:scale-[0.98]";
 
   return (
-    <header className="sticky top-0 z-30 flex h-[var(--topbar-h)] shrink-0 items-center gap-[18px] border-b border-line bg-paper px-4 py-3 sm:px-[26px]">
+    // Mobile (375 px): the row is hamburger · search · bell · avatar. The theme
+    // and language toggles fold into the user menu below `sm` (same handlers,
+    // `sm:hidden` items) so the search keeps a usable width — hidden from the
+    // bar, never removed from the app.
+    <header className="sticky top-0 z-30 flex h-[var(--topbar-h)] shrink-0 items-center gap-2.5 border-b border-line bg-paper px-3 py-3 sm:gap-[18px] sm:px-[26px]">
       {navTrigger}
 
       {/* Centered global search */}
       <div className="flex min-w-0 flex-1 justify-center">
-        <div className="w-full max-w-[540px]">
-          <SearchDropdown />
-        </div>
+        <div className="w-full max-w-[540px]">{showSearch ? <SearchDropdown /> : null}</div>
       </div>
 
       {/* Right controls */}
       <div className="flex shrink-0 items-center gap-2">
+        <NotificationBell />
+
         <button
           type="button"
           onClick={toggleTheme}
           aria-label={t("theme.toggle")}
           title={t("theme.toggle")}
-          className={iconBtn}
+          className={`${iconBtn} hidden sm:grid`}
         >
           {theme === "dark" ? (
             <Sun className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -84,13 +94,13 @@ export function Topbar({ navTrigger }: TopbarProps = {}) {
           onClick={() => void i18n.changeLanguage(lang === "es" ? "en" : "es")}
           aria-label={t("language.toggle")}
           title={t("language.toggle")}
-          className="inline-flex h-[38px] items-center gap-1.5 rounded-sm border border-line bg-bone px-[11px] text-[12px] font-medium text-ink-3 transition-[background-color,border-color,color,transform] duration-150 ease-out hover:border-line-strong hover:bg-paper-2 hover:text-ink active:scale-[0.98]"
+          className="hidden h-[38px] items-center gap-1.5 rounded-sm border border-line bg-bone px-[11px] text-[12px] font-medium text-ink-3 transition-[background-color,border-color,color,transform] duration-150 ease-out hover:border-line-strong hover:bg-paper-2 hover:text-ink active:scale-[0.98] sm:inline-flex"
         >
           <Languages className="h-4 w-4" strokeWidth={1.75} />
           {lang === "es" ? "ES" : "EN"}
         </button>
 
-        <span className="mx-0.5 h-[22px] w-px bg-line" />
+        <span className="mx-0.5 hidden h-[22px] w-px bg-line sm:block" />
 
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -109,7 +119,21 @@ export function Topbar({ navTrigger }: TopbarProps = {}) {
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>
+            {/* Mobile-only copies of the bar's theme + language toggles. */}
+            <DropdownMenuItem className="sm:hidden" onClick={toggleTheme}>
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {theme === "dark" ? t("theme.light") : t("theme.dark")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="sm:hidden"
+              onClick={() => void i18n.changeLanguage(lang === "es" ? "en" : "es")}
+            >
+              <Languages className="h-4 w-4" />
+              {lang === "es" ? t("language.en") : t("language.es")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="sm:hidden" />
+            {/* Configuración → Perfil is every user's own tab (no RBAC gate). */}
+            <DropdownMenuItem onClick={() => navigate("/settings?tab=profile")}>
               <UserIcon className="h-4 w-4" />
               {t("user.profile")}
             </DropdownMenuItem>

@@ -99,6 +99,19 @@ if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import cycle
 
 logger = logging.getLogger(__name__)
 
+#: What the user reads when no provider is configured (it reaches the UI as a
+#: 503 detail). The developer hint goes to the log only.
+AI_UNAVAILABLE_ES = (
+    "El asistente de IA no está disponible en este momento. "
+    "Inténtalo más tarde o contacta a soporte."
+)
+
+
+def _log_not_configured() -> None:
+    logger.warning(
+        "AI_API_KEY is not set — configure it in backend/.env to enable AI features"
+    )
+
 __all__ = [
     "AIError",
     "AINotConfigured",
@@ -260,9 +273,8 @@ def _ai_client():
     The key comes from settings only. Never inline a credential here.
     """
     if not settings.AI_API_KEY:
-        raise AINotConfigured(
-            "AI_API_KEY is not set — configure it in backend/.env to enable AI features"
-        )
+        _log_not_configured()
+        raise AINotConfigured(AI_UNAVAILABLE_ES)
     try:
         from openai import OpenAI
     except ImportError as exc:  # pragma: no cover - dependency is pinned
@@ -435,9 +447,8 @@ def _tool_call_client(*, timeout: int):
     hide the failure. A clean monkeypatch seam for hermetic tests.
     """
     if not settings.AI_API_KEY:
-        raise AINotConfigured(
-            "AI_API_KEY is not set — configure it in backend/.env to enable AI features"
-        )
+        _log_not_configured()
+        raise AINotConfigured(AI_UNAVAILABLE_ES)
     try:
         from openai import OpenAI
     except ImportError as exc:  # pragma: no cover - dependency is pinned
@@ -1296,9 +1307,8 @@ def ensure_ai_configured() -> None:
     stream.
     """
     if not settings.AI_API_KEY:
-        raise AINotConfigured(
-            "AI_API_KEY is not set — configure it in backend/.env to enable AI features"
-        )
+        _log_not_configured()
+        raise AINotConfigured(AI_UNAVAILABLE_ES)
 
 
 def _wrap_provider_error(exc: BaseException) -> AIError:
@@ -4761,6 +4771,18 @@ _TRUNCATION_MARKER = "… (contexto truncado)"
 
 _AGENT_SYSTEM = """Eres el asistente operativo de una corredora de seguros chilena dentro de Radal.
 
+CÓMO TRABAJA RADAL
+- Las PÓLIZAS son la vista principal: casi todo parte de una póliza (list_policies,
+  get_policy) y de su "Falta: X" (check_policy_files).
+- Los recorridos son PARCIALES: una cuenta (asegurado × ramo × vigencia) puede partir
+  desde el PDF de una póliza, desde un ingreso manual, desde cotizaciones de portal o
+  desde el proceso de mercado completo. Una etapa omitida es normal, no un error; la
+  cuenta muestra solo lo que de verdad ocurrió (check_case_files).
+- La COBRANZA tiene tres niveles por cuota: registro (record: Radal solo anota),
+  asistida (assisted: Radal recuerda al pagador y consulta a la compañía por correo;
+  funciona con cualquier compañía) y nativa (native: la compañía cobra por Forpay con
+  link de pago). get_collection_mode explica el nivel de una cuota y por qué.
+
 HERRAMIENTAS
 - Puedes CONSULTAR datos libremente con las herramientas de lectura. Cita lo que leas.
 - Las herramientas que escriben NUNCA ejecutan nada: solo PROPONEN una acción que la
@@ -4773,8 +4795,14 @@ DISCIPLINA DE DATOS
   (el sismo es exento); total = neta + IVA. NUNCA inventes una cifra, una prima,
   un deducible ni un número de póliza: usa solo lo que las herramientas o el
   contexto entregan.
+- NUNCA afirmes que una cuota está pagada sin evidencia. Un pago "declared" es la
+  palabra del corredor o del pagador; solo insurer_confirmed, provider_confirmed o
+  settled son confirmaciones. Una respuesta en la bandeja de evidencia es una
+  sugerencia hasta que una persona la confirma.
+- Si no sabes el estado de un pago, PREGUNTA A LA COMPAÑÍA (send_status_inquiry)
+  en vez de suponerlo, y dilo así.
 - Refiérete a las entidades por su etiqueta visible (por ejemplo EXP-2026-0004,
-  el nombre del cliente), nunca por ids crudos.
+  el n° de póliza, el nombre del asegurado), nunca por ids crudos.
 
 ESTILO
 - Responde SIEMPRE en español de Chile, breve y concreto.
@@ -5051,6 +5079,28 @@ class AgentTurnResult:
     actions: list[AgentAction]
 
 
+def _agent_system_prompt(thread: AgentThread) -> str:
+    """The base prompt + the skills catalogue + the thread's active playbooks.
+
+    Progressive disclosure (v12 05-agent §3): the catalogue is titles and
+    one-liners only; a playbook enters the prompt once ``load_skill`` (or
+    ``POST /ai/threads/{id}/skills``) put it on ``thread.active_skills``,
+    within :data:`agent_skills.MAX_ACTIVE_SKILLS_CHARS`, cut with the loop's
+    truncation marker.
+    """
+    from app.services import agent_skills
+
+    parts = [_AGENT_SYSTEM, agent_skills.skills_index_prompt()]
+    active = agent_skills.active_skills_prompt(
+        agent_skills.active_keys(getattr(thread, "active_skills", None)),
+        budget=agent_skills.MAX_ACTIVE_SKILLS_CHARS,
+        marker=_TRUNCATION_MARKER,
+    )
+    if active:
+        parts.append(active)
+    return "\n\n".join(parts)
+
+
 def _agent_prompt(
     db: Session,
     thread: AgentThread,
@@ -5068,7 +5118,8 @@ def _agent_prompt(
         if message.role in (AgentRole.USER, AgentRole.ASSISTANT) and message.content
     ][-MAX_CHAT_HISTORY_MESSAGES:]
 
-    budget = MAX_AGENT_CONTEXT_CHARS - len(_AGENT_SYSTEM) - len(content)
+    system = _agent_system_prompt(thread)
+    budget = MAX_AGENT_CONTEXT_CHARS - len(system) - len(content)
     blocks = list(ref_blocks)
     while blocks and sum(len(b) for b in blocks) > budget // 2:
         blocks[-1] = _ref_block("CONTEXTO", _TRUNCATION_MARKER, len(_TRUNCATION_MARKER) + 12)
@@ -5084,7 +5135,7 @@ def _agent_prompt(
         trimmed_history.append(message)
     trimmed_history.reverse()
 
-    messages: list[Any] = [{"role": "system", "content": _AGENT_SYSTEM}]
+    messages: list[Any] = [{"role": "system", "content": system}]
     for block in blocks:
         messages.append({"role": "system", "content": block})
     for message in trimmed_history:
@@ -5197,8 +5248,9 @@ def _dispatch_tool_call(
 
     if spec.kind == "read":
         nested = db.begin_nested()
+        extra: dict[str, Any] = {"thread": thread} if spec.thread_aware else {}
         try:
-            result = spec.execute(db, broker_id=broker_id, user=user, args=args)
+            result = spec.execute(db, broker_id=broker_id, user=user, args=args, **extra)
             nested.commit()
             return result, "ok"
         except HTTPException as exc:

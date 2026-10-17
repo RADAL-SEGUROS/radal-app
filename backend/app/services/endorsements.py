@@ -19,7 +19,7 @@ Two invariants make the batch cheap and safe:
 """
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Any, NamedTuple
 from uuid import uuid4
@@ -38,6 +38,7 @@ from app.models.enums import (
 )
 from app.models.policy import Policy
 from app.models.user import User
+from app.schemas.wallclock import to_wall_clock
 from app.services import case_files as machine
 
 #: The Chilean contractual convention for a policy period boundary.
@@ -347,12 +348,13 @@ def apply_period_extension(policy: Policy, endorsement: Endorsement) -> date | N
     new_end = extension_target(endorsement)
     if new_end is None:
         return policy.end_date
-    previous = policy.period_end_at
+    # Contractual datetimes are Chile wall-clock, offset-less (2026-10-17).
+    previous = to_wall_clock(policy.period_end_at)
     policy.end_date = new_end
     if previous is not None:
-        policy.period_end_at = datetime.combine(new_end, previous.timetz())
+        policy.period_end_at = datetime.combine(new_end, previous.time())
     else:
-        policy.period_end_at = datetime.combine(new_end, NOON, tzinfo=timezone.utc)
+        policy.period_end_at = datetime.combine(new_end, NOON)
     if endorsement.ends_at is None:
         endorsement.ends_at = policy.period_end_at
     return new_end

@@ -36,6 +36,7 @@ import {
   NewVersionDialog,
   StatusActions,
 } from "./components/DetailActions";
+import { INSPECTION_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * One inspection report: scores, dynamic checklist, boundaries, evidence and
@@ -158,7 +159,7 @@ export default function InspectionDetailPage() {
           <span className="flex flex-wrap items-center gap-3">
             {inspection.folio ?? `#${inspection.id}`}
             <Badge variant={REPORT_STATUS_VARIANT[inspection.status]}>
-              {t(`status.report.${inspection.status}`)}
+              {enumLabel(t, INSPECTION_STATUS_LABEL, inspection.status)}
             </Badge>
             <Badge variant="outline">{t("detail.version", { n: inspection.version })}</Badge>
           </span>
@@ -187,7 +188,7 @@ export default function InspectionDetailPage() {
       {frozen ? (
         <FadeUp>
           <div className="rounded-card border border-warn-line bg-warn-soft px-4 py-3 text-body text-warn-text">
-            {t("detail.frozen", { status: t(`status.report.${inspection.status}`) })}
+            {t("detail.frozen", { status: enumLabel(t, INSPECTION_STATUS_LABEL, inspection.status) })}
           </div>
         </FadeUp>
       ) : null}

@@ -22,6 +22,7 @@ import {
 import { useAssignableRoles, useCreateUser } from "@/api/users";
 import type { UserInviteResponse } from "@/api/types";
 import { Field } from "./shared";
+import { USER_ROLE_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * Invite a user — `POST /users`.
@@ -179,7 +180,7 @@ export function InviteUserDialog({
                   <SelectContent>
                     {roles.map((entry) => (
                       <SelectItem key={entry.role} value={entry.role}>
-                        {t(`roles.${entry.role}`, entry.role)}
+                        {enumLabel(t, USER_ROLE_LABEL, entry.role)}
                       </SelectItem>
                     ))}
                   </SelectContent>

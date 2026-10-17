@@ -35,6 +35,7 @@ import { useCan } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { SoonButton } from "@/pages/clients/Soon";
 import { DaysChip, PlacementStatusBadge, STATUS_DOT } from "@/pages/placements/status";
+import { CLIENT_STATUS_LABEL, PLACEMENT_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * The broker's landing surface.
@@ -88,6 +89,12 @@ function attentionScore(placement: PlacementListItem): number {
   if (placement.status === "quoting" && placement.proposals_count === 0) return 700;
   return Number.POSITIVE_INFINITY;
 }
+
+const GREETING_LABEL = {
+  manana: "common:greeting.manana",
+  tarde: "common:greeting.tarde",
+  noche: "common:greeting.noche",
+} as const satisfies Record<ReturnType<typeof greetingPeriod>, string>;
 
 export default function DashboardPage() {
   const { t } = useTranslation(["dashboard", "common", "clients", "placements"]);
@@ -145,7 +152,7 @@ export default function DashboardPage() {
         title: placement.asset?.name ?? `#${placement.asset_id}`,
         detail: [
           placement.client?.legal_name,
-          t(`placements:status.${placement.status}`),
+          enumLabel(t, PLACEMENT_STATUS_LABEL, placement.status),
         ]
           .filter(Boolean)
           .join(" · "),
@@ -158,7 +165,7 @@ export default function DashboardPage() {
         key: `c-${client.id}`,
         at: client.updated_at,
         title: client.insured.trade_name || client.insured.legal_name,
-        detail: t(`clients:status.${client.status}`),
+        detail: enumLabel(t, CLIENT_STATUS_LABEL, client.status),
         to: `/clients/${client.id}`,
       });
     }
@@ -178,10 +185,10 @@ export default function DashboardPage() {
         title={
           firstName
             ? t("dashboard:greeting.withName", {
-                greeting: t(`common:greeting.${greetingPeriod()}`),
+                greeting: t(GREETING_LABEL[greetingPeriod()]),
                 name: firstName,
               })
-            : t(`common:greeting.${greetingPeriod()}`)
+            : t(GREETING_LABEL[greetingPeriod()])
         }
         subtitle={t("dashboard:subtitle")}
         actions={
@@ -336,9 +343,7 @@ export default function DashboardPage() {
                       >
                         <span className="flex items-baseline justify-between gap-2 text-caption">
                           <span className="text-text-secondary">
-                            {t(`placements:status.${status}`, {
-                              defaultValue: status,
-                            })}
+                            {enumLabel(t, PLACEMENT_STATUS_LABEL, status)}
                           </span>
                           <span className="tabular-nums text-text-muted">
                             {count}

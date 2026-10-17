@@ -11,6 +11,11 @@ the existing ``MONEY_TOLERANCE``; a mismatch is a 422, never a silent fix.
 
 ``art528_events`` stays JSON: the Art. 528 (Código de Comercio) non-payment
 timeline is a heterogeneous list of dated events we render, never query.
+
+v12 (docs/v12/03-collections-forpay.md): payments are their own CHILD TABLE
+(``payment``), and ``collection_installment.status`` becomes a CACHE written by
+``app.services.collection.status`` on every payment write and by the daily
+clock — the payments are the truth, the column is what lists filter on.
 """
 from __future__ import annotations
 
@@ -19,6 +24,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -26,14 +32,19 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base_class import Base, TimestampMixin
 from app.models.enums import (
+    CollectionLevelPreference,
+    CollectionPlanOrigin,
+    CollectionPlanSource,
     CollectionPlanStatus,
     InstallmentStatus,
     PaymentMode,
+    PolicyCurrency,
     sql_enum,
 )
 from app.models.types import PCT, UF, JSONType
@@ -41,7 +52,9 @@ from app.models.types import PCT, UF, JSONType
 if TYPE_CHECKING:
     from app.models.broker import Broker
     from app.models.case_file import CaseFile
+    from app.models.document import Document
     from app.models.endorsement import Endorsement
+    from app.models.payment import Payment, PaymentMandate
     from app.models.policy import Policy
 
 
@@ -90,12 +103,54 @@ class CollectionPlan(Base, TimestampMixin):
     art528_events: Mapped[list[Any] | dict[str, Any] | None] = mapped_column(JSONType)
     management_note: Mapped[str | None] = mapped_column(Text)
 
+    # --- v12 cobranza -------------------------------------------------------
+    origin: Mapped[CollectionPlanOrigin | None] = mapped_column(
+        sql_enum(CollectionPlanOrigin)
+    )
+    source: Mapped[CollectionPlanSource | None] = mapped_column(
+        sql_enum(CollectionPlanSource)
+    )
+    # The 09 plan de pago the schedule was read from (rule 8).
+    source_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("document.id", ondelete="SET NULL"), index=True
+    )
+    # The recurring PAC/Oneclick mandate that charges this plan, when any.
+    # ``use_alter``: collection_plan <-> payment_mandate is a genuine FK cycle
+    # (``payment_mandate.plan_id``), same treatment as ``policy.case_file_id``.
+    mandate_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "payment_mandate.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_collection_plan_mandate",
+        ),
+        index=True,
+    )
+    level_preference: Mapped[CollectionLevelPreference] = mapped_column(
+        sql_enum(CollectionLevelPreference),
+        default=CollectionLevelPreference.AUTO,
+        server_default=CollectionLevelPreference.AUTO.value,
+        nullable=False,
+    )
+    # "Iniciar cobranza": the broker switched payer reminders ON for this plan.
+    notices_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    notices_paused_until: Mapped[date | None] = mapped_column(Date)
+    notices_pause_reason: Mapped[str | None] = mapped_column(Text)
+
     # --- Relationships ------------------------------------------------------
     broker: Mapped["Broker"] = relationship()
     policy: Mapped["Policy"] = relationship(
         foreign_keys=[policy_id], back_populates="collection_plans"
     )
     case_file: Mapped["CaseFile | None"] = relationship(foreign_keys=[case_file_id])
+    source_document: Mapped["Document | None"] = relationship(
+        foreign_keys=[source_document_id]
+    )
+    mandate: Mapped["PaymentMandate | None"] = relationship(
+        "PaymentMandate", foreign_keys=[mandate_id], post_update=True
+    )
     installments: Mapped[list["CollectionInstallment"]] = relationship(
         back_populates="collection_plan",
         cascade="all, delete-orphan",
@@ -143,9 +198,38 @@ class CollectionInstallment(Base, TimestampMixin):
     )
     note: Mapped[str | None] = mapped_column(Text)
 
+    # --- v12 cobranza -------------------------------------------------------
+    currency: Mapped[PolicyCurrency] = mapped_column(
+        sql_enum(PolicyCurrency),
+        default=PolicyCurrency.UF,
+        server_default=PolicyCurrency.UF.value,
+        nullable=False,
+    )
+    # PAC / card debit bounced (flag ``direct_debit_rejected`` when after the
+    # last active payment).
+    direct_debit_rejected_at: Mapped[date | None] = mapped_column(Date)
+    # The endorsement that ANNULLED this cuota (state ``voided``) — distinct from
+    # ``endorsement_id``, the one that created or re-priced it.
+    voided_by_endorsement_id: Mapped[int | None] = mapped_column(
+        ForeignKey("endorsement.id", ondelete="SET NULL"), index=True
+    )
+    # Art. 528 notice sent by the insurer; termination = +15 days (computed).
+    insurer_notice_sent_on: Mapped[date | None] = mapped_column(Date)
+    # Latest *Promete pagar el* date.
+    promise_until: Mapped[date | None] = mapped_column(Date)
+
     broker: Mapped["Broker"] = relationship()
     collection_plan: Mapped["CollectionPlan"] = relationship(back_populates="installments")
     endorsement: Mapped["Endorsement | None"] = relationship(foreign_keys=[endorsement_id])
+    voided_by_endorsement: Mapped["Endorsement | None"] = relationship(
+        foreign_keys=[voided_by_endorsement_id]
+    )
+    # Every payment ever registered (active AND reversed — never deleted).
+    payments: Mapped[list["Payment"]] = relationship(
+        back_populates="installment",
+        cascade="all, delete-orphan",
+        order_by="Payment.id",
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<CollectionInstallment plan={self.collection_plan_id} n={self.number}>"

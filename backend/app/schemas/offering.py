@@ -14,6 +14,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.offering import OfferingChannel, OfferingStatus
+from app.schemas.utc import UtcDatetime
 
 
 class OfferingCreate(BaseModel):
@@ -39,7 +40,7 @@ class OfferingSend(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     channel: OfferingChannel
-    sent_at: datetime | None = None
+    sent_at: UtcDatetime | None = None
 
 
 class OfferingRead(BaseModel):
@@ -53,18 +54,18 @@ class OfferingRead(BaseModel):
     pdf_document_id: int | None = None
     sent_via: OfferingChannel | None = None
     status: OfferingStatus
-    sent_at: datetime | None = None
-    viewed_at: datetime | None = None
+    sent_at: UtcDatetime | None = None
+    viewed_at: UtcDatetime | None = None
     expires_at: datetime | None = None
     created_by_id: int | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
     # The insured's own choice from the public surface — surfaced to the broker
     # next to ``selected_proposal_id`` (the broker's RECOMMENDATION). The broker
     # picks it up and mints the broker_proposal (which advances the case stage).
     decided_proposal_id: int | None = None
     decided_note: str | None = None
-    decided_at: datetime | None = None
+    decided_at: UtcDatetime | None = None
     # Derived, not stored: the public link the broker copies into WhatsApp/email.
     share_url: str | None = None
 
@@ -99,8 +100,8 @@ class OfferingPublicRead(BaseModel):
 
     share_token: str
     status: OfferingStatus
-    sent_at: datetime | None = None
-    viewed_at: datetime | None = None
+    sent_at: UtcDatetime | None = None
+    viewed_at: UtcDatetime | None = None
     expires_at: datetime | None = None
     broker_name: str | None = None
     insured_object: str | None = None
@@ -112,7 +113,7 @@ class OfferingPublicRead(BaseModel):
     # The insured's recorded choice (once decided).
     decided_proposal_id: int | None = None
     decided_note: str | None = None
-    decided_at: datetime | None = None
+    decided_at: UtcDatetime | None = None
     pdf_url: str | None = None
 
 

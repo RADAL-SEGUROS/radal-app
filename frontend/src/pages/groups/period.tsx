@@ -37,6 +37,7 @@ import { useNavigator } from "@/api/navigator";
 import { useCan } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import { RECORD_FOLDER_KEYS, type TreeLineNode, type TreePeriodNode } from "@/api/types";
+import { RECORD_FOLDER_LABEL, RENEWAL_REASON_LABEL, enumLabel } from "@/i18n/labels";
 
 export default function GroupPeriodPage() {
   const { t } = useTranslation("accounts");
@@ -175,12 +176,12 @@ function LineCard({
           return (
             <Link
               key={key}
-              to={`${accountPath}?tab=records&folder=${key}`}
+              to={`${accountPath}?tab=antecedentes`}
               className="no-underline"
             >
               <Badge variant={count > 0 ? "neutral" : "outline"}>
                 <FileText className="mr-1 h-3 w-3" />
-                {t(`folders.${key}`, { defaultValue: key })}
+                {enumLabel(t, RECORD_FOLDER_LABEL, key)}
                 <span className="ml-1 tabular-nums">{count}</span>
               </Badge>
             </Link>
@@ -234,9 +235,7 @@ function LineCard({
               !canCreateCase.allowed
                 ? t("account.noCreatePermission")
                 : line.renewal.reason
-                  ? t(`renewal.reason.${line.renewal.reason}`, {
-                      defaultValue: t("tree.readOnly"),
-                    })
+                  ? enumLabel(t, RENEWAL_REASON_LABEL, line.renewal.reason, t("tree.readOnly"))
                   : t("tree.readOnly")
             }
           >

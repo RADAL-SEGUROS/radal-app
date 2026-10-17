@@ -1,0 +1,2207 @@
+
+RADAL · Clic a clic (Copy)
+- 
+- 
+
+ Definición de UX y estructura de datos · Para Benja González · v15 · 01-10-2026
+
+# RADAL, clic a clic
+
+ El plano de RADAL para el MVP: qué ve el corredor, clic a clic, y qué estructura de datos lo sostiene. De lo general a lo particular: empieza por Inicio y sigue las pestañas en orden.
+
+ Inicio
+ El modelo y el idioma
+ Pantallas y reglas
+ Clientes y asegurados
+ Recorrido
+ Las tres vías
+ Portafolio
+ Pólizas
+ Cobranza
+ Endosos
+ Siniestros
+ Estructura de datos
+ Plan de construcción
+ Preguntas a Benja
+ Anexos
+
+ Empieza aquí
+
+## RADAL en una página
+
+ Benja pidió dejar de cambiar los planos a mitad de la construcción: cada cambio de fondo le cuesta de 2 a 3 semanas rehaciendo la base. Este documento es ese plano. Dice qué ve el corredor, clic a clic, y qué estructura de datos lo sostiene; está revisado contra lo que ya existe en dev. Todo está decidido, salvo lo que aparece en Preguntas a Benja. Las pestañas van de lo general a lo particular: léelas en orden. A los socios les basta esta página.
+
+### Tres vías, un mismo lugar
+
+ Primero se registra el asegurado, con + Nuevo; la vía se elige después, al abrir cada colocación desde su ficha, y es por ramo. El mismo cliente puede llevar su Property al mercado y sus vehículos por el portal, en la misma vigencia.
+
+ 1 · TradicionalDesde cero, con carpeta de presuscripción, para riesgos grandes o complejos: una planta industrial (Property), el montaje de una línea de producción (Ingeniería) o la responsabilidad civil de una clínica (RC). Las compañías compiten y se elige la mejor oferta.
+
+ 2 · DigitalCotizado o emitido en el portal de la compañía o en ANS, para seguros simples (autos, hogar, pymes). El corredor sube las cotizaciones para compararlas, o la póliza: la IA la lee, la digitaliza y él confirma.
+
+ 3 · ManualCuando no hay PDF: el corredor digita lo que tiene y la póliza queda registrada, marcada Sin respaldo. RADAL solo sabe lo que se digita: sin cuotas, la póliza no aparece en la lista de Cobranza ni hay notificaciones de sus vencimientos.
+
+ Nombres por ahora; pueden cambiar. La vía la propone el subtipo y nunca obliga (R37); se cambia con un clic mientras la colocación no tenga póliza. Hay un atajo: si ya tienes el PDF en la mano, + Nuevo → Con la póliza parte del archivo y el asegurado sale del lector — si ese RUT ya está en tu cartera, RADAL avisa y lo asocia al que existe, y si no tenía colocación de ese ramo, el PDF la crea y la cierra. Las tres terminan en el mismo último paso, Plan de pago: viene precargado con lo que trae la póliza y se confirma en un clic; si se salta, la póliza queda en Pólizas sin plan de pago, en Cobranza. Una cuarta vía, Migración (uso interno), la usa solo el equipo RADAL y no se desarrolla aquí.
+
+### Después de la póliza: lo que vendemos en el MVP
+
+ - Cobranza, en el menú y como pestaña del Portafolio (la misma pantalla): registra el plan de pago y cada pago, y notifica al ejecutivo antes y después de cada vencimiento. Si el cliente no paga, la compañía cancela y el corredor devuelve su comisión: por eso es el dolor número uno y se lleva tantas horas.
+
+ - Endosos: cada cambio a la póliza queda con su antes y después, así se sabe cómo estaba el seguro en cualquier fecha.
+
+ - Siniestros: registro ordenado de fechas, montos, informes del liquidador y estado.
+
+ - Renovación: notificación a 90, 60 y 30 días; al renovar se hereda todo lo del año anterior.
+
+### Las decisiones grandes
+
+ Un idioma común: Cliente, Asegurado, Colocación y Póliza. El RUT manda: un asegurado nunca queda registrado dos veces. Ninguna corredora ve datos de otra, aunque tengan el mismo cliente. Un solo botón para dar de alta, + Nuevo, que registra personas y nada más; los negocios nacen en la ficha del cliente, con Abrir colocación. Menú: Dashboard · Portafolio · Cobranza · Agentes IA · Configuración. Dos roles: administrador y ejecutivo. Se avanza con lo que se tenga: cada paso pide solo el mínimo, lo que falta se ve como “Falta: X” en la ficha, sin pop-ups, y lo guardado ya es registro real. La estructura de datos se construye completa una sola vez; las pantallas, por prioridad.
+
+### Ruta de lectura
+
+ Quince pestañas en cuatro bloques: primero la estructura —de qué está hecho esto—, después el viaje de una colocación hasta la póliza, luego la experiencia del día a día, y al final lo que Benja necesita para construir. Léelas en orden. Si solo tienes diez minutos: esta página, el árbol que abre El modelo y el idioma, el Recorrido, que camina el clic a clic sin leer una sola tabla, y la máquina de 12 etapas que abre Las tres vías.
+
+ | | Pestaña | Qué responde
+
+ | La estructura: de qué está hecho RADAL
+
+ | 1 · Inicio | Qué es RADAL, las tres vías y las decisiones grandes. Esta página.
+
+ | 2 · El modelo y el idioma | El árbol del dominio —de la corredora a la cuota— y cómo se llama cada pieza, con su nombre de hoy en dev.
+
+ | 3 · Pantallas y reglas | Qué pantallas existen y cómo se comportan todas: + Nuevo, fichas, notificaciones, roles, documentos, Dashboard y Configuración.
+
+ | El viaje: de la persona a la póliza vigente
+
+ | 4 · Clientes y asegurados | Cómo entra la gente al registro y por qué un RUT nunca queda dos veces.
+
+ | 5 · Recorrido | El ciclo completo caminado, de + Nuevo a la renovación: eliges en cada pantalla y el recorrido avanza. La forma más rápida de entenderlo.
+
+ | 6 · Las tres vías | El mismo camino en tablas, paso por paso, con lo que hace el sistema en cada uno.
+
+ | La experiencia: dónde vive el corredor
+
+ | 7 · Portafolio | Las nueve listas de trabajo, sus subpestañas, filtros y columnas. Todo lo anterior termina en una de ellas.
+
+ | 8 · Pólizas | La ficha de la póliza: partes, datos técnicos, documentos y qué se puede corregir.
+
+ | 9 · Cobranza | Plan de pago, cuotas, pagos, gestiones y cuándo avisa el sistema.
+
+ | 10 · Endosos | Cómo cambia la póliza guardando el antes y el después.
+
+ | 11 · Siniestros | Cómo se registra una denuncia y cómo se sigue hasta que se cierra.
+
+ | Para construir
+
+ | 12 · Estructura de datos | Las tablas con sus campos y las 44 reglas. Se construye completa una sola vez.
+
+ | 13 · Plan de construcción | En qué orden se construye y qué queda fuera del MVP.
+
+ | 14 · Preguntas a Benja | Lo único que no está decidido. Necesita respuesta.
+
+ | 15 · Anexos | Los issues de GitHub ya ajustados a esta versión, listos para repartir.
+
+### Cómo está escrito
+
+ Pasos numeradosA clientes y asegurados · 1.x Tradicional · 2a.x Digital · comparador · 2b.x Digital · póliza · 2c.x preparar antes del portal · 3.x Manual · C cobranza · E endosos · S siniestros.
+
+ Reglas R1 a R44Están en Estructura de datos. Cuando un paso cita una regla, la regla manda.
+
+ AlcanceMVP va primero. Lanzamiento viene después. Reservada: la tabla se crea ahora y la pantalla llega después. Las fechas las propone Benja.
+
+ NombresSe usan los nombres nuevos de pantalla; “hoy en dev” indica cómo se llama hoy. La base y el código pueden mantener los suyos.
+
+### Qué falta y quién lo tiene
+
+ - Benja G.: leer el documento, responder Preguntas a Benja y proponer las fechas del MVP y del lanzamiento.
+
+ - José Francisco: aclarar con Rodrigo Sandoval cómo afectan al plan de pago los endosos con cobro o devolución de prima (R26), y subir a GitHub los issues ajustados (Issues_Radal_2026-10-01).
+
+ - JT: la reunión técnica con ForPay y Fintoc (pago en plataforma, proyecto paralelo).
+
+ - BT: retomar con FID en 2 o 3 semanas, cuando vuelva su gerente financiero.
+
+ De qué está hecho RADAL
+
+## El modelo y el idioma
+
+ El renombre es de pantalla: base y código pueden conservar sus nombres internos. La columna Tabla ubica cada cosa en Estructura de datos; evita confundir el “Asegurado” de dev (la carpeta) con el nuevo (un RUT).
+
+### El árbol del dominio: de la corredora a la cuota
+
+ Todo lo que sigue cuelga de este árbol. Las palabras de la tabla de abajo son sus piezas; las tablas y campos de cada una viven en Estructura de datos.
+
+ [svg]
+
+ Todo cuelga de la corredora y nada se comparte entre corredoras (R33). La única línea que no es de padre a hijo es la punteada: una colocación cubre a algunos asegurados del cliente, no necesariamente a todos (R39). Por eso y1 puede estar en el Property del grupo y además tener su propia colocación de Vehículos.
+
+### Cómo se llama cada cosa
+
+ | | En pantalla | Qué es | Ejemplo | Hoy en dev | Tabla
+
+ | Cliente | Para quién trabaja el corredor. Un solo asegurado: cliente y asegurado coinciden, la carpeta lleva su nombre y el corredor ve una sola cosa. Grupo económico: la carpeta reúne varios asegurados y su nombre es libre. | Viña Santa Alicia SpA = un asegurado
+Grupo W = y1, y2, x1, x2 | “Asegurado” (menú Asegurados, /groups); la pestaña Asegurados del Portafolio pasa a Clientes | Cliente
+
+ | Asegurado | Un RUT: persona o empresa sobre la que recae el riesgo. Registro propio de cada corredora (R33); pertenece a uno solo de sus clientes. Prospecto: asegurado en ese estado, que vive en el Pipeline. | y1 · RUT 99.999.999-9 | “Empresa / Cliente” (formulario Nuevo cliente) y “Lead” del Pipeline | Asegurado
+
+ | Vigencia | De la póliza: período exacto de cobertura, de 12:00 a 12:00 (23-09-2026 a 23-09-2027). De trabajo: año “2026-2027” que agrupa las colocaciones del cliente (regla de cálculo 1). | 2026-2027 | Vigencia (/periods) | Vigencia · Póliza (desde, hasta)
+
+ | Colocación | Un ramo, en una vigencia, para uno o varios RUT del cliente (no necesariamente todos). Vive de la cotización al vencimiento: al cotizar, varias compañías candidatas; al emitirse, queda con la emisora (con coaseguro, la líder y sus coaseguradoras) y sigue vigente, con sus pólizas, cobranza, endosos y siniestros, hasta renovarse o perderse. Si nunca se emite, se cierra con motivo. | Grupo W · 2026-2027 · Property (y1, y2, x1, x2)
+Grupo W · 2026-2027 · Vehículos (solo y1) | “Cuenta” (Nueva cuenta) | Colocación
+
+ | Expediente | La misma colocación vista como archivo: número, documentos, etapas y bitácora. | EXP-2026-0001 | Igual | Colocación
+
+ | Póliza | Cada documento que emite la compañía. Una colocación puede tener varias (flota, capas o tramos). | N° 123456 | Igual | Póliza
+
+ | Etapa · Paso | Etapa: una de las 12 del sistema; la primera es Interés. Paso: uno de los 7 que ve el corredor, que agrupan etapas (tabla en Las tres vías). Tras Emisión, toda vía cierra con la pantalla Plan de pago, que no es un paso de la barra. | Etapa Interés → paso Antecedentes | Etapa “lead”; “Antecedentes 1/3” | EtapaColocación
+
+ | Vía | Atributo de cada colocación: por dónde se trabaja ese ramo — Tradicional, Digital (2a comparador, 2b póliza emitida) o Manual. Un mismo asegurado puede tener Property por Tradicional y Vehículos por Digital en la misma vigencia; la propone el subtipo y nunca obliga (R37). Nombres por ahora. En pantalla se muestra solo la vía. Una cuarta, Migración (uso interno), solo se nombra. | — | — | Colocación.via_prevista · Colocación.origen
+
+ | Ramo · Subtipo · Plantilla | Ramo y subtipo: catálogo cerrado, común a todas las corredoras (R4). Plantilla: Fase posterior receta de la corredora para llevar un riesgo a mercado, una por subtipo: lista de antecedentes y bases técnicas precargadas. En el MVP no existe: el corredor sube su propio archivo de bases técnicas desde su computador y adjunta los antecedentes que tenga. La tabla se crea igual (Estructura de datos). | Property → Todo Riesgo | Mezclados en “Crear ramo” | Ramo · Subtipo · Plantilla
+
+## Decisiones clave
+
+ | | Tema | Decisión | Detalle en
+
+ | Crear | Un solo botón de alta, + Nuevo: da de alta clientes y asegurados, A mano o Con la póliza (reutiliza el RUT si ya está en la corredora). Los negocios nacen en la ficha del cliente, con Abrir colocación. | Pantallas
+
+ | Prospecto | Se crea sin RUT; se exige para calificarlo o abrir su primera colocación. | Clientes y asegurados
+
+ | Ramos | Una colocación por ramo, en la misma vigencia. Catálogo cerrado: 18 ramos con subtipos en cascada; el subtipo guarda la vía sugerida, que nunca obliga. | Estructura de datos
+
+ | Digital | Comparar cotizaciones de portales (2a) o subir la póliza (2b); preparar antes del portal (2c), fase posterior. Siempre confirma una persona. | Las tres vías
+
+ | Manual | La póliza sin PDF se guarda marcada Sin respaldo: advierte, nunca bloquea. | Las tres vías
+
+ | Subir póliza | Un solo nombre para cargar el PDF de una póliza, en colocación, ficha, Pólizas y Renovaciones: la crea o, si ya estaba digitada, la completa y quita Sin respaldo. Para la siguiente, Subir otra póliza. | Pantallas
+
+ | Partes de la póliza | Seis. Obligatorias: asegurador, asegurado (uno o más RUT del cliente) y contratante. Opcionales: beneficiario (con tipo; el acreedor es un tipo de beneficiario), asegurado adicional y pagador. Los terceros guardan solo nombre y RUT y no aparecen en Clientes. | Estructura de datos · Pólizas
+
+ | Operatividad | Guardar una póliza exige cinco datos: RUT asegurado, contratante, compañía, ramo·subtipo y vigencia (en Digital, también el n°). Cada función se activa con los suyos. | Pólizas (R38)
+
+ | Espejo | Nunca bloquea: la colocación pasa a Vigente y las diferencias se resuelven con motivo o endoso. En Tradicional es automático; en Digital, opcional. | Estructura de datos (R42)
+
+ | Cobranza | MVP: registro de plan, pagos y gestiones, con notificaciones al ejecutivo; no escribe a nadie fuera de la corredora. El plan de pago es el último paso de cada vía. En el menú y como pestaña del Portafolio: la misma pantalla. | Cobranza (R43)
+
+ | Notificaciones | Campana con dos bandejas: Por hacer (piden acción; se cierran al resolverse su origen) y Para saber (informan; se cierran al abrirlas o a los 7 días). Una sola viva por origen y destinatario: escala, no se acumula. “Aviso” es solo el mensaje al contratante (lanzamiento). | Pantallas
+
+ | Gestión | Un solo registro de contacto, desde cualquier ficha y desde las filas de Pipeline, Renovaciones y Cobranza: “¿Qué pasó?” y, opcional, “Volver a contactar el” (en Cobranza, “Promete pagar el”). Alimenta Última gestión, Días sin contacto y Próximo seguimiento. | Pantallas · Estructura de datos
+
+ | Envío al mercado | Solo registra a qué compañías, cuándo y con qué plazo; el correo lo envía el corredor. | Las tres vías (R44)
+
+ | Privacidad | Ninguna corredora ve nada de otra; no hay identidad común del RUT. | Estructura de datos (R33)
+
+ | Roles | Administrador y Ejecutivo; ambos ven toda la corredora y el ejecutivo abre en lo suyo. | Pantallas
+
+ | Comisión | En pantalla, siempre estimada: prima neta × % de comisión de la póliza. La real la paga la compañía al mes siguiente del cierre o contra la primera cuota: módulo en espera, con tabla reservada; nunca en Cobranza. | Estructura de datos · Plan de construcción
+
+ | Dashboard | Arriba, Comisión del mes (estimada) contra la meta; reemplaza “Mi mes”. Debajo, ocho tarjetas que abren su lista filtrada. | Pantallas
+
+ | Compañías | Catálogo cerrado en Configuración, solo de consulta (nombre, RUT y código CMF), con Pedir alta de compañía; sin contactos, SLA, prioridad ni apetito. | Estructura de datos (R4)
+
+ | Menú | Dashboard · Portafolio · Cobranza (con contador) · Agentes IA · Configuración. Portafolio: Clientes · Cotizaciones · Propuestas · Pólizas · Cobranza · Endosos · Siniestros · Renovaciones y, aparte a la derecha, Pipeline. | Pantallas · Portafolio
+
+## Glosario de seguros
+
+ Términos del negocio usados en el documento.
+
+ | | Término | Qué significa
+
+ | Personas y compañías
+
+ | Contratante | Quien contrata el seguro; por defecto, el asegurado. Puede no serlo (p. ej., el holding contrata por sus filiales): entonces se registra como parte de la póliza, con su contacto para la cobranza, y no entra al registro de asegurados (R14). A él se dirige la cobranza (R17).
+
+ | Pagador | Quien paga la prima, si no es el contratante (por defecto, el contratante).
+
+ | Asegurado adicional | Tercero que la póliza también cubre sin ser cliente, como el mandante o el arrendador.
+
+ | Beneficiario | Quien cobra la indemnización sin ser asegurado (art. 513). Tipo: hipotecario, prendario, leasing, endosatario u otro (Vida, con porcentaje).
+
+ | Acreedor | Banco o financiera con interés en el bien asegurado. En RADAL es un tipo de beneficiario (hipotecario, prendario, leasing o endosatario): en un siniestro cobra con preferencia.
+
+ | Compañía | La aseguradora: asume el riesgo y emite la póliza. Código CMF: su número de registro ante la CMF.
+
+ | Coaseguro | Varias compañías comparten un riesgo en porcentajes. Una es la líder: emite y cobra la prima completa.
+
+ | Liquidador | Experto que evalúa el siniestro y determina cuánto se paga. Emite informes preliminares, de avance y final.
+
+ | CMF | Comisión para el Mercado Financiero: el regulador de seguros en Chile.
+
+ | Cotizar y colocar
+
+ | Carpeta de presuscripción | Antecedentes del riesgo que el corredor reúne y entrega a las compañías para que coticen, junto con sus bases técnicas. En el MVP los sube él, sin lista predefinida.
+
+ | Bases técnicas | Lo que el corredor pide cotizar: coberturas, sumas, deducibles y condiciones.
+
+ | Cotización u oferta | Respuesta de una compañía a las bases técnicas.
+
+ | Propuesta | Documento que el corredor envía a la compañía con la oferta elegida por el asegurado, para que emita la póliza. Estados: Por enviar · Enviada · Aceptada (la compañía emitió la póliza) · Rechazada. La etapa 8 se llama Propuesta generada; “emitida” queda solo para pólizas y endosos.
+
+ | Ratificación | Propuesta ya en la compañía, esperando la emisión.
+
+ | Validación espejo | Comparar la póliza emitida con lo pedido: la propuesta enviada, o la cotización elegida si el corredor lo marca (R42). Lo digitado se compara aparte, al subir el PDF de una póliza Manual (3.6) para detectar diferencias.
+
+ | Portal · ANS | Plataformas de las compañías, o multicompañía, donde el corredor cotiza y emite seguros simples en minutos.
+
+ | El contrato
+
+ | Materia asegurada | Lo que se asegura: una planta, una flota, una nómina de personas.
+
+ | Suma asegurada | Monto máximo que paga la compañía.
+
+ | Deducible | Parte de cada siniestro que asume el asegurado.
+
+ | Sublímite | Tope menor, dentro de la suma asegurada, para una cobertura o un evento.
+
+ | POL · CAD | Códigos de las condiciones generales (POL) y cláusulas adicionales (CAD) depositadas en la CMF.
+
+ | Nominada · Todo Riesgo | Cubre solo los riesgos que nombra (Nominada) o todo, salvo lo que excluye (Todo Riesgo).
+
+ | Prima | Precio del seguro. Prima afecta (paga IVA) + prima exenta (no paga IVA) = prima neta; neta + IVA = prima bruta, lo que se cobra. En tarjetas y columnas, “prima” es la neta de la vigencia en curso, en UF del día.
+
+ | Plan de pago · cuota | Cómo se divide la prima bruta en pagos, cada uno con su vencimiento.
+
+ | Método de pago | PAC (cargo automático en cuenta corriente), PAT (en tarjeta de crédito), transferencia, cupón (pago manual) u otro. La misma lista sirve para la columna de Cobranza y para el medio de cada pago.
+
+ | Prima provisoria · ajuste por declaración | Prima que se cobra por adelantado y se ajusta después con lo declarado (ventas, stock, nómina).
+
+ | Certificado de cobertura | Documento provisorio con que la compañía da cobertura antes de emitir la póliza. La póliza registrada con él lleva la marca Condicionada (“Emitida con certificado de cobertura provisorio”) hasta subir la definitiva.
+
+ | Endoso | Anexo que modifica una póliza vigente. El corredor lo pide con una propuesta de endoso; lo emite la compañía.
+
+ | Prórroga | Endoso que extiende o mueve la vigencia.
+
+ | Cancelación · rehabilitación | Término anticipado de la póliza (por ejemplo, por no pago) y su reverso.
+
+ | Renovación | Colocación y póliza nuevas de la vigencia siguiente.
+
+ | Siniestros
+
+ | Siniestro | Evento que activa el seguro: un choque, un incendio, un robo.
+
+ | Reserva | Lo que la compañía estima pagar mientras liquida.
+
+ | Finiquito | Documento con que el asegurado acepta el pago final.
+
+ | Siniestralidad | (Pagado + pendiente) ÷ prima neta, por vigencia. Pendiente: la reserva o, si no hay, el monto reclamado.
+
+ | Otros
+
+ | UF | Unidad de fomento: unidad reajustable, con valor diario, en que se expresa la mayoría de las primas.
+
+ | Hub | Red de corredoras conectadas a RADAL que suma su volumen para negociar con las compañías.
+
+ | Ley 21.719 | Ley chilena de protección de datos personales.
+
+ | Brokeris | Software de gestión de corredoras.
+
+ La experiencia del usuario, de punta a punta
+
+## Mapa de pantallas
+
+ Cinco pantallas, nueve listas y seis fichas. El dibujo muestra la forma; la tabla, el detalle de cada una: cómo se llega, qué muestra y qué se puede hacer. Los flujos clic a clic de las otras pestañas ocurren en estas pantallas.
+
+ [svg]
+
+ Cinco pantallas, nueve listas y seis fichas: eso es RADAL. El Portafolio es el único que se ramifica. La línea punteada es la única pantalla con dos entradas: Cobranza se abre desde el menú o desde el Portafolio y es la misma, con la misma URL. Las tarjetas del Dashboard no son pantallas nuevas: abren una de estas listas ya filtrada. Todas las fichas van en el mismo orden: cabecera, “Falta: X”, bloques, bitácora.
+
+### Pantalla por pantalla
+
+ | | Pantalla | Cómo se llega | Qué muestra | Qué se puede hacer
+
+ | Siempre visibles
+
+ | Menú lateral | Fijo a la izquierda | Dashboard · Portafolio · Cobranza (contador) · Agentes IA · Configuración | Ir a cada pantalla.
+
+ | + Nuevo | Botón fijo arriba a la derecha | Dos formas de registrar a quien va a asegurarse: A mano o Con la póliza (detalle abajo) | Dar de alta clientes y asegurados: única alta. No abre colocaciones; eso es Abrir colocación, en la ficha del cliente.
+
+ | Campana de notificaciones | Ícono fijo junto a + Nuevo, con n° de Por hacer nuevas | Bandejas Por hacer y Para saber (Notificaciones, abajo) | Cada notificación abre su origen con la acción a mano, como Registrar pago.
+
+ | Pantallas del menú
+
+ | Dashboard | Menú · pantalla de inicio | Comisión del mes (estimada) contra la meta y ocho tarjetas (Dashboard, abajo) | Cada tarjeta abre su lista filtrada.
+
+ | Portafolio | Menú | A la izquierda: Clientes · Cotizaciones · Propuestas · Pólizas · Cobranza · Endosos · Siniestros · Renovaciones. A la derecha, aparte: Pipeline (detalle en la pestaña Portafolio) | Buscar, filtrar con tarjetas y abrir con clic en la fila la ficha de lo que lista.
+
+ | Por confirmar | Pólizas: tarjeta Por confirmar (n) | Lecturas de PDF sin terminar: archivo, fecha y quién lo subió | Seguir (vuelve a Confirmar datos) · Descartar (borra la lectura; el PDF queda en Documentos).
+
+ | Cobranza | Menú o pestaña del Portafolio: misma pantalla y URL; el menú marca Cobranza | Cuotas por urgencia y planes de pago (pestaña Cobranza del documento) | Registrar pago · Registrar gestión · PAC rechazado · Confirmar pago · Cargar plan de pago. La fila abre la ficha de la póliza en su plan de pago.
+
+ | Configuración | Menú · solo administrador | Perfil de la corredora · Usuarios · Compañías · Cobranza · Metas (Configuración, abajo) | Editar cada sección.
+
+ | Fichas: clic en una fila o desde otra ficha. Todas en el mismo orden: cabecera (identidad, estado y botón principal) → “Falta: X” → bloques → bitácora
+
+ | Ficha del cliente (grupo) | Clientes: fila de un grupo | Nombre, alias, asegurados del grupo, colocaciones por vigencia (una tarjeta por ramo, con su paso y lo que toca ahora), siniestralidad, documentos y gestiones | Abrir colocación (una o varias, cada una con su vía: paso 1.4) · Subir póliza · Editar cliente · + Nuevo con este cliente elegido, para sumar otro RUT al grupo · Fusionar (A3, lanzamiento; ver Roles). Cliente de un solo asegurado: misma pantalla que su ficha.
+
+ | Ficha del asegurado | Clientes o Pipeline: fila del asegurado, o cualquier fila que lo nombre | Cabecera (RUT, actividad, estado, ejecutivo, contactos) → colocaciones vigentes → vigencias anteriores → siniestralidad por ramo, últimas 3 vigencias → documentos → línea de tiempo de gestiones (suyas y de sus colocaciones, pólizas y cuotas) | Editar · + Nuevo con este asegurado elegido · Mover a otro cliente · Abrir colocación (si es prospecto).
+
+ | Ficha de la colocación | Cotizaciones, Propuestas, Renovaciones o las fichas del cliente y del asegurado | Barra de pasos con el actual · panel “Lo que toca ahora”, con su botón · pestañas actuales de dev (Antecedentes, Bases técnicas, Comparación, Propuesta, Pólizas) más la nueva Mercado (envíos y cotizaciones; ahí vive Registrar envío) · documentos | Botón del paso actual (tabla Etapa por etapa) · clic en un paso anterior de la barra para volver · Subir póliza · Cerrar · Reabrir.
+
+ | Ficha de la póliza | Pólizas, Cobranza (abre en el plan de pago) o la colocación | Cabecera, “Falta: X”, partes, diferencias, datos técnicos, plan de pago con sus cuotas, endosos, siniestros, documentos, gestiones y bitácora (detalle en Pólizas) | Endosar · Registrar siniestro · Subir póliza · Completar · Corregir dato · Renovar · Registrar pago · Confirmar pago · Revertir pago · Registrar gestión.
+
+ | Ficha del endoso | Endosos o la póliza | Movimientos con su antes y después, estado (Solicitado → Propuesta enviada → Emitido o Rechazado), documentos | Cargar endoso emitido · Cerrar sin emitir · Volver a solicitar (E1 a E4).
+
+ | Ficha del siniestro | Siniestros o la póliza | Denuncia, montos, informes del liquidador, línea de tiempo | Actualizar · Cerrar · Reabrir (S2, S3).
+
+## Dashboard
+
+ Pantalla de inicio. Arriba, sola y grande, la Comisión del mes (estimada) contra la meta; debajo, ocho tarjetas. Sin gráficos en el MVP.
+
+ Comisión del mes (estimada)“UF 182 de UF 250 · 73%”, con barra; desglose Nuevos · Renovaciones · Endosos; En camino: comisión de propuestas enviadas a la compañía sin emitir. Clic: Pólizas “Emitidas este mes”, con columna comisión; el desglose Endosos abre Endosos emitidos este mes.
+
+ CálculoPrima neta × % de comisión de lo emitido en el mes (fórmula en Estructura de datos); la liquidación de la compañía puede diferir. Póliza sin % no suma: “Faltan datos en N pólizas”, que abre Pólizas con los filtros Emitidas este mes y Sin % de comisión.
+
+ Quién ve quéEjecutivo: su comisión contra su meta. Total de la corredora: solo el administrador. Metas en Configuración.
+
+ | | Tarjeta | Muestra | Clic lleva a
+
+ | Hoy
+
+ | Cuotas vencidas | N° y UF de las impagas con vencimiento pasado: vencidas, en riesgo de término o en acuerdo (incluye PAC rechazado) | Cobranza · Vencidas
+
+ | Vencen en 7 días | N° y UF | Cobranza · Próximas, filtro 7 días
+
+ | Riesgo de término | N° de pólizas y su prima | Pólizas, filtro Riesgo de término
+
+ | Renovaciones sin iniciar | Vencen en 30 días o menos, sin Renovar | Renovaciones · Vencen en 30
+
+ | Cartera
+
+ | Prima vigente | UF y n° de pólizas en estado Vigente | Pólizas · Vigentes, filtro Estado = Vigente
+
+ | Clientes vigentes | N° | Clientes, filtro Estado = Vigente
+
+ | En cotización | Colocaciones en etapas 1 a 7 | Cotizaciones
+
+ | Siniestros abiertos | N° | Siniestros · Abiertos
+
+ Las tarjetas respetan Mías / Todas y muestran el mismo dato que la lista a la que llevan. En cero: gris y sin clic. Prima = prima neta de la vigencia en curso, en UF del día.
+
+## Notificaciones
+
+ Llegan a la campana en dos bandejas. Por hacer: piden acción y se cierran solo al resolverse su origen. Para saber: informan y se cierran al abrirlas o solas a los 7 días. Hay una sola viva por origen y destinatario: si el origen escala, la misma notificación cambia y vuelve a nueva, sin acumularse (como un chat de WhatsApp). “Aviso” es solo el mensaje al contratante (C5).
+
+ | | Tipo | Nace | Bandeja | Se cierra con
+
+ | Cuota | Cadencia de cobranza: −15, −5 y 0 días; luego +3, +10 y Riesgo de término | Para saber hasta el vencimiento; Por hacer desde +3 | Pago o cancelación. Un compromiso la duerme hasta su fecha.
+
+ | PAC rechazado | Clic en PAC rechazado (C1.4) | Por hacer | Pago.
+
+ | Compromiso incumplido | Pasa la fecha prometida sin pago | Por hacer | Pago, nuevo compromiso o cancelación.
+
+ | Póliza sin plan | Se guarda sin cuotas; se re-enciende cada 7 días | Por hacer | Cargar plan de pago.
+
+ | Póliza enlazada a un asegurado existente | Se sube un PDF con Subir póliza y el RUT leído ya está en la cartera (2b.5) | Para saber, al ejecutivo del asegurado; también al administrador si quien subió el PDF es de otra cartera | Al abrirla.
+
+ | Diferencias del espejo | El espejo encuentra diferencias (R42). El cambio de moneda llega destacado y se revisa siempre, aunque el corredor no haya pedido comparar | Por hacer | Todas aceptadas o con endoso pedido.
+
+ | Plazo de mercado | Vence el plazo de respuesta de un envío (1.11) | Por hacer | Cotización, Declinó, Sin respuesta o Extender plazo.
+
+ | Propuesta sin emitir | 5 días desde Marcar enviada de la propuesta | Por hacer | Subir póliza, Compañía rechazó o Extender plazo.
+
+ | Endoso sin emitir | 5 días desde Marcar enviada de la propuesta de endoso | Por hacer | Cargar endoso emitido, Cerrar sin emitir o Extender plazo.
+
+ | Renovación | A 90 y 60 días del vencimiento; a 30 días sin Renovar; vencida sin gestión | Para saber a 90 y 60; Por hacer a 30 y vencida | Renovar (por portal, recién con Subir póliza renovada) o Marcar perdida. Nunca pasa sola a Perdida.
+
+ | Seguimiento | Llega la fecha “Volver a contactar el” de una gestión | Por hacer, al autor de la gestión | La siguiente gestión.
+
+ | Endoso retroactivo con siniestro | Siniestro posterior a la fecha efectiva de un endoso retroactivo (R25) | Por hacer | Revisado.
+
+ | Acción sensible | Otro usuario cancela una póliza, revierte un pago, cierra una colocación, fusiona clientes o corrige prima, vigencia, compañía o n° de póliza | Para saber, solo administradores | Al abrirla.
+
+ | Correo rebotado Lanzamiento | Rebota un aviso al contratante (C5.5) | Por hacer | Corregir el correo.
+
+ DestinatarioEl ejecutivo de la colocación; sin él, los administradores. Si cambia el ejecutivo, las abiertas pasan al nuevo.
+
+ VistaAbierta: sigue en su bandeja, pero no suma al contador. Si escala, vuelve a nueva.
+
+ ContadoresCampana: Por hacer nuevas. Cobranza (menú y pestaña): el mismo número de la tarjeta Cuotas vencidas del Dashboard.
+
+## Configuración
+
+ Solo el administrador. Cada sección se edita en su lugar.
+
+ | | Sección | Qué tiene | Qué se hace
+
+ | Perfil de la corredora | Razón social, RUT (no editable), registro CMF, logo, dirección, teléfono, correo | Editar. Es el membrete de los documentos.
+
+ | Usuarios | Nombre, correo, rol (administrador o ejecutivo), activo; cargo y teléfono, para la firma de los documentos | Invitar por correo · Desactivar (nunca se borra): pide a quién pasar su cartera.
+
+ | Compañías | Lista de consulta del catálogo (R4) | Pedir alta de compañía.
+
+ | Cobranza | Cadencia (−15, −5, 0, +3, +10) · mensajes de cobranza (lanzamiento, C5.1) · plazo de seguimiento de propuestas y endosos (5 días por defecto) | Ajustar. Rige para toda la corredora.
+
+ | Metas | Comisión mensual en UF de la corredora y, opcional, de cada ejecutivo | Ingresar por mes · Copiar a los 12 meses.
+
+## Reglas de interacción
+
+ Rigen siempre, salvo que el flujo diga otra cosa.
+
+ Un nombre por acciónSubir póliza, igual en colocación, ficha, Pólizas y Renovaciones: crea la póliza o completa la digitada y quita Sin respaldo (3.6). La siguiente: Subir otra póliza. Los botones locales de alta (+ Nuevo en una ficha, Subir póliza en Pólizas) abren + Nuevo con el cliente o la forma ya marcada. Abrir colocación no pasa por + Nuevo: abre su propio panel en la ficha del cliente (1.4).
+
+ Después de cada acciónSe abre la ficha de lo creado o cambiado y un pop-up abajo a la derecha (“Se agregó a VIÑAS DEMO · 2026-2027 · Property”) que se va a los 3 segundos. Los errores no se cierran solos.
+
+ Avanzar con lo que quieraCada paso pide solo su mínimo; lo que falta se ve en la ficha como “Falta: X”, sin pop-ups. Lo guardado ya es registro real: sin borradores ni “cerrar a medias”. Excepción: la lectura de PDF sin confirmar (Por confirmar).
+
+ Ejemplos dentro de los camposCada campo muestra un ejemplo en gris que se borra al escribir: “Constructora Andes SpA”, “76.123.456-7”.
+
+ Mientras la IA leeBarra “Leyendo la póliza…”, nunca pantalla quieta. Si falla: “No pudimos leer este PDF” → Reintentar o Registrar a mano (formulario Manual con el PDF adjunto: con respaldo, sin marca, exige n° de póliza).
+
+ Advertencias que no bloqueanSiempre con botones: Seguir igual y la alternativa concreta, como Es una renovación o Subir póliza.
+
+ Completar o Corregir datoCompletar llena lo que está vacío (falta el teléfono), sin motivo. Corregir dato cambia lo ya confirmado (el RUT quedó mal digitado): pide motivo y guarda el antes y el después (R19).
+
+ Nada se borra: lo cerrado se puede reabrirReabrir, con motivo: colocación cerrada (a la etapa en que se cerró; filtro Cerradas en Cotizaciones), renovación perdida (a Por renovar), siniestro cerrado · Reactivar: prospecto perdido · Volver a solicitar: endoso rechazado. En la colocación, clic en un paso anterior de la barra vuelve ahí (solo etapas 1 a 9; queda en la bitácora; Las tres vías). Con póliza: endoso o Corregir dato.
+
+ Confirmar lo que no se deshace fácilCerrar colocación, cancelar póliza, revertir pago y fusionar clientes piden motivo y confirmación. La bitácora guarda quién y cuándo, y los administradores reciben la notificación Acción sensible.
+
+ Marcar enviadaOpcional, a un clic: al Descargar o Copiar un documento, “¿Lo enviaste hoy?” → Sí lo marca con la fecha de hoy. Sin marca no corren días ni notificaciones. Guarda fecha de envío y fuente (manual o correo). A futuro, con el correo del ejecutivo integrado, se marca solo (cuándo y cómo, lo define Benja).
+
+ Registrar gestiónBotón en todas las fichas y en las filas de Pipeline, Renovaciones y Cobranza; ambos roles. Dos campos: “¿Qué pasó?” (una línea, obligatorio) y “Volver a contactar el” (opcional; chips mañana · 3 días · 1 semana), que en Cobranza se llama “Promete pagar el” (compromiso). Fecha, usuario y vínculo se guardan solos. Adjuntar: arrastrar. Fijar: ícono sobre la gestión; queda arriba en la ficha. Tabla Gestión: Estructura de datos.
+
+ Tablas vacíasDicen qué hacer y traen el botón: “Todavía no hay siniestros. Regístralo con Registrar siniestro.”
+
+## Documentos que arma RADAL
+
+ El corredor los revisa y corrige en RADAL antes de generarlos, y los envía desde su correo (Marcar enviada, arriba).
+
+ | | Documento | Para quién · dónde | Contenido
+
+ | Comparativo | Asegurado · paso Comparación | Cuadro por compañía: prima, deducibles, sublímites, coberturas incluidas y excluidas, diferencias destacadas; recomendación del corredor, opcional.
+
+ | Propuesta | Compañía elegida · paso Propuesta | N° de la cotización aceptada, partes, vigencia, materia, sumas, coberturas y deducibles, prima, método de pago e instrucción de emitir.
+
+ | Propuesta de endoso | Compañía (la líder, en coaseguro) · ficha de la póliza | N° de póliza, qué cambia con el movimiento y su resultado (“aumentar UF 5.000: 20.000 → 25.000”), desde cuándo, motivo y respaldos.
+
+ FormatoPDF para adjuntar y texto corto de correo para copiar (tres líneas). El PDF no se edita. Sin Word en el MVP.
+
+ Membrete y firmaMembrete: Perfil de la corredora (logo, razón social, RUT, registro CMF, dirección). Firma: quien lo genera (nombre, cargo, correo, teléfono).
+
+ Asunto y archivoCódigo de la colocación, asegurado, ramo y documento: “EXP-2026-0012 · Grupo W · Property · Bases técnicas”. El archivo descargado lleva el código EXP en el nombre.
+
+## Qué ve y qué hace cada rol
+
+ | | Acción | Administrador | Ejecutivo
+
+ | Ver la cartera de la corredora | Toda | Toda. Las listas abren en Mías, con selector Mías / Todas
+
+ | Crear y trabajar clientes, colocaciones, pólizas, endosos, siniestros y cobranza | Sí | Sí. En Cobranza, las mismas acciones que el administrador
+
+ | Cerrar colocación, cancelar póliza, revertir pago, Corregir dato | Sí, con motivo. Queda en la bitácora | Sí, con motivo. Queda en la bitácora
+
+ | Cambiar ejecutivo | De cualquier asegurado o colocación | Solo de lo suyo
+
+ | Fusionar clientes (A3, lanzamiento) | Sí | Solo entre clientes suyos; notifica a los administradores
+
+ | Configuración, incluidos los usuarios | Sí | No la ve
+
+ | Comisión del mes en el Dashboard | La de la corredora y la de cada ejecutivo | Solo la suya, contra su meta
+
+ Mías = ejecutivo de la colocación; en Clientes y Pipeline, el del asegurado. Por defecto, el asegurado lleva a quien lo crea y la colocación, al del asegurado (editables). Cambiar el del asegurado cambia, sin preguntar, el de sus colocaciones abiertas (en curso o vigentes); sus notificaciones abiertas pasan al nuevo. Endosos y siniestros siguen al ejecutivo de la colocación, sin responsable propio.
+
+## El botón + Nuevo
+
+ Da de alta clientes y asegurados, y solo eso: no abre negocios. Las colocaciones nacen en la ficha del cliente, con Abrir colocación —una o varias, cada una con su vía—, y lo que cuelga de una póliza (endoso, siniestro, pago) nace desde ella. Así hay un solo lugar para cada cosa: + Nuevo para la gente, la ficha para el negocio.
+
+ | | Paso | El usuario hace | El sistema hace
+
+ | 1 · ¿Cómo lo registras? | Elige A mano o Con la póliza (detalle abajo). | Son dos formas de responder la misma pregunta —quién es— no dos flujos distintos.
+
+ | 2 · ¿Quién es? | A mano: escribe el RUT y, si es nuevo, llena el alta (A1): razón social, un contacto y ejecutivo. Con la póliza: sube el PDF y confirma lo que leyó el lector; no teclea el RUT. | RUT que ya está en la corredora: lo avisa, muestra asegurado y cliente y sigue con ellos. Por Con la póliza, la acción es Asociar a este asegurado y queda notificación a su ejecutivo; nunca crea un segundo (R11).
+
+ | 3 · ¿Es parte de un grupo? | Solo si el asegurado es nuevo: marca Es parte de un grupo y elige o crea su cliente (“Grupo W”). | Sin grupo, el asegurado es su propio cliente: RADAL crea la carpeta con su nombre, sin preguntar. Un asegurado pertenece a un solo cliente (R11).
+
+ | Resultado | — | Por A mano, el asegurado queda registrado y, sin colocaciones, aparece como prospecto en el Pipeline: desde su ficha abre las que quiera, cuando quiera. Por Con la póliza, además queda la colocación y la póliza, y se abre su ficha.
+
+ ¿Cómo lo registras?
+
+ A manoEscribes el RUT. El asegurado queda registrado y listo, sin negocio todavía: vive en el Pipeline. Desde su ficha abres una o más colocaciones, cada una por la vía que corresponda — Property al mercado, Vehículos por portal. Es el camino de siempre cuando el negocio parte de una conversación.
+
+ Con la pólizaYa cotizaste y emitiste en el portal y vienes a registrar. Subes el PDF y el lector saca de ahí el asegurado, el ramo y la póliza: el camino con menos tecleo. Si ese RUT ya está en tu cartera, RADAL avisa y lo asocia al asegurado existente; si además ese ramo no tenía colocación, la crea y la cierra con esta póliza.
+
+ Preselección por lugar: ficha de un cliente → ese cliente ya elegido; Pólizas (Subir póliza) → Con la póliza. Desaparecen “+ Nuevo asegurado”, “+ Nuevo cliente” y “+ Nuevo lead”. La cuarta vía, Migración (uso interno), no es botón del corredor.
+
+ Transversal a las tres vías
+
+## Clientes y asegurados, sin duplicados
+
+ El asegurado es un RUT; el cliente es a quién le trabaja el corredor. Con un asegurado, son lo mismo: carpeta automática con su nombre, una sola vista. Un grupo reúne varios: Grupo W (cliente) = y1, y2, x1 y x2. Tres reglas evitan duplicados: RUT único por corredora; un cliente por asegurado (dev ya lo valida), y ningún nombre de cliente igual a la razón social de un asegurado ajeno (R11, R12).
+
+ Pertenecer al cliente no obliga a participar en todas sus colocaciones. y1 puede estar en el programa Property grupal (con y2, x1 y x2) y en su propia colocación de Vehículos (R39). La carpeta del cliente muestra los RUT de cada colocación (“Todo el grupo” o nombres) y filtra por asegurado; la ficha del asegurado, solo sus colocaciones y pólizas.
+
+### Cómo entra un asegurado al registro
+
+ Solo hay dos formas, y las dos empiezan en + Nuevo: tecleando el RUT, o subiendo la póliza y dejando que el lector lo saque. + Nuevo registra a la persona y nada más; el negocio se abre después, desde su ficha, y ahí cada ramo elige su vía.
+
+ [svg]
+
+ Dos formas de responder la misma pregunta —quién es— no dos flujos distintos. A mano termina en la persona: el negocio se abre después, desde su ficha, y ahí cada ramo elige su vía (R37). Con la póliza trae todo del PDF: si el RUT ya está en la cartera, la acción es Asociar a este asegurado —nunca un segundo (R11)— con notificación a su ejecutivo; y si ese asegurado no tenía colocación de ese ramo en esa vigencia, el PDF la crea y la cierra (2b.6). Es el caso del cliente de años que aparece con una póliza de un ramo que nunca le trabajamos.
+
+ Un RUT más en un grupo que ya existeNo pasa por una vía: desde la carpeta del cliente, + Nuevo → A mano, uno por vez, con el cliente ya elegido (A2). Queda en el grupo sin colocación propia y fuera del Pipeline (R40).
+
+ Las otras partes de la póliza no entranLas otras cinco partes (R14) —contratante distinto del asegurado, beneficiario, asegurado adicional, pagador y asegurador— se registran en la póliza, con nombre, RUT y contacto: no crean asegurado ni aparecen en Clientes. El contratante lleva contacto obligatorio porque a él va la cobranza (R14, R40).
+
+ El RUT del PDF ya está en la carteraRADAL lo avisa en el formulario —“Este RUT ya está en tu cartera: y1 S.A., cliente Grupo W”— y la acción es Asociar a este asegurado: la póliza nueva se cuelga del RUT que ya existe y nunca se crea un segundo (R11). Queda notificación Para saber al ejecutivo del asegurado, y al administrador si quien subió el PDF es de otra cartera.
+
+ Siempre el mismo RUTA1 normaliza y compara antes de crear: si el RUT ya está en la corredora, no deja hacer otro y sigue con el que existe. La búsqueda nunca sale de tu corredora, así que para el corredor solo hay dos casos: está en su cartera o es nuevo (R33).
+
+### A1 · Registrar un asegurado
+
+ Un solo formulario en todas partes: es el paso 2 de + Nuevo (¿Para quién?), corre en 1.0 y 1.2, y vuelve a correr en 2b.5 cuando el asegurado sale del lector. Pide RUT, razón social, un contacto y ejecutivo; el resto, después, en la ficha. Reemplaza “+ Nuevo asegurado”, “+ Nuevo cliente” y “+ Nuevo lead”.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | A1.1 | Asegurado · RUT | Escribe el RUT (vía 2b: lo trae el lector). Solo un prospecto puede quedar sin RUT. | Valida el DV y normaliza (sin puntos ni guion, K mayúscula) antes de comparar. Si existe en la corredora, no permite otro: ofrece Asociar a este asegurado y muestra su cliente y colocaciones. Si no, formulario vacío aunque el RUT exista en otra corredora: RADAL nunca trae ni revela sus datos, ni siquiera eso (R33). Prospecto que luego recibe un RUT ya existente en la corredora: ofrece Unir con ese asegurado.
+
+ | A1.2 | Asegurado · Datos | Completa razón social (obligatoria), un contacto y ejecutivo (obligatorio; por defecto, quien lo crea). Nada más. Después, en la ficha: tipo de persona, nombre de fantasía, giro, dirección, actividad, otros contactos y, si es prospecto, ramos de interés, prima estimada y Cómo llegó (opcional: Referido · Cartera propia · Prospección · Web o redes · Otro). | Al escribir, compara de forma aproximada razón social y nombre de fantasía con asegurados, clientes y alias, ignorando mayúsculas, tildes, “S.A.”, “SpA”, “Ltda.” y “Grupo”. El estado se calcula solo (R40).
+
+ | A1.3 | Advertencia de posible duplicado Si alcanza | Ve: “Hay un nombre parecido: y1 S.A. (RUT 99.999.999-9), que pertenece al cliente Grupo W”. Elige Es otro asegurado, seguir o Agregar a Grupo W. | No bloquea (RUT distinto, puede ser otro asegurado). Decisión en bitácora.
+
+ | A1.4 | Asegurado | Clic en Crear. | Crea el asegurado. Sin grupo, es su propio cliente, con carpeta de igual nombre. Luego admite mover a un grupo (A2.4) o fusionar (A3). Si viene de un flujo, vuelve con el asegurado cargado.
+
+### Después, en la ficha del asegurado
+
+ ContactosNombre, correo y teléfono; uno es el principal, a quien va la cobranza. El cliente de grupo no tiene contactos propios.
+
+ Cambiar ejecutivoEl nuevo pasa también, sin preguntar, a las colocaciones abiertas del asegurado (en curso o vigentes); sus notificaciones abiertas se van con él.
+
+ Dirección o razón socialSe cambian en la ficha del asegurado y rigen para todas sus pólizas; el detalle del endoso tipo 9 está en Endosos. Se cambian en la ficha y rigen para todas sus pólizas; es endoso (tipo 9) solo si la compañía lo emite. RUT mal digitado: Corregir dato.
+
+### A2 · Crear o editar un cliente (carpeta)
+
+ El cliente de un asegurado se crea solo; con otro RUT pasa a grupo. El de grupo nace en el paso 2 de + Nuevo (marcando Es parte de un grupo); se edita en la carpeta con Editar cliente. Es el formulario “Crear un asegurado” de dev (ícono, nombre, notas, RUT incorporados), retitulado, más tres reglas. Varios RUT: en la carpeta, + Nuevo → A mano, uno por vez, con el cliente ya elegido.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | A2.1 | Crear un cliente · Nombre | Escribe el nombre con que la corredora conoce al grupo (“Grupo W”). | Compara con clientes, alias y razones sociales. Si iguala la razón social de un asegurado ajeno, bloquea: “y1 S.A. ya pertenece a Grupo W. ¿Quieres abrir Grupo W?”.
+
+ | A2.2 | Crear un cliente · Asegurados | Incorpora asegurados y marca la razón social principal. | La razón social principal es dato del cliente, no su nombre: nunca habrá un “Grupo y1” junto a Grupo W. Los asegurados de otro cliente se ven deshabilitados, como hoy.
+
+ | A2.3 | Crear un cliente · Alias | Opcional: agrega otros nombres del grupo (“W Holding”, “y1”, siglas). | Alias válidos en búsquedas y lector: si una póliza dice “Grupo y1”, sugiere Grupo W.
+
+ | A2.4 | Mover un asegurado | Confirma Mover a este cliente. | Lo mueve y registra el cliente anterior. Se lleva las colocaciones donde es único RUT (a la vigencia equivalente, creada si falta); las compartidas siguen en el original, con él como asegurado. Nada se pierde ni duplica.
+
+### A3 · Fusionar clientes duplicados Lanzamiento
+
+ Para limpiar la cartera. Lo hace el administrador, o el ejecutivo solo entre clientes suyos (todos sus asegurados a su cargo); si fusiona un ejecutivo, los administradores reciben una notificación Para saber.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | A3.1 | Portafolio → Clientes → Posibles duplicados | Ve pares sospechosos (p. ej., “Grupo y1” y “Grupo W”, con tres asegurados de nombre parecido). El ejecutivo ve solo pares de clientes suyos. | Un proceso nocturno arma la lista con los criterios de A1.3.
+
+ | A3.2 | Fusionar | Elige el cliente que queda (Grupo W). Clic en Fusionar. | Mueve asegurados, vigencias y colocaciones al que queda y une vigencias de iguales fechas. Los clientes nunca se borran (R13). El nombre del absorbido pasa a alias; el absorbido queda fusionado, sin borrarse, por trazabilidad. Todo, en la bitácora.
+
+ El viaje, caminado
+
+## Recorrido
+
+ Empieza por aquí el viaje: en cada pantalla eliges y el recorrido avanza, como lo haría el corredor. Después, Las tres vías y las pestañas de Cobranza, Endosos y Siniestros traen el mismo camino en tablas, con el detalle que falta aquí —lo que hace el sistema en cada paso—; cada tarjeta cita su paso, así que el cruce es verificable.
+
+ Es el ciclo completo: del primer clic en + Nuevo hasta la póliza vigente, y de ahí la vida de la póliza —cobranza, endosos, siniestros y renovación—. La renovación vuelve al principio: por eso el recorrido se cierra sobre sí mismo.
+
+ ← Volver
+ Empezar de nuevo
+
+ Del interés del cliente a la póliza vigente
+
+## Las tres vías
+
+ La vía es de la colocación, no del asegurado ni del negocio: el mismo cliente puede llevar su Property al mercado y sus vehículos por el portal, en la misma vigencia. Por eso + Nuevo no la pregunta al principio — primero el asegurado, después, por cada ramo, su vía (1.4). La decide la presuscripción que exige el riesgo, no el ramo. Tradicional: negocio desde cero, con carpeta de presuscripción para las compañías: el corredor sube sus bases técnicas y los antecedentes que reunió. Digital: riesgo estándar, cotizado y emitido en minutos en el portal de la compañía o en ANS. Manual: póliza sin PDF. La vía sugerida vive en el subtipo y nunca obliga (R37).
+
+### Una sola máquina: 12 etapas, 7 pasos, 3 vías
+
+ Los 7 pasos agrupan las 12 etapas y solo se calculan. Las 3 vías no son tres procesos: solo cambian la etapa de entrada (lo anterior se omite solo, R6) y todas siguen hasta Vigente.
+
+ | 
+ | 7 pasoslo que ve el corredor | Antecedentes | Bases técnicas | En mercado | Comparación | Propuesta | Emisión | Vigente
+
+ | 12 etapaslo que guarda el sistema | 1Interés | 2Presuscripción | 3Bases técnicas | 4Envío al mercado | 5Cotizaciones recibidas | 6Comparación | 7Decisión del asegurado | 8Propuesta generada | 9Ratificación | 10Póliza emitida | 11Validación espejo | 12Vigente
+
+ | 1 · Tradicionaldesde cero, con carpeta | entra | | | | | | | | | | | 
+
+ | 1 · Renovacióna mercado, todo heredado | omitida | entra | | | | | | | | | | 
+
+ | 2a · Comparadorcotizó en los portales | omitida | omitida | omitida | omitida | entra | | | omitida | omitida | | opcional | 
+
+ | 2b · Pólizaemitió en el portal | omitida | omitida | omitida | omitida | omitida | omitida | omitida | omitida | omitida | entra | omitida | 
+
+ | 3 · Manualdigitada, sin PDF | omitida | omitida | omitida | omitida | omitida | omitida | omitida | omitida | omitida | entra | omitida | 
+
+ entra aquírecorreomitida automáticamente (R6)El color es la vía: Tradicional Digital Manual
+
+ 2a también entra en 7 si el asegurado ya eligió, y omite 8 y 9 porque emite en el portal sin propuesta. En 2a el espejo es opcional: corre solo si el corredor marca Comparar con la cotización elegida al subir la póliza. 2b y Manual lo omiten: no hay contra qué comparar (el PDF posterior de Manual se compara fuera de la máquina, 3.6). El espejo nunca detiene el paso a Vigente (R42).
+
+### Etapa por etapa
+
+ | | Etapa (la guarda el sistema) | Paso (lo ve el corredor) | Qué pasa | Se cierra con | Dónde se ve en el Portafolio
+
+ | 1 · Interés | Antecedentes | Espera antecedentes; si irá a portal, se anotan datos (2c). | Antecedentes recibidos | Cotizaciones · Preparando
+
+ | 2 · Presuscripción | Antecedentes | El corredor sube los antecedentes que tenga; ninguno es obligatorio. | Antecedentes completos | Cotizaciones · Preparando
+
+ | 3 · Bases técnicas | Bases técnicas | El corredor sube su archivo de bases técnicas. | Bases listas | Cotizaciones · Preparando
+
+ | 4 · Envío al mercado | En mercado | Registrar envío, en la pestaña Mercado de la ficha (1.11). | Sola, al subir la primera cotización | Cotizaciones · En mercado
+
+ | 5 · Cotizaciones recibidas | Comparación | Carga de cotizaciones. | Comparar | Cotizaciones · Ofertas recibidas
+
+ | 6 · Comparación | Comparación | RADAL compara y arma el comparativo. | Presentar al asegurado | Cotizaciones · Ofertas recibidas
+
+ | 7 · Decisión del asegurado | Comparación | Espera la elección del asegurado. | Marcar elegida, en la oferta | Cotizaciones · Ofertas presentadas
+
+ | 8 · Propuesta generada | Propuesta | RADAL arma la propuesta con la oferta elegida. | Marcar enviada (opcional, un clic: “¿Lo enviaste hoy?”) | Propuestas · Por enviar
+
+ | 9 · Ratificación | Propuesta | En la compañía, esperando emisión. | Subir póliza (o Compañía rechazó, que vuelve a 7) | Propuestas · Enviadas (si la rechaza: Rechazadas)
+
+ | 10 · Póliza emitida | Emisión | Carga y confirmación de la póliza. | Confirmar póliza | Propuestas · Aceptadas (si hubo propuesta)
+
+ | 11 · Validación espejo | Emisión | RADAL compara y registra diferencias, sin detenerse. | Sola, al terminar la comparación | — (automática)
+
+ | 12 · Vigente | Vigente | Activa cobranza, endosos, siniestros y renovación; la póliza rige desde su inicio. | No se cierra: dura hasta renovarse o perderse | Pólizas · Vigentes
+
+ Agrupación en pasos y subpestañas propuesta por este documento; si dev calcula distinto, Benja avisa (Preguntas, 5).
+
+### Volver atrás
+
+ Como el seguimiento de un courier: nada se borra, cada vuelta queda anotada. Solo en etapas 1 a 9; con póliza, se cambia por endoso o Corregir dato. Al volver a 7 o antes, la oferta deja de estar elegida.
+
+ El asegurado cambia algoClic en un paso anterior de la barra: la colocación vuelve a la primera etapa de ese paso, sin motivo obligatorio (queda en la bitácora). Cotizaciones y envíos previos quedan en la historia; volver a enviar al mercado es una nueva ronda de envíos. Las etapas omitidas no se reabren (R6).
+
+ Compañía rechazóCon motivo. La propuesta queda Rechazada y la colocación vuelve a 7 · Decisión del asegurado; la oferta rechazada queda marcada y no se puede volver a elegir. Si no queda otra: Volver al mercado → 4 · Envío al mercado.
+
+ ReabrirLa colocación cerrada vuelve a la etapa en que se cerró, con motivo.
+
+## Cómo queda cada vía
+
+ | | Vía | origen | Entra en | Etapas omitidas | PDF de la póliza | El espejo compara contra
+
+ | 1 Tradicional | interes | 1 · Interés, una colocación por ramo | Ninguna | Al emitir | La propuesta enviada
+
+ | 2a Digital · comparador | digital_comparador | 5 · Cotizaciones recibidas o 7 · Decisión del asegurado | Previas a la entrada, más 8 y 9 | Al emitir | La cotización elegida, solo si el corredor marca Comparar (opcional)
+
+ | 2b Digital · póliza | digital_poliza | 10 · Póliza emitida → Vigente | 1 a 9 y el espejo | Sí | Nada: omitido
+
+ | 3 Manual | manual | 10 · Póliza emitida → Vigente | 1 a 9 y el espejo | No, hasta subirlo (3.6) | Nada al registrar; el PDF que llegue, con lo digitado (3.6)
+
+ | 2c Digital · preparar (fase posterior) | interes, con via_prevista = digital | 1 · Interés; luego salta a 5 o 10 | Las que salta | Al subirla | Opcional, como en 2a: la cotización elegida; sin cotización, no hay espejo
+
+ | Migración (uso interno) | migracion | Solo se nombra; no se desarrolla en este documento.
+
+## Vía 1 · Tradicional, clic a clic
+
+### El viaje completo, desde el prospecto
+
+ Usa lo existente: Cliente (carpeta) → Vigencia → Colocaciones. Si el cliente pide Property, Vehículos y Transporte, son tres colocaciones en la misma vigencia, cada una con sus RUT asegurados y su viaje. Documentos que arma RADAL (bases técnicas, comparativo, propuesta) y Marcar enviada: ver Pantallas y reglas.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | Antes del RUT · Pipeline
+
+ | 1.0 | + Nuevo → A mano | Registra al asegurado con el formulario único (A1; RUT opcional mientras es prospecto); en su ficha, ramos de interés, prima estimada y Cómo llegó. Lo mueve entre Nuevo y Contactado. | Asegurado en estado Prospecto (R40), no ficha aparte; sin RUT no pasa a Calificado ni abre su primera colocación. Abrir colocación, en su ficha, lleva al 1.4 con asegurado y ramos de interés marcados; al crearse la colocación, sale solo del Pipeline.
+
+ | Registrar a quien se asegura · + Nuevo
+
+ | 1.1 | + Nuevo → A mano | Registra al cliente y su asegurado, o su grupo de asegurados. | Pasos 1.2 y 1.3. Aquí termina + Nuevo: no se pregunta por ramos ni por vía. El asegurado queda en el Pipeline hasta que se le abra la primera colocación.
+
+ | 1.2 | + Nuevo · ¿Para quién? | Escribe el RUT (obligatorio). | A1: si el RUT existe en la corredora, muestra asegurado, cliente y colocaciones; si no, pide razón social, un contacto y ejecutivo.
+
+ | 1.3 | + Nuevo · ¿Para quién? | Solo si el asegurado nuevo es de un grupo, elige o crea el cliente del grupo (A2). | Preselecciona el cliente del asegurado; si es nuevo, por defecto es su propio cliente. Un asegurado, un solo cliente (R11), como ya valida dev.
+
+ | 1.4 | Ficha del cliente → Abrir colocaciónaquí empieza el negocio | Pone fechas de vigencia y marca uno o más ramos; por ramo: subtipo (lista según ramo), vía (Tradicional, Digital o Manual; la propone el subtipo y se cambia con un clic, R37), prima estimada en UF (opcional; copiada del prospecto si viene del Pipeline), RUT asegurados (Todo el grupo o algunos; por defecto, el del 1.2) y contratante (por defecto, el asegurado). | Reusa el formulario Nueva cuenta, con varios ramos y subtipo en cascada. Advierte sin bloquear, siempre con Seguir igual, si hay: colocación de igual ramo y subtipo en la vigencia con alguno de esos RUT (posible duplicado, R39: Ver esa colocación); póliza vigente del ramo para ese RUT (Es una renovación → Renovar de esa póliza); subtipo habitual de portal (R37: vía Digital sugerida).
+
+ | 1.5 | Abrir colocación | Clic en Crear las colocaciones. | Busca o crea una sola vigencia (regla de cálculo 1) y, dentro de ella, una colocación por ramo: EXP-AAAA-NNNN, sus RUT, ejecutivo (el del asegurado, editable), origen = interes y la via_prevista elegida en cada ramo. Todas nacen en 1 · Interés, cualquiera sea su vía: la vía solo decide el botón que ofrece la tarjeta (1.6) y, al usarlo, en qué etapa entra (R6). Abre la ficha del cliente en esa vigencia (o del asegurado, si es el único).
+
+ | 1.6 | Ficha del cliente · Vigencia | Ve una tarjeta por ramo con su vía, su paso y lo que toca ahora; puede subir documentos comunes a varios ramos, como un correo del cliente. Aquí los caminos se separan: las tarjetas Tradicional ofrecen Antecedentes recibidos; las Digital, Subir cotizaciones o Subir póliza; las Manual, Registrar a mano. Cambiar la vía de una tarjeta es un clic, mientras no tenga póliza. | El botón sale de via_prevista y de la etapa (tabla Etapa por etapa). Guarda cada documento una vez, vinculado a las colocaciones elegidas (R15).
+
+ | Cada ramo por separado
+
+ | 1.7 | Colocación · Antecedentes | Al llegar los antecedentes: Antecedentes recibidos (hoy “Avanzar a Antecedentes”). Sube cada uno en su espacio y, al terminar, Antecedentes completos. | Pasa a Presuscripción, con un espacio para subir archivos (acepta Excel sin exigir PDF). Cada uno queda con la etiqueta Antecedente. Nada es obligatorio: el corredor decide cuándo están completos.
+
+ | 1.8 | Ficha de la colocación · Lo que toca ahora | Si el ramo quedó marcado Digital, su botón es Subir póliza (hoy “Registrar póliza”) y sigue desde 2b.2; o Subir cotizaciones, si va a comparar (2a.3). Un ramo marcado Tradicional que al final se emitió por portal se cambia aquí, con un clic. | R34: al subir la póliza salta a Póliza emitida, omite las intermedias y el espejo, y pasa a Vigente.
+
+ | 1.9 | Ficha de la colocación · Lo que toca ahora | Si el ramo no se trabajará: Cerrar (ya existe) con motivo: cliente no envió antecedentes, fuera de apetito, adjudicado a otro corredor, cliente desistió u otro. | Exige motivo (R16); no afecta a otras colocaciones de la vigencia. Se ve con el filtro Cerradas de Cotizaciones; Reabrir, desde la ficha y con motivo, la devuelve a la etapa en que se cerró.
+
+ | 1.10 | Paso Bases técnicas | Sube desde su computador el archivo de bases técnicas que armó (Word, Excel o PDF); luego Bases listas. | Lo guarda con la etiqueta Bases técnicas y lo deja listo para adjuntar al envío (1.11). Se puede reemplazar por otra versión; queda la última, y las anteriores en Documentos. RADAL no arma ni edita el contenido: en una fase posterior lo precargará la plantilla del subtipo.
+
+ | 1.11 | Paso En mercado · pestaña Mercado | Descarga o copia las bases técnicas y las envía desde su correo; “¿Lo enviaste hoy?” abre en un clic Registrar envío con la fecha: compañías, plazo de respuesta y, opcional, el correo o PDF enviado. | No envía correos, solo registra (R44). Un envío por compañía en Enviada; pasa solo a Cotizó al subir su cotización; si la compañía declina, el ejecutivo marca Declinó con motivo. Plazo vencido sin respuesta: notificación con Marcar sin respuesta · Extender plazo. Sin envío registrado no corren plazos ni notificaciones.
+
+ | 1.12 | Paso Comparación | Sube cada cotización en la pestaña Mercado y Comparar; revisa y descarga el comparativo; luego, Presentar al asegurado. Cuando este decide, Marcar elegida en su oferta. | Compara las ofertas entre sí (RADAL no lee las bases, que son un archivo del corredor) y arma el comparativo. Presentar la deja en Decisión del asegurado; la oferta marcada queda elegida y la colocación, en Propuesta.
+
+ | 1.13 | Paso Propuesta | Generar propuesta; la descarga o copia y la envía desde su correo; “¿Lo enviaste hoy?” la marca enviada en un clic (o Marcar enviada después). Según la respuesta: Compañía pidió cambios (se registra como gestión en la colocación, sin cambio de estado) o Compañía rechazó (con motivo). | Solo arma el documento: nace Por enviar. Marcada, pasa a Enviada y la colocación a Ratificación; desde esa fecha corren los días en la compañía y la notificación Propuesta sin emitir (sin marca, no corren). Con la póliza subida: Aceptada. Compañía rechazó: Rechazada, y la colocación vuelve a 7 (Volver atrás).
+
+ | 1.14 | Paso Emisión | Subir póliza; si son varias (flota, capas o tramos), Subir otra póliza, una por una. | Lectura y confirmación como en 2b.4 a 2b.7; espejo contra la propuesta enviada. La colocación pasa a Vigente aunque haya diferencias y la póliza rige como la emitió la compañía: cada diferencia queda registrada (póliza Con diferencias, notificación al ejecutivo) y se resuelve aceptándola con motivo o pidiendo endoso (R42).
+
+ | 1.15 | Plan de pago · pantalla final de toda vía | Ve el plan precargado desde la póliza (cuotas leídas; si no trae, n° de cuotas, fecha de la primera y monto desde la prima bruta, editables cuota a cuota) y Guardar plan de pago, un clic. O Después. | Verifica que las cuotas sumen la prima bruta; crea plan y cuotas, que entran a Cobranza. Con Después, la póliza queda vigente pero fuera de la lista de cuotas, en el bloque Pólizas sin plan de pago de Cobranza, con notificación (R38).
+
+## Vía 2 · Digital, clic a clic
+
+### Dos puntos de partida: comparar antes de emitir (2a) o subir la póliza ya emitida (2b)
+
+ Comparar (2a) supone una colocación ya abierta: se entra por su tarjeta. Subir la póliza (2b) no supone nada: entra por + Nuevo, por la ficha del cliente o por la tarjeta del ramo. Por + Nuevo no se pregunta para quién — el RUT lo trae el lector y, si ese RUT ya está en la cartera, RADAL avisa y lo asocia al asegurado existente en vez de crear otro (2b.5). Y si ese asegurado no tenía colocación de ese ramo, el PDF la crea y la cierra (2b.6): es el caso del cliente antiguo que aparece con una póliza de un ramo que nunca le trabajamos.
+
+ 2a: compara cotizaciones de los portales antes de emitir; la póliza llega luego por 2b, a la misma colocación. 2b: póliza ya emitida en el portal; meta: menos de 60 segundos por póliza, un PDF a la vez.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | 2a · Empezar por el comparador: el de la Tradicional, sin bases técnicas; compara cotizaciones entre sí.
+
+ | 2a.1 | Tarjeta del ramo, o la ficha del cliente | Subir cotizaciones, en la tarjeta de un ramo Digital (1.6). | El asegurado y el ramo ya están: va directo a 2a.3. Comparar siempre supone una colocación abierta; si no hay, se abre antes con Abrir colocación (1.4). + Nuevo no entra aquí.
+
+ | 2a.2 | Tarjeta del ramo → Subir cotizaciones | Confirma ramo, subtipo e inicio de vigencia —vienen de la colocación— y elige el punto de partida: Tengo cotizaciones para comparar o El asegurado ya eligió. | Vigencia por regla de cálculo 1.
+
+ | 2a.3 | Panel de carga de cotizaciones | Sube un PDF de cotización por compañía (si ya eligió, basta la elegida) y Subir cotizaciones. | Lleva la colocación ya abierta a 5 · Cotizaciones recibidas o a 7 · Decisión del asegurado (lo previo, omitido: R6), con origen = digital_comparador.
+
+ | 2a.4 | Paso Comparación Solo si el asegurado no ha elegido | Revisa y descarga el comparativo para el cliente y marca la elegida. | Solo corre si entró en 5 · Cotizaciones recibidas. Con El asegurado ya eligió (entra en 7), este paso no aparece y sigue en 2a.5. La cotización elegida queda como referencia por si el corredor quiere comparar al subir la póliza.
+
+ | 2a.5 | Paso Emisión | Emite en el portal y hace Subir póliza aquí (2b.2 a 2b.8). | R34: omite Propuesta y Ratificación. Al subir la póliza, la casilla Comparar con la cotización elegida (desmarcada) decide si corre el espejo: si corre, avisa solo diferencias de fondo (prima, suma asegurada, deducible, cobertura que falta o sobra), con tolerancia nula en la prima y sin bloquear (R42). El cambio de moneda se avisa siempre, marcado como grave, aunque la casilla esté desmarcada; sin marcar, el espejo queda omitido.
+
+ | 2b · Subir la póliza
+
+ | 2b.1 | + Nuevo · Con la póliza · o la ficha · o la tarjeta del ramo | Tres puertas, el mismo panel: + Nuevo → Con la póliza (no pregunta para quién), Subir póliza en la ficha del cliente, o Subir póliza en la tarjeta de un ramo que ya existe (1.6, 1.8). | Abre el panel Subir póliza (hoy “Registrar póliza” de la colocación). Es el camino con menos tecleo: asegurado, ramo y póliza salen del PDF. Lo que ya se sabe por el lugar de entrada no se vuelve a preguntar.
+
+ | 2b.2 | Panel de carga | Arrastra o elige el PDF. | Lo guarda en Documentos (etiqueta Póliza) y lo manda al lector.
+
+ | 2b.3 | Leyendo… | Ve la barra de avance “Leyendo la póliza…”. | Extrae campos con nivel de confianza a una Extracción que aún no toca la póliza (R2). Si no la lee o no es póliza: “No pudimos leer este PDF” → Reintentar · Registrar a mano: sigue como Manual (3.2 a 3.4) con el PDF adjunto; exige n° de póliza y queda con respaldo = sí, sin marca.
+
+ | 2b.4 | Confirmar datos | Revisa el formulario prellenado junto al PDF y corrige solo lo marcado. Si es un certificado de cobertura, marca Es un certificado de cobertura provisorio (el lector puede proponerlo). | En rojo, lo faltante o de baja confianza. Confirmar se habilita con los cinco datos para guardar y el n° de póliza (R38). Compañía fuera del catálogo: se escribe con RUT y queda por validar (R4). Certificado: la póliza queda Condicionada con el n° del certificado; Subir póliza de la definitiva reemplaza el n°, corre el espejo y quita la marca. Si cierra sin confirmar, la lectura queda en Pólizas, tarjeta Por confirmar (n), con Seguir · Descartar.
+
+ | 2b.5 | Confirmar datos · Partes | Revisa las partes leídas: asegurado (uno o más), contratante y, si hay, beneficiario (con su tipo), asegurado adicional y pagador. La sexta parte, el asegurador, se resuelve abajo en Aseguradores (R14). Asegurado nuevo: Crear ahí mismo, prellenado (A1). Asegurado que ya está en la cartera: Asociar a este asegurado, en un clic. Contratante distinto del asegurado: se registra como parte, con nombre, RUT y contacto para la cobranza; no crea asegurado (R14). En Aseguradores indica si hay coaseguro; si hay, revisa el % de cada compañía y marca la líder. | Busca cada RUT con A1. Si el RUT leído ya está en la cartera, lo avisa en el formulario —“Este RUT ya está en tu cartera: y1 S.A., cliente Grupo W”— y la única acción es Asociar a este asegurado: nunca crea un segundo (R11). Si no está, ofrece crearlo con lo que leyó. Sugiere el cliente del asegurado. Contratante distinto, beneficiario, asegurado adicional y pagador quedan solo en la póliza: no crean asegurado ni aparecen en Clientes (R40). Bloquea sin asegurado o contratante (R14), o con coaseguro que no sume 100% o sin una única líder.
+
+ | 2b.6 | Confirmar datos · Ramo y subtipo | Acepta o cambia ramo y subtipo sugeridos (subtipos según ramo). | Los asocia al catálogo. La modalidad (Nominada o Todo Riesgo) sale del subtipo; el lector la confirma en el PDF (R36). Si ya existe igual número y compañía, bloquea por duplicada (R5). Aquí, y solo aquí, se resuelve de qué colocación cuelga la póliza (R1, regla de cálculo 2): con asegurado, ramo y vigencia ya definidos, busca una colocación de ese ramo en esa vigencia. Si existe, cuelga de ella. Si no —aunque el asegurado lleve años en la cartera— la crea en ese momento, con origen = digital_poliza y via_prevista = digital, y la cierra con esta póliza (R6, R34); la vigencia también se crea solo si falta (regla de cálculo 1). Si la única colocación que calza cubre más RUT, pregunta: “¿Es parte de la colocación del grupo o una póliza propia de y1?” (por defecto, propia).
+
+ | 2b.7 | Confirmar datos | Clic en Confirmar póliza. | Guarda la póliza en la colocación que resolvió 2b.6 y la deja en Vigente con respaldo = sí (R34). Muestra dónde quedó: “Se agregó a VIÑAS DEMO · 2026-2027 · Property · Todo Riesgo (y1)”.
+
+ | 2b.8 | Plan de pago | Igual que 1.15. | Igual que 1.15.
+
+ | 2b.9 | Ficha de la póliza | Queda en la ficha, que ofrece Subir otra póliza. | Aparece en Pólizas y sus cuotas en Cobranza; luego entra sola a Renovaciones.
+
+ | 2c · Preparar en RADAL, cotizar después en el portal Fase posterior · la estructura va en P0. Seguro de portal pedido (un auto, su casa) y aún sin cotizar: el corredor anota lo que sabe y formaliza después.
+
+ | 2c.1 | Abrir colocación | Ya no es una opción aparte: es un ramo marcado Digital en 1.4 cuando todavía no hay nada que subir. | La colocación nace en 1 · Interés con via_prevista = digital, y su tarjeta ofrece Subir cotizaciones o Subir póliza (1.6).
+
+ | 2c.2 | Colocación · Interés | Anota lo que cuenta el cliente y los datos de cotización del subtipo (Vehículos: patente, marca, modelo, año, uso; Hogar: dirección, m², materialidad); puede subir documentos (cotización anterior, fotos). | Guarda cada anotación como Gestión (fecha y autor) y los datos en datos_riesgo. Aparece en Cotizaciones · Preparando con marca Portal, datos listos para copiar al portal.
+
+ | 2c.3 | Colocación · Interés | Tras cotizar en portales: Subir cotizaciones. | Salta a 5 · Cotizaciones recibidas, con 2 a 4 omitidas (R34), y sigue como en 2a.4.
+
+ | 2c.4 | Colocación · Interés | O, si ya emitió: Subir póliza. | Salta a 10 · Póliza emitida y sigue como en 2b.2 a 2b.8; gestiones y datos quedan en la historia.
+
+ Carga en lote (fase posterior). Mismo flujo, con bandeja en 2b.4: una fila por PDF y semáforo lista, revisar o error. Las lista se confirman juntas con un clic de un usuario identificado; las demás, una a una. Asegurados cruzados por RUT, sin duplicar.
+
+## Vía 3 · Manual, clic a clic
+
+### Para la póliza sin PDF
+
+ El ramo se marca Manual al abrir la colocación (1.4), o se cambia su tarjeta a Manual (1.6); su botón es Registrar a mano. RADAL solo sabe lo que se digita: sin cuotas, la póliza no aparece en Cobranza ni genera notificaciones; sin n° de póliza, no se puede endosar.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | 3.1 | Abrir colocación, o la tarjeta del ramo | Marca el ramo como Manual en 1.4; su tarjeta ofrece Registrar a mano. También se cambia a Manual una tarjeta que ya existe (1.6). | El asegurado ya está (A1, paso 1.2): aquí solo falta la póliza.
+
+ | 3.2 | Registrar a mano · Datos | Completa lo que tenga en el formulario de Confirmar datos, vacío. Solo cinco obligatorios: RUT asegurado, contratante (por defecto, el mismo), compañía, ramo·subtipo y vigencia. | Junto a cada campo, para qué sirve: n° de póliza → Endosos; prima bruta → plan de pago.
+
+ | 3.3 | Registrar a mano | Guardar póliza. | Guarda con los cinco datos; lo que falta queda en la ficha como “Falta: X”, sin ventanas. Duplicados (R5): con n°, bloquea si existe en esa compañía; sin n°, advierte si hay otra de igual RUT, compañía, subtipo y vigencia. Ubica o crea la colocación como en 2b.6, con origen = manual; póliza con respaldo = no (sí, si viene de 2b.3 con el PDF).
+
+ | 3.4 | Plan de pago | Igual que 1.15, precargado con la prima bruta y la vigencia digitadas. | Igual que 1.15; plan con origen = póliza y fuente = manual.
+
+ | 3.5 | Ficha de la póliza | Ve la marca Sin respaldo, el botón Subir póliza y la línea Falta: X. | Muestra qué no funciona por falta de un dato (por ejemplo, “Falta plan de pago: sin Cobranza”), con Completar para ir al campo. Al endosar o renovar advierte: “Esta póliza no tiene el documento emitido; los datos de referencia son los digitados”.
+
+ | 3.6 | Subir póliza (en cualquier momento) | Sube el PDF y revisa las diferencias. | El lector compara con lo digitado y manda el PDF: por defecto propone corregir cada dato según el documento; el usuario confirma (Corregir dato, R19). Confirmado: respaldo = sí y se va la marca.
+
+## Renovación
+
+ Abre cualquiera de las tres vías. Se gatilla sola: a los 90 días del vencimiento la colocación entra a Renovaciones y pasa por los tramos 90 (61 a 90 días) · 60 (31 a 60) · 30 (0 a 30), con notificación (Pantallas y reglas). En Renovar el corredor elige la vía por la presuscripción que exige el riesgo ese año, no por la de la póliza anterior; viene marcada la sugerida por el subtipo. Salvo en el portal, RADAL crea en ese momento la colocación de la vigencia siguiente con todo heredado (regla de cálculo 5).
+
+ Estado de renovación: Por renovar → En renovación (con la vía elegida) → Renovada (la nueva llega a Vigente) o Perdida. Nunca pasa sola a Perdida: si vence sin gestión, sigue en la lista con notificación Por hacer.
+
+ | | Renovar → elige | Vía | Entra en
+
+ | Cotizar en el mercado | Tradicional | 2 · Presuscripción (paso Antecedentes), heredando antecedentes, bases técnicas, materia asegurada, sumas e historial de siniestros; la compañía vigente viene marcada en Registrar envío. Advertencia: “Heredado de 2026-2027: revisa qué cambió”. Usa el “Iniciar renovación” existente.
+
+ | Cotizar en portales y comparar | Digital 2a | 5 · Cotizaciones recibidas.
+
+ | En el portal de la compañía | Digital 2b | No crea colocación: la fila queda En renovación · Portal mientras el corredor renueva en el portal. En la misma fila, Subir póliza renovada sigue la vía 2b (entra en 10 · Póliza emitida) y crea la colocación de la vigencia siguiente con todo heredado y renueva_a. Si vence sin subirla, sigue la notificación Por hacer de renovación.
+
+ | Registrar a mano | Manual | Paso 3.2 con los datos anteriores cargados; el corredor ajusta lo que cambió y la nueva nace Sin respaldo (10 · Póliza emitida).
+
+ | Marcar perdida | — | Exige motivo (asegurado no renueva, renovó con otro corredor, compañía no renueva, otro); la fila pasa a Perdidas y la colocación, a resultado = perdida.
+
+ Las listas de trabajo del ejecutivo
+
+## Portafolio, pestaña por pestaña
+
+ Aquí vive el ejecutivo: todo lo que recorrieron las vías termina en una de estas listas. Nueve pestañas, del roadmap del 22-09. A la izquierda: Clientes · Cotizaciones · Propuestas · Pólizas · Cobranza · Endosos · Siniestros · Renovaciones; aparte, a la derecha: Pipeline. Cobranza es la misma pantalla y la misma URL que el ítem del menú: al abrirla, el menú marca Cobranza, y el contador se ve en ambos. Ninguna es nueva: las vías y las etapas caen en lo que ya existe.
+
+### Las nueve listas de un vistazo
+
+ Cada lista se parte en subpestañas por el estado de lo que lista, y las subpestañas no se superponen: una fila está en una sola. Las cuatro últimas se detallan en su propia pestaña de este documento.
+
+ | | Lista | Qué lista | Subpestañas
+
+ | Clientes | Clientes y sus asegurados | Ninguna: una sola tabla con buscador. No hay estados que separar.
+
+ | Cotizaciones | Colocaciones en curso, etapas 1 a 7 | Preparando (1 a 3) · En mercado (4) · Ofertas recibidas (5 y 6) · Ofertas presentadas (7). Filtro aparte: Cerradas.
+
+ | Propuestas | Colocaciones en etapas 8 y 9 | Por enviar (8) · Enviadas (9) · Aceptadas · Rechazadas.
+
+ | Renovaciones | Colocaciones que vencen | Vencen en 90 (61–90 días) · Vencen en 60 (31–60) · Vencen en 30 (0–30 y vencidas sin renovar) · En renovación · Renovadas · Perdidas.
+
+ | Pipeline aparte, a la derecha | Prospectos sin colocación (R40) | Ninguna: es un tablero por etapa —Nuevo · Contactado · Calificado · Perdido— con botón Tabla / Tablero. Las etapas son columnas, para mover la tarjeta de una a otra.
+
+ | Estas cuatro tienen pestaña propia en este documento
+
+ | Pólizas | Pólizas de la cartera | Vigentes (incluye las Por iniciar) · Vencidas · Canceladas. Tarjeta aparte: Por confirmar.
+
+ | Cobranza | Cuotas y planes de pago | Próximas (30 d) · Vencidas · Al día · Saldadas. Las dos primeras listan cuotas; las dos últimas, planes.
+
+ | Endosos | Cambios a la póliza | Solicitados · Propuesta enviada · Emitidos · Rechazados.
+
+ | Siniestros | Denuncias y su seguimiento | Abiertos · Cerrados.
+
+ Dos listas no llevan subpestañas y es a propósito: Clientes es un directorio, no una cola de trabajo, y el Pipeline ya separa por etapa en columnas, que sirve mejor para arrastrar una tarjeta. Todo lo demás es una cola, y la cola se ordena por estado.
+
+ ColumnasEn las pantallas con pólizas (Pólizas, Cobranza, Endosos, Siniestros y Renovaciones), las cinco primeras son Asegurado · Ramo · Vigencia · Compañía · N° póliza. Con varios asegurados, el primero y cuántos más (“+3”); al pasar el mouse, la lista. En todas, el Estado va al final y los montos en UF (prima: ver El modelo y el idioma).
+
+ TarjetasContadores de arriba: al clicar, filtran la tabla.
+
+ FiltrosEn todas: buscar por RUT o nombre, ejecutivo, ramo y, donde hay compañía, compañía. Los propios de cada pestaña van en su tabla.
+
+ FilasCada fila abre la ficha de lo que lista (Pantallas y reglas). Mías = el ejecutivo de la colocación; en Clientes y Pipeline, el del asegurado. Para el ejecutivo, las listas abren en Mías, con selector Mías / Todas.
+
+ VacíaCada tabla vacía dice qué hacer y trae el botón para hacerlo.
+
+ | | Pestaña | Qué contiene | Flujos en
+
+ | Clientes (issue 6; hoy “Asegurados”) | Clientes y sus asegurados | Clientes y asegurados (A1 a A3)
+
+ | Cotizaciones (issue 8) | Colocaciones en etapas 1 a 7 y, con filtro, las cerradas sin emitir | Las tres vías: 1.5 a 1.12, 2a y 2c
+
+ | Propuestas (issue 9) | Propuestas de las etapas 8 y 9, y su historia | Las tres vías: 1.13 y 1.14
+
+ | Pólizas (issue 10) | La cartera emitida | Pestaña Pólizas
+
+ | Cobranza (issue 12) | Cuotas y planes de pago: la misma pantalla del menú | Pestaña Cobranza
+
+ | Endosos (issue 11) | Endosos en trámite, emitidos y rechazados | Pestaña Endosos
+
+ | Siniestros (issue 13) | Siniestros abiertos y cerrados | Pestaña Siniestros
+
+ | Renovaciones (issue 15) | Colocaciones que vencen en 90 días o menos, y su renovación | Las tres vías: Renovación
+
+ | Aparte, a la derecha
+
+ | Pipeline (issue 7) | Prospectos | Paso 1.0 y A1
+
+### Clientes hoy “Asegurados”
+
+ | | Zona | Qué muestra
+
+ | Subpestañas | Ninguna: una sola tabla.
+
+ | Tarjetas | Clientes vigentes · Colocaciones vigentes · En pipeline · Cotizando · Vencen en 60 días · Prima vigente (UF).
+
+ | Columnas del cliente | Cliente / Asegurados (cantidad) / Ejecutivo / Ramos vigentes / Próximo vencimiento / Prima total (UF) / Estado.
+
+ | Al desplegar un grupo | Una fila por asegurado: Asegurado / RUT / Actividad / Ramos vigentes / Próximo vencimiento / Prima (UF) / Estado. Un cliente de un solo asegurado no se despliega: la fila es ese asegurado.
+
+ | Clic | En un grupo, la ficha del cliente; en un asegurado, su ficha.
+
+ | Reglas | Estado calculado: el del cliente es el mejor de sus asegurados (regla de cálculo 3). Ejecutivo: el de sus asegurados, o “Varios”. Buscar por RUT o razón social abre la fila del cliente. Posibles duplicados (n) y Fusionar (A3, lanzamiento): el administrador, entre todos; el ejecutivo, solo entre clientes suyos, con notificación al administrador.
+
+ | Vacía | “Todavía no hay clientes. Créalo con + Nuevo.”
+
+### Cotizaciones
+
+ | | Zona | Qué muestra
+
+ | Subpestañas | Preparando (etapas 1 a 3) · En mercado (4) · Ofertas recibidas (5 y 6) · Ofertas presentadas (7). Las dos últimas ya existen en dev.
+
+ | Tarjetas | En preparación · En mercado · Con ofertas · Presentadas al asegurado · Prima estimada en curso (UF) · Detenidas más de 15 días (en la etapa actual).
+
+ | Columnas | Asegurado / Ramo / Vigencia / Compañías (enviadas → cotizaron, por ejemplo “3 → 2”) / Prima estimada (UF) / Ejecutivo / Días en etapa / Última actualización / Etapa. Iguales en las cuatro subpestañas.
+
+ | Filtros | Cerradas: colocaciones cerradas sin emitir, con su motivo; se reabren desde su ficha.
+
+ | Clic | La ficha de la colocación, con el botón que cierra su paso actual.
+
+ | Reglas | Aquí la colocación todavía no tiene compañía: la columna Compañías muestra las candidatas y sale del registro del envío (1.11). Prima estimada: campo opcional de la colocación (paso 1.4; copiado del prospecto si viene del Pipeline); con oferta elegida, la prima de esa oferta; sin dato, “—”. Las de la vía 2c llevan la marca Portal. Al marcar la oferta elegida, pasa a Propuestas con esa compañía.
+
+ | Vacía | “Todavía no hay colocaciones en curso. Ábrela desde la ficha del cliente, con Abrir colocación.”
+
+### Propuestas
+
+ | | Zona | Qué muestra
+
+ | Subpestañas | Por enviar (etapa 8) · Enviadas (9) · Aceptadas (la compañía emitió la póliza) · Rechazadas.
+
+ | Tarjetas | Por enviar · En la compañía · Prima en emisión (UF) · Más de 5 días sin emitir (desde Marcar enviada).
+
+ | Columnas | Asegurado / Ramo / Vigencia / Compañía / Prima (UF) / Comisión estimada (UF) / Fecha de envío a la compañía / Días en la compañía / Estado.
+
+ | Clic | La ficha de la colocación en el paso Propuesta (documento y cotización elegida), con Marcar enviada · Compañía pidió cambios · Compañía rechazó · Subir póliza.
+
+ | Reglas | RADAL arma el documento y no lo envía. Marcar enviada es opcional y a un clic: al Descargar o Copiar pregunta “¿Lo enviaste hoy?”; sin marca, sigue en Por enviar y no corren días ni notificación. Subir póliza la pasa a Aceptada y corre el espejo, que marca diferencias sin bloquear (R42). Compañía rechazó (con motivo) la pasa a Rechazada y devuelve la colocación a Cotizaciones · Ofertas presentadas, para elegir otra oferta. La propuesta no la aprueba el asegurado: ya eligió la oferta.
+
+ | Vacía | “Todavía no hay propuestas. Se generan en el paso Propuesta de cada colocación.”
+
+### Renovaciones
+
+ | | Zona | Qué muestra
+
+ | Subpestañas | Vencen en 90 (61–90 días) · Vencen en 60 (31–60) · Vencen en 30 (0–30 y las ya vencidas sin renovar) · En renovación · Renovadas · Perdidas. Los tramos no se superponen.
+
+ | Tarjetas | Vencen en 30 · Vencen en 60 · Vencen en 90 · Prima por renovar (UF) · En renovación · Perdidas este año (UF).
+
+ | Columnas | Asegurado / Ramo / Vigencia / Compañía / N° póliza / Prima vigente (UF) / Vence en (días) / Ejecutivo / Última gestión (fecha y “¿Qué pasó?”) / Estado de renovación: Por renovar · En renovación (con la vía: Tradicional, Digital, Manual o Portal) · Renovada · Perdida.
+
+ | Acciones por fila | Renovar (elige la vía) · Registrar gestión · Marcar perdida (con motivo) · Subir póliza renovada (en En renovación · Portal) · Reabrir (en Perdidas).
+
+ | Clic | La ficha de la colocación que vence.
+
+ | Reglas | Las colocaciones entran solas a los 90 días del vencimiento, en Por renovar (regla de cálculo 5). Renovar pasa la fila a En renovación con la vía elegida y, cuando la nueva llega a Vigente, a Renovada. Por portal (“En el portal de la compañía”) no se crea colocación: la fila queda En renovación · Portal hasta Subir póliza renovada, que sigue la vía Digital 2b y crea la colocación de la vigencia siguiente con todo heredado. Nunca pasa sola a Perdida: si vence sin renovar, sigue en la lista con días negativos y notificación Por hacer (Pantallas y reglas).
+
+ | Vacía | “No hay renovaciones en los próximos 90 días.”
+
+### Pipeline
+
+ | | Zona | Qué muestra
+
+ | Vistas | Tablero por etapa (Nuevo · Contactado · Calificado · Perdido) y tabla, con el botón Tabla / Tablero. Sin columna Convertido.
+
+ | Tarjetas | Prospectos activos · Seguimiento hoy · Seguimiento vencido · Prima estimada en pipeline (UF).
+
+ | Columnas | Prospecto / RUT (si hay) / Actividad / Ramos de interés / Prima estimada (UF) / Cómo llegó / Ejecutivo / Próximo seguimiento / Días sin contacto / Etapa. Ordenada por días sin contacto, de mayor a menor.
+
+ | Acciones por fila | Registrar gestión.
+
+ | Clic | La ficha del asegurado en estado Prospecto, con Abrir colocación.
+
+ | Reglas | Solo prospectos cuyo cliente no tiene colocaciones (R40). Días sin contacto: desde la última gestión del asegurado. Próximo seguimiento: el “Volver a contactar el” de su última gestión. Cómo llegó (opcional): Referido · Cartera propia · Prospección · Web o redes · Otro. Pasar a Calificado exige el RUT. Perdido exige motivo, sigue visible en su columna y se puede Reactivar. Sale solo del Pipeline al abrir su primera colocación.
+
+ | Vacía | “Todavía no hay prospectos. Créalo con + Nuevo → A mano.”
+
+ Pólizas, Cobranza, Endosos y Siniestros tienen su pantalla descrita en su propia pestaña, junto con sus flujos.
+
+ El centro de la cartera
+
+## Pólizas
+
+ La póliza es donde terminan las tres vías y de donde cuelgan la cobranza, los endosos, los siniestros y la renovación. Cómo entra está en Las tres vías; qué hace cada módulo, en su pestaña. Aquí va lo que es propio de la póliza: sus estados, su ficha y cómo se cambia.
+
+### Estados y marcas
+
+ | | En pantalla | Cuándo | Qué hace el usuario
+
+ | Estado: se calcula, nunca se elige (regla de cálculo 3)
+
+ | Por iniciar | Todavía no llega su fecha de inicio (por ejemplo, una renovación emitida antes). | Nada: pasa sola a Vigente.
+
+ | Vigente | Entre su inicio y su término. | Trabajarla: cobrar, endosar, registrar siniestros.
+
+ | Vencida | Pasó su fecha de término. | Renovarla o dejarla vencer (Renovaciones).
+
+ | Cancelada | Se registró su término anticipado (endoso tipo 7). | Se puede rehabilitar con otro endoso tipo 7.
+
+ | Marcas: señalan, no cambian el estado. Parcial y Rechazada (PAC) son de la cuota, no de la póliza (Cobranza).
+
+ | Sin respaldo | Se registró a mano, sin PDF. | Subir póliza: se compara con lo digitado y la marca se va (3.6).
+
+ | Condicionada | Emitida con certificado de cobertura provisorio. La pone el corredor al confirmar (“Es un certificado de cobertura provisorio”) o la propone el lector; se guarda con el n° del certificado. | Subir póliza, en su ficha, con la definitiva: reemplaza el n°, corre el espejo y la marca se va.
+
+ | Con diferencias | El espejo encontró diferencias pendientes (R42). | Aceptar cada una con motivo o pedir un endoso.
+
+ | Riesgo de término | Una cuota sigue impaga después del último día de la cadencia (C4). | Registrar el pago, un compromiso o la cancelación.
+
+ | Coaseguro | Más de una compañía; se muestra la líder. | Nada: la líder emite y cobra (R18).
+
+## La ficha de la póliza
+
+ Se abre con un clic desde Pólizas, Cobranza (en el bloque Plan de pago) o la ficha de la colocación. Mismo orden que toda ficha: cabecera → “Falta: X” → bloques → bitácora.
+
+ | | Bloque | Qué muestra | Acciones
+
+ | Cabecera | N° de póliza, compañía (con el distintivo Coaseguro si corresponde), ramo·subtipo y modalidad, vigencia, estado y marcas, asegurado, contratante, ejecutivo y vía (Tradicional, Digital o Manual). | Endosar · Registrar siniestro · Registrar gestión · Renovar (si está en tramo) · Subir póliza (si está Sin respaldo o Condicionada).
+
+ | Falta: X | Solo si falta algo: cada dato y la función que apaga (tabla de operatividad, abajo), p. ej. “Falta: plan de pago → sin Cobranza ni notificaciones”. Sin pop-ups. | Completar, que lleva al campo.
+
+ | Diferencias | Solo si hay: campo, lo esperado y lo que dice la póliza. | Aceptar (con motivo) · Pedir endoso.
+
+ | Partes | Las seis partes con su rol (tabla de abajo). | Completar · Corregir dato.
+
+ | Datos técnicos | Ítems (materia asegurada), coberturas con código POL o CAD, límites y deducibles, y primas afecta, exenta, neta, IVA y bruta con el % de comisión y la comisión estimada. | Completar · Corregir dato.
+
+ | Plan de pago | Método de pago y cuotas agrupadas por origen (póliza, endoso, prórroga), con estado, marcas (Parcial: “Pagado UF 10 de 25”) y última gestión; devoluciones de prima, si hay. | Registrar pago · Confirmar pago · Revertir pago · Registrar gestión · PAC rechazado · Cargar plan de pago (si no tiene) · Marcar devuelta (devolución directa, E2.6).
+
+ | Endosos | La historia con el antes y el después de cada uno, y “1 endoso en trámite” si hay alguno sin emitir. | Abrir cada endoso.
+
+ | Siniestros | Los siniestros de la póliza, abiertos y cerrados. | Abrir cada siniestro.
+
+ | Documentos | El PDF de la póliza y todo lo vinculado a ella (R15). | Subir o descargar.
+
+ | Bitácora | Cada cambio, con quién, cuándo y el antes y el después (R7), en español (R35). | Solo lectura.
+
+### Partes de la póliza
+
+ | | Parte | Quién es | Obligatoria
+
+ | Asegurador | La compañía; en coaseguro, cada una con su % y la líder. | Sí
+
+ | Asegurado | Uno o más asegurados de la cartera (en el Property de Grupo W, los cuatro RUT). Son los “RUT de la póliza” (regla de cálculo 2). | Sí
+
+ | Contratante | Por defecto, el asegurado. A él va la cobranza (R17). Si es distinto, se registra aquí con nombre, RUT y contacto: no entra al registro de asegurados ni aparece en Clientes (R14). | Sí
+
+ | Beneficiario | Con tipo: hipotecario, prendario, leasing, endosatario u otro (Vida, con %). El acreedor es un tipo de beneficiario. | No
+
+ | Asegurado adicional | Tercero cubierto, como el mandante o el arrendador. | No
+
+ | Pagador | Por defecto, el contratante. En el lanzamiento recibe los avisos, con copia al contratante (C5). | No
+
+ Beneficiario, asegurado adicional y pagador son terceros: solo nombre y RUT en la póliza; no crean asegurado ni aparecen en Clientes. El pagador se vincula si su RUT ya existe en la corredora. No son partes el corredor, el liquidador ni el ejecutivo; en colectivos, las personas van en la nómina (ítems).
+
+## Cómo se cambia una póliza
+
+ La póliza no se edita libremente (R19). Hay cinco formas de cambiarla y cada una tiene su botón.
+
+ | | Situación | Botón | Qué pasa
+
+ | Falta un dato | Completar | Se llena el campo vacío, sin motivo.
+
+ | Un dato confirmado está mal leído o mal digitado, incluido el RUT | Corregir dato | Pide motivo y guarda el antes y el después en la bitácora.
+
+ | La compañía cambia el contrato | Endosar | Endoso con sus movimientos; la póliza cambia recién cuando se emite (E1, E2).
+
+ | Llega el PDF de una póliza digitada, o la definitiva de una Condicionada | Subir póliza | Se compara con lo registrado, se corrige lo que difiere y se va la marca Sin respaldo o Condicionada (3.6). Es el único nombre para cargar una póliza: crea si no existe y completa si ya está.
+
+ | La póliza emitida no calza con lo propuesto | Aceptar o Pedir endoso | Cada diferencia se cierra con motivo o con un endoso; la póliza rige igual (R42).
+
+ Dirección y razón social son del asegurado: se cambian en su ficha y rigen para todas sus pólizas; son endoso solo si la compañía lo emite (Endosos, tipo 9).
+
+## Qué funciona según los datos cargados
+
+ Guardar una póliza exige cinco datos; el resto lo decide el corredor. Cada función se activa al tener los suyos, en las tres vías (R38). En la ficha, lo que falta se ve como “Falta: X”, con Completar.
+
+ | | Función | Necesita | Si falta
+
+ | Guardar (cartera y renovación) | RUT asegurado · contratante (por defecto, el mismo asegurado) · compañía · ramo·subtipo · vigencia desde / hasta | No se guarda.
+
+ | Cobranza y notificaciones | Plan de pago (cuotas con vencimiento, monto y moneda) · prima bruta | Queda fuera de la lista de Cobranza y sus totales, en su bloque Pólizas sin plan de pago, con la notificación Póliza sin plan.
+
+ | Avisos al contratante (lanzamiento) | Lo de Cobranza · correo o WhatsApp del contratante (o del pagador, si hay) | La cuota muestra Sin canal; no sale aviso.
+
+ | Endosos | N° de póliza | Endosar pide el n° antes de seguir. Sin datos técnicos, el “antes” queda vacío en esos campos.
+
+ | Siniestros | — | Se registra siempre (R29): sin n° de póliza, con la marca Sin n° de póliza; sin coberturas ni deducibles cargados, sin esa referencia.
+
+ | Prima intermediada (reportes y volumen del hub) | Prima afecta, exenta y neta · moneda | No suma a reportes de prima ni al volumen del hub.
+
+ | Comisión estimada (Pólizas y Dashboard) | Prima neta · % de comisión | No suma; cuenta en “Faltan datos en N pólizas” del Dashboard, que abre Pólizas con el filtro Sin % de comisión.
+
+ | Respaldo documental | PDF de la póliza | Marca Sin respaldo; se va con Subir póliza (3.6).
+
+ El resto —coaseguro y participaciones, beneficiarios, asegurados adicionales y pagador, modalidad y POL base, materia asegurada, coberturas y deducibles— es opcional en las vías Digital y Manual y alimenta ficha técnica, endosos y siniestros.
+
+## Pestaña Pólizas del Portafolio
+
+ | | Zona | Qué muestra
+
+ | Subpestañas | Vigentes (incluye las Por iniciar, con su estado) · Vencidas · Canceladas.
+
+ | Tarjetas | Pólizas vigentes · Prima vigente (UF) · Comisión de la cartera vigente (UF, estimada) · Vencen en 90 días (abre Renovaciones) · Por confirmar (n): lecturas de PDF sin terminar, no pólizas (archivo, fecha y quién lo subió; Mías = las suyas), con Seguir · Descartar (Pantallas y reglas).
+
+ | Columnas | Asegurado (con varios, “Empresa y1 +3”; la lista, al pasar el cursor) / Ramo / Vigencia / Compañía / N° póliza / Materia asegurada (texto corto, por ejemplo “Planta Rancagua”) / Prima (UF) / Comisión (UF, estimada) / Vence en (días) / Estado.
+
+ | Filtros | Ramo · Compañía · Ejecutivo · Vigencia · Emitidas este mes (por fecha de emisión o, sin ella, de inicio; destino de la tarjeta Comisión del mes del Dashboard) · Riesgo de término · Sin respaldo · Con diferencias · Sin % de comisión.
+
+ | Botón | Subir póliza: abre + Nuevo → Con la póliza. Si no hay PDF, la póliza se digita desde la tarjeta del ramo, con Registrar a mano (3.1).
+
+ | Clic | La ficha de la póliza.
+
+ | Reglas | Prima = prima neta de la vigencia en curso, en UF del día. Comisión estimada = prima neta × % de comisión de la póliza; sin %, “—”. Las que vencen en 90 días o menos también aparecen en Renovaciones.
+
+ | Vacía | “Todavía no hay pólizas. Súbela con Subir póliza.”
+
+ Después de la emisión
+
+## Cobranza, clic a clic
+
+ Propuesta sujeta al proveedor de pagosEl pago en plataforma y la conciliación se trabajan con un proveedor externo (ForPay u otro). Lo de esta pestaña es la propuesta de RADAL y va a cambiar con lo que ese proveedor defina. Los cambios serán de detalle —pantallas, cadencia, formatos—, no de estructura: plan de pago, cuota, pago y gestión se mantienen (R30, R31).
+
+ En el MVP, Cobranza es un registro del plan de pago con notificaciones al ejecutivo: cuotas, pagos y gestiones por póliza. No escribe a nadie fuera de la corredora (R43); avisos al contratante, pago en plataforma y conciliación, en el lanzamiento (C5, C6). El plan entra en el último paso de cada vía, Plan de pago: precargado con lo que trae la póliza, se confirma en un clic y se puede saltar (la póliza queda en Pólizas sin plan de pago). También entra con cuotas de endoso o prórroga emitidos (E2.6). Sin comisiones: solo prima y cuotas.
+
+### Pantalla Cobranza
+
+ En el menú lateral y como pestaña del Portafolio, después de Pólizas: misma pantalla y misma URL; el menú marca Cobranza y ambos llevan el contador (Pantallas y reglas). Subpestañas (abre en Próximas): Próximas (30 d), incluido hoy, y Vencidas (vencidas, en riesgo de término o en acuerdo) listan cuotas impagas o con saldo; Al día (sin vencidas, con saldo) y Saldadas (todo pagado o anulado) listan planes, uno por póliza.
+
+ | | Zona | Qué muestra
+
+ | Tarjetas (arriba) | Vencen en 7 días · Vencen en 30 días (UF) · Cuotas vencidas · Monto vencido (UF) · Cobrado este mes (UF) · Pagos sin confirmar. En UF y pesos; clic filtra la lista.
+
+ | Pólizas sin plan de pago (n) | Solo si hay: vigentes sin cuotas (paso Plan de pago saltado), con Cargar plan de pago, que abre ese mismo paso, precargado. No suman a las tarjetas.
+
+ | Filtros | Compañía, cliente, contratante, ejecutivo, ramo y método de pago.
+
+ | Lista | Por urgencia: Riesgo de término → Vencidas → Vencen hoy → Esta semana → Próximas. Columnas: Asegurado · Ramo · Vigencia · Compañía (líder; distintivo Coaseguro si aplica) · N° póliza · contratante · Origen (“Póliza”, “Endoso END-2026-0012”, “Prórroga”) · Método de pago (PAC, PAT, transferencia, cupón u otro) · Cuota N de N · vencimiento · monto (con Parcial, “Pagado UF 10 de 25”) · días de mora · pago registrado (fecha y medio) · pago confirmado · última gestión (fecha, quién y qué pasó) · promete pagar el · Estado y acciones.
+
+ | Acciones por fila | Registrar pago · Registrar gestión · PAC rechazado · Confirmar pago (solo con pago registrado) · Ver póliza. Mismas acciones para ambos roles. Clic en la fila: ficha de la póliza, en su bloque Plan de pago.
+
+### El reloj de la cuota
+
+ Todo lo que pasa en Cobranza cuelga de una sola fecha: el vencimiento de la cuota. El estado se calcula contra ella y la cadencia dispara las notificaciones.
+
+ [svg]
+
+ La cuota no tiene botones de estado: tiene un reloj. El estado se calcula contra el vencimiento y la cadencia, que el administrador ajusta una vez en Configuración → Cobranza (por defecto −15, −5, 0, +3 y +10). Lo único que el ejecutivo hace es registrar el pago o la gestión. Pagar detiene el reloj y cierra las notificaciones de esa cuota; si queda saldo, la marca Parcial y el reloj sigue corriendo por el saldo. Una gestión con “Promete pagar el” la deja En acuerdo hasta esa fecha, y si pasa sin pago vuelve a donde iba. Pasado +10 la póliza también queda marcada Riesgo de término y el ejecutivo elige una salida: registrar el pago, acordar una fecha o registrar la cancelación por no pago (C4).
+
+### Estados y marcas de la cuota
+
+ | | En pantalla | Cuándo se aplica
+
+ | Estado: se calcula (regla de cálculo 3)
+
+ | Por vencer | Antes del vencimiento.
+
+ | Vence hoy | Día del vencimiento.
+
+ | Vencida | Desde el día siguiente al vencimiento hasta el último de la cadencia.
+
+ | Riesgo de término | Pasado el último día de la cadencia (por defecto, +10). Marca también la póliza (C4).
+
+ | En acuerdo | Hay fecha en “Promete pagar el” y todavía no llega.
+
+ | Pagada | Los pagos cubren el monto (tolerancia 0,009 UF; en pesos o dólares, su equivalente del día).
+
+ | Anulada | Vencía tras la cancelación, o un endoso rearmó el plan (tipo 9 o prorrata).
+
+ | Marcas: no cambian el estado
+
+ | Parcial | Hay pagos y queda saldo. La cuota sigue su reloj por el saldo (vencida → riesgo de término) y muestra “Pagado UF 10 de 25”.
+
+ | Rechazada (PAC) | Cargo automático rechazado (C1.4); sigue impaga.
+
+### C1 · Registrar y confirmar un pago
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | C1.1 | Cobranza, ficha de póliza o notificación | Clic en Registrar pago. | Abre panel lateral: número, vencimiento y monto.
+
+ | C1.2 | Panel de pago | Ingresa fecha, medio (la lista de Método de pago; viene el de la cuota) y comprobante. Si ya lo vio en el portal de la compañía, marca Confirmado. | Propone el saldo pendiente; en cuotas UF, muestra pesos a la fecha de pago. Comprobante opcional.
+
+ | C1.3 | Panel de pago | Clic en Marcar pagada. | Crea un Pago (fuente = manual): Pagada si cubre el saldo; si no, marca Parcial. Sin comprobante: marca filtrable Sin comprobante. Cierra las notificaciones de la cuota si queda pagada. Pago erróneo: se revierte con motivo, nunca se borra.
+
+ | C1.4 | Cuota | Si la compañía informa rechazo del cargo automático (PAC o PAT), clic en PAC rechazado. | Guarda la fecha del rechazo, revierte el pago existente con motivo pac_rechazado, marca la cuota Rechazada (PAC) y notifica al ejecutivo.
+
+ | C1.5 | Cuota con pago registrado | Tras verlo en el portal o estado de cuenta de la compañía, clic en Confirmar pago; adjunto opcional. | Marca el pago confirmado por la compañía, con fecha y quién. Sin pago registrado, el botón no aparece. En el lanzamiento, C6 confirma en masa.
+
+### C2 · Registrar una gestión
+
+ El formulario mínimo de Gestión (Pantallas y reglas), vinculado a la cuota.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | C2.1 | Cobranza, ficha de póliza o notificación | Clic en Registrar gestión. | Abre el formulario con la cuota y sus gestiones previas.
+
+ | C2.2 | Formulario de gestión | Escribe ¿Qué pasó? (una línea) y, si hay compromiso, Promete pagar el (fecha). Clic en Guardar. | Guarda la Gestión con fecha y usuario. Con fecha: cuota En acuerdo y su notificación dormida hasta ese día; si pasa sin pago, Compromiso incumplido. La última gestión se ve en la lista; el historial, en la ficha.
+
+### C3 · Notificaciones al ejecutivo
+
+ Tipos, bandejas, destinatario y cierre: Pantallas y reglas. Aquí, solo la cadencia.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | C3.1 | Configuración → Cobranza (una vez, administrador) | Ajusta la cadencia (por defecto −15, −5, 0, +3 y +10 días desde el vencimiento). | Rige para toda la corredora.
+
+ | C3.2 | Automático | Nada. | A diario, una notificación por cuota que escala según la cadencia (p. ej., “Grupo W · Property · cuota 3/10 vence en 5 días · UF 45,20”): −15, −5 y 0, Para saber; +3 y +10, Por hacer; después, Riesgo de término (C4). Además, PAC rechazado, Compromiso incumplido y Póliza sin plan.
+
+ | C3.3 | Campana de notificaciones y Dashboard | Abre una. | Abre la ficha de la póliza en el bloque Plan de pago, con Registrar pago y Registrar gestión.
+
+### C4 · Morosidad y término
+
+ Aplica a cuotas en Riesgo de término (por defecto, impagas tras +10).
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | C4.1 | Automático | Nada. | Marca la póliza Riesgo de término en Pólizas, Cobranza y Dashboard, con notificación Por hacer al ejecutivo de la colocación.
+
+ | C4.2 | Notificación | La abre: historial de gestiones, contacto del contratante y, si hay beneficiario (p. ej., banco hipotecario) o pagador, sus datos destacados. Elige una salida. | Ofrece C4.3a, C4.3b y C4.3c.
+
+ | C4.3a | Registrar pago | Sigue C1. | Quita la marca de riesgo y cierra la notificación.
+
+ | C4.3b | Registrar gestión | Sigue C2 con Promete pagar el. | Si la fecha pasa sin pago, vuelve a C4.1.
+
+ | C4.3c | Registrar cancelación por no pago | Ingresa fecha efectiva de término (informada por la compañía) y adjunta la carta de cancelación. | Crea endoso tipo 7 (Cancelación) Emitido, con la carta, y registra fecha_termino y motivo_termino = no_pago: póliza Cancelada, cuotas posteriores anuladas, colocación fuera de Renovaciones. Con esa fecha, Comisiones (módulo posterior) calcula la devolución a prorrata.
+
+### Para el lanzamiento Después del MVP
+
+ Ya diseñados: tablas en P0 y estructura fija.
+
+### C5 · Avisos al contratante Lanzamiento
+
+ Misma cadencia de C3, más la salida al contratante (R43). Si la póliza tiene pagador, el aviso va al pagador con copia al contratante.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | C5.1 | Configuración → Cobranza (una vez) | Ajusta los mensajes de cobranza de cada momento de la cadencia; clic en Aprobar mensajes. | Sin aprobación, no hay avisos. Cada mensaje: corredor, póliza, compañía, n° de cuota, monto, vencimiento y cómo pagar (instrucciones de la compañía).
+
+ | C5.2 | Ficha del asegurado, si él contrata; si no, la parte contratante de la póliza | En Canal de cobranza, deja correo (por defecto) o activa WhatsApp. | Registra canal acordado, fecha y quién lo cambió. WhatsApp cuesta por mensaje.
+
+ | C5.3 | Automático | Nada. | Envía a diario los avisos, salvo cuotas pagadas o en acuerdo, y registra en la cuota fecha, canal y resultado (entregado o rebotado).
+
+ | C5.4 | Cobranza, póliza o asegurado | Clic en Pausar avisos, con motivo (texto libre) y, opcional, fecha de reanudación. | Pausa los avisos de esa póliza o asegurado hasta la fecha, si la hay. Siguen las notificaciones al ejecutivo.
+
+ | C5.5 | Automático | Nada. | Si un aviso rebota, notificación Por hacer: “Correo rebotado de [contratante]”.
+
+### C6 · Cargar el estado de pago de la compañía Lanzamiento · proyecto ForPay
+
+ Cada compañía lo envía cuando quiere y en su formato.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | C6.1 | Cobranza | Clic en Cargar estado de pago. | Abre el panel de carga.
+
+ | C6.2 | Panel de carga | Sube el Excel o PDF y confirma la compañía sugerida. | Lo guarda en el repositorio de la compañía y memoriza su formato.
+
+ | C6.3 | Leyendo… | Espera. | Extrae cada fila (n° póliza, cuota, monto, fecha de pago) y la cruza con las cuotas de esa compañía.
+
+ | C6.4 | Resultado | Ve el resumen: “142 cuotas calzan y quedan confirmadas · 9 diferencias por revisar”. Clic en Confirmar. | Por fila que calza: si hay pago manual, lo marca confirmado por la compañía; si no, crea un Pago confirmado (fuente = estado_compañía) con el archivo de respaldo. Nunca duplica pagos. Diferencias, a la bandeja.
+
+ | C6.5 | Bandeja de diferencias | Revisa cada fila (compañía junto a RADAL) y elige acción. | Cuatro tipos, con acciones abajo. Cada decisión queda en bitácora con su autor.
+
+ | | Diferencia | Acciones disponibles
+
+ | El monto no coincide | Aceptar el monto de la compañía · Mantener el de RADAL y marcar pagada · Dejar pendiente. Dentro de la tolerancia por UF, se acepta sola (Preguntas, 21).
+
+ | La cuota no existe en RADAL | Crear la cuota en esa póliza · Descartar.
+
+ | La póliza es desconocida | Subir póliza o registrarla a mano (Manual), prellenada · Descartar.
+
+ | Pagada en RADAL, impaga para la compañía | Revisar el comprobante · Revertir el pago con motivo (recalcula el estado y reactiva notificaciones). La señal más importante.
+
+ Después de la emisión
+
+## Endosos: la póliza cambia, la historia queda
+
+ La póliza no se edita a mano: cambia solo por endoso emitido o, ante error de lectura o digitación, por Corregir dato con motivo (R19). Cada endoso guarda antes y después: la ficha muestra la póliza al día o a cualquier fecha (clave en siniestros; regla de cálculo 4).
+
+ - Se pide desde la ficha de la póliza y sigue el camino de la póliza: Solicitado → Propuesta enviada → Emitido / Rechazado. La solicitud (lo que pide el asegurado) se registra en RADAL y no es documento; RADAL arma la Propuesta de endoso; la compañía emite o rechaza, y lo emitido se compara contra la propuesta de endoso (espejo).
+
+ - Admite varios movimientos (la compañía emite un solo documento). “Sube o baja” y “entra o sale” son sentidos, no tipos.
+
+ - Emitido exige documento de la compañía y confirmación humana (R21).
+
+ - En coaseguro, emite y cobra la líder (R18). Sin respaldo: se endosa con advertencia.
+
+ - Sin responsable propio: lo lleva el ejecutivo de la colocación (Mías y notificaciones).
+
+### Los nueve tipos
+
+ Por objeto, no por operación (reordenan los del issue 11). El corredor siempre ingresa el movimiento, nunca el resultado: cuánto aumenta o disminuye, qué se incluye o se excluye y por cuánto. El después lo calcula RADAL (E1.3, R20).
+
+ Aumento o disminuciónLa bodega de Maipú está en UF 20.000 y se amplía. El corredor escribe + 5.000. RADAL muestra 20.000 → 25.000, en el ítem y en la suma total de la póliza.
+
+ InclusiónEntra una camioneta a la flota. El corredor agrega el ítem y escribe + 800. La suma total pasa de 25.000 a 25.800; el ítem nace con su fecha de entrada.
+
+ ExclusiónSale esa misma camioneta. El corredor marca el ítem y su fecha de salida; el movimiento viene cargado con − 800, el valor que tenía. La suma vuelve a 25.000 y el ítem no se borra: se cierra con fecha hasta (R24).
+
+ Cambio de datoDirección, método de pago, deducible, fechas: no hay suma ni resta. Ahí el corredor escribe el valor nuevo y el después lo repite.
+
+ Por qué así: la compañía informa el movimiento, no el estado final, y es el movimiento el que determina la prima de cobro o devolución. Guardar el delta deja la aritmética a la vista y permite reconstruir cualquier fecha sumando los movimientos. Si el endoso emitido trae un después distinto al calculado, manda lo emitido: la diferencia aparece en el espejo del endoso (E2.3) y se acepta con motivo o se pide corrección.
+
+ | | # | Tipo | Qué cubre | Sentido | Qué ingresa el corredor | Prima | Efecto en cuotas y módulos
+
+ | 1 | Suma asegurada | Póliza o ítem | Aumenta · Disminuye | Cuánto sube o baja, y sobre qué: la póliza o un ítem. El después se calcula. | Cobro o devolución | Según cómo se aplica la prima (abajo)
+
+ | 2 | Materia asegurada | Ubicaciones, bienes, vehículos y personas de colectivos (altas y bajas de nómina) | Incluye · Excluye | Qué ítem entra y por cuánto, o cuál sale y su fecha de salida. La suma total se recalcula. | Cobro o devolución | Como tipo 1
+
+ | 3 | Coberturas | Adicionales, con código POL o CAD | Incluye · Excluye | Qué cobertura entra o sale, con su sublímite si lo tiene. | Cobro, devolución o sin movimiento | Como tipo 1
+
+ | 4 | Condiciones | Deducibles, límites, sublímites, cláusulas, garantías y % por compañía en coaseguro | Modifica | El valor nuevo (no hay aritmética); en coaseguro, % por compañía y líder. | Cobro, devolución o sin movimiento | Como tipo 1. Nueva líder: cobra las cuotas pendientes
+
+ | 5 | Partes | Asegurado, contratante, beneficiario (con su tipo), asegurado adicional y pagador | Incluye · Excluye · Cambia | Qué parte entra o sale, con su rol. | Casi siempre sin movimiento | Nuevo contratante o pagador: las cuotas pendientes se le cobran (R17)
+
+ | 6 | Prórroga de vigencia | Extender el término o mover fechas | Prorroga · Cambia fechas | La nueva fecha de término, o las fechas nuevas. | Normalmente cobro | Cuotas con origen prórroga; mueve vencimiento en Renovaciones
+
+ | 7 | Cancelación y rehabilitación | Término anticipado (por asegurado, compañía o no pago) y su reverso | Cancela · Rehabilita | Fecha efectiva de término y motivo. | Devolución o sin movimiento | Anula cuotas futuras, sale de Renovaciones y registra fecha_termino y motivo_termino. Rehabilitar las restituye
+
+ | 8 | Ajuste por declaración | Prima provisoria: transporte flotante, stock, RC por ventas o nómina | Ajusta | El monto declarado del período. La prima de ajuste sale de ahí. | Cobro o devolución | Una cuota de ajuste
+
+ | 9 | Datos y método de pago | Dirección o razón social, solo si la compañía emite el endoso; cuotas o método de pago | Cambia | El dato nuevo (no hay aritmética). | Sin movimiento | Nuevo método de pago: anula las pendientes y crea otras, mismo total
+
+ - Cambio de RUT: No es tipo: otra persona, Partes (cesión); mal digitado, Corregir dato (R19), con regla del RUT único (R11).
+
+ - Dirección o razón social: Se cambian en la ficha del asegurado y rigen para todas sus pólizas; son tipo 9 solo si la compañía emite el endoso.
+
+ - No son endosos: La renovación (póliza nueva con renueva_a) y el cambio de corredor (carta de nombramiento).
+
+ - Diferencia del espejo: Si la póliza no calza con lo propuesto, el corredor acepta con motivo o pide endoso del tipo del campo que falla. Rige igual, marcada Con diferencias hasta resolverlas todas (R42).
+
+ - Movimiento de prima: Cobro (+) o devolución (−), y cómo se aplica a cuotas: Cuotas nuevas (cobro: cuotas con origen endoso) · Prorrata en las restantes (anula las cuotas pendientes y crea otras con los mismos vencimientos y el ajuste repartido) · Devolución directa (la compañía paga al contratante; se registra una DevoluciónPrima). La forma por defecto la define Rodrigo Sandoval (R26); el corredor la cambia en E2.6.
+
+### El selector: ¿qué cambia?
+
+ Endosar lo abre: nueve tipos con número y una línea, en Lo asegurado (1 a 4) y Quiénes · plazo · prima · datos (5 a 9). Admite varios.
+
+ Vencida: solo Prórroga, Ajuste por declaración y Datos. Cancelada: solo Rehabilitar y Ajuste por declaración. Lo demás, apagado, con el porqué en una línea.
+
+### Por dónde entra un endoso
+
+ | | Desde | Qué pasa | origen
+
+ | Ficha de la póliza → Endosar | Entrada normal. Flujo E1. | corredor
+
+ | Validación espejo → Pedir endoso | E1 prellenado con tipo y “antes → después” de la diferencia. | espejo
+
+ | Cobranza C4.3c → Registrar cancelación por no pago | Tipo 7 ya Emitido; documento: carta de la compañía. | cobranza
+
+ | Endosar → Prórroga, marcando otras pólizas de la colocación | Un tipo 6 por póliza marcada, enlazados; cada uno con E1, E2 y su documento. | prorroga_grupal
+
+ | Endosos → Cargar endoso emitido | Endoso no pedido o llegado por correo. Flujo E3. | compañía
+
+ Siniestros no crea endosos.
+
+### E1 · Solicitar un endoso y enviar la propuesta, clic a clic
+
+### Desde la ficha de la póliza
+Meta: un movimiento, menos de dos minutos.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | E1.1 | Ficha de la póliza | Clic en Endosar. | Abre el selector. Sin n° de póliza, lo pide primero (R38). Con respaldo = no advierte Sin respaldo, sin bloquear: el “antes” viene de lo digitado.
+
+ | E1.2 | Selector | Marca uno o más tipos. Clic en Continuar. | Abre el formulario: un bloque por tipo.
+
+ | E1.3 | Formulario · Antes · Movimiento · Después | El corredor ingresa el movimiento, no el resultado. Tres columnas por bloque: a la izquierda lo vigente, lleno y bloqueado; al centro escribe cuánto aumenta o disminuye, o qué se incluye o se excluye y por cuánto; a la derecha, el después, que RADAL calcula y no se edita. En los cambios de dato —dirección, método de pago, fechas, deducible— no hay aritmética: ahí el centro es el valor nuevo y el después lo repite. | valor_despues = valor_antes ± valor_movimiento en los sentidos Aumenta, Disminuye, Incluye, Excluye y Ajusta; en Modifica, Cambia, Prorroga, Cancela y Rehabilita, valor_despues = valor_movimiento (R20). Recalcula en vivo al tipear. Valida en línea: suma resultante positiva, beneficiarios y coaseguro al 100% (una sola líder) y RUT de la nueva parte (A1, si es asegurado o contratante). Si al excluir un ítem el movimiento no calza con el valor guardado del ítem, avisa y propone el del ítem.
+
+ | E1.4 | Formulario · Fecha y origen | Ingresa fecha efectiva, solicitante (asegurado, corredor o compañía), motivo y, si hay, respaldo del asegurado (carta o correo). | Fecha efectiva dentro de la vigencia, salvo Prórroga. Anterior a hoy: Retroactivo. Si además hay siniestro posterior, advierte sin bloquear y notifica al ejecutivo (R25).
+
+ | E1.5 | Formulario · Prima | Ingresa el movimiento de prima informado por la compañía, cobro (+) o devolución (−), o deja La informa la compañía. | Tipos 1, 2 y 6: muestra una estimación referencial a prorrata (prima × días que faltan ÷ días de la vigencia); la prima la fija la compañía al emitir.
+
+ | E1.6 | Formulario | Clic en Generar propuesta de endoso; la descarga o copia y la envía desde su correo. Al descargar, “¿Lo enviaste hoy?” → Marcar enviada (opcional). | Crea END-AAAA-NNNN (Solicitado) y la Propuesta de endoso para la compañía (la líder, en coaseguro), con el movimiento y el antes → después (formato en Pantallas y reglas); la envía el corredor, no RADAL. Marcar enviada guarda la fecha y lo pasa a Propuesta enviada: desde ahí corren los días en la compañía y la notificación Endoso sin emitir (Pantallas y reglas); sin marca, no corren. Ficha: “1 endoso en trámite”.
+
+### E2 · Registrar el endoso emitido
+
+### Llega el documento de la compañía
+Espejo: lo emitido contra la propuesta de endoso.
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | E2.1 | Endosos · Solicitados o Propuesta enviada, o ficha de la póliza | Clic en Cargar endoso emitido en su fila. | Abre el panel de carga.
+
+ | E2.2 | Panel de carga | Sube el PDF. | Guarda el documento una vez (etiqueta Endoso), vinculado a póliza y endoso (R15). El lector extrae n° de endoso de la compañía, fecha efectiva, movimientos y prima.
+
+ | E2.3 | Comparar | Compara campo por campo con la propuesta de endoso. | Marca en rojo las diferencias; la prima emitida reemplaza la estimada.
+
+ | E2.4 | Comparar · Diferencias | Elige Aceptar lo emitido (con motivo) o Pedir corrección. | Aceptar deja la diferencia aceptada y marca Emitido con diferencias. Pedir corrección confirma lo emitido y abre en E1 otro endoso con la diferencia.
+
+ | E2.5 | Comparar | Clic en Confirmar endoso. | Pasa a Emitido y aplica: recalcula la póliza vigente; abre o cierra con fecha partes, ítems, coberturas y aseguradores; actualiza Renovaciones si cambió la vigencia; registra evento antes → después; cierra Endoso sin emitir.
+
+ | E2.6 | Plan de pago del endoso | Con movimiento de prima, elige cómo se aplica (viene la forma por defecto): Cuotas nuevas · Prorrata en las restantes · Devolución directa. Revisa y clic en Guardar plan de pago. | Cuotas nuevas y prorrata: cuotas con origen endoso en Cobranza, del contratante vigente y cobradas por la líder (R23). Devolución directa: la DevoluciónPrima queda pendiente en el bloque Plan de pago de la ficha hasta Marcar devuelta.
+
+### E3 · Endoso recibido sin solicitud · E4 · Rechazo
+
+### Lo que llega sin pedirlo y lo que no se emite
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | E3 · Endoso recibido sin solicitud
+
+ | E3.1 | Endosos | Clic en Cargar endoso emitido y sube el PDF. | Busca la póliza por n° y compañía leídos (R5); si no existe, ofrece cargarla antes por vía 2b.
+
+ | E3.2 | Revisar | Revisa el movimiento y el antes → después contra la póliza vigente, y corrige los tipos sugeridos. Aquí el movimiento no se ingresa: lo trae el PDF. | Arma los movimientos y sugiere su tipo.
+
+ | E3.3 | Revisar | Clic en Confirmar endoso. | Lo crea ya Emitido, con origen = compañía y marca No solicitado; lo aplica como E2.5.
+
+ | E4 · Rechazo o desistimiento
+
+ | E4.1 | Endoso Solicitado o Propuesta enviada | Clic en Cerrar sin emitir, elige motivo (rechazo de la compañía, antecedentes no recibidos, desistimiento del asegurado u otro) y, opcional, un detalle. | Exige motivo. Pasa a Rechazado sin tocar póliza ni cuotas; cierra Endoso sin emitir.
+
+ | E4.2 | Endoso Rechazado | Opcional: clic en Volver a solicitar. | Abre E1 con lo anterior lleno. El rechazado queda intacto.
+
+### Pestaña Endosos
+
+ | | Zona | Qué muestra
+
+ | Tarjetas | En la compañía (Propuesta enviada) · Sin emitir más de 5 días · Emitidos este mes · Δ prima del mes (UF; cobro y devolución aparte) · Emitidos con diferencias · No solicitados (30 días). Filtran al clic.
+
+ | Subpestañas | Solicitados · Propuesta enviada · Emitidos · Rechazados.
+
+ | Columnas | Asegurado, Ramo, Vigencia de la póliza, Compañía, N° póliza, Tipo, Δ prima (UF, con signo), Fecha de solicitud, Vigencia del endoso, N° de endoso de la compañía, Días en la compañía (desde Marcar enviada) y Estado. En coaseguro, Compañía muestra la líder con distintivo Coaseguro.
+
+ | Columna Tipo | Tipo y sentido (“Suma asegurada ↑”) o “Varios (3)”; el cursor muestra todos.
+
+ | Filtros | Compañía · Ramo · Tipo · Ejecutivo (el de la colocación).
+
+ | Acciones por fila | Solicitados: Descargar propuesta · Marcar enviada · Cargar endoso emitido · Cerrar sin emitir. Propuesta enviada: Cargar endoso emitido · Cerrar sin emitir. Emitidos y Rechazados: Ver detalle. En todas: Ver póliza.
+
+ | Botón | Cargar endoso emitido (E3).
+
+ | Vacía | “Todavía no hay endosos. Se solicitan desde la ficha de la póliza.”, con enlace a Pólizas.
+
+### Historia de la póliza: qué cambió
+
+ Bloque nuevo de la ficha; tres piezas por orden: detalle de cada endoso, antes y después (MVP; lo último en recortarse); línea de tiempo de emisión y endosos (si alcanza), y control Ver la póliza al [fecha] (lanzamiento), que deshace endosos emitidos con fecha efectiva posterior (regla de cálculo 4). Responde qué cubría el día del siniestro, qué cambió entre vigencias y qué se informó a la CMF si la pide.
+
+ Después de la emisión
+
+## Siniestros: registro y repositorio
+
+ En el MVP, Siniestros es solo un registro (datos principales, fechas, estado, montos, documentos), sin flujos de liquidación. El corredor anota lo informado por compañía y liquidador; RADAL guarda la historia. Calcula solo saldo y siniestralidad: (pagado + pendiente) ÷ prima neta, en %, por vigencia (las últimas 3); pendiente (solo abiertos) = reserva o, si no hay, monto reclamado. Se ve en la tarjeta de la pestaña y en la ficha del asegurado, por ramo. Mías = ejecutivo de la colocación: no hay responsable del siniestro.
+
+### S1 · Registrar un siniestro
+Botón Registrar siniestro, en la ficha de la póliza o en la pestaña Siniestros; en la pestaña, abre primero la búsqueda de la póliza (n°, asegurado o patente).
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | S1.1 | Nuevo siniestro · Póliza | Confirma la póliza y, opcional, ítem (ubicación, bien, vehículo o persona) y cobertura afectados. | Póliza sin n°: se registra igual, con la marca Sin n° de póliza (R29). Muestra compañía (líder, si hay coaseguro), vigencia, deducibles y, destacados, los beneficiarios (p. ej., acreedor hipotecario).
+
+ | S1.2 | Nuevo siniestro · Datos | Bastan cinco datos: póliza (paso anterior), fecha de ocurrencia, causa (lista: incendio, robo, choque, daño por agua, fenómeno de la naturaleza, RC a terceros u otra), contacto que reporta y monto reclamado con moneda. Opcionales: fecha de denuncia, lugar, descripción, n° de siniestro de la compañía. | Advierte sin bloquear si la ocurrencia cae fuera de vigencia o con póliza cancelada (R29); muestra endosos retroactivos que la afecten (R25). El estimado pasa a monto reclamado.
+
+ | S1.3 | Nuevo siniestro · Documentos | Opcional: sube la denuncia y otros antecedentes (fotos, presupuestos) en su espacio. | Etiqueta según el espacio: Denuncia o Antecedente de siniestro.
+
+ | S1.4 | Nuevo siniestro | Clic en Registrar. | Crea SIN-AAAA-NNNN en Denunciado. Fichas de póliza y asegurado: “1 siniestro abierto”.
+
+### S2 · Actualizar · S3 · Cerrar
+
+ | | # | Pantalla | El usuario hace | El sistema hace
+
+ | S2.1 | Ficha del siniestro | Clic en Actualizar: un solo panel para estado, liquidador (nombre, empresa, contacto), n° de siniestro de la compañía, reserva, deducible aplicado, monto liquidado y documentos, con etiqueta Informe de liquidación (preliminar, de avance o final, en orden de llegada), Finiquito u Otro. Si falta algo del asegurado: Espera documentos del asegurado. | Cada cambio es un evento (valor anterior y nuevo, R7): historia completa de reserva y montos sin tablas extra. Línea de tiempo: fecha · qué cambió · quién.
+
+ | S2.2 | Ficha del siniestro | Ve resumen fijo: reservado, deducible, liquidado, pagado y saldo. | Saldo = liquidado − pagado.
+
+ | S2.3 | Ficha del siniestro | Clic en Registrar gestión tras hablar con liquidador, compañía o asegurado. | Formulario de Gestión (Pantallas y reglas), vinculado al siniestro.
+
+ | S3.1 | Ficha del siniestro | Clic en Cerrar y elige: Pagado (fecha, monto, a quién: asegurado o beneficiario), Rechazado (motivos: fuera de cobertura, exclusión, bajo el deducible, fuera de vigencia, falta de antecedentes, otro) o Desistido (motivo). | Rechazado y Desistido exigen motivo. Reabrir un cerrado también; queda en la historia.
+
+### Estados
+
+ Denunciado→Liquidador asignado→En liquidación→Informe final recibido→Pendiente de pago
+
+ cualquier estado abierto→Cerrado: Pagado · Rechazado · Desistido
+
+ Estados del roadmap, solo manuales. Vencer la póliza no cierra el siniestro.
+
+### Pestaña Siniestros
+
+ - Tarjetas: Abiertos · Esperan documentos del asegurado · Sin movimiento más de 15 días (desde el último cambio o gestión) · Pagado en el año (UF) · Siniestralidad de la cartera (%).
+
+ - Subpestañas: Abiertos · Cerrados.
+
+ - Columnas: Asegurado · Ramo · Vigencia · Compañía · N° póliza · N° siniestro · Fecha del siniestro · Fecha de denuncia · Cobertura afectada · Monto reclamado (UF) · Monto pagado (UF) · Liquidador · Último informe · Estado.
+
+ - Filtros: compañía, ramo, asegurado, estado y ejecutivo.
+
+ - Botón: Registrar siniestro (abre la búsqueda de la póliza).
+
+### Queda fuera
+
+ - Impugnación y plazos de liquidación.
+
+ - Lectura de informes con IA (montos a mano).
+
+ - Liquidador como entidad propia (hoy, texto).
+
+ - Recordatorios automáticos y reportes exportables de siniestralidad (Reportería, lanzamiento).
+
+ Para no volver a tocar la estructura
+
+## Estructura de datos
+
+ Las tablas, sus campos y las 44 reglas. El árbol que las ordena está en El modelo y el idioma; aquí viene el detalle para construir. Modelo completo (MVP y posterior): si todas las tablas y relaciones se crean desde el inicio, lo que venga solo agrega pantallas y lógica. Marcas: Existe (en dev, con el ajuste indicado), Nueva · MVP (se crea y usa en el MVP), Reservada (se crea ahora; pantalla después). (opcional): puede quedar vacío. “Se calcula”: no se guarda.
+
+ Cada bloque se explica clic a clic en su pestaña: Negocio (vigencia, colocación, envíos, cotizaciones y propuesta) en Las tres vías · Póliza en Pólizas · Cobranza, Endosos y Siniestros en las suyas · Clientes en Clientes y asegurados · Transversales (documentos, notificaciones, gestiones, bitácora) en Pantallas y reglas.
+
+### Tablas y relaciones
+
+ | | Tabla | Relaciones y unicidad | Campos | En dev
+
+ | Organización y catálogos
+
+ | Corredora | Tenant: toda tabla no catálogo lleva corredora_id | RUT (no editable), razón social, registro CMF, logo, dirección, teléfono, correo. Es el membrete de los documentos que arma RADAL | Existe · suma dirección, teléfono y correo
+
+ | Usuario | N → 1 Corredora | nombre, correo, cargo y teléfono (firma de los documentos), rol ∈ {admin, ejecutivo} (enum extensible; inspector y técnico pasan a ejecutivo), activo (sí/no). Entra por invitación al correo; se desactiva, nunca se borra, y su cartera pasa a quien elija el administrador | Existe · se simplifica y suma activo
+
+ | Compañía | Catálogo global y cerrado (R4) · única por RUT | nombre, RUT, código CMF, estado ∈ {validada, por_validar}. Carga inicial: aseguradoras inscritas en la CMF. Sin contactos, SLA ni prioridad. Alta: la corredora la pide a RADAL | Existe · se acota
+
+ | Ramo | Catálogo global y cerrado (R4) · único por código | código, nombre (18 ramos, ver catálogo) | Nueva · MVP
+
+ | Subtipo | N → 1 Ramo · catálogo global · único por código | Elegirlo es obligatorio: no hay colocación sin ramo y subtipo (pasos 1.4, 2b.6 y 3.2); si ninguno calza, se usa el genérico del ramo. Código, nombre, entrada_sugerida ∈ {mercado, portal}, codigos_cmf[] (reservado: ramos CMF a los que se reparte; no es uno a uno), campos_especificos (JSON, datos para cotizar el subtipo, p. ej. patente, año y uso en Vehículos; dirección y m² en Hogar; vacío en el MVP) | Nueva · MVP
+
+ | Plantilla | N → 1 Corredora (vacía en las bases de RADAL) · N → 1 Subtipo · una sola predeterminada por (corredora, subtipo) | nombre, predeterminada (sí/no), antecedentes[] (nombre, obligatorio u opcional, formato), bases técnicas precargadas (coberturas, sumas por ítem, deducibles, sublímites, cláusulas). Sin pantalla ni contenido en el MVP: el corredor sube su propio archivo de bases (1.10). Reemplaza el “Crear ramo” actual | Reservada · fase posterior
+
+ | ValorMoneda | Global · único por fecha | fecha, UF, dólar observado. Carga diaria desde el Banco Central (R8) | Nueva · MVP
+
+ | Clientes
+
+ | Cliente | N → 1 Corredora · 1 → N Asegurado — “Asegurado” en dev | nombre, ícono, notas, alias[], razon_social_principal → Asegurado (opcional), estado ∈ {activo, fusionado}, fusionado_en → Cliente (opcional). Estado comercial: no se elige; es el mejor estado de sus asegurados, en el orden Vigente → En cotización → Prospecto → Inactivo. Un cliente con tres asegurados, uno con póliza vigente, se muestra Vigente (regla de cálculo 3) | Existe · suma alias y fusión
+
+ | Asegurado | N → 1 Corredora · N → 1 Cliente, obligatorio (si no se elige, se crea uno homónimo) · único por (corredora, RUT) si hay RUT — “Empresa” en dev. Sin identidad global entre corredoras (R33) | Identidad: RUT (vacío solo si es prospecto), tipo de persona, razón social o nombre, nombre de fantasía, giro, actividad (agrícola, industrial, comercio, construcción, transporte, servicios, salud, educación, inmobiliario, minería, otro), dirección, comuna, región. Ficha: ejecutivo → Usuario, origen (“Cómo llegó”, opcional) ∈ {referido, cartera_propia, prospeccion, web_redes, otro}, cliente desde, canal_cobranza (lanzamiento). Pipeline (solo prospectos): etapa_pipeline ∈ {nuevo, contactado, calificado, perdido}, ramos de interés, prima estimada, motivo de pérdida; próximo seguimiento y días sin contacto salen de Gestión. Estado: se calcula (regla de cálculo 3) | Existe · por corredora y absorbe al Lead
+
+ | Contacto | N → 1 Asegurado · un solo principal por asegurado | nombre, correo, teléfono, principal (sí/no: a él va la cobranza). Sin cargo ni rol. El cliente (grupo) no tiene contactos propios | Nueva · MVP
+
+ | Negocio
+
+ | Vigencia | N → 1 Cliente · única por (cliente, desde) · renueva_a → Vigencia (opcional) | etiqueta (“2026-2027”), desde, hasta (regla de cálculo 1) | Existe
+
+ | Colocación | N → 1 Vigencia · N → 1 Ramo · N → 1 Subtipo · N → 1 Usuario (ejecutivo) · renueva_a → Colocación (opcional) — “Cuenta” en dev | EXP-AAAA-NNNN, origen ∈ {interes, digital_poliza, digital_comparador, manual, migracion} (dónde nació; sin pantalla), via_prevista ∈ {tradicional, digital, manual} (cómo se trabajará; la propone el subtipo, editable; es la vía que se ve), datos_riesgo (JSON con campos del subtipo, opcional; fase posterior), contratante (nombre, RUT y contacto; enlaza a Asegurado solo si ese RUT ya es asegurado de la corredora por su propio negocio — nunca lo crea, R14, R40), vigencia cotizada (desde, hasta), materia asegurada (texto corto), prima_estimada (UF, opcional; con oferta elegida, la pantalla muestra la de esa oferta), bases técnicas (las de dev), etapa actual (EtapaColocación), motivo_cierre (cierre sin emitir), renovacion_via ∈ {tradicional, digital, portal, manual} (al Renovar; regla de cálculo 5), resultado ∈ {renovada, perdida} y motivo, creada_por | Existe · suma campos
+
+ | ColocaciónAsegurado | N → 1 Colocación · N → 1 Asegurado · única por el par | RUT que cubre la colocación (R39) | Nueva · MVP (si dev guarda los RUT en lista, se migran aquí)
+
+ | EtapaColocación | N → 1 Colocación · una fila por cada entrada a una etapa: volver atrás, cerrar o reabrir agrega o cierra filas, nunca borra | etapa (1 a 12, Las tres vías; la 8 es propuesta_generada), entró, salió (vacía = etapa actual), quién (sistema si la omitió, R6), omitida (sí/no), motivo (obligatorio al omitir, si la compañía rechazó, al cerrar y al reabrir). Etapa actual = última fila sin salida | Existe · pasa a una fila por entrada
+
+ | EnvíoMercado | N → 1 Colocación · N → 1 Compañía | fecha_envio y fuente_envio ∈ {manual, correo}, plazo de respuesta, estado ∈ {enviada, cotizó, declinó, sin_respuesta}, motivo de declinación, documento enviado (opcional), ronda (Volver al mercado abre la siguiente), usuario. Solo registro (R44) | Nueva · MVP
+
+ | Cotización | N → 1 Colocación · N → 1 Compañía | campos actuales (con prima neta y % de comisión, si dev no los tiene) + elegida (sí/no; se quita al volver a 7 o antes) + rechazada_por_compania (sí/no; ya no se puede elegir) | Existe · suma elegida y rechazada
+
+ | Propuesta | N → 1 Colocación · N → 1 Cotización (la elegida) | estado ∈ {por_enviar, enviada, aceptada, rechazada}, fecha_envio y fuente_envio ∈ {manual, correo} (sin marca no corren días ni notificación), plazo_hasta (por defecto fecha_envio + dias_sin_emitir; Extender plazo lo mueve), motivo de rechazo; si la compañía pide cambios, se registra una Gestión | Existe · suma estado y envío
+
+ | Póliza
+
+ | Póliza | N → 1 Colocación · N → 1 Compañía (la líder) · renueva_a → Póliza (opcional) · única por (compañía, n°) (R5) | n° (vacío solo en vía Manual), fecha de emisión (opcional), desde, hasta, moneda ∈ {UF, USD} (R8), suma asegurada total, materia asegurada (texto corto), prima afecta, exenta, neta, IVA y bruta, % de comisión, modalidad ∈ {nominada, todo_riesgo} (opcional), pol_base (opcional), coaseguro (sí/no), origen_registro ∈ {lector, manual} (sin pantalla), respaldo (sí/no; sí con PDF, también si se registró a mano con el PDF porque falló el lector), condicionada (sí/no; mientras sea sí, el n° es el del certificado de cobertura; Subir póliza con la definitiva reemplaza el n°, corre el espejo y la quita), fecha_termino y motivo_termino ∈ {no_pago, solicitud_asegurado, solicitud_compañía, otro} (si se cancela). Estado: se calcula (regla de cálculo 3) | Existe · suma campos
+
+ | PólizaParte | N → 1 Póliza · N → 1 Asegurado (vacío en terceros) | rol ∈ {contratante, asegurado, beneficiario, asegurado_adicional, pagador} · tipo_beneficiario ∈ {hipotecario, prendario, leasing, endosatario, otro} y % (opcional) · nombre y RUT del tercero · contacto del tercero (nombre, correo y teléfono): obligatorio en el contratante distinto del asegurado, porque a él va la cobranza; opcional en el pagador · canal_cobranza (lanzamiento) · desde / hasta. Ningún rol crea un Asegurado, el contratante incluido: los terceros quedan solo en la póliza y no aparecen en Clientes (R14, R40). Obligatorios: asegurado (uno o más; sus RUT son los “RUT de la póliza”, regla de cálculo 2) y contratante. Por defecto, contratante = asegurado y pagador = contratante (R14) | Nueva · MVP
+
+ | PólizaAsegurador | N → 1 Póliza · N → 1 Compañía | participacion_pct, es_lider, desde / hasta. Sin coaseguro: una fila, 100%, líder. Con coaseguro: suman 100%, una sola líder | Nueva · MVP
+
+ | PólizaÍtem | N → 1 Póliza | tipo ∈ {ubicación, bien, vehículo, persona}, descripción, dirección o patente, suma, desde / hasta, endoso de alta y de baja | Nueva · MVP
+
+ | PólizaCobertura | N → 1 Póliza · N → 1 PólizaÍtem (opcional) | código POL o CAD, nombre, límite o sublímite, deducible (valor, mínimo, base), desde / hasta. Se llena si el lector la entrega | Nueva · MVP
+
+ | DiferenciaEspejo | N → 1 Póliza o N → 1 Endoso · N → 1 Endoso de corrección (opcional) | contra ∈ {propuesta, cotizacion, digitado, datos_riesgo, propuesta_endoso}, campo, valor esperado, valor en el documento, gravedad ∈ {grave, normal} (grave: cambio de moneda, R42), resolucion ∈ {pendiente, aceptada, corregida, endoso}, motivo (obligatorio al aceptar), quién y cuándo. Marca Con diferencias (se calcula): alguna pendiente | Nueva · MVP
+
+ | Cobranza
+
+ | PlanPago | N → 1 Póliza: 0 o 1 de la póliza (cargable después) + uno por endoso o prórroga que mueve cuotas | metodo_pago ∈ {PAC, PAT, transferencia, cupón, otro} (misma lista que el medio del Pago), n° de cuotas, total, origen ∈ {póliza, endoso, prórroga}, endoso → Endoso (si aplica), fuente ∈ {lector, manual}, documento y página leídos | Existe · suma campos
+
+ | Cuota | N → 1 PlanPago | n, vencimiento, monto, moneda ∈ {UF, USD} (la de la póliza), anulada_por → Endoso (opcional), pac_rechazado_at (fecha del último rechazo PAC o PAT, opcional). Estado y marcas (Parcial, Rechazada (PAC)): se calculan (regla de cálculo 3) | Existe · se ajusta
+
+ | Pago | N → 1 Cuota | monto, moneda ∈ {UF, USD, CLP} (el pago sí puede venir en pesos), UF del día, fecha, medio ∈ {PAC, PAT, transferencia, cupón, otro}, fuente ∈ {manual, estado_compañía, plataforma}, comprobante (DocumentoVínculo), confirmado_por_compania (sí/no), fecha y quién (acción Confirmar pago, adjunto opcional), estado ∈ {vigente, revertido}, motivo_reverso ∈ {error, pac_rechazado, otro}, registrado_por | Nueva · MVP
+
+ | CadenciaCobranza | 1 por Corredora | días (por defecto −15, −5, 0, +3, +10) y dias_sin_emitir (por defecto 5, para propuestas y endosos). La usan las notificaciones y, en el lanzamiento, los avisos (R43) | Nueva · MVP
+
+ | DevoluciónPrima | N → 1 Endoso · N → 1 Asegurado (el contratante) | monto, moneda, período no consumido, estado ∈ {pendiente, devuelta}. Solo con devolución directa (R26) | Nueva · MVP
+
+ | MensajeCobranza · Aviso | Mensaje N → 1 Corredora · Aviso N → 1 Cuota · destinatario = pagador (por defecto, el contratante), con copia al contratante | Mensaje: momento de la cadencia, canal, texto aprobado · Aviso: enviado_at, canal, resultado (entregado o rebotado) | Reservada · lanzamiento
+
+ | EstadoPagoCompañía · Diferencia | N → 1 Compañía · 1 → 1 Documento · Diferencia N → 1 Cuota (opcional) | fecha de carga, filas leídas, filas que calzan · tipo de diferencia, dato de la compañía, dato de RADAL, acción, resuelta_por | Reservada · lanzamiento (C6)
+
+ | Endosos y siniestros
+
+ | Endoso | N → 1 Póliza · sigue al ejecutivo de la colocación, sin responsable propio | END-AAAA-NNNN, n° de la compañía, estado ∈ {solicitado, propuesta_enviada, emitido, rechazado}, origen ∈ {corredor, espejo, cobranza, compañía, prorroga_grupal}, grupo_prorroga (id común a los endosos de una prórroga grupal, opcional), solicitado_por ∈ {asegurado, corredor, compañía}, fechas de solicitud, efectiva y de emisión, fecha_envio y fuente_envio ∈ {manual, correo} (de la propuesta de endoso), plazo_hasta (como en Propuesta), efecto_prima ∈ {cobro, devolución, sin_movimiento}, aplicacion_prima ∈ {cuotas_nuevas, prorrata_restantes, devolucion_directa} (R26), prima afecta, exenta, neta, IVA y bruta, retroactivo, no_solicitado, motivo_cierre. Marca Emitido con diferencias (se calcula): alguna DiferenciaEspejo aceptada | Existe · se ajusta
+
+ | MovimientoEndoso | N → 1 Endoso | tipo (uno de los 9), sentido, objeto ∈ {ítem, parte, cobertura, asegurador, campo} con su id, valor_antes, valor_movimiento (lo único que ingresa el corredor: el delta con signo en los sentidos cuantitativos, el valor nuevo en los de sustitución) y valor_despues (JSON; calculado, ver R20). Se guarda el después calculado, no una fórmula: si el endoso emitido trae otro, se sobrescribe con lo emitido y la diferencia queda en la bitácora | Nueva · MVP
+
+ | Siniestro | N → 1 Póliza · N → 1 PólizaÍtem (opcional) · N → 1 PólizaCobertura (opcional) | SIN-AAAA-NNNN, n° de la compañía, fechas de ocurrencia y de denuncia, lugar, causa, descripción, contacto que reporta, monto reclamado (estimado al abrir), moneda, reserva, deducible aplicado, montos liquidado y pagado, fecha de pago, pagado_a → PólizaParte, liquidador (texto), espera_documentos (sí/no), estado ∈ {denunciado, liquidador_asignado, en_liquidacion, informe_final, pendiente_pago, pagado, rechazado, desistido}, motivo de cierre | Existe · se ajusta
+
+ | Transversales
+
+ | Documento · DocumentoVínculo | DocumentoVínculo (N:N) liga cada Documento, guardado una vez, a cualquier tabla (R15) | archivo, etiqueta: una por documento; la pone RADAL según dónde se sube y a mano solo al subirlo suelto en el bloque Documentos de una ficha. Lista cerrada, por momento: Antecedentes (antecedente, p. ej. cuestionario, montos o siniestralidad; inspeccion) · Mercado (bases_tecnicas, cotizacion, comparativo) · Emisión (propuesta, poliza, certificado_cobertura) · Post-venta (propuesta_endoso, endoso, comprobante_pago, carta_cancelacion) · Siniestros (denuncia, antecedente_siniestro, informe_liquidacion, finiquito) · otro. Las categorías de dev se mapean a esta lista; lo que no calce, otro | Existe · suma el vínculo N:N y la etiqueta
+
+ | Extracción | N → 1 Documento | campos leídos con su confianza, datos_faltantes[], banderas[] (severidad y detalle; la lista la fija el lector), subida_por, confirmada_por, confirmada_at (R2). Sin confirmar = Por confirmar; Descartar borra la lectura y el PDF queda como Documento | Existe · se ajusta
+
+ | Notificación | N → 1 Usuario (destinatario) · origen (tabla e id del registro que la dispara) · una sola abierta (nueva o vista) por (origen, destinatario) | bandeja ∈ {por_hacer, para_saber}, tipo ∈ {cuota, pac_rechazado, compromiso_incumplido, sin_plan, diferencia_espejo, plazo_mercado, propuesta_sin_emitir, endoso_sin_emitir, renovacion, seguimiento, retroactivo_con_siniestro, accion_sensible, correo_rebotado (lanzamiento)}, nivel (momento que la disparó: −15 a +10, término, 90, 60, 30, vencida), fecha, estado ∈ {nueva, vista, cerrada}. Lo nuevo del mismo origen actualiza esa fila (tipo, nivel, bandeja) y la deja nueva: escala, no se acumula. Se cierra cuando el origen ya no tiene nada pendiente; si resuelve un tipo y queda otro, muestra el que queda. Disparo, cierre y destinatario por tipo: Pantallas y reglas | Nueva · MVP
+
+ | Gestión | N → 1 Usuario (autor) · vinculada al registro desde donde se hizo clic: cliente, asegurado, colocación, póliza, cuota, endoso o siniestro. Reemplaza GestiónCobranza y la Nota reservada | texto (“¿Qué pasó?”, obligatorio), proximo_seguimiento (opcional; en una cuota es la fecha de compromiso, “Promete pagar el”), fijada (sí/no), adjuntos (DocumentoVínculo), fecha y hora, fuente ∈ {manual, correo}. Sin canal. La escribe el usuario; la bitácora (Evento), el sistema. Alimenta Última gestión, Días sin contacto y la notificación Seguimiento | Nueva · MVP
+
+ | Evento (bitácora) | Polimórfico | código interno, texto en español para el usuario (R35), usuario, fecha y hora, valores antes y después (R7). Registra también cada Corregir dato (R19) | Existe · suma el texto
+
+ | Meta | N → 1 Corredora · N → 1 Usuario (opcional; vacío = meta de la corredora) · única por (corredora, usuario, mes) | mes, monto en UF (comisión del mes). La fija el administrador en Configuración → Metas; se compara con la comisión estimada (regla de cálculo 6) | Nueva · MVP
+
+ | Comisión | N → 1 Póliza · N → 1 Cuota (opcional) | tipo ∈ {pago, devolución}, monto, fecha de pago de la compañía, regla ∈ {mes_siguiente_cierre, contra_primera_cuota} | Reservada
+
+ | LoteImportación | 1 → N Documento | estado, totales por semáforo | Reservada · fase posterior
+
+## Siete reglas de cálculo
+
+ La lógica más cara de cambiar después, en pseudocódigo.
+
+### 1 · A qué vigencia va una colocación
+
+vigencia(cliente, fecha_inicio):
+ si existe una vigencia del cliente que contiene fecha_inicio → esa
+ si no → crear una de 12 meses:
+ parte el mismo día y mes que la última vigencia del cliente
+ (o en fecha_inicio, si el cliente no tiene ninguna)
+ etiqueta = "AAAA-AAAA"
+
+ Fecha de inicio: la de la póliza o, sin póliza aún, la que ingresa el corredor al abrir la colocación (1.4).
+
+### 2 · A qué colocación va una póliza
+
+RUT de la póliza = los de sus partes con rol asegurado
+candidatas = colocaciones abiertas (en curso o vigentes)
+ de esa vigencia con el mismo ramo y subtipo
+si una tiene exactamente los RUT de la póliza → esa
+si no, si una contiene todos los RUT de la póliza →
+ preguntar: "¿Parte de esa colocación o propia?"
+ (por defecto, propia)
+si hay más de una candidata → el corredor elige
+si no hay ninguna → crear colocación nueva con los RUT
+ de la póliza; si comparte RUT con otra, advertir (R39)
+
+### 3 · Estados que se calculan
+
+póliza: cancelada si fecha_termino ≤ hoy
+ por_iniciar si hoy < desde
+ vencida si hoy ≥ hasta
+ vigente en otro caso
+
+asegurado:
+ vigente si tiene una póliza vigente
+ en_cotizacion si tiene una colocación en curso
+ prospecto si nunca tuvo colocación y no está perdido
+ inactivo en otro caso
+
+cliente: el primero que cumpla alguno de sus asegurados,
+ en este orden: vigente → en_cotizacion → prospecto
+ → inactivo
+
+cuota: anulada | pagada (Σ pagos vigentes ≥ monto − 0,009 UF,
+ tolerancia llevada a la moneda de la cuota, R8)
+ | en_acuerdo (su última gestión promete pagar
+ en una fecha ≥ hoy)
+ | riesgo_termino (vencida más allá del último día
+ de la cadencia) | vencida | vence_hoy | por_vencer
+marcas de la cuota (no son estados):
+ parcial si tiene pagos vigentes y queda saldo
+ ("Pagado UF 10 de 25"; sigue su reloj)
+ rechazada_pac si pac_rechazado_at es posterior
+ a su último pago vigente
+
+### 4 · La póliza a una fecha
+
+la ficha muestra el estado actual de la póliza
+póliza_al(fecha) = estado actual, deshaciendo con valor_antes
+ los movimientos de endosos emitidos cuya fecha
+ efectiva es posterior a esa fecha
+
+ La póliza solo cambia por endoso emitido o Corregir dato (R19): no hace falta una foto por endoso.
+
+### 5 · Qué se renueva
+
+fila de Renovaciones = colocación vigente cuya póliza
+ más próxima a vencer vence en 90 días o menos,
+ o ya venció sin resultado
+tramo: 90 = 61 a 90 días · 60 = 31 a 60
+ 30 = 0 a 30 y las vencidas sin resultado
+estado de renovación:
+ perdida si resultado = perdida (solo a mano, con motivo)
+ renovada si resultado = renovada
+ en_renovacion si tiene renovacion_via (se muestra la vía)
+ por_renovar en otro caso: nunca pasa sola a perdida
+Renovar(vía) → renovacion_via = vía
+ portal: no crea colocación; "Subir póliza renovada"
+ entra por 2b (etapa 10) y crea la colocación nueva
+ demás: crea en ese momento la colocación nueva
+colocación nueva: vigencia siguiente, renueva_a = la anterior;
+ mismos ramo, subtipo, RUT y ejecutivo; copia las bases
+ técnicas de la anterior y les precarga la materia, los
+ ítems y las sumas de la póliza vigente; vincula (no copia)
+ los documentos; la compañía vigente viene marcada
+ en Registrar envío
+colocación anterior: resultado = renovada cuando la nueva
+ llega a Vigente, o perdida (con motivo) si se marca
+póliza nueva: renueva_a = la póliza anterior del mismo
+ subtipo (el corredor confirma si hay varias)
+
+### 6 · Comisión del mes (estimada)
+
+comisión_estimada(mes) =
+ Σ prima neta × % de comisión de las pólizas
+ emitidas en el mes (nuevas y renovaciones)
+ + Σ prima neta (con signo) × % de su póliza, de los
+ endosos con prima emitidos en el mes
+fecha de la póliza = emisión; si falta, inicio de vigencia
+póliza sin % → no suma; cuenta en "Faltan datos en N pólizas"
+desglose: nuevas (colocación sin renueva_a) · renovaciones
+ (con renueva_a) · endosos
+en camino = la misma cuenta sobre la cotización elegida
+ de las propuestas enviadas sin emitir
+por ejecutivo: el de la colocación · total: solo administrador
+meta = Meta del mes (del ejecutivo o de la corredora)
+
+ Montos en UF (R8). Rótulo estimada: la liquidación de la compañía puede diferir. El módulo de comisiones (tabla Comisión, reservada) sigue en espera.
+
+### 7 · Siniestralidad
+
+siniestralidad(asegurado, ramo, vigencia) =
+ (pagado + pendiente) ÷ prima neta de esa vigencia
+siniestros = los de las pólizas de esa vigencia
+pendiente = en los abiertos, la reserva o, si no hay,
+ el monto reclamado; en los cerrados, 0
+se muestran las últimas 3 vigencias
+cliente (grupo) y cartera = suma de sus asegurados
+
+ Montos en UF (R8).
+
+## Catálogo de ramos y subtipos Cerrado · igual para todas las corredoras
+
+ Son las únicas opciones (R4): 18 ramos con sus subtipos. Selector en cascada ramo → subtipo, el mismo en las tres vías (pasos 1.4, 2b.6 y 3.2). Las dos últimas columnas dan la vía sugerida por subtipo (R37): valor inicial de la colocación, que RADAL puede ajustar en el catálogo; nunca obliga. El lector normaliza al canónico los alias del mercado (TRBF, Property All Risks, Incendio y adicionales…).
+
+ Descargar el catálogo para carga (CSV con códigos de ramo y subtipo)
+
+ | | Ramo | Código | Subtipos que suelen emitirse en el portal (vía Digital) | Subtipos que suelen ir a mercado (vía Tradicional)
+
+ | Vehículos | VEH | Livianos · Motos · Mini flota · Pesados | Flota
+
+ | Hogar | HOG | Hogar (edificio y contenido) | —
+
+ | Condominio | CON | Condominio (bienes comunes) | —
+
+ | PYME | PYM | PYME multirriesgo | —
+
+ | Property | PRO | — | Incendio y adicionales (Nominada) · Todo Riesgo · Perjuicio por paralización · Terrorismo · Robo
+
+ | Responsabilidad Civil | RC | RC Personal · RC Profesional · RC Médica · RC Empresa / Evento · RC Construcción / MOP · RC Administrador de copropiedad | D&O · RC Productos / Contaminación
+
+ | Transporte | TRA | Terrestre nacional | Internacional (marítimo / aéreo)
+
+ | Ingeniería | ING | Todo Riesgo Construcción · Equipo móvil contratista | Montaje · Avería de maquinaria · Equipo electrónico
+
+ | Garantía y Crédito | GYC | — | Póliza de garantía · Fidelidad · Crédito ventas a plazo · Crédito a la exportación
+
+ | Cíber | CIB | — | Cíber
+
+ | Casco | CAS | — | Marítimo · Aéreo
+
+ | Agrícola | AGR | — | Agrícola
+
+ | Accidentes Personales | AP | AP individual · AP colectivo · AP + Vida guardias · Asiento pasajero | —
+
+ | Vida | VID | Vida conductor · Vida individual temporal · Vida con ahorro / CUI · Desgravamen | Vida colectivo
+
+ | Salud | SAL | Salud individual · Salud complementario colectivo | —
+
+ | Asistencia en viaje | ASV | Viaje individual · Viaje empresa | —
+
+ | SOAP | SOA | SOAP | —
+
+ | Otros | OTR | Cesantía · Extensión de garantía | Título · Otro
+
+ Property y la CMF. Property es el nombre de mercado; la CMF separa lo mismo en varios ramos: Incendio (1), Perjuicio por paralización (2), Otros adicionales (3), Terremoto (4), Terrorismo (7) y Robo (8). Incendio y adicionales (Nominada) es la póliza de incendio de toda la vida, y Robo entra como subtipo de Property porque va en la misma póliza de bienes, no en una colocación aparte. El campo codigos_cmf queda reservado: un multirriesgo se reparte en varios códigos, así que no es uno a uno y se llena cuando haya que reportar.
+
+ La plantilla cuelga del subtipo (tabla Plantilla) y llega en una fase posterior: en el MVP el corredor sube su propio archivo de bases técnicas.
+
+## Máquinas de estado
+
+### Colocación: 12 etapas
+
+ Detalle por etapa (paso y pestaña) en Las tres vías.
+
+ - Entradas: 1 Interés (Tradicional) · 2 Presuscripción (renovación tradicional) · 5 Cotizaciones recibidas o 7 Decisión del asegurado (2a) · 10 Póliza emitida (2b, Manual o Subir póliza en una colocación en curso, R34). De Interés se puede saltar a 5 al subir cotizaciones de portales (vía 2c). Las etapas anteriores quedan omitida solas (R6).
+
+ - Volver atrás (solo etapas 1 a 9): Compañía rechazó → 7, con la oferta marcada rechazada_por_compania (sin otra, Volver al mercado → 4) · clic en un paso anterior de la barra → ese paso · Reabrir → la etapa en que se cerró. Cada vuelta agrega una fila en EtapaColocación.
+
+ - Validación espejo: póliza contra propuesta (automático); en 2a, contra la cotización elegida solo si el corredor marca Comparar; sin referencia o sin marcar, queda omitida. Nunca bloquea (R42).
+
+ - Cerrar (ya existe): antes de Póliza emitida, siempre con motivo.
+
+ - Vigente no es el final: la colocación sigue viva en la vigencia y termina con resultado = renovada o perdida (regla de cálculo 5).
+
+### Propuesta
+
+ Por enviar→Enviada→AceptadaoRechazada
+
+ - Enviada: Marcar enviada, opcional (guarda fecha y fuente). Es la etapa 9 · Ratificación: en la compañía, esperando la emisión. Sin marca, pasa de Por enviar a Aceptada al subir la póliza.
+
+ - Aceptada: la compañía emitió y se subió la póliza. “La compañía pidió cambios” es una nota; no cambia el estado.
+
+ - Lo mueve el corredor, a mano, salvo Aceptada, que la dispara subir la póliza. Marcar enviada es opcional: sin marca no corren días ni notificación, y nada se bloquea.
+
+ - Rechazada: la colocación vuelve a 7 · Decisión del asegurado; el motivo va a la bitácora.
+
+### Póliza (se calcula)
+
+ Por iniciar→Vigente→Vencida
+
+ Vigente→Cancelada→Vigente (rehabilitada)
+
+ - Estado: fechas y fecha_termino (regla de cálculo 3). Cancelar y rehabilitar: endosos tipo 7 que fijan o borran fecha_termino.
+
+ - Renovada o perdida es resultado de la colocación, no estado de la póliza.
+
+ - Riesgo de término, Sin respaldo, Con diferencias y Condicionada son marcas, no estados.
+
+### Cuota (se calcula)
+
+ Por vencer→Vence hoy→Vencida→Riesgo de término
+
+ Pagada·En acuerdo·Anulada
+
+ - Pagada: los pagos vigentes cubren el monto (tolerancia 0,009 UF). Revertir un pago exige motivo; la cuota se recalcula sola.
+
+ - Marcas, no estados: Parcial (hay pagos y queda saldo; sigue su reloj por el saldo) y Rechazada (PAC) (sigue impaga).
+
+### Endoso
+
+ Solicitado→Propuesta enviada→EmitidooRechazado
+
+ - Solicitado: lo que pide el asegurado, registrado en RADAL. Propuesta enviada: Marcar enviada de la propuesta de endoso (opcional; sin marca, pasa de Solicitado a Emitido); desde ahí corre Endoso sin emitir.
+
+ - Solo Emitido cambia la póliza: aplica los movimientos y corre el espejo contra la propuesta de endoso.
+
+ - Desde Rechazado siempre se puede volver a solicitar (R22).
+
+ - Lo mueve el corredor, a mano. RADAL no adivina el estado: no saber en qué va un endoso nunca impide emitir, cobrar ni renovar.
+
+### Siniestro (lo cambia el usuario)
+
+ Denunciado→Liquidador asignado→En liquidación→Informe final recibido→Pendiente de pago
+
+ cualquier estado abierto→Pagado · Rechazado · Desistido
+
+ - Abierto sigue abierto aunque la póliza venza; cerrado puede reabrirse con motivo.
+
+ - Lo mueve el corredor, a mano. Un siniestro que nadie actualiza se queda en su estado y no bloquea nada de la póliza (R27).
+
+## Reglas que no se rompen
+
+ Agrupadas por tema. El número es un identificador fijo, el que citan los pasos.
+
+ | | # | Regla
+
+ | Clientes y asegurados
+
+ | R11 | El RUT normalizado identifica al asegurado dentro de cada corredora: una ficha por RUT; cada asegurado de la cartera pertenece a un solo cliente.
+
+ | R12 | El nombre de un cliente nunca iguala la razón social de un asegurado de otro cliente. La razón social principal es dato del cliente, no su nombre.
+
+ | R13 | Los clientes no se borran: se fusionan; el nombre del absorbido queda como alias.
+
+ | R33 | Ninguna corredora ve nada de otra, aunque compartan asegurado: cada una tiene su propio registro, sin identidad común ni prellenado desde otra, y el sistema nunca revela que un RUT existe en otra. El volumen del hub se agrega por compañía y ramo, nunca por asegurado.
+
+ | R39 | Una colocación cubre uno o varios RUT de su cliente, no necesariamente todos; un RUT puede estar en la del grupo y tener además colocaciones propias. Dos colocaciones de igual ramo, subtipo y vigencia con RUT en común: advertencia de posible duplicado, sin bloquear.
+
+ | R40 | El estado del asegurado se calcula, no se elige (regla de cálculo 3). Ningún rol de la póliza crea un asegurado: contratante distinto del asegurado, beneficiario, asegurado adicional y pagador quedan como partes, sin estado, fuera de Clientes y del Pipeline. Si ese RUT ya es asegurado de la corredora por su propio negocio, se enlaza; nunca se crea por ser parte. El Pipeline muestra solo prospectos (y los perdidos, en su columna) cuyo cliente no tiene colocaciones: un vigente que cotiza otro ramo no vuelve a él, y un RUT nuevo de un grupo con negocio queda en la ficha del cliente.
+
+ | Colocación y etapas
+
+ | R1 | Toda póliza pertenece a una colocación; si no existe, la crea la vía que registra la póliza (Digital o Manual), con cliente y vigencia si faltan.
+
+ | R6 | Si la colocación entra por una etapa posterior a Interés, el sistema marca las anteriores como omitida (quién = sistema, fecha, motivo) y conserva las completadas. Una etapa omitida no se reabre; sus documentos se suben a la colocación.
+
+ | R16 | Una colocación, un ramo: varios ramos del mismo cliente son varias colocaciones de la misma vigencia. Cerrar exige motivo.
+
+ | R32 | Una colocación puede tener varias pólizas.
+
+ | R34 | La etapa de la colocación nunca contradice a sus pólizas: una colocación en etapa anterior que recibe una póliza pasa a Póliza emitida y omite las intermedias no completadas (R6); una en Interés que recibe cotizaciones pasa a Cotizaciones recibidas y omite 2 a 4. El sistema lo advierte en pantalla.
+
+ | R37 | La vía sugerida vive en el subtipo y solo sugiere: la vía es de cada colocación, y el corredor la cambia con un clic mientras no tenga póliza. En el MVP la carpeta de presuscripción la arma el corredor: sube sus antecedentes y su archivo de bases técnicas, sin lista obligatoria. La plantilla del subtipo, que los precargará, llega en una fase posterior.
+
+ | R44 | El envío al mercado se registra, no se envía: RADAL guarda a qué compañías se mandaron las bases técnicas, cuándo y con qué plazo, y sigue cada respuesta. Con la integración con el correo del ejecutivo (fase posterior), se registra solo (fuente_envio = correo).
+
+ | Póliza
+
+ | R5 | Póliza única por (compañía, n° de póliza). Sin n° (vía Manual), el sistema busca posible duplicado por RUT, compañía, subtipo y vigencia, y advierte sin bloquear.
+
+ | R9 | La póliza registra prima afecta, exenta, neta (afecta + exenta), IVA y bruta (neta + IVA), tal como vienen en el documento, y el % de comisión; si no cuadran, el sistema advierte sin bloquear. Las cuotas se calculan sobre la bruta. La comisión en pantalla es estimada, sobre la neta (regla de cálculo 6), hasta el módulo de comisiones.
+
+ | R14 | Partes de la póliza (arts. 513 y 518 del Código de Comercio): asegurador (PólizaAsegurador), asegurado y contratante, obligatorios para confirmarla; beneficiario, asegurado adicional y pagador, opcionales (PólizaParte). Por defecto, contratante = asegurado y pagador = contratante. Corredor, liquidador y ejecutivo no son partes; en colectivos, las personas son ítems (nómina). El contratante distinto del asegurado no entra al registro de asegurados: queda como parte, con nombre, RUT y contacto, y solo lo usa Cobranza.
+
+ | R19 | La póliza no se edita a mano: cambia solo por endoso emitido (guarda antes y después) o por Corregir dato (error de lectura o digitación, con motivo, en la bitácora). Completar un campo vacío no es corrección ni pide motivo. La ficha muestra el estado actual; “Ver la póliza al [fecha]” reconstruye el pasado (regla de cálculo 4).
+
+ | R24 | Partes, ítems, coberturas y aseguradores no se borran: se cierran con fecha hasta.
+
+ | R36 | La póliza guarda modalidad (Nominada o Todo Riesgo) y POL base; cada cobertura, su código POL o CAD. En Property, la modalidad la precarga el subtipo; en los demás, la lee el lector. Si difieren, manda la póliza.
+
+ | R38 | La operatividad se calcula: cada función declara sus campos y se activa solo con ellos completos. Guardar exige, en las tres vías, RUT asegurado, contratante, compañía, ramo·subtipo y vigencia; con PDF (vía Digital, o Registrar a mano porque falló el lector), también el n° de póliza. Lo demás que falte se ve como “Falta: X”.
+
+ | R42 | La validación espejo nunca bloquea. En Tradicional corre siempre contra la propuesta; en Digital es opcional: la casilla Comparar con la cotización elegida viene desmarcada al subir la póliza y, sin marcar, la etapa queda omitida. Avisa solo diferencias de fondo: prima, suma asegurada, deducible y cobertura que falta o sobra. La prima se compara con tolerancia nula: los dos montos leídos, sin margen. La moneda es diferencia grave: si la póliza sale en otra moneda que la cotización o la propuesta, RADAL avisa de inmediato, con notificación Por hacer destacada; ese chequeo corre siempre, aunque la casilla esté desmarcada, porque es el error más caro y el más barato de detectar. Como en todo el espejo, avisa y no bloquea. Al registrar la póliza, la colocación pasa a Vigente aunque haya diferencias y la póliza toma su estado de sus fechas. Cada diferencia queda en DiferenciaEspejo y se resuelve aceptándola con motivo o pidiendo endoso; mientras haya pendientes, la póliza lleva la marca Con diferencias y el ejecutivo, una notificación Por hacer.
+
+ | Endosos
+
+ | R20 | Un endoso tiene uno o más movimientos, cada uno con tipo, sentido, objeto, valor antes, valor del movimiento y valor después. El corredor ingresa el movimiento; el después se calcula. Cuantitativos (Aumenta, Disminuye, Incluye, Excluye, Ajusta): después = antes ± movimiento. De sustitución (Modifica, Cambia, Prorroga, Cancela, Rehabilita): después = movimiento. Manda siempre lo que emitió la compañía: si difiere del cálculo, se sobrescribe y la diferencia queda registrada.
+
+ | R21 | Un endoso pasa a Emitido solo con el documento de la compañía y la confirmación de una persona.
+
+ | R22 | Cerrar un endoso sin emitir exige motivo; desde Rechazado siempre se puede volver a solicitar.
+
+ | R23 | Las cuotas que crea un endoso guardan qué endoso las originó; las que anula, cuál las anuló.
+
+ | R25 | Endoso retroactivo con siniestro posterior a su fecha efectiva: notificación Por hacer, sin bloquear; se cierra con Revisado.
+
+ | R26 | Endoso con prima: guarda el movimiento (+ cobro, − devolución) y cómo se aplica: cuotas nuevas, prorrata en las restantes (anula las pendientes y las recrea con el ajuste, R23) o devolución directa (DevoluciónPrima). La forma por defecto A validar con Rodrigo Sandoval se puede cambiar al registrar el emitido.
+
+ | Cobranza Sujetas al acuerdo con el proveedor de pagos
+
+ | — | El pago en plataforma y la conciliación se trabajan con un proveedor externo (ForPay u otro). Estas reglas son la propuesta de RADAL y van a cambiar con lo que ese proveedor defina; los cambios serán de detalle, no de estructura: plan, cuota, pago y gestión se mantienen tal como están (R30, R31).
+
+ | R10 | Las comisiones nunca se guardan en la cuota: tienen tabla propia.
+
+ | R17 | La cobranza se dirige al contratante, quien paga la prima (art. 513 del Código de Comercio): el ejecutivo llama a su contacto principal (MVP); los avisos (lanzamiento) van al pagador, por defecto el contratante, con copia al contratante.
+
+ | R18 | En coaseguro, la cuota se paga completa a la compañía líder.
+
+ | R30 | El pago es un registro propio, asociado a la cuota, y guarda si la compañía lo confirmó (Confirmar pago). El estado de la cuota se calcula con sus pagos y la fecha, nunca a mano.
+
+ | R31 | El plan de pago es el registro maestro: declara qué lo generó (póliza, endoso o prórroga) y el origen del dato (lector, con documento y página, o carga manual).
+
+ | R43 | En el MVP, Cobranza no escribe a nadie fuera de la corredora: registra plan, pagos y gestiones, y notifica al ejecutivo. Notificaciones y avisos comparten motor y cadencia; el lanzamiento solo agrega los avisos (R17).
+
+ | Siniestros
+
+ | R27 | El siniestro nunca modifica la póliza ni las cuotas.
+
+ | R28 | La historia de reserva y montos del siniestro sale de la bitácora (R7), sin tabla propia.
+
+ | R29 | El siniestro se registra igual, con advertencia, si cae fuera de vigencia, si la póliza no tiene respaldo o si falta el n° de póliza (marca Sin n° de póliza).
+
+ | Plataforma
+
+ | R2 | El lector nunca escribe en tablas de negocio: genera una Extracción y una persona la confirma.
+
+ | R3 | Una sola tabla Documento, con una etiqueta de lista cerrada por documento; no hay tabla por tipo de documento.
+
+ | R4 | Compañía, Ramo y Subtipo son catálogos globales y cerrados, iguales para todas las corredoras: ninguna los crea, edita ni borra; si falta uno, lo agrega RADAL (la corredora lo pide en Configuración → Compañías). Excepción: si al registrar una póliza falta la compañía, el usuario ingresa nombre y RUT y queda por_validar hasta que RADAL la valide o la una a la correcta (dev ya crea compañías externas). Lo personalizable por corredora vive en su Plantilla.
+
+ | R7 | Todo cambio en una entidad genera un Evento en la bitácora, con valores antes y después.
+
+ | R8 | Una póliza se emite en UF o dólares, y sus cuotas heredan esa moneda: no hay pólizas en pesos. Los montos se guardan en su moneda original y se muestran en UF del día (ValorMoneda); los dólares pasan a UF con el dólar observado del día. El pago sí puede venir en pesos: guarda la UF de ese día. Si un documento llega en otra moneda, el lector lo marca y pide confirmación antes de guardar.
+
+ | R15 | Un documento se guarda una vez y se vincula a todas las entidades que lo usan; nunca se copia.
+
+ | R35 | El usuario nunca ve códigos internos (nombres de eventos, ids de etapas, estados en inglés); todo evento guarda un texto en español.
+
+ | R41 | Sin mensajería directa entre compañía y asegurado: todo pasa por el corredor.
+
+ Qué se construye y en qué orden
+
+## Plan de construcción
+
+ Regla: la estructura se crea completa y una sola vez (P0); las pantallas, por prioridad. Lo que no alcance en el MVP pasa al lanzamiento sin tocar tablas.
+
+ FechasLas fija Benja con este plan: MVP, lanzamiento y corte de issues de cada uno.
+
+ Si aprietaPara llegar al MVP se recorta primero el Dashboard (mientras falte, RADAL abre en Cobranza), luego el antes/después de endosos. Nada más.
+
+ Los tres que no se recortanSon lo que el corredor compra el primer día: el lector de pólizas (#6), el comparador de cotizaciones (#9) y Cobranza (#5). Sin ellos, RADAL es un registro más.
+
+ Listo cuandoCómo se prueba que cada ítem está terminado; es el criterio para cerrar su issue.
+
+### P0 · Estructura Antes de cualquier pantalla
+
+ | | Qué | Listo cuando
+
+ | Todas las tablas de Estructura de datos, incluidas las nuevas (Notificación, Gestión, Meta, Contacto) y las reservadas | Existen en la base con relaciones y unicidades, aun sin pantalla.
+
+ | Catálogo de ramos y subtipos | 18 ramos y subtipos cargados del CSV. Ninguna corredora crea ramos: “Crear ramo” desaparece; cada ramo actual de dev se mapea al subtipo que corresponda (el mixto “RC / Ingeniería / Transporte”, a varios). La tabla Plantilla se crea vacía, sin pantalla.
+
+ | Estado de etapa omitida, puntos de entrada y volver atrás | Desde Interés, una colocación salta a Vigente (con póliza) o a Cotizaciones recibidas (con cotizaciones); etapas intermedias omitidas por sistema, con motivo (R6, R34). Volver atrás o reabrir agrega filas en EtapaColocación, sin borrar.
+
+ | Asegurado por corredora, sin identidad global | Mismo RUT en dos corredoras: dos registros sin relación; en la segunda, el formulario parte vacío, sin advertencia (R33).
+
+ | Estados calculados | Asegurado, póliza, cuota y renovación sin botón de estado: salen de las reglas de cálculo 3 y 5 (Parcial es marca). Contadores del Portafolio y ficha usan el mismo dato.
+
+ | Dos roles y usuarios | Inspector y técnico pasan a ejecutivo. El usuario se invita por correo y se desactiva, nunca se borra. “Editar perfil” de la corredora, solo administrador.
+
+ | Etiquetas de documento | Cada documento tiene una etiqueta de la lista cerrada; las categorías de dev quedan mapeadas y lo que no calce, en Otro.
+
+ | Bitácora en español y ValorMoneda | Ningún código interno visible (R35). UF y dólar se cargan solos cada día (R8).
+
+### P1 · MVP
+
+ Orden del roadmap del 22-09. Cobranza va tras Endosos: el 24-09 pasó al MVP como registro.
+
+ | | # | Qué | Issue | Listo cuando
+
+ | 1 | Bugs bloqueantes | BUG 1 a 3 | Cambiar de pestaña en el Portafolio muestra la tabla; clic en fila abre la ficha; contadores de Clientes (hoy Asegurados) cuadran con la ficha.
+
+ | 2 | Vocabulario, botón único + Nuevo, Pipeline y menú | 1 a 4 | Las pantallas dicen Cliente, Asegurado, Colocación y los 7 pasos, nunca Cuenta ni Lead (El modelo y el idioma). Único botón para crear, + Nuevo, en dos formas de decir quién es (A mano, tecleando el RUT, o Con la póliza, desde el lector) y un solo formulario de alta (A1). + Nuevo no abre negocios: las colocaciones nacen en la ficha del cliente, con Abrir colocación, y ahí cada ramo elige su vía. Sin Convertir; RUT exigido para calificar o abrir colocación; días sin contacto y próximo seguimiento salen de Gestión. Menú: Dashboard · Portafolio · Cobranza · Agentes IA · Configuración (Pantallas y reglas).
+
+ | 3 | Siniestros | 13 | Se abre un siniestro con cinco datos desde la ficha de la póliza, aunque esta no tenga n° (S1); se actualiza, recibe informes y se cierra con motivo (S2, S3). Pestaña con tarjetas, columnas y estados; siniestralidad según la regla de cálculo 7.
+
+ | 4 | Endosos, con prórroga y rechazo | 11 | Desde la póliza: Solicitado → Propuesta enviada (propuesta de endoso generada; Marcar enviada, opcional) → Emitido o Rechazado (E1). Al registrar el emitido, espejo contra la propuesta de endoso y la póliza cambia con antes y después; el movimiento de prima se aplica a cuotas en la forma elegida (E2, R26). Un solicitado se cierra sin emitir o se vuelve a solicitar (E4). La prórroga mueve el vencimiento de las pólizas marcadas; desaparece el botón suelto.
+
+ | 5 | Cobranza como registro | 12, ajustado | En el menú y como pestaña del Portafolio: misma pantalla y URL, con contador en ambos. Cada póliza con plan tiene sus cuotas; las sin plan aparecen aparte. Se registran pagos (marca Parcial), reversos, PAC rechazado y Confirmar pago (C1), y gestiones con compromiso (C2). La campana, con sus dos bandejas, recibe las notificaciones de cuota (C3) y Riesgo de término (C4); los demás tipos llegan con su módulo.
+
+ | 6 | Portafolio y vías | 6 a 10 | Pestañas, subpestañas, tarjetas y columnas del Portafolio (Pipeline aparte). Tradicional crea varias colocaciones con subtipo, prima estimada y RUT; el corredor sube sus bases técnicas y RADAL arma comparativo y propuesta, y registra el envío al mercado. Digital con póliza y Manual crean lo que falte y guardan con los cinco datos. Toda vía termina en el plan de pago, precargado y saltable. Perfil de la corredora y Metas, en Configuración.
+
+ | 7 | Espejo que no bloquea | 14, ajustado | Al subir la póliza, sus diferencias con la propuesta se guardan marcadas; la colocación pasa igual a Vigente y cada diferencia se acepta con motivo o se resuelve con endoso (R42).
+
+ | 8 | Renovaciones | 15, ajustado | Colocaciones entran solas a 90 días del vencimiento, en tramos que no se superponen. Renovar abre las tres vías con todo heredado y encadena colocación y póliza nuevas; por portal, la colocación nace con Subir póliza renovada. Por renovar · En renovación · Renovada · Perdida; Perdida solo a mano, con motivo (regla de cálculo 5).
+
+ | 9 | Comparador de cotizaciones (vía 2a) | — | Sobre una colocación ya abierta, el corredor sube las cotizaciones de los portales y RADAL arma el comparativo (2a.1 a 2a.5). Es uno de los tres diferenciales comerciales, junto con el lector de pólizas (#6) y Cobranza (#5). Costo a confirmar: depende de adaptar el comparador actual, que hoy compara contra bases técnicas (Preguntas, 14).
+
+ | 10 | Dashboard | 5 | RADAL abre en el Dashboard: Comisión del mes (estimada) contra la meta (regla de cálculo 6; metas en Configuración) y ocho tarjetas, cada una con el mismo número que la lista filtrada que abre.
+
+### P2 · Si alcanza MVP o lanzamiento
+
+ | | Qué | Por qué aquí
+
+ | E3: endoso que llega sin solicitud | Mientras falte, ese endoso se registra por E1 y E2.
+
+ | Línea de tiempo de la póliza | El antes y después de cada endoso ya está en P1.
+
+ | A1.3: advertencia de nombres parecidos | El RUT ya impide duplicados; esto evita dos RUT del mismo grupo en carpetas distintas.
+
+### P3 · Lanzamiento
+
+ En orden: vista del asegurado (issue 16) → avisos al contratante (C5, issue 17) → pago en plataforma con ForPay o Fintoc (18) y carga del estado de pago de la compañía (C6), en proyecto paralelo → reportería al asegurado (21; cae si aprieta). Además, A3 (fusionar clientes) y “Ver la póliza al [fecha]”.
+
+### Fases posteriores
+
+ Sin fecha, en orden: vía 2c, preparar en RADAL lo que se cotizará en portales (gestiones y datos del riesgo previos a póliza o cotizaciones; tablas y campos ya en P0) → integración con el correo del ejecutivo: Marcar enviada y gestiones se registran solas (fuente = correo; Preguntas, 22) → Migración (uso interno), la cuarta vía: solo se nombra → conexiones MCP → productos digitales (cotizadores express) → agente IA por WhatsApp (issue 20, no abrir aún) → motor técnico con inspectores → vista aseguradora → siniestros completo con liquidadores. Comisiones (issue 19): en espera, con tabla reservada; mientras, comisión estimada (regla de cálculo 6).
+
+ Incentivos para registrar. Qué hace RADAL para que el corredor marque cada acción (envíos, gestiones, pagos) en vez de dejarlas en su correo queda para una fase posterior: en el MVP el registro es opcional y lo que no se marca solo deja de activar sus notificaciones.
+
+### Lo que queda fuera
+
+ - Un viaje distinto por ramo. Una sola máquina con etapas que se omiten; el subtipo solo sugiere la vía.
+
+ - Ramos creados por cada corredora. El catálogo es cerrado; lo propio de cada corredora irá en sus plantillas, en una fase posterior.
+
+ - Confirmación automática del lector. Toda póliza la confirma una persona identificada.
+
+ - Pestaña de inspección. El informe es un antecedente más (etiqueta Inspección), opcional.
+
+ - Certificado de cobertura (provisorio). Se guarda como documento (etiqueta Certificado de cobertura) y la póliza lleva la marca Condicionada hasta subir la definitiva; no es un estado.
+
+ - Cambio de corredor (carta de nombramiento). Queda fuera de este documento.
+
+ Lo único que no está decidido
+
+## Lo que Benja tiene que confirmar
+
+ Son preguntas sobre cómo está hecho dev hoy y cuánto cuesta cambiarlo. Lo demás del documento está decidido.
+
+### Máquina de etapas
+
+ - Hoy, ¿qué pasa si se usa Subir póliza (hoy “Registrar póliza”) en una colocación que está en Lead? ¿Y qué significa en el código “entrar en cualquier etapa”? R6 y R34 dicen qué debería pasar.
+
+ - ¿Agregar el estado omitida, los puntos de entrada (etapas 1, 2, 5, 7 y 10) y una fila por cada entrada a una etapa (volver atrás sin borrar) cabe en una sola reforma de la máquina?
+
+ - Ratificación: proponemos que sea “propuesta enviada a la compañía, esperando la emisión” (Propuestas · Enviadas). ¿Qué representa hoy en dev?
+
+ - Propuesta rechazada por la compañía: la colocación vuelve a 7 · Decisión del asegurado y la oferta queda marcada, sin poder elegirse otra vez. ¿Calza con dev?
+
+ - ¿Cómo agrupa hoy dev las 12 etapas en pasos y subpestañas? La tabla Etapa por etapa (Las tres vías) propone una agrupación.
+
+### Datos
+
+ - ¿La tabla Empresa de dev es global (compartida entre corredoras) o por corredora? El mensaje “Si el asegurado ya existe en la plataforma, se vincula” indica que es global. R33 exige que sea por corredora, sin vínculo entre ellas.
+
+ - ¿Los RUT asegurados de una colocación se guardan hoy como relación (una fila por RUT) o como lista dentro de la colocación? R39 necesita la relación (ColocaciónAsegurado).
+
+ - ¿Los ramos que hoy crea cada corredora son filas de una tabla? ¿Cuánto cuesta migrarlos al catálogo de Ramo y Subtipo?
+
+ - ¿La póliza guarda hoy ítems, coberturas y deducibles como filas o como texto? PólizaÍtem y PólizaCobertura se crean igual.
+
+ - ¿La pestaña Endosos que existe acepta pasar a un endoso con varios movimientos sin rehacerla?
+
+ - ¿Hoy la validación espejo guarda las diferencias o solo las muestra? R42 necesita guardarlas (DiferenciaEspejo).
+
+ - En Ossa, que tiene 0 clientes, Documentos muestra un “Poder” y un logo de un asegurado. ¿De dónde salen? Si vienen de otra corredora, rompe R33.
+
+### Lector y comparador
+
+ - ¿El lector entrega un nivel de confianza por campo, las partes con su rol y los aseguradores con su porcentaje? Sin eso, Confirmar datos no puede marcar qué revisar.
+
+ - ¿Cuánto cuesta que el comparador actual reciba cotizaciones de los portales, sin bases técnicas contra las cuales comparar (vía 2a)? Define si 2a entra al MVP.
+
+ - ¿Qué implica aceptar el Excel tal cual en Antecedentes, en vez de pedir que se exporte a PDF?
+
+### Plataforma y costo
+
+ - ¿dev tiene hoy un centro de notificaciones para el usuario? ¿Y dónde guarda las notas de seguimiento del Pipeline y las del asegurado: tabla propia o texto en la ficha? El MVP necesita la campana con dos bandejas (Notificación) y la tabla Gestión, que reúne gestiones y notas.
+
+ - ¿Cuánto cuesta el renombre de pantalla: la carpeta “Asegurado” pasa a Cliente, “Empresa / Cliente” pasa a Asegurado, Cuenta a Colocación y la etapa Lead a Interés? La base y el código pueden mantener sus nombres.
+
+ - ¿Cuánto cuesta pasar a dos roles (Administrador y Ejecutivo), migrando inspector y técnico?
+
+ - Con el Plan de construcción, ¿qué fechas propones para el MVP y para el lanzamiento, y dónde pones el corte de issues de cada uno?
+
+### Para el lanzamiento y después
+
+ - ¿El lector puede aprender el formato del estado de pago de cada compañía, o hay que definir a mano los primeros formatos? (C6)
+
+ - Tolerancia de la conciliación: se propone ±1% o $1.000 para diferencias por conversión de UF, además de los 0,009 UF de redondeo. Hay que validarla con datos reales. (C6)
+
+ - Integración con el correo del ejecutivo: hoy Marcar enviada y las gestiones se registran a mano (fuente = manual). ¿Cuándo conviene integrarla y cómo: leer los correos enviados de su cuenta para marcar solos envíos y gestiones, o redactar y enviar desde RADAL con esa cuenta? El archivo descargado ya lleva el código EXP en el nombre para calzarlo.
+
+ Para repartir el trabajo
+
+## Issues de GitHub ajustados
+
+ Los issues del 22-09 se cruzaron con este documento y quedaron corregidos en Issues_Radal_2026-10-01, ajustados a esta versión y listos para subir. Si alguno choca con este documento, manda el documento. Los bugs de pantalla van por issues y aquí no se repiten.
+
+ | | Issue | Qué cambió
+
+ | 1 · Palabras | Cliente, Asegurado, Colocación y Póliza; la etapa Lead pasa a llamarse Interés.
+
+ | 2 · Alta | Un solo botón para crear, + Nuevo, y un solo formulario de alta: RUT, razón social, un contacto y ejecutivo. El RUT se exige también para calificar.
+
+ | 3 y 7 · Pipeline | Sin la columna Convertido; la ficha del prospecto es la del asegurado. Va aparte, a la derecha del Portafolio; días sin contacto y próximo seguimiento salen de Gestión.
+
+ | 4 · Menú | Dashboard · Portafolio · Cobranza (contador) · Agentes IA · Configuración; sin Cotizadores. Compañías pasa a Configuración y + Nuevo reemplaza los accesos directos.
+
+ | 5 · Dashboard | Arriba, Comisión del mes (estimada) contra la meta; debajo, ocho tarjetas. Reemplaza “Mi mes”. Mientras no esté, RADAL abre en Cobranza.
+
+ | 6 · Clientes | La pestaña Asegurados pasa a llamarse Clientes: una fila por cliente, con sus asegurados dentro. Portafolio: Clientes · Cotizaciones · Propuestas · Pólizas · Cobranza · Endosos · Siniestros · Renovaciones.
+
+ | 8 · Cotizaciones | Prima estimada es campo de la colocación; filtro Cerradas.
+
+ | 9 · Propuestas | Por enviar · Enviada · Aceptada · Rechazada. Marcar enviada, opcional; Compañía rechazó vuelve a Decisión del asegurado.
+
+ | 10 · Pólizas | También sin PDF (Manual); un solo botón, Subir póliza; lectura con avance y tarjeta Por confirmar.
+
+ | 11 · Endosos | Nueve tipos por objeto; Solicitado → Propuesta enviada → Emitido o Rechazado, con propuesta de endoso y espejo; prima (+/−) aplicada a cuotas; sin responsable; la prórroga crea un endoso por póliza.
+
+ | 12 · Cobranza | Pasa al MVP como registro con notificaciones, en el menú y como pestaña del Portafolio (misma pantalla). Método de pago; Parcial es marca; Confirmar pago; gestiones en la tabla Gestión.
+
+ | 13 · Siniestros | Estado al final y texto de vacío con Registrar siniestro; siniestralidad con lo pendiente (regla de cálculo 7).
+
+ | 14 · Espejo | No bloquea: la colocación pasa a Vigente siempre.
+
+ | 15 · Renovaciones | Renovar abre las tres vías; por portal no crea colocación hasta Subir póliza renovada. Por renovar · En renovación · Renovada · Perdida (nunca sola); tramos 61–90, 31–60 y 0–30; lo perdido se reabre.
+
+ | 17 · Avisos | Van al pagador (por defecto, el contratante) con copia al contratante, por correo o WhatsApp.
+
+ | 19 · Comisión | En espera, con su tabla reservada; mientras, comisión estimada (regla de cálculo 6).
+
+ | 22 · Notificaciones | Nuevo: campana con dos bandejas, Por hacer y Para saber (Pantallas y reglas).
+
+ | 23 · Configuración | Nuevo: perfil, usuarios, compañías, cobranza y metas (Pantallas y reglas).
+
+ | 24 · Gestiones | Nuevo: una sola libreta de gestiones, de dos campos, en todas las pantallas (tabla Gestión).
+
+ Quedan como estaban: 16, 18, 20 y 21.
+
+## Auditoría de dev
+
+ dev.radalseguros.cl · build 0875cd6 · usuarios 1, 11, 12, 13 y 14. Con los nombres de dev (“cuenta” = colocación). No se creó ni se modificó ningún dato.
+
+ | | Tema | Hoy en dev | Qué cambia | Tipo
+
+ | Máquina de estados | 12 etapas con transiciones estrictas (“no alcanzable desde 'lead'”). | Estado omitida, puntos de entrada y una fila por cada entrada a una etapa, para volver atrás sin borrar (R6, R34). Es la única reforma de la máquina. | Estructural
+
+ | Ramos | Cada corredora crea los suyos; hay duplicados y uno mezclado (“RC / Ingeniería / Transporte”). | Catálogo cerrado de Ramo y Subtipo (R4); lo propio de cada corredora, en plantillas de una fase posterior. | Estructural
+
+ | Datos del asegurado | “Si el asegurado ya existe en la plataforma, se vincula”: identidad común entre corredoras. | Un registro por corredora, sin vínculo ni advertencia (R33). | Estructural · compliance
+
+ | Cobranza | Planes de pago con cuotas. | Pago, gestiones, cadencia, notificaciones y estado calculado de la cuota (R30, R31). | Estructural
+
+ | Póliza | “Pólizas 0” en plural por cuenta. | Varias pólizas por colocación (R32), primas desglosadas y % de comisión (R9), modalidad y POL (R36). | Estructural
+
+ | Varios ramos | “Nueva cuenta” deja elegir un solo ramo. | Varios ramos, cada uno con su subtipo. | Ajuste menor
+
+ | Póliza desde el PDF | “Registrar póliza” dentro de la cuenta, incluso en Lead. | Se llama Subir póliza; se abre también desde + Nuevo y aplica R34. | Falta regla
+
+ | Contratante y RUT | Se definen en la cuenta. | Copiarlos a las partes de cada póliza; la colocación cubre uno o varios RUT (R39). | Se extiende
+
+ | Documentos | Tabla única con categoría y entidad. | Un documento vinculado a varias entidades (R15); categorías → etiquetas de lista cerrada. | Se extiende
+
+ | Prórroga | Botón suelto en la ficha del asegurado. | Es el endoso tipo 6, desde la ficha de la póliza. | Se mueve
+
+ | Renovación | “Iniciar renovación” existe; “Por vencer” a 60 días. | Tramos 90, 60 y 30, y Renovar abre las tres vías. | Se extiende
+
+ | Compañías | Catálogo con nativas y externas; en el menú. | A Configuración: nombre, RUT y código CMF. Faltan compañías de Vida. | Existe
+
+ | Aislamiento | Abrir una carpeta de otra corredora responde “No encontramos este asegurado”. | Se mantiene. Revisar el “Poder” y el logo que aparecen en Ossa (Preguntas, 12). | Revisar
+
+ | Roles | Cuatro: administrador, ejecutivo, técnico e inspector, con diferencias mínimas. | Dos: Administrador y Ejecutivo; “Editar perfil” solo para el administrador. | Permisos
+
+ | Consistencia | “Colocaciones 0/0” con una cuenta en curso; asegurado en Prospecto y carpeta en Activo. | Contadores y estados salen del mismo dato (R40). | Bug
+
+ | Lenguaje | Bitácora con “case_file.created” y “Etapa — → lead”. | Nunca códigos internos en pantalla (R35). | UX
+
+ | Antecedentes | Pide exportar el Excel a PDF; el “Slip de T&C” figura como antecedente del cliente. | Aceptar Excel; como antecedente, “póliza actual o slip anterior”, opcional. | UX
+
+ | Pantalla angosta | El menú se esconde y la pestaña Documentos baja de línea. | Revisar el diseño responsive del Portafolio. | UX
+

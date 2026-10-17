@@ -45,6 +45,13 @@ import type {
   DocumentConfirmResponse,
   DocumentExtractionResponse,
 } from "@/api/types";
+import {
+  DOCUMENT_CATEGORY_LABEL,
+  DOCUMENT_DIRECTION_LABEL,
+  DOCUMENT_FIELD_LABEL,
+  EXTRACTION_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 type Primitive = "string" | "number" | "boolean" | "json";
 
@@ -208,9 +215,7 @@ export function SuggestionForm({
           value={
             <StatusBadge
               value={extraction.status}
-              label={tp(`ai.statuses.${extraction.status}`, {
-                defaultValue: extraction.status,
-              })}
+              label={enumLabel(tp, EXTRACTION_STATUS_LABEL, extraction.status)}
             />
           }
         />
@@ -223,14 +228,12 @@ export function SuggestionForm({
         <div className="col-span-2 md:col-span-5 flex flex-wrap items-center gap-3">
           <Badge variant="brand" className="gap-1">
             <Sparkles className="h-3 w-3" />
-            {t(`categories.${result.canonical_category}`, {
-              defaultValue: result.canonical_category,
-            })}
+            {enumLabel(t, DOCUMENT_CATEGORY_LABEL, result.canonical_category)}
           </Badge>
           {spec?.code ? <MonoChip>{spec.code}</MonoChip> : null}
           {spec ? (
             <Badge variant="neutral">
-              {t(`directions.${spec.direction}`, { defaultValue: spec.direction })}
+              {enumLabel(t, DOCUMENT_DIRECTION_LABEL, spec.direction)}
             </Badge>
           ) : null}
           {documentName ? (
@@ -281,9 +284,7 @@ export function SuggestionForm({
             {Object.entries(draft).map(([name, entry]) => {
               const field = fields.find((f) => f.name === name);
               const changed = entry.value !== entry.original;
-              const label = t(`fields.${name}`, {
-                defaultValue: name.replace(/_/g, " "),
-              });
+              const label = enumLabel(t, DOCUMENT_FIELD_LABEL, name, name.replace(/_/g, " "));
               const id = `sf-${extraction.id}-${name}`;
               return (
                 <div

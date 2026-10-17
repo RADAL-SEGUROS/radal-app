@@ -1,0 +1,316 @@
+{
+  "title": "Mantenedor",
+  "description": "Consola de Radal: perfiles de cobro por compañía, cuentas de proveedor, eventos de webhook y tareas programadas.",
+  "back": "Mantenedor",
+  "nav": {
+    "insurers": "Compañías y cobro",
+    "providerAccounts": "Cuentas de proveedor",
+    "events": "Eventos",
+    "jobs": "Tareas programadas"
+  },
+  "common": {
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "cancel": "Cancelar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "never": "Nunca",
+    "none": "—",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "page": "{{from}}–{{to}} de {{total}}",
+    "copyUrl": "Copiar URL"
+  },
+  "guard": {
+    "noEdit": "Tu rol no puede editar en el Mantenedor.",
+    "noCreate": "Tu rol no puede crear en el Mantenedor.",
+    "noManage": "Tu rol no puede ejecutar esta acción en el Mantenedor."
+  },
+  "onboarding": {
+    "not_contacted": "Sin contacto",
+    "in_conversation": "En conversación",
+    "onboarding": "En incorporación",
+    "sandbox": "En pruebas",
+    "active": "Activa",
+    "suspended": "Suspendida"
+  },
+  "channel": {
+    "webpay": "Webpay",
+    "oneclick": "Oneclick",
+    "bank_transfer": "Transferencia",
+    "direct_debit": "PAC"
+  },
+  "channelStatus": {
+    "pending": "Pendiente",
+    "sandbox": "En pruebas",
+    "active": "Activo",
+    "suspended": "Suspendido",
+    "none": "Sin configurar"
+  },
+  "owner": {
+    "radal_mall": "Radal (mall)",
+    "insurer": "Compañía"
+  },
+  "environment": {
+    "sandbox": "Pruebas",
+    "production": "Producción"
+  },
+  "accountStatus": {
+    "draft": "Borrador",
+    "active": "Activa",
+    "disabled": "Deshabilitada"
+  },
+  "eventStatus": {
+    "received": "Recibido",
+    "processed": "Procesado",
+    "ignored": "Ignorado",
+    "failed": "Fallido"
+  },
+  "jobStatus": {
+    "running": "En curso",
+    "succeeded": "Correcta",
+    "failed": "Fallida",
+    "skipped": "Omitida"
+  },
+  "instruction": {
+    "portal_url": "Portal de pago",
+    "bank_name": "Banco",
+    "account_type": "Tipo de cuenta",
+    "account_number": "N° de cuenta",
+    "account_holder": "Titular",
+    "account_rut": "RUT del titular",
+    "transfer_email": "Correo para avisar la transferencia",
+    "receipt_email": "Correo para enviar el comprobante",
+    "notes": "Otras indicaciones"
+  },
+  "insurers": {
+    "title": "Compañías y cobro",
+    "description": "Estado de incorporación, instrucciones de pago, correo de cobranza, dominios remitentes y la matriz de canales de pago de cada compañía.",
+    "tabs": {
+      "profiles": "Perfiles",
+      "channels": "Canales de pago"
+    },
+    "search": "Buscar por nombre o RUT",
+    "allStatuses": "Todos los estados",
+    "empty": "No hay compañías con esos filtros.",
+    "noProfile": "Sin perfil",
+    "columns": {
+      "insurer": "Compañía",
+      "status": "Incorporación",
+      "email": "Correo de cobranza",
+      "domains": "Dominios",
+      "channels": "Canales activos",
+      "updated": "Actualizado"
+    },
+    "activeChannels": "{{count}} activos",
+    "activeChannels_one": "1 activo",
+    "activeChannels_other": "{{count}} activos",
+    "noChannels": "Ninguno",
+    "sheet": {
+      "title": "{{name}}",
+      "description": "Lo que Radal sabe de la compañía para cobrar. Las corredoras ven las instrucciones y el correo, nunca el estado de incorporación.",
+      "statusTitle": "Incorporación a Forpay",
+      "onboarding": "Estado",
+      "statusNote": "Nota interna",
+      "expectedLive": "Fecha estimada de salida a producción",
+      "contactTitle": "Correo y dominios",
+      "collectionsEmail": "Correo de cobranza",
+      "collectionsEmailHint": "A este correo llegan las consultas de estado de pago de las corredoras.",
+      "senderDomains": "Dominios remitentes",
+      "senderDomainsHint": "Correos de estos dominios se reconocen como respuestas de la compañía.",
+      "domainPlaceholder": "hdi.cl",
+      "addDomain": "Agregar",
+      "removeDomain": "Quitar {{domain}}",
+      "instructionsTitle": "Instrucciones de pago",
+      "instructionsHint": "Las ven las corredoras (y sus asegurados) cuando la compañía no tiene cobro en línea.",
+      "channelsTitle": "Canales",
+      "channelsHint": "Se editan en la pestaña Canales de pago.",
+      "saved": "Perfil guardado",
+      "invalidEmail": "Correo inválido",
+      "invalidDomain": "Dominio inválido",
+      "duplicateDomain": "Ese dominio ya está",
+      "tooManyDomains": "Hasta 20 dominios",
+      "invalidUrl": "Debe comenzar con http:// o https://"
+    }
+  },
+  "channels": {
+    "description": "Cada compañía × canal: estado, cuenta de proveedor y código de comercio. Un canal activo con una cuenta activa pasa las cuotas a cobro en línea.",
+    "onlyConfigured": "Solo compañías con canales",
+    "empty": "No hay compañías para mostrar.",
+    "edit": "Editar {{channel}} de {{insurer}}",
+    "dialog": {
+      "title": "{{channel}} · {{insurer}}",
+      "description": "Al activar el canal, las cuotas abiertas de la compañía pasan a cobro en línea.",
+      "account": "Cuenta de proveedor",
+      "noAccount": "Sin cuenta",
+      "storeCode": "Código de comercio",
+      "status": "Estado",
+      "activeNeedsAccount": "Un canal activo necesita una cuenta de proveedor.",
+      "saved": "Canal guardado",
+      "activatedAt": "Activo desde {{date}}"
+    }
+  },
+  "providerAccounts": {
+    "title": "Cuentas de proveedor",
+    "description": "Cuentas de Forpay y otros proveedores: credenciales (solo escritura), URL del webhook, verificación y rotación de secretos.",
+    "add": "Nueva cuenta",
+    "empty": "Aún no hay cuentas de proveedor.",
+    "baseUrl": "URL base",
+    "verify": "Verificar",
+    "verifying": "Verificando…",
+    "verifiedOk": "Cuenta verificada",
+    "verifyFailed": "No se pudo verificar la cuenta",
+    "lastVerified": "Verificada el {{date}}",
+    "neverVerified": "Nunca verificada",
+    "rotate": "Rotar secreto",
+    "rotateTitle": "¿Rotar el secreto del webhook de {{label}}?",
+    "rotateDescription": "Se genera un secreto nuevo para los mandatos nuevos. El anterior sigue siendo válido durante 30 días, así que los webhooks en curso no se pierden.",
+    "rotateConfirm": "Rotar secreto",
+    "rotated": "Secreto rotado",
+    "previousValid": "El secreto anterior es válido hasta el {{date}}",
+    "webhook": "Webhook",
+    "webhookKind": {
+      "payment": "Pagos",
+      "activation": "Activación de mandatos"
+    },
+    "webhookKey": "Clave de la cuenta",
+    "noWebhook": "Sin URL de webhook: falta configurar la URL pública de la API.",
+    "secrets": "Secretos",
+    "noSecrets": "Sin secretos guardados",
+    "secret": {
+      "api_key": "API key",
+      "password": "Contraseña",
+      "hmac_key": "Clave HMAC",
+      "public_key_pem": "Llave pública (PEM)",
+      "jwe_alg": "Algoritmo JWE",
+      "jwe_enc": "Cifrado JWE",
+      "signature_fields": "Campos firmados"
+    },
+    "form": {
+      "createTitle": "Nueva cuenta de proveedor",
+      "editTitle": "Editar {{label}}",
+      "description": "Los secretos son de solo escritura: nunca se vuelven a mostrar.",
+      "identityTitle": "Cuenta",
+      "label": "Nombre",
+      "owner": "Dueña de la cuenta",
+      "insurer": "Compañía",
+      "insurerPlaceholder": "Elige la compañía",
+      "noInsurer": "Ninguna",
+      "environment": "Ambiente",
+      "status": "Estado",
+      "connectionTitle": "Conexión",
+      "baseUrl": "URL base",
+      "baseUrlHint": "Vacío = la URL por defecto de Forpay.",
+      "baseUrlHintEdit": "Vacío = se mantiene la URL actual.",
+      "commerce": "Comercio",
+      "channelHeader": "Canal (header)",
+      "processId": "Proceso",
+      "username": "Usuario",
+      "salesExecutiveId": "Ejecutivo comercial",
+      "secretsTitle": "Secretos",
+      "secretsHint": "Solo escritura. Vacío = se mantiene el guardado.",
+      "saved": "Guardado ✓",
+      "clear": "Borrar",
+      "willClear": "Se borrará al guardar",
+      "undo": "Deshacer",
+      "signatureFieldsHint": "JSON: una lista de campos, o un objeto con una lista por tipo de evento.",
+      "invalidJson": "JSON inválido: debe ser una lista de textos o un objeto de listas de textos.",
+      "labelRequired": "Indica un nombre",
+      "insurerRequired": "Una cuenta de compañía necesita la compañía",
+      "invalidUrl": "Debe comenzar con https://",
+      "created": "Cuenta creada",
+      "updated": "Cuenta actualizada",
+      "statusHint": "Para activarla se necesitan el usuario y los secretos de acceso y firma.",
+      "keepPlaceholder": "Guardado — escribe para reemplazarlo"
+    },
+    "emptyHint": "Crea la cuenta de Radal (mall) o la de una compañía para activar su cobro en línea.",
+    "verification": "Verificación",
+    "lastError": "Último error",
+    "copied": "URL copiada",
+    "verifyState": {
+      "ok": "Verificada",
+      "failed": "Verificación fallida",
+      "never": "Sin verificar"
+    },
+    "verifyFailedSince": "Falló la última verificación (la última exitosa fue el {{date}}). No cobra en línea hasta verificarla de nuevo.",
+    "verifyFailedNever": "Falló la verificación. No cobra en línea hasta verificarla."
+  },
+  "events": {
+    "title": "Eventos de proveedor",
+    "description": "Bandeja de webhooks recibidos, con su estado y la opción de reprocesar.",
+    "allStatuses": "Todos los estados",
+    "allSignatures": "Toda firma",
+    "validSig": "Firma válida",
+    "invalidSig": "Firma inválida",
+    "allAccounts": "Todas las cuentas",
+    "empty": "No hay eventos con esos filtros.",
+    "columns": {
+      "received": "Recibido",
+      "type": "Tipo",
+      "account": "Cuenta",
+      "signature": "Firma",
+      "status": "Estado",
+      "attempts": "Intentos",
+      "error": "Error"
+    },
+    "sigValid": "Válida",
+    "sigInvalid": "Inválida",
+    "noType": "Sin tipo",
+    "detail": {
+      "title": "Evento #{{id}}",
+      "dedup": "Clave de deduplicación",
+      "broker": "Corredora",
+      "payload": "Contenido recibido",
+      "noPayload": "Sin contenido guardado.",
+      "reprocess": "Reprocesar",
+      "reprocessing": "Reprocesando…",
+      "reprocessed": "Evento reprocesado",
+      "reprocessHint": "Idempotente: nunca registra un pago dos veces.",
+      "invalidSignature": "Solo se reprocesan eventos con firma válida.",
+      "noAccount": "El evento no tiene una cuenta de proveedor vigente.",
+      "provider": "Proveedor"
+    },
+    "noAccount": "Sin cuenta",
+    "type": {
+      "payment": "Pago",
+      "activation": "Activación de mandato"
+    }
+  },
+  "jobs": {
+    "title": "Tareas programadas",
+    "description": "Últimas ejecuciones de cada tarea programada.",
+    "latest": "Última ejecución",
+    "never": "Sin ejecuciones recientes",
+    "allJobs": "Todas las tareas",
+    "allStatuses": "Todos los estados",
+    "empty": "No hay ejecuciones con esos filtros.",
+    "columns": {
+      "job": "Tarea",
+      "scheduled": "Programada",
+      "status": "Estado",
+      "duration": "Duración",
+      "result": "Resultado"
+    },
+    "seconds": "{{value}} s",
+    "statsTitle": "Resultado de la ejecución",
+    "noStats": "Sin datos.",
+    "viewDetail": "Ver detalle",
+    "label": {
+      "noop": "Prueba del programador",
+      "mail_poll": "Lectura de casillas",
+      "fx_daily": "UF y dólar del día",
+      "collection_clock": "Reloj de cobranza",
+      "notifications_expire": "Limpieza de notificaciones",
+      "payments_sync": "Sincronización de pagos",
+      "payments_payouts": "Liquidaciones de pagos",
+      "rpa_run": "Cotización en portales",
+      "collection_notices": "Avisos de cobranza",
+      "collection_inquiries": "Consultas a compañías"
+    },
+    "noRegistered": "No hay tareas registradas.",
+    "latestError": "No se pudo leer la última ejecución.",
+    "history": "Historial",
+    "startedAt": "Inicio",
+    "finishedAt": "Término"
+  }
+}

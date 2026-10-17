@@ -39,6 +39,7 @@ import {
   StatusBadge,
   uf,
 } from "@/pages/proposals/shared";
+import { QUOTE_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const PAGE_SIZE = 100;
 /** One column is not a comparison. */
@@ -132,7 +133,7 @@ export default function AiComparatorPage() {
         cell: ({ row }) => (
           <StatusBadge
             value={row.original.status}
-            label={tq(`status.${row.original.status}`, { defaultValue: row.original.status })}
+            label={enumLabel(tq, QUOTE_STATUS_LABEL, row.original.status)}
           />
         ),
       },

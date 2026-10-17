@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.placement import PlacementStatus
 from app.schemas.analytics import GroupedSummary
+from app.schemas.utc import UtcDatetime
 
 Period = Annotated[str, Field(min_length=1, max_length=32)]
 
@@ -113,8 +114,8 @@ class PlacementListItem(BaseModel):
     period_start: date | None = None
     period_end: date | None = None
     status: PlacementStatus
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     client: PlacementClientSummary | None = None
     asset: PlacementRefSummary | None = None

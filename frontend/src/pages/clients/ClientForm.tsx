@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { isValidRut, normalizeRut } from "@/pages/clients/rut";
+import { CLIENT_STATUS_LABEL, PERSON_TYPE_LABEL, enumLabel } from "@/i18n/labels";
 
 /** Sentinel for "no account manager" — Radix Select forbids an empty value. */
 const NONE = "__none__";
@@ -228,7 +229,7 @@ export function CreateClientDialog({
                 <SelectContent>
                   {PERSON_TYPES.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {t(`clients:personType.${value}`)}
+                      {enumLabel(t, PERSON_TYPE_LABEL, value)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -290,7 +291,7 @@ export function CreateClientDialog({
                 <SelectContent>
                   {CLIENT_STATUSES.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {t(`clients:status.${value}`)}
+                      {enumLabel(t, CLIENT_STATUS_LABEL, value)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -474,7 +475,7 @@ export function EditClientDialog({
               <SelectContent>
                 {CLIENT_STATUSES.map((value) => (
                   <SelectItem key={value} value={value}>
-                    {t(`clients:status.${value}`)}
+                    {enumLabel(t, CLIENT_STATUS_LABEL, value)}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -26,7 +26,7 @@
     "cases": "Expedientes",
     "agent": "Agente",
     "endorsements": "Endosos",
-    "collections": "Cobranzas",
+    "collections": "Cobranza",
     "clients": "Clientes",
     "placements": "Colocaciones",
     "quotes": "Cotizaciones",
@@ -45,7 +45,11 @@
     "soon": "Pronto",
     "analytics": "Analítica",
     "backToGroups": "Volver a asegurados",
-    "data": "Portafolio"
+    "data": "Portafolio",
+    "portalSearch": "Cotizar en portales",
+    "platform": "Mantenedor",
+    "notifications": "Notificaciones",
+    "overdueInstallments": "Cuotas vencidas: {{count}}"
   },
   "sidebar": {
     "collapse": "Contraer barra lateral",
@@ -95,7 +99,8 @@
       "assets": "Bienes",
       "quotes": "Cotizaciones",
       "proposals": "Propuestas"
-    }
+    },
+    "error": "No pudimos buscar en este momento. Inténtalo de nuevo."
   },
   "th": {
     "cliente": "Cliente",
@@ -169,6 +174,21 @@
     "loading": "Cargando…",
     "empty": "Sin datos",
     "error": "Error al cargar",
-    "underConstruction": "En construcción"
+    "underConstruction": "En construcción",
+    "noAccess": "Sin acceso",
+    "noAccessHint": "Tu rol no tiene permiso para ver esta sección. Si crees que es un error, pide acceso a un administrador."
+  },
+  "moneyRule": {
+    "fields": {
+      "generic": "Montos",
+      "total_premium_uf": "La prima bruta",
+      "net_premium_uf": "La prima neta",
+      "vat_uf": "El IVA",
+      "exempt_premium_uf": "La prima exenta",
+      "taxable_premium_uf": "La prima afecta",
+      "installments": "La suma de las cuotas"
+    },
+    "mismatch": "Los montos no cuadran: {{field}} debería ser {{expected}} y se recibió {{received}}.",
+    "generic": "Los montos no cuadran ({{field}}). Revisa las cifras."
   }
 }

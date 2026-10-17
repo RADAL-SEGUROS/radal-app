@@ -10,6 +10,10 @@ pre-existing tables and widens two enum-backed VARCHARs
 database created before this branch therefore 500s on nearly every query until
 the missing columns are added. This script closes that gap.
 
+The v12 pass (docs/v12/01-data-model.md §10) adds 27 tables and additive
+columns on seven existing tables (policies as the main view, cobranza, Forpay,
+mail, share links, RPA). Its data step is ``scripts/seed_v12.py``.
+
 The GROUPS & ACCOUNTS pass (docs/v3-groups-accounts-spec.md §3.1) rides on the
 same tool: 2 new tables (``account_group``, ``account_client``) and 11 additive
 columns on ``client``, ``case_file``, ``endorsement`` and ``sales_lead`` — no
@@ -54,6 +58,7 @@ Usage (from backend/, venv active)
     python -m scripts.migrate_case_files --url mysql+pymysql://user:pw@host/radal --apply
     python -m scripts.migrate_case_files --dialect mysql    # offline MySQL plan (both passes)
     python -m scripts.migrate_case_files --dialect mysql --pass groups   # groups delta only
+    python -m scripts.migrate_case_files --dialect mysql --pass v12      # v12 delta only
 
 No secrets are ever printed: URLs are rendered with the password hidden.
 """
@@ -235,6 +240,87 @@ REPURPOSE_ADDED_COLUMNS: dict[str, list[str]] = {
 
 REPURPOSE_WIDENED_COLUMNS: list[tuple[str, str]] = []
 
+# ---------------------------------------------------------------------------
+# v12 manifest (docs/v12/01-data-model.md §10) — closed ramo catalogue, policies
+# as the main view, cobranza in three levels, Forpay, mail, share links, RPA.
+# 27 brand-new tables (create_all handles them on boot) plus additive columns on
+# seven PRE-EXISTING tables. Every added column is NULLable or carries a
+# ``server_default`` (``policy.currency`` / ``collection_installment.currency``
+# DEFAULT 'UF', ``collection_plan.level_preference`` DEFAULT 'auto', the booleans
+# DEFAULT false, ``insurance_line.sort_order`` DEFAULT '0'), so ADD COLUMN works
+# on populated MySQL and SQLite tables alike.
+#
+# Two genuine FK cycles use ``use_alter`` (named, so the deferred ADD CONSTRAINT
+# is reviewable): ``collection_plan.mandate_id`` -> ``payment_mandate``
+# (``fk_collection_plan_mandate``, an ADDED column — the add_foreign_key path
+# already covers it) and ``payment.evidence_id`` -> ``payment_evidence``
+# (``fk_payment_evidence``, on a NEW table — MySQL's CREATE TABLE omits it, so
+# both plan builders emit it as a deferred ``add_foreign_key`` after every
+# CREATE TABLE; SQLite inlines it in CREATE TABLE).
+#
+# No widened columns: every member added to a PRE-EXISTING enum is no longer than
+# its current longest (EntityType stays 18 -> VARCHAR(30): ``insurance_subtype``
+# is 17; DocumentCategory stays 25 -> VARCHAR(37): ``insurer_statement_upload``
+# is 24). ``case_file.entry_origin`` is the team ``origen`` — a NEW enum on a new
+# column; the v3 ``case_file.origin`` axis is untouched.
+# ---------------------------------------------------------------------------
+V12_NEW_TABLES = [
+    # catalogue + policy parties
+    "insurance_subtype",
+    "policy_party",
+    # collections core
+    "payment",
+    "collection_settings",
+    "notice_template",
+    "collection_notice",
+    "notification",
+    "job_run",
+    "currency_rate",
+    # insurer capability + payment provider (Forpay)
+    "insurer_collection_profile",
+    "broker_insurer_collection",
+    "provider_account",
+    "insurer_payment_channel",
+    "payment_intent",
+    "payment_intent_item",
+    "provider_charge",
+    "provider_payout",
+    "provider_event",
+    "payment_mandate",
+    # mail
+    "mail_account",
+    "mail_message",
+    "status_inquiry",
+    "payment_evidence",
+    # share links
+    "share_link",
+    # RPA
+    "portal_credential",
+    "portal_search_run",
+    "portal_quote",
+]
+
+V12_ADDED_COLUMNS: dict[str, list[str]] = {
+    "insurance_line": ["code", "sort_order"],
+    "case_file": ["insurance_subtype_id", "entry_origin", "route"],
+    "case_file_stage_event": ["is_skipped"],
+    "policy": [
+        "insurance_subtype_id", "origin", "has_source_document", "is_provisional",
+        "currency", "payment_method", "terminated_on", "termination_reason",
+    ],
+    "collection_plan": [
+        "origin", "source", "source_document_id", "mandate_id", "level_preference",
+        "notices_enabled", "notices_paused_until", "notices_pause_reason",
+    ],
+    "collection_installment": [
+        "currency", "direct_debit_rejected_at", "voided_by_endorsement_id",
+        "insurer_notice_sent_on", "promise_until",
+    ],
+    "agent_thread": ["active_skills"],
+}
+
+V12_WIDENED_COLUMNS: list[tuple[str, str]] = []
+
 
 @dataclass(frozen=True)
 class Manifest:
@@ -284,6 +370,12 @@ REPURPOSE_MANIFEST = Manifest(
     added_columns=REPURPOSE_ADDED_COLUMNS,
     widened_columns=REPURPOSE_WIDENED_COLUMNS,
 )
+V12_MANIFEST = Manifest(
+    key="v12",
+    new_tables=V12_NEW_TABLES,
+    added_columns=V12_ADDED_COLUMNS,
+    widened_columns=V12_WIDENED_COLUMNS,
+)
 
 # In application order. A later pass may add columns to a table an earlier
 # pass creates (``case_file`` is created by case_files and extended by groups):
@@ -295,14 +387,16 @@ MANIFESTS: list[Manifest] = [
     AGENT_MANIFEST,
     ANTECEDENTES_MANIFEST,
     REPURPOSE_MANIFEST,
+    V12_MANIFEST,
 ]
 
 # Offline plans that make sense on their own. ``case_files`` alone is NOT one
 # of them any more: its CREATE TABLE case_file now references account_group,
 # so the case-files tables cannot be created without the groups tables. The
 # agent pass only touches pre-existing chat tables and its own new table, so
-# it stands alone for a database already carrying the earlier passes.
-OFFLINE_PASSES = ("all", "groups", "agent", "antecedentes", "repurpose")
+# it stands alone for a database already carrying the earlier passes; so does
+# v12 (the dev RDS carries the v9 schema = every earlier pass).
+OFFLINE_PASSES = ("all", "groups", "agent", "antecedentes", "repurpose", "v12")
 
 
 class Plan:
@@ -320,14 +414,33 @@ class Plan:
         self.targets.append((kind, table, column))
 
     def pending_passes(self, manifests: list[Manifest] | None = None) -> list[str]:
-        """Keys of the manifest passes with at least one pending statement."""
+        """Keys of the manifest passes with at least one pending statement.
+
+        A column a LATER pass added to a table an EARLIER pass created (v12's
+        ``case_file.entry_origin``) is attributed to the pass that lists it in
+        ``added_columns`` — not to the pass that created the table, which would
+        report "case_files never ran" on a database that only lacks v12.
+        """
+        manifests = manifests or MANIFESTS
+        explicitly_added = {
+            (table, column)
+            for manifest in manifests
+            for table, columns in manifest.added_columns.items()
+            for column in columns
+        }
         pending = []
-        for manifest in manifests or MANIFESTS:
+        for manifest in manifests:
             for kind, table, column in self.targets:
                 if kind == "create_table" and table in manifest.new_tables:
                     pending.append(manifest.key)
                     break
-                if column is not None and manifest.touches_column(table, column):
+                if column is None:
+                    continue
+                if (table, column) in explicitly_added:
+                    if column in manifest.added_columns.get(table, ()):
+                        pending.append(manifest.key)
+                        break
+                elif manifest.touches_column(table, column):
                     pending.append(manifest.key)
                     break
         return pending
@@ -412,6 +525,42 @@ def _index_sqls(table: Table, dialect: Dialect, only_missing: set[str] | None = 
     return out
 
 
+def _add_constraint_sql(constraint, dialect: Dialect) -> str:  # noqa: ANN001
+    """``ALTER TABLE ... ADD CONSTRAINT`` WITHOUT mutating the model metadata.
+
+    By default ``AddConstraint`` marks the constraint "do not render inline"
+    on the shared ``Table`` — so after one MySQL plan, every later
+    ``CreateTable`` in the same process (a SQLite plan, a test's create_all)
+    silently loses that FK. ``isolate_from_table=False`` (SQLAlchemy >= 2.0.39)
+    keeps the metadata pristine; older 2.0.x falls back to the old behaviour.
+    """
+    try:
+        ddl = AddConstraint(constraint, isolate_from_table=False)
+    except TypeError:  # pragma: no cover - SQLAlchemy < 2.0.39
+        ddl = AddConstraint(constraint)
+    return str(ddl.compile(dialect=dialect)).strip()
+
+
+def _deferred_fk_sqls(table: Table, dialect: Dialect) -> list[str]:
+    """``ADD CONSTRAINT`` for the ``use_alter`` FKs a CREATE TABLE left out.
+
+    MySQL's ``CreateTable`` omits ``use_alter`` foreign keys (create_all adds
+    them with ALTER after every table exists — that is the point of the flag on
+    a FK cycle). The plan must do the same or the constraint silently vanishes
+    from a migrated database. SQLite inlines them in CREATE TABLE (it cannot
+    ALTER-add a FK), so there is nothing to defer there.
+    """
+    if dialect.name not in ("mysql", "mariadb"):
+        return []
+    return [
+        _add_constraint_sql(constraint, dialect)
+        for constraint in sorted(
+            table.foreign_key_constraints, key=lambda c: c.name or ""
+        )
+        if constraint.use_alter
+    ]
+
+
 def _fk_constraints_for_columns(table: Table, column_names: set[str]) -> list:
     """FK constraints whose constrained columns are all in ``column_names``."""
     found = []
@@ -432,12 +581,15 @@ def build_online_plan(engine: Engine) -> Plan:
     is_mysql = dialect.name in ("mysql", "mariadb")
     inspector = inspect(engine)
     db_tables = set(inspector.get_table_names())
+    # use_alter FKs of created tables, emitted once every table exists.
+    deferred_fks: list[tuple[str, str]] = []
 
     for table in Base.metadata.sorted_tables:
         if table.name not in db_tables:
             plan.add("create_table", _create_table_sql(table, dialect), table=table.name)
             for _, sql in _index_sqls(table, dialect):
                 plan.add("create_index", sql, table=table.name)
+            deferred_fks.extend((table.name, sql) for sql in _deferred_fk_sqls(table, dialect))
             continue
 
         db_columns = {c["name"]: c for c in inspector.get_columns(table.name)}
@@ -503,7 +655,7 @@ def build_online_plan(engine: Engine) -> Plan:
                     if key not in existing_fks:
                         plan.add(
                             "add_foreign_key",
-                            str(AddConstraint(constraint).compile(dialect=dialect)).strip(),
+                            _add_constraint_sql(constraint, dialect),
                             table=table.name,
                         )
             elif _fk_constraints_for_columns(table, added_here):
@@ -512,6 +664,9 @@ def build_online_plan(engine: Engine) -> Plan:
                     f"({', '.join(sorted(added_here))}) skipped — SQLite cannot "
                     "ALTER-add foreign keys (and does not enforce them by default)."
                 )
+
+    for table_name, sql in deferred_fks:
+        plan.add("add_foreign_key", sql, table=table_name)
 
     # The live diff is metadata-driven, so it covers every pass by construction;
     # the manifests only label what is still pending so the operator can tell
@@ -527,9 +682,10 @@ def validate_manifest(manifests: list[Manifest] | None = None) -> list[str]:
 
     Beyond existence it checks the two properties the ADD COLUMN / CREATE TABLE
     paths rely on: an added NOT NULL column must carry a renderable scalar
-    default (SQLite refuses the ALTER otherwise), and no new table may declare
-    a ``use_alter`` FK (``CreateTable`` omits those and the create-table path
-    never emits ``AddConstraint``, so the constraint would silently vanish).
+    default (SQLite refuses the ALTER otherwise), and a ``use_alter`` FK on a
+    new table must be NAMED — ``CreateTable`` omits it on MySQL and the plan
+    re-adds it as a deferred ``ADD CONSTRAINT`` (v12), which must be reviewable
+    and re-runnable by name. Widened columns must be enum-backed VARCHARs.
     """
     errors = []
     tables = Base.metadata.tables
@@ -540,11 +696,11 @@ def validate_manifest(manifests: list[Manifest] | None = None) -> list[str]:
                 errors.append(f"{prefix} manifest table not in metadata: {name}")
                 continue
             for constraint in tables[name].foreign_key_constraints:
-                if constraint.use_alter:
+                if constraint.use_alter and not constraint.name:
                     errors.append(
-                        f"{prefix} new table {name} declares a use_alter FK "
-                        f"({constraint.name or ', '.join(c.name for c in constraint.columns)}); "
-                        "the create-table path would drop it"
+                        f"{prefix} new table {name} declares an UNNAMED use_alter FK "
+                        f"({', '.join(c.name for c in constraint.columns)}); the deferred "
+                        "ADD CONSTRAINT needs a name"
                     )
         for table_name, columns in manifest.added_columns.items():
             if table_name not in tables:
@@ -570,6 +726,12 @@ def validate_manifest(manifests: list[Manifest] | None = None) -> list[str]:
             if table_name not in tables or column_name not in tables[table_name].columns:
                 errors.append(
                     f"{prefix} manifest widened column not in metadata: {table_name}.{column_name}"
+                )
+                continue
+            if getattr(tables[table_name].columns[column_name].type, "length", None) is None:
+                errors.append(
+                    f"{prefix} widened column {table_name}.{column_name} has no VARCHAR "
+                    "length; MODIFY would not widen anything"
                 )
     return errors
 
@@ -597,12 +759,17 @@ def build_offline_plan(dialect: Dialect, passes: str = "all") -> Plan:
     tables = Base.metadata.tables
 
     new_table_names = {name for manifest in selected for name in manifest.new_tables}
+    deferred_fks: list[tuple[str, str]] = []
     for table in Base.metadata.sorted_tables:
         if table.name not in new_table_names:
             continue
         plan.add("create_table", _create_table_sql(table, dialect), table=table.name)
         for _, sql in _index_sqls(table, dialect):
             plan.add("create_index", sql, table=table.name)
+        deferred_fks.extend((table.name, sql) for sql in _deferred_fk_sqls(table, dialect))
+    # Every CREATE TABLE is above, so a cycle's other end now exists.
+    for table_name, sql in deferred_fks:
+        plan.add("add_foreign_key", sql, table=table_name)
 
     added_by_table: dict[str, list[str]] = {}
     for manifest in selected:
@@ -636,7 +803,7 @@ def build_offline_plan(dialect: Dialect, passes: str = "all") -> Plan:
             for constraint in _fk_constraints_for_columns(table, added_set):
                 plan.add(
                     "add_foreign_key",
-                    str(AddConstraint(constraint).compile(dialect=dialect)).strip(),
+                    _add_constraint_sql(constraint, dialect),
                     table=table_name,
                 )
 
@@ -710,8 +877,9 @@ def main() -> int:
                              "compiled for this dialect without connecting to any database")
     parser.add_argument("--pass", dest="passes", choices=list(OFFLINE_PASSES), default="all",
                         help="OFFLINE mode only: 'all' (default) for a database that "
-                             "predates both passes; 'groups' for the delta on a database "
-                             "that already carries the case-files schema")
+                             "predates every pass; 'groups' for the delta on a database "
+                             "that already carries the case-files schema; 'v12' (and the "
+                             "other pass keys) for that pass's delta alone")
     args = parser.parse_args()
 
     errors = validate_manifest()

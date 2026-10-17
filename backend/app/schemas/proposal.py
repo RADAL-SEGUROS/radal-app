@@ -30,6 +30,7 @@ from app.models.enums import CoverageKind
 from app.models.proposal import ProposalOrigin, ProposalStatus
 from app.models.quote import QuoteRequestStatus
 from app.schemas.analytics import GroupedSummary
+from app.schemas.utc import UtcDatetime
 
 # Chilean VAT. Applies to the taxable premium only.
 VAT_RATE = Decimal("0.19")
@@ -246,10 +247,10 @@ class ProposalRead(BaseModel):
     extraction_confidence: Decimal | None
     is_confirmed: bool
     confirmed_by_id: int | None
-    confirmed_at: datetime | None
+    confirmed_at: UtcDatetime | None
 
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     coverages: list[ProposalCoverageRead] = Field(default_factory=list)
     insurer: InsurerRef | None = None

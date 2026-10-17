@@ -20,6 +20,7 @@ __all__ = [
     "compute_dv",
     "is_valid_rut",
     "validate_rut",
+    "display_rut",
     "format_rut",
     "validate_codigo_cmf",
     "normalize_codigo_cmf",
@@ -128,6 +129,24 @@ def format_rut(rut: str) -> str:
         body = body[:-3]
     groups.insert(0, body)
     return f"{'.'.join(groups)}-{dv}"
+
+
+def display_rut(rut: str | None) -> str:
+    """``format_rut`` that never raises: ``76345678-1`` -> ``76.345.678-1``.
+
+    For prose and outbound mail (review v12 P3: RUTs were undotted in mail
+    bodies and the inquiry list). An unparseable value is returned as given
+    (stripped); ``None``/blank -> ``""``.
+    """
+    if rut is None:
+        return ""
+    text = str(rut).strip()
+    if not text:
+        return ""
+    try:
+        return format_rut(text)
+    except Exception:  # noqa: BLE001 - display only: never fail a render on a bad RUT
+        return text
 
 
 # --- CMF código --------------------------------------------------------------

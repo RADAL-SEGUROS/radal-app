@@ -84,24 +84,9 @@ __all__ = [
 # Copy (Spanish) — labels are OUTPUT, never identifiers (rule 1)
 # =============================================================================
 
-#: The account chain in Spanish, for the journey lines and the PDF.
-STAGE_LABELS_ES: dict[CaseStage, str] = {
-    CaseStage.LEAD: "Prospecto",
-    CaseStage.INTAKE: "Antecedentes",
-    CaseStage.PRE_UNDERWRITING: "Pre-suscripción",
-    CaseStage.TECHNICAL_BASIS: "Bases técnicas",
-    CaseStage.MARKET_SUBMISSION: "Envío al mercado",
-    CaseStage.QUOTES_RECEIVED: "Cotizaciones recibidas",
-    CaseStage.COMPARISON: "Comparación",
-    CaseStage.INSURED_DECISION: "Decisión del asegurado",
-    CaseStage.PROPOSAL_ISSUED: "Propuesta emitida",
-    CaseStage.RATIFIED: "Propuesta ratificada",
-    CaseStage.POLICY_ISSUED: "Póliza emitida",
-    CaseStage.MIRROR_VALIDATION: "Validación espejo",
-    CaseStage.ACTIVE: "Vigente",
-    CaseStage.RENEWAL_REVIEW: "Revisión de renovación",
-    CaseStage.CLOSED: "Cerrado",
-}
+#: The account chain in Spanish, for the journey lines and the PDF — the ONE
+#: backend mapping (``app.services.stage_labels``), shared with the bitácora.
+from app.services.stage_labels import STAGE_LABELS_ES  # noqa: E402
 
 #: The folder's own lifecycle, in Spanish — the PDF is copy, not identifiers.
 CASE_STATUS_ES: dict[str, str] = {

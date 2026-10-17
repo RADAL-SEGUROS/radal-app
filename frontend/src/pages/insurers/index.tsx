@@ -41,6 +41,11 @@ import {
   StatusBadge,
   apiError,
 } from "@/pages/proposals/shared";
+import {
+  INSURER_RECOMMENDATION_REASON_LABEL,
+  INSURER_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 type Scope = "all" | "native" | "external";
 
@@ -114,7 +119,7 @@ export default function InsurersListPage() {
                     ) : null}
                   </span>
                   <span className="text-caption text-text-muted">
-                    {t(`recommendations.reasons.${rec.reason}`, { defaultValue: rec.reason })}
+                    {enumLabel(t, INSURER_RECOMMENDATION_REASON_LABEL, rec.reason)}
                   </span>
                   {rec.contact?.contact ? (
                     <span className="flex flex-col gap-0.5 text-caption text-text-tertiary">
@@ -225,7 +230,7 @@ function InsurerCard({ insurer, onOpen }: { insurer: Insurer; onOpen: () => void
         <div className="flex flex-wrap items-center gap-1.5">
           <MonoChip>{insurer.rut}</MonoChip>
           <MonoChip>CMF {insurer.cmf_code}</MonoChip>
-          <StatusBadge value={insurer.status} label={t(`status.${insurer.status}`)} />
+          <StatusBadge value={insurer.status} label={enumLabel(t, INSURER_STATUS_LABEL, insurer.status)} />
         </div>
 
         {insurer.native_profile ? (

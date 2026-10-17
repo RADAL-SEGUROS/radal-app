@@ -44,9 +44,9 @@
     "closed": "Cerrado"
   },
   "stages": {
-    "lead": "Lead",
+    "lead": "Interés",
     "intake": "Antecedentes",
-    "pre_underwriting": "Pre-suscripción",
+    "pre_underwriting": "Presuscripción",
     "technical_basis": "Bases técnicas",
     "market_submission": "Envío al mercado",
     "quotes_received": "Cotizaciones recibidas",

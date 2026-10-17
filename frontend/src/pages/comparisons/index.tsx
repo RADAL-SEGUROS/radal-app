@@ -87,6 +87,7 @@ import {
   resolveFileUrl,
   uf,
 } from "@/components/common/kit";
+import { COMPARISON_STATUS_LABEL, FACET_GROUP_LABEL, enumLabel } from "@/i18n/labels";
 
 /** The `detail.code` of a structured 422, when the server sent one. */
 function errorCode(error: unknown): string | null {
@@ -143,7 +144,7 @@ export default function ComparisonPage() {
       actions={
         data ? (
           <span className="flex items-center gap-2">
-            <StatusBadge value={data.status} label={t(`status.${data.status}`)} dot />
+            <StatusBadge value={data.status} label={enumLabel(t, COMPARISON_STATUS_LABEL, data.status)} dot />
             <Badge variant="outline" className="tabular-nums">
               {t("versionShort", { version: data.canonical_version })}
             </Badge>
@@ -801,7 +802,7 @@ function DimensionBlock({
                     {dim.label ?? dim.key}
                   </span>
                   <Badge variant="outline" className="w-fit">
-                    {t(`facetGroups.${dim.group}`, { defaultValue: String(dim.group) })}
+                    {enumLabel(t, FACET_GROUP_LABEL, dim.group, String(dim.group))}
                   </Badge>
                 </span>
               </td>

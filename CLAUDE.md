@@ -27,8 +27,8 @@ grupo (account_group — shown to the user as **Asegurado** since v11) →
   RUTs**, under a group. THE unit of work; it carries the journey stage. "Expediente" = the folder;
   every milestone below produces/updates an expediente.
 - **ramo** — the class of insurance (Incendio/Property, RC/Ingeniería/Transporte, …). In Radal a ramo
-  is an **advisory recommended-files template + AI context, NOT a field/section schema**; it is chosen
-  when creating the grupo-cuenta (dropdown or "Crear ramo" drawer), never managed in Configuración.
+  is an **advisory recommended-files template + AI context, NOT a field/section schema**; since v12 it
+  comes from a **closed Radal catalogue** (18 ramos × 54 subtipos) — brokers can no longer create ramos.
 - **vigencia** — the coverage period (e.g. `2026-2027`); a *label over per-account full dates*, not a
   shared range.
 - **Antecedentes** — the **intake** stage: the ramo's recommended files + free uploads the insured/
@@ -73,59 +73,53 @@ unroutable port **before** any `app.*` import — delete those two lines and the
 calls and hangs. (10) There is **no Alembic**: `create_all` never ALTERs, so any new column must go
 through `backend/scripts/migrate_case_files.py` before the branch is pushed.
 
-**Where the work stands (v11, 2026-09-14).** The v2→v10 arc is committed (`0c60de6`) and **pushed to
-`dev`**, which fires CI to `https://dev.radalseguros.cl`. **v9** built the broker journey (see
-`docs/handoff-2026-09-09-v9.md`); **v10** built the two analysis destinations and the account
-super-overview (see `docs/handoff-2026-09-10-v10.md` — as-built AND a candid error log;
-`docs/technical-reference.md` §17 is the spec); **v11** is the first **issue-driven** pass — the
-Portafolio/Asegurados rename and the nine-tab Portafolio (§18), from team issues #1 and #2. §18.5
-carries the rule that killed the two tabs that were asked for but NOT built (Renovaciones,
-Inspecciones): a list needs **an origin, a classifier and an owner**, or it renders permanently empty
-and reads as a broken app — reuse that test on the next feature request. A **ramo** is an **advisory recommended-files template
-+ AI context — NOT a field/section schema**: chosen when creating the grupo-cuenta via a **dropdown**
-or a **"Crear ramo" drawer**, never managed in Configuración. **Antecedentes** shows the ramo's
-recommended-file slots + free upload, two subtabs (Archivos / Extracción), **cotizaciones scoped out**,
-**PDF/Word only** (Excel rejected; vision fallback flagged-not-done), warn-not-block. **Comparación**
-is a dynamic incremental comparison via **tool calls** (`extract_budget_proposal` →
-`submit_comparison`: standardized table + a named AI recommendation, block-on-provider-down);
-**Propuesta** is `broker_proposal`; **Pólizas** is validate-then-dynamic upload with account-aware
-insurer resolution. Extraction is context-aware on **GLM-5.3 tool-calling** with a model-tiering
-registry; stage-guard reasons are **Spanish**.
+**Where the work stands (v12, 2026-10-17).** v2→v11 are committed and **pushed to `dev`** (CI →
+`https://dev.radalseguros.cl`): v9 the broker journey (`docs/handoff-2026-09-09-v9.md`), v10 the
+analysis destinations + expediente completo (`docs/handoff-2026-09-10-v10.md`, tech-ref §17), v11
+Portafolio/Asegurados (§18 — its rule still applies to every request: a list needs **an origin, a
+classifier and an owner**, or it renders permanently empty and reads as a broken app). **v12 is built on
+`feat/v12-policies-cobranza` but NOT committed, deployed or migrated** — read
+`docs/handoff-2026-10-17-v12.md` (as-built, candid error log, what is owed) and
+`docs/technical-reference.md` **§19** (the spec); the build contract is `docs/v12/`. v12 makes
+**Pólizas the home** (`/` → `/policies`; journeys are **partial** — a PDF, a manual entry, portal quotes
+or the full process — and the account becomes a viewer of the stages that happened; write
+`case_file.entry_origin`, never `origin`); a **closed ramo catalogue**; **cobranza in three levels per
+cuota** (registro · asistida · nativa) where `collection_installment.status` is a cache and money moves
+only through the ledger; a **Forpay framework** configured per insurer by Radal in the **Mantenedor**
+(`/platform`, platform users only) behind one generic HMAC webhook; **Zoho mail**
+(`contacto@radalseguros.cl`, smtplib/imaplib) + broker SMTP/IMAP, status inquiries to insurers and
+suggestion-only evidence; **public share links** `/s/:token` for insureds and insurers; an **RPA**
+framework with an **HDI showcase** (fake portal only); and **agent skills** + 26 new tools. Antecedentes
+(PDF/Word only, warn-not-block), Comparación (tool calls `extract_budget_proposal` → `submit_comparison`)
+and Propuesta (`broker_proposal`) behave as before; extraction runs on **GLM-5.3 tool-calling**;
+stage-guard reasons are **Spanish**. **Verified at v12: 1 428 backend tests; `tsc -b`/`build`/
+`check:locales` clean (30 namespaces, 5 842 keys/locale; zero dynamic i18n keys); live smoke at 1440/375 px — not the full QA walk.**
 
-**What v10/v11 changed.** The **MÁS nav section is gone**; the rail is ASEGURADOS + five plain rows —
-**Portafolio · Analítica · Agente · Compañías · Configuración** (no ADMINISTRACIÓN header).
-`/analytics` split into **`/data` (Portafolio) and `/analytics` (Analítica — visuals only, with a
-`?by=` dimension read from the server catalog)**. **v11** renamed Datos → **Portafolio** and Grupos →
-**Asegurados** in every user-facing string (routes and identifiers stay English) and cut Portafolio's
-eleven table tabs to **nine** in the broker's own order — Asegurados · Pipeline · Cotizaciones ·
-Propuestas · Pólizas · Endosos · Cobranza · Siniestros · Documentos. The old entity routes still resolve for group deep links;
-they just lost their rail entries. Both destinations share one **scope — grupo · grupo-cuenta ·
-fechas — held in the URL**, applied server-side to lists, summaries and exports alike; comparing
-several groups is deliberately NOT built (that is the agent's job). **"Ver expediente completo"** now
-opens `/groups/:groupId/accounts/:caseId/expediente` — the account super-overview (identidad, the
-journey with real completion dates, antecedentes, comparación, propuesta, pólizas, montos, documents)
-plus a branded PDF, **rendered on demand so it is always current and needed no migration**; absent
-blocks print a Spanish reason **derived from the journey**, never a blank. New: `POST /exports/{entity}`
-(XLSX + PDF over every matching row) and `GET /exports/entities`. **Motion lives in the `Tabs`
-primitive** so every tab bar inherits the sliding marker. **Verified at v11: 757 backend tests;
-`tsc -b`/`build`/`check:locales` clean (22 namespaces, 3 719 keys/locale); the v10 surface driven
-live in a real browser.** Read `README.md` to orient, the handoffs for the arc, the technical reference
-for detail, plus `docs/deployment.md`, `docs/usuarios-de-prueba.md`; delegate to `.claude/agents/`.
+**The shell since v10–v12.** The rail is Pólizas · Cobranza · ASEGURADOS · Portafolio · Analítica ·
+Agente · Cotizar en portales · Compañías · Configuración (+ Mantenedor for platform users only). `/data`
+is **Portafolio** (nine table tabs) and `/analytics` is **Analítica** (visuals, `?by=` from the server
+catalog); both share one **scope — grupo · grupo-cuenta · fechas — in the URL**, applied server-side to
+lists, summaries and exports (`POST /exports/{entity}`, XLSX + PDF). **"Ver expediente completo"** opens
+`/groups/:groupId/accounts/:caseId/expediente`, rendered on demand; absent blocks print a Spanish reason
+**derived from the journey**. **Motion lives in the `Tabs` primitive.** Read `README.md` to orient, the
+handoffs for the arc, plus `docs/deployment.md` (stale on NAT/CI — see `deploy/v12/README.md` §6) and
+`docs/usuarios-de-prueba.md`; delegate to `.claude/agents/`.
 
-**Deploy state / traps.** The dev RDS carries the **v9 schema + blank baseline**; **neither v10 nor
-v11 added a column or an enum value, so neither needs a migration**. S3 `deploy/backend.env` carries the AI/media
-keys (`MEDIA_BACKEND=s3`); CI (`.github/workflows/dev-deploy.yml`, OIDC) fires on push to `dev` →
-`https://dev.radalseguros.cl`. **Still owed / watch:** the **full sequential QA walk has never been run**
-(`docs/qa-handoff-chrome.md` — v10 verified only its own changes); the backend image builds Chromium
-(slowest/riskiest CI step); **money-core extraction is
-unreliable** under tool-calling (needs a retry or a stronger tier — not fixed); the **vision fallback
-is stubbed**; comparison align can run **minutes** (buffered Lambda/CloudFront may time out — do NOT
-change the invoke mode, OAC constraint 4). Locally, run the backend with `MEDIA_BACKEND=local` or every
-document 404s. There is **no Alembic** — future column changes go through
-`backend/scripts/migrate_case_files.py`. **Aqua Spectrum + Porcelana are deprecated — Signal is the
-direction.** Three v10 traps that fail *silently*: the **`paramsSerializer` in `src/lib/api.ts`**
-(without it every repeatable filter — `kind`, `stage`, `status` — stops applying and returns plausible
-wrong data); **`expose_headers` on CORS in `main.py`** (without it an export loses the server filename
-and row count while still downloading); and the **group-by dimensions are server-driven and NOT
-uniform** per entity, so never hardcode them. `git remote` still points at the old repo location and
-works only via GitHub's redirect.
+**Deploy state / traps.** The dev RDS carries the **v9 schema + blank baseline**. **v12 NEEDS a
+migration, before the push:** `migrate_case_files --dialect mysql --pass v12` (review: 27 tables, 28
+columns) → snapshot → `--apply` → `python -m scripts.seed_v12 --apply`; then the v12 env keys
+(`CREDENTIALS_KEY` first) and the dry-run `deploy/v12/` scripts. **Verified 2026-10-17: the dev backend Lambda has NO
+internet egress** (default-VPC public subnets, no NAT/endpoints — dev AI calls die at the 30 s timeout); fix = `fck-nat.sh`
+mode C (`deploy/v12/README.md` §0). **Forpay is paused** until the team meets Forpay; Zoho lives on `radal.ai`, not
+`radalseguros.cl` (Google MX) — confirm `RADAL_MAIL_ADDRESS` before `MAIL_ENABLED=true`. CI
+(`.github/workflows/deploy-backend-dev.yml` / `deploy-frontend-dev.yml`, OIDC) fires on push to `dev`.
+**Still owed / watch:** the **full QA walk has never been run**; the backend image builds Chromium;
+**money-core extraction is unreliable** under tool-calling; the **vision fallback is stubbed**;
+comparison align can run **minutes** (do NOT change the buffered invoke mode, OAC constraint 4); real
+HDI / Zoho never exercised. Locally, run the backend with `MEDIA_BACKEND=local` (else
+every document 404s) and, for smokes, `AI_API_KEY=` (`backend/.env` holds a live key). **Signal is the
+design direction** (Aqua Spectrum + Porcelana deprecated). Traps that fail *silently*: the
+**`paramsSerializer` in `src/lib/api.ts`** (repeatable filters stop applying and return plausible wrong
+data); **`expose_headers` on CORS in `main.py`** (exports lose filename and row count); group-by
+dimensions are **server-driven and not uniform** per entity; the **`{plan_id:int}`** converter on
+legacy `/collections` routes. `git remote` still points at the old repo location (GitHub redirect).

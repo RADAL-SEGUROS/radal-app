@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.account_group import AccountGroupStatus
 from app.models.enums import CaseFileKind, CaseFileStatus, CaseOrigin, CaseStage
 from app.schemas.account_group import AccountGroupIconRead
+from app.schemas.utc import UtcDatetime
 
 #: The five milestones of the broker journey (v9), in order. English keys; the
 #: Spanish label travels on the entry itself.
@@ -64,7 +65,7 @@ class ExpedienteCaseFile(ApiModel):
     #: The grouping label only (``2026-2027``), never a shared range.
     period_label: str | None = None
     period_locked: bool = False
-    opened_at: datetime | None = None
+    opened_at: UtcDatetime | None = None
     closed_at: datetime | None = None
     due_at: datetime | None = None
     insurance_line_id: int | None = None
@@ -115,7 +116,7 @@ class ExpedienteJourneyStep(ApiModel):
     #: Every ``case_stage`` the milestone covers, in flow order.
     stages: list[CaseStage] = Field(default_factory=list)
     status: MilestoneStatus
-    completed_at: datetime | None = None
+    completed_at: UtcDatetime | None = None
     #: A short Spanish factual line ("4 de 4 archivos recomendados").
     summary: str | None = None
     #: Spanish; ``null`` when the milestone is complete. A real guard reason when
@@ -150,7 +151,7 @@ class ExpedienteAntecedentes(ApiModel):
     ramo_name: str | None = None
     #: ``draft`` | ``processing`` | ``review`` | ``registered``.
     record_status: str = "draft"
-    registered_at: datetime | None = None
+    registered_at: UtcDatetime | None = None
     slots: list[ExpedienteAntecedentesSlot] = Field(default_factory=list)
     recommended_total: int = 0
     recommended_filled: int = 0
@@ -191,7 +192,7 @@ class ExpedienteComparison(ApiModel):
     columns: list[ExpedienteComparisonColumn] = Field(default_factory=list)
     recommendation: ExpedienteRecommendation | None = None
     pdf_document_id: int | None = None
-    updated_at: datetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 # --- Propuesta ---------------------------------------------------------------
@@ -203,7 +204,7 @@ class ExpedienteProposal(ApiModel):
     #: ``draft`` | ``issued`` | ``ratified`` | ``superseded``.
     status: str
     is_ratified: bool = False
-    ratified_at: datetime | None = None
+    ratified_at: UtcDatetime | None = None
     content_hash: str | None = None
     insurer_id: int | None = None
     insurer_name: str | None = None
@@ -250,7 +251,7 @@ class ExpedienteDocument(ApiModel):
     document_code: str | None = None
     mime_type: str | None = None
     size_bytes: int | None = None
-    created_at: datetime | None = None
+    created_at: UtcDatetime | None = None
 
 
 # --- Money -------------------------------------------------------------------
@@ -323,7 +324,7 @@ class AccountExpediente(ApiModel):
 
     activity: list[ExpedienteActivity] = Field(default_factory=list)
 
-    generated_at: datetime
+    generated_at: UtcDatetime
 
 
 __all__ = [

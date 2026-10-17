@@ -11,6 +11,7 @@
  *     card and the Documentos tab's "analizar con IA" both end in a human
  *     pressing "confirmar", never in an automatic write.
  */
+import { formatRut } from "@/pages/clients/rut";
 import * as React from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -64,12 +65,27 @@ import {
 import { useQuotes } from "@/api/quotes";
 import { useProposals } from "@/api/proposals";
 import { useCan } from "@/lib/permissions";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import {
+  DATE_ONLY_TIMELINE_KINDS,
+  collapseSkipped,
+  formatTimelineMoment,
+  useTimelineCopy,
+} from "@/components/groups/timelineCopy";
 import type {
   CaseDocument,
   CaseStage,
   DocumentExtractionResponse,
 } from "@/api/types";
+import {
+  CASE_KIND_LABEL,
+  CASE_STAGE_LABEL,
+  CASE_STATUS_LABEL,
+  CASE_TIMELINE_KIND_LABEL,
+  PROPOSAL_STATUS_LABEL,
+  QUOTE_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 export function CaseDetailBody({ caseId }: { caseId: number }) {
   const { t } = useTranslation("cases");
@@ -141,18 +157,18 @@ export function CaseDetailBody({ caseId }: { caseId: number }) {
           <span className="flex flex-wrap items-center gap-2">
             <MonoChip>{c.reference ?? `#${c.id}`}</MonoChip>
             <span>{c.client_legal_name ?? "—"}</span>
-            {c.client_rut ? <MonoChip>{c.client_rut}</MonoChip> : null}
+            {c.client_rut ? <MonoChip>{formatRut(c.client_rut)}</MonoChip> : null}
             {c.insurance_line_name ? <span>· {c.insurance_line_name}</span> : null}
             {c.period ? <span>· {c.period}</span> : null}
           </span>
         }
         actions={
           <>
-            <Badge variant="brand">{t(`stages.${c.stage}`, { defaultValue: c.stage })}</Badge>
-            <Badge variant="neutral">{t(`kinds.${c.kind}`, { defaultValue: c.kind })}</Badge>
+            <Badge variant="brand">{enumLabel(t, CASE_STAGE_LABEL, c.stage)}</Badge>
+            <Badge variant="neutral">{enumLabel(t, CASE_KIND_LABEL, c.kind)}</Badge>
             <StatusBadge
               value={c.status}
-              label={t(`statuses.${c.status}`, { defaultValue: c.status })}
+              label={enumLabel(t, CASE_STATUS_LABEL, c.status)}
             />
             <Button size="sm" variant="secondary" asChild>
               <Link to={`/cases/${caseId}/packs`}>
@@ -345,7 +361,7 @@ function SummaryTab({ caseId, canEdit }: { caseId: number; canEdit: boolean }) {
           <KeyValue label={t("table.reference")} value={c.reference ?? "—"} mono />
           <KeyValue
             label={t("table.kind")}
-            value={t(`kinds.${c.kind}`, { defaultValue: c.kind })}
+            value={enumLabel(t, CASE_KIND_LABEL, c.kind)}
           />
           <KeyValue label={t("facts.sequence")} value={`${c.sequence_no} · v${c.version}`} />
           <KeyValue label={t("facts.opened")} value={formatDate(c.opened_at)} />
@@ -462,7 +478,7 @@ function QuotesTab({ placementId }: { placementId: number | null }) {
                 <MonoChip>QR-{q.id}</MonoChip>
                 <StatusBadge
                   value={q.status}
-                  label={tq(`status.${q.status}`, { defaultValue: q.status })}
+                  label={enumLabel(tq, QUOTE_STATUS_LABEL, q.status)}
                 />
                 <span className="text-caption text-text-muted">
                   {t("quotes.due")}: {formatDate(q.due_at)}
@@ -497,7 +513,7 @@ function QuotesTab({ placementId }: { placementId: number | null }) {
                 <span className="tabular-nums">{uf(p.total_premium_uf)}</span>
                 <StatusBadge
                   value={p.status}
-                  label={tp(`status.${p.status}`, { defaultValue: p.status })}
+                  label={enumLabel(tp, PROPOSAL_STATUS_LABEL, p.status)}
                 />
                 <Button size="sm" variant="secondary" asChild>
                   <Link to={`/proposals/${p.id}`}>{t("quotes.open")}</Link>
@@ -608,14 +624,14 @@ function PostSaleTab({ caseId }: { caseId: number }) {
             {children.map((child) => (
               <li key={child.id} className="flex flex-wrap items-center gap-3 py-2.5">
                 <Badge variant="neutral">
-                  {t(`kinds.${child.kind}`, { defaultValue: child.kind })}
+                  {enumLabel(t, CASE_KIND_LABEL, child.kind)}
                 </Badge>
                 <MonoChip>
                   {child.reference ?? `#${child.id}`} · {child.sequence_no}.v{child.version}
                 </MonoChip>
                 <span className="min-w-0 flex-1 truncate">{child.title}</span>
                 <Badge variant="brand">
-                  {t(`stages.${child.stage}`, { defaultValue: child.stage })}
+                  {enumLabel(t, CASE_STAGE_LABEL, child.stage)}
                 </Badge>
                 <span className="text-caption text-text-muted">
                   {formatDate(child.opened_at)}
@@ -657,7 +673,8 @@ function PostSaleTab({ caseId }: { caseId: number }) {
 function TimelineTab({ caseId }: { caseId: number }) {
   const { t } = useTranslation("cases");
   const timeline = useCaseFileTimeline(caseId);
-  const entries = timeline.data?.entries ?? [];
+  const timelineCopy = useTimelineCopy();
+  const entries = collapseSkipped(timeline.data?.entries ?? []);
 
   if (timeline.isLoading) return <Skeleton className="h-48 w-full" />;
   if (!entries.length) {
@@ -685,16 +702,20 @@ function TimelineTab({ caseId }: { caseId: number }) {
             <div className="min-w-0 flex-1 pb-1">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={tone(entry.kind)}>
-                  {t(`timeline.kinds.${entry.kind}`, { defaultValue: entry.kind })}
+                  {enumLabel(t, CASE_TIMELINE_KIND_LABEL, entry.kind)}
                 </Badge>
-                <span className="font-medium text-text-primary">{entry.title}</span>
+                <span className="font-medium text-text-primary">
+                  {timelineCopy(entry).label}
+                </span>
                 <span className="text-caption text-text-muted">
-                  {formatDateTime(entry.occurred_at)}
+                  {formatTimelineMoment(entry.occurred_at, {
+                        dateOnly: entry.date_only ?? DATE_ONLY_TIMELINE_KINDS.has(entry.kind),
+                      })}
                 </span>
               </div>
-              {entry.detail ? (
+              {timelineCopy(entry).detail ? (
                 <p className="mt-1 whitespace-pre-wrap text-caption text-text-secondary">
-                  {entry.detail}
+                  {timelineCopy(entry).detail}
                 </p>
               ) : null}
             </div>

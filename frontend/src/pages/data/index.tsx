@@ -78,6 +78,19 @@ type TabId =
   | "claims"
   | "documents";
 
+/** Every tab → its literal label key (no dynamic keys). */
+const TAB_LABEL = {
+  insureds: "analytics:tabs.insureds",
+  pipeline: "analytics:tabs.pipeline",
+  quotes: "analytics:tabs.quotes",
+  proposals: "analytics:tabs.proposals",
+  policies: "analytics:tabs.policies",
+  endorsements: "analytics:tabs.endorsements",
+  collections: "analytics:tabs.collections",
+  claims: "analytics:tabs.claims",
+  documents: "analytics:tabs.documents",
+} as const satisfies Record<TabId, string>;
+
 /** Tab → the module(s) whose `View` grant makes it exist. Asegurados renders
  *  when EITHER of its two modules is granted (the toggle hides the other). */
 const TAB_GATES: Record<TabId, PermissionModule[]> = {
@@ -215,7 +228,7 @@ export default function DataPage() {
             <TabsList variant="underline" className="flex-wrap">
               {visibleTabs.map((tab) => (
                 <TabsTrigger key={tab} value={tab}>
-                  {t(`tabs.${tab}`, { defaultValue: tab })}
+                  {t(TAB_LABEL[tab])}
                 </TabsTrigger>
               ))}
             </TabsList>

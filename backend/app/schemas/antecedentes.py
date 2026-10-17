@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.ai import ExtractionRead
 from app.schemas.document import DocumentDownload
+from app.schemas.utc import UtcDatetime
 
 
 class ApiModel(BaseModel):
@@ -150,8 +151,8 @@ class LineRecordSchemaRead(ApiModel):
     #: DEPRECATED — the old sectioned schema. Empty (``{"sections": []}``) for a
     #: v9 ramo authored with recommended files only.
     definition: RamoSchema = Field(default_factory=RamoSchema)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: Optional[UtcDatetime] = None
+    updated_at: Optional[UtcDatetime] = None
 
 
 # --- Antecedentes expediente -------------------------------------------------
@@ -216,7 +217,7 @@ class AntecedentesRead(ApiModel):
     # render the provenance card without a second round-trip. None until a
     # SUGGEST has run and staged a source extraction.
     extraction: Optional[ExtractionRead] = None
-    registered_at: Optional[datetime] = None
+    registered_at: Optional[UtcDatetime] = None
     registered_by_id: Optional[int] = None
     pdf_available: bool = False
     #: The line's whole mandatory field list (the uploader checklist).

@@ -16,7 +16,7 @@ export function ContextChips({
   onRemove: (key: string) => void;
   className?: string;
 }) {
-  const { t } = useTranslation("agent");
+  const { t } = useTranslation("dashboard");
   if (chips.length === 0) return null;
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
@@ -37,7 +37,7 @@ export function ContextChips({
           </span>
           <button
             type="button"
-            aria-label={t("chips.remove", { label: chip.label })}
+            aria-label={t("agent.chips.remove", { label: chip.label })}
             onClick={() => onRemove(chip.key)}
             className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] text-brand-deep transition-[background-color] duration-150 ease-out hover:bg-[color-mix(in_srgb,var(--brand)_18%,transparent)]"
           >

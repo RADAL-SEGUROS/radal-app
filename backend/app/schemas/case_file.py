@@ -10,17 +10,20 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from app.models.account_client import AccountClientRole
 from app.models.document import DocumentCategory
 from app.models.enums import (
+    CaseEntryOrigin,
     CaseFileKind,
     CaseFileStatus,
     CaseOrigin,
     CaseSection,
     CaseStage,
     ClaimRuling,
+    PlacementRoute,
 )
 from app.models.policy import ClaimStatus
 from app.schemas.document import DocumentRead
 from app.schemas.policy import PolicyRead
 from app.schemas.analytics import GroupedSummary
+from app.schemas.utc import UtcDatetime
 
 
 def _check_period_order(start: date | None, end: date | None) -> None:
@@ -84,6 +87,15 @@ class CaseFileCreate(BaseModel):
     # the folder is a sibling in time of the source, never a child of it.
     origin_case_file_id: int | None = Field(default=None, gt=0)
 
+    # --- Closed catalogue & partial journeys (v12, 02 §1) -------------------
+    # The colocación's subtipo. When given it must be an ACTIVE catalogue row
+    # (422); ``insurance_line_id`` is derived from its global ramo and the
+    # ``route`` defaults to its ``suggested_route``.
+    insurance_subtype_id: int | None = Field(default=None, gt=0)
+    # How the colocación is worked (team ``via_prevista``); overrides the
+    # subtipo's suggestion.
+    route: PlacementRoute | None = None
+
     @field_validator("client_ids")
     @classmethod
     def _client_ids_unique(cls, value: list[int] | None) -> list[int] | None:
@@ -116,6 +128,36 @@ class CaseFileTransition(BaseModel):
 
     to_stage: CaseStage
     note: str | None = None
+
+
+class CaseSkipTo(BaseModel):
+    """``POST /case-files/{id}/skip-to`` — jump forward, marking the stages in
+    between as *omitida* (accounts: quotes_received, insured_decision,
+    policy_issued, active)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target_stage: CaseStage
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class CaseActivateStage(BaseModel):
+    """``POST /case-files/{id}/activate-stage`` — re-enter a SKIPPED stage
+    (only while the folder has no policy)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stage: CaseStage
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class StageStateRead(BaseModel):
+    """One tick of the journey rail: entered stages solid, skipped ones grey."""
+
+    stage: CaseStage
+    state: str  # done | current | skipped | pending
+    entered_at: UtcDatetime | None = None
+    skipped: bool = False
 
 
 class CaseFileVersionCreate(BaseModel):
@@ -209,7 +251,7 @@ class CaseFileRef(BaseModel):
     status: CaseFileStatus
     sequence_no: int
     version: int
-    opened_at: datetime | None = None
+    opened_at: UtcDatetime | None = None
     closed_at: datetime | None = None
     # Sibling-in-time context for children / versions / origin chains.
     origin: CaseOrigin = CaseOrigin.NEW
@@ -223,10 +265,12 @@ class StageEventRead(BaseModel):
     case_file_id: int
     from_stage: CaseStage | None = None
     to_stage: CaseStage
-    occurred_at: datetime
+    occurred_at: UtcDatetime
     user_id: int | None = None
     note: str | None = None
     meta: dict[str, Any] | None = None
+    # v12: an *omitida* stage written by the system (partial journeys).
+    is_skipped: bool = False
 
 
 class CaseFileRead(BaseModel):
@@ -249,13 +293,13 @@ class CaseFileRead(BaseModel):
     sequence_no: int
     version: int
     owner_user_id: int | None = None
-    opened_at: datetime | None = None
+    opened_at: UtcDatetime | None = None
     due_at: datetime | None = None
     closed_at: datetime | None = None
     summary: str | None = None
     meta: dict[str, Any] | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
     # Denormalised for the list view — filled by the router.
     client_legal_name: str | None = None
@@ -278,6 +322,14 @@ class CaseFileRead(BaseModel):
     account_group_name: str | None = None
     period_locked: bool = False
     client_ids: list[int] = Field(default_factory=list)
+
+    # --- v12 closed catalogue & partial journeys ----------------------------
+    insurance_subtype_id: int | None = None
+    entry_origin: CaseEntryOrigin | None = None
+    route: PlacementRoute | None = None
+    # Filled by the router: ``{id, code, name}`` of the subtipo.
+    insurance_subtype_code: str | None = None
+    insurance_subtype_name: str | None = None
 
 
 class QuotingInsurer(BaseModel):
@@ -337,12 +389,20 @@ class CaseFileDetail(CaseFileRead):
     quote_requests_count: int = 0
     packs_count: int = 0
     notes_count: int = 0
+    # v12: the journey rail — every stage of the chain with its state.
+    stages: list[StageStateRead] = Field(default_factory=list)
+    has_policy: bool = False
+    skip_targets: list[CaseStage] = Field(default_factory=list)
 
 
 class TransitionOptionRead(BaseModel):
     to_stage: CaseStage
     allowed: bool
     reason: str | None = None
+    #: ``forward`` | ``backward`` | ``current`` | ``close`` | ``side``. A
+    #: ``backward`` option from *Vigente* is never allowed — the UI must not
+    #: offer it in *Otras etapas* (review v12 #9).
+    direction: str = "forward"
 
 
 class CaseFileTransitions(BaseModel):
@@ -351,6 +411,9 @@ class CaseFileTransitions(BaseModel):
     stage: CaseStage
     options: list[TransitionOptionRead]
     is_terminal: bool
+    #: True when the folder can never walk back (it is *Vigente*).
+    backward_locked: bool = False
+    backward_locked_reason: str | None = None
 
 
 class CaseFileSummary(BaseModel):
@@ -380,7 +443,7 @@ class CaseDocumentRead(BaseModel):
     mime_type: str | None = None
     size_bytes: int | None = None
     uploaded_by_id: int | None = None
-    created_at: datetime | None = None
+    created_at: UtcDatetime | None = None
     url: str
     expires_in_seconds: int | None = None
 
@@ -401,7 +464,10 @@ class TimelineEntry(BaseModel):
     """One merged row of stage events + activity + notes, newest last."""
 
     kind: str  # "stage" | "activity" | "note"
-    occurred_at: datetime
+    #: Tz-aware UTC (``Z``) so the browser shows Chile time (review v12 #3).
+    occurred_at: UtcDatetime
+    #: Stage rows only: an *omitida* event (the UI folds a run into one line).
+    is_skipped: bool = False
     #: Identifier or action key only — never prose (rule 1). The label around
     #: it is the UI's ``t()`` call; see ``GroupTimelineEntry`` for the twin.
     title: str
@@ -499,6 +565,9 @@ class PendingActionsResponse(BaseModel):
 
 
 __all__ = [
+    "CaseSkipTo",
+    "CaseActivateStage",
+    "StageStateRead",
     "PendingAction",
     "PendingActionsResponse",
     "CaseFileCreate",

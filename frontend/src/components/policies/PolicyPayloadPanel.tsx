@@ -25,6 +25,7 @@ import {
   resolveFileUrl,
 } from "@/components/common/kit";
 import { asRows, humanizePath, renderValue } from "@/pages/policies/shared";
+import { POLICY_CORE_FIELD_LABEL, enumLabel } from "@/i18n/labels";
 
 const HIDDEN_KEYS = new Set([
   // The typed columns already own these — no need to echo them dynamically.
@@ -172,7 +173,7 @@ export function PolicyPayloadPanel({ policy }: { policy: Policy }) {
         )}
         {missing.map((field) => (
           <Badge key={field} variant="outline">
-            {t(`policy.upload.coreField.${field}`, { defaultValue: field })}
+            {enumLabel(t, POLICY_CORE_FIELD_LABEL, field)}
           </Badge>
         ))}
         {policy.extraction_id ? (

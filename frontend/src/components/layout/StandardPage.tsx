@@ -18,7 +18,7 @@ export function StandardPage() {
   return (
     <div
       key={location.pathname}
-      className="mx-auto flex w-full max-w-[1380px] flex-col gap-[22px] px-7 pb-14 pt-[26px]"
+      className="mx-auto flex w-full max-w-[1380px] flex-col gap-[22px] px-4 pb-14 pt-5 sm:px-7 sm:pt-[26px]"
     >
       <Outlet />
     </div>

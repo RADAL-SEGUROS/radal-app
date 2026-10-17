@@ -67,6 +67,7 @@ import type {
   BrokerProposalAdditionalItem,
   BrokerProposalCore,
 } from "@/api/types";
+import { BROKER_PROPOSAL_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 export function PropuestaPanel({
   caseId,
@@ -180,7 +181,7 @@ function BrokerProposalCard({
       description={t("subtitle")}
       actions={
         <span className="flex flex-wrap items-center gap-2">
-          <StatusBadge value={bp.status} label={t(`status.${bp.status}`)} dot />
+          <StatusBadge value={bp.status} label={enumLabel(t, BROKER_PROPOSAL_STATUS_LABEL, bp.status)} dot />
           {bp.is_ratified ? (
             <Badge variant="success" dot className="gap-1">
               <CheckCircle2 className="h-3 w-3" />
@@ -282,6 +283,22 @@ function coreText(value: unknown): string | null {
 
 /** The validated minimum core, rendered as a labeled key/value grid. Only the
  *  fields the winning offer actually stated are shown — shapes vary. */
+/** Each core row the block renders → its literal label key. */
+const CORE_FIELD_LABEL = {
+  insured_name: "propuesta:core.fields.insured_name",
+  insured_rut: "propuesta:core.fields.insured_rut",
+  coverage_start: "propuesta:core.fields.coverage_start",
+  coverage_end: "propuesta:core.fields.coverage_end",
+  validity_business_days: "propuesta:core.fields.validity_business_days",
+  total_premium_uf: "propuesta:core.fields.total_premium_uf",
+  net_premium_uf: "propuesta:core.fields.net_premium_uf",
+  taxable_premium_uf: "propuesta:core.fields.taxable_premium_uf",
+  exempt_premium_uf: "propuesta:core.fields.exempt_premium_uf",
+  vat_uf: "propuesta:core.fields.vat_uf",
+  comprehensive_rate_permille: "propuesta:core.fields.comprehensive_rate_permille",
+  commission_pct: "propuesta:core.fields.commission_pct",
+} as const satisfies Partial<Record<keyof BrokerProposalCore, string>>;
+
 function CoreBlock({
   core,
   insurerName,
@@ -292,7 +309,7 @@ function CoreBlock({
   const { t } = useTranslation("propuesta");
 
   const fields: {
-    key: keyof BrokerProposalCore;
+    key: keyof typeof CORE_FIELD_LABEL;
     render: (v: unknown) => string | null;
   }[] = [
     { key: "insured_name", render: coreText },
@@ -319,7 +336,7 @@ function CoreBlock({
       {rows.map((r) => (
         <KeyValue
           key={String(r.key)}
-          label={t(`core.fields.${String(r.key)}`)}
+          label={t(CORE_FIELD_LABEL[r.key])}
           value={r.value}
         />
       ))}

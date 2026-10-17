@@ -326,6 +326,19 @@ const TOOL_INVALIDATIONS: Record<string, ReadonlyArray<readonly string[]>> = {
   create_case_file: [qk.caseFiles.all, qk.navigator.all],
   renew_case: [qk.caseFiles.all, qk.navigator.all],
   add_note: [qk.notes.all],
+  // v12 write tools (docs/v12/05-agent.md §2).
+  create_policy_manual: [qk.policies.all, qk.caseFiles.all, qk.navigator.all],
+  update_policy_fields: [qk.policies.all],
+  register_payment: [qk.collections.all, qk.policies.all],
+  record_payment_promise: [qk.collections.all],
+  start_collection: [qk.collections.all, qk.policies.all],
+  send_status_inquiry: [qk.inquiries.all, qk.collections.all],
+  send_payment_reminder: [qk.collections.all],
+  create_share_link: [qk.shareLinks.all],
+  create_payment_link: [qk.collections.all],
+  skip_case_to_stage: [qk.caseFiles.all, qk.navigator.all],
+  activate_case_stage: [qk.caseFiles.all, qk.navigator.all],
+  run_portal_search: [qk.portalSearches.all],
 };
 
 /** One agentic turn: context refs + tool loop + pending write proposals. */
@@ -340,6 +353,8 @@ export function useAgentTurn() {
       void qc.invalidateQueries({ queryKey: qk.agentThreads.messages(data.thread.id) });
       void qc.invalidateQueries({ queryKey: qk.agentThreads.lists() });
       void qc.invalidateQueries({ queryKey: agentActionsKey(data.thread.id) });
+      // `load_skill` may have activated a skill on the thread during the turn.
+      void qc.invalidateQueries({ queryKey: threadSkillsKey(data.thread.id) });
     },
   });
 }
@@ -390,6 +405,63 @@ export function useDiscardAgentAction() {
     onSuccess: (action) => {
       void qc.invalidateQueries({ queryKey: agentActionsKey(action.thread_id) });
       void qc.invalidateQueries({ queryKey: qk.agentThreads.messages(action.thread_id) });
+    },
+  });
+}
+
+// --- Agent skills (v12, docs/v12/05-agent.md §3) --------------------------------
+//
+// A skill is a server-defined playbook + tool subset. Titles, descriptions and
+// triggers are Spanish copy owned by the backend registry
+// (`services/agent_skills.py`), so the UI renders them verbatim — no i18n key
+// per skill (adding a skill server-side needs no frontend change).
+
+export interface AgentSkill {
+  key: string;
+  title: string;
+  description: string;
+  tools: string[];
+  /** Spanish keywords the composer matches while the user types. */
+  triggers: string[];
+  version: number;
+}
+
+export interface ThreadSkills {
+  thread_id: number;
+  active_skills: AgentSkill[];
+}
+
+/** Local key under the frozen `qk.aiSkills` root, so `qk.aiSkills` invalidates both. */
+export const threadSkillsKey = (threadId: number) =>
+  [...qk.aiSkills, "thread", String(threadId)] as const;
+
+/** `GET /ai/skills` — the catalogue (changes only on a backend deploy). */
+export function useAgentSkills() {
+  return useQuery({
+    queryKey: qk.aiSkills,
+    staleTime: 30 * 60 * 1000,
+    queryFn: async () => (await api.get<AgentSkill[]>("/ai/skills")).data,
+  });
+}
+
+/** `GET /ai/threads/{id}/skills` — the skills active in one own thread. */
+export function useThreadSkills(threadId: number | null | undefined) {
+  return useQuery({
+    queryKey: threadSkillsKey(threadId ?? 0),
+    enabled: !!threadId,
+    queryFn: async () =>
+      (await api.get<ThreadSkills>(`/ai/threads/${threadId}/skills`)).data,
+  });
+}
+
+/** `POST /ai/threads/{id}/skills` — REPLACES the thread's active set. */
+export function useSetThreadSkills() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ threadId, skills }: { threadId: number; skills: string[] }) =>
+      (await api.post<ThreadSkills>(`/ai/threads/${threadId}/skills`, { skills })).data,
+    onSuccess: (data) => {
+      qc.setQueryData(threadSkillsKey(data.thread_id), data);
     },
   });
 }

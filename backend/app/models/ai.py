@@ -172,6 +172,8 @@ class AgentThread(Base, TimestampMixin):
     title: Mapped[str | None] = mapped_column(String(255))
     is_archived: Mapped[bool] = mapped_column(default=False, nullable=False)
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # v12: keys of the agent skills loaded in this thread (``services.agent_skills``).
+    active_skills: Mapped[list[Any] | None] = mapped_column(JSONType)
 
     broker: Mapped["Broker"] = relationship()
     user: Mapped["User"] = relationship(back_populates="agent_threads")

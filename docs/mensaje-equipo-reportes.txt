@@ -1,0 +1,26 @@
+Equipo 👋 Ya pueden reportar todo lo que vean raro en Radal acá:
+https://github.com/RADAL-SEGUROS/radal-app/issues/new/choose
+
+No hace falta saber nada técnico. Cuentan qué pasó y eligen uno de tres:
+
+🐞 *Error* — algo está mal y hay que corregirlo
+(un botón que no hace nada, un número equivocado)
+
+🔧 *Mejora* — funciona, pero debería ser distinto
+(da muchas vueltas, es lento, incomoda)
+
+✨ *Funcionalidad* — falta y hay que desarrollarla
+(hoy lo resuelven en un Excel aparte o por WhatsApp)
+
+¿Dudan? Pregúntense *¿funciona?*
+No → Error · Sí pero cuesta → Mejora · No existe → Funcionalidad
+Si se equivocan lo movemos nosotros. Mejor mal clasificado que sin escribir.
+
+Incluyan siempre:
+• *Versión*: en Configuración, abajo a la derecha, le hacen clic y se copia sola
+• *Dirección (URL)* completa de la barra del navegador
+• Una *captura de pantalla*
+
+Si ven un número equivocado avisen igual aunque parezca menor, y díganos qué vieron y qué debería decir: son los más fáciles de dejar pasar.
+
+⚠️ Nunca escriban su contraseña. Y si llegan a ver datos de otra corredora, escríbanme directo en vez de publicarlo.

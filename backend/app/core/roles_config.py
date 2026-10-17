@@ -30,6 +30,12 @@ always applied on top, in the repository/query layer — a "yes" here never mean
 The ``Reports`` module is declared but OUT OF SCOPE for this pass (all "no"
 everywhere) so the matrix stays complete and forward-compatible, and so the UI
 can render it visibly disabled ("pronto") rather than as a dead control.
+
+v12 (docs/v12/02-backend-api.md "RBAC changes") adds three modules: ``Mail``
+(the broker's mailboxes and outbound mail), ``Integrations`` (portal-search
+RPA) and ``Platform`` (RADAL's maintainer console: insurer cobranza profiles,
+Forpay provider accounts, the webhook inbox, job runs). ``Platform`` is granted
+to ``platform_admin`` ONLY — a broker admin never reaches it.
 """
 from __future__ import annotations
 
@@ -89,6 +95,10 @@ MODULES: list[str] = [
     "Reports",  # OUT OF SCOPE this pass
     "Users",
     "Settings",
+    # v12: mailboxes, portal-search RPA, RADAL's maintainer console.
+    "Mail",
+    "Integrations",
+    "Platform",
 ]
 
 ACTIONS: list[str] = [
@@ -146,8 +156,8 @@ ROLES: dict[str, dict] = {
     "platform_admin": _full_role("platform"),
 
     # ============================= BROKER ===============================
-    # The tenant. Primary focus of this build.
-    "broker_admin": _full_role("broker"),
+    # The tenant. Primary focus of this build. Never reaches RADAL's console.
+    "broker_admin": _full_role("broker", out_of_scope=("Reports", "Platform")),
 
     "broker_executive": {
         "user_type": "broker",
@@ -171,12 +181,20 @@ ROLES: dict[str, dict] = {
         "Documents": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
         "Policies": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes"),
         "Endorsements": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
-        # Reads and comments the ledger; the technician/admin edit it.
-        "Collections": _mod(View="yes", Comment="yes", Upload="yes"),
+        # v12 (team): the same cobranza actions as the admin — register payments,
+        # start collection, send reminders/inquiries — minus Delete/Approve/Manage.
+        "Collections": _mod(
+            View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"
+        ),
         "Claims": _mod(View="yes", Create="yes", Edit="yes", Comment="yes", Upload="yes", Submit="yes"),
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
         "Settings": _mod(View="partial"),
+        # Connects their OWN mailbox; shared mailboxes need Settings.Manage.
+        "Mail": _mod(View="yes", Create="yes"),
+        # Runs portal searches; portal credentials need Settings.Manage.
+        "Integrations": _mod(View="yes", Submit="yes"),
+        "Platform": dict(_ALL_NO),
     },
 
     "broker_inspector": {
@@ -207,6 +225,10 @@ ROLES: dict[str, dict] = {
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
         "Settings": dict(_ALL_NO),
+        # v12 modules: none for this role.
+        "Mail": dict(_ALL_NO),
+        "Integrations": dict(_ALL_NO),
+        "Platform": dict(_ALL_NO),
     },
 
     "broker_technician": {
@@ -241,6 +263,10 @@ ROLES: dict[str, dict] = {
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
         "Settings": _mod(View="partial"),
+        # v12 modules: none for this role.
+        "Mail": dict(_ALL_NO),
+        "Integrations": dict(_ALL_NO),
+        "Platform": dict(_ALL_NO),
     },
 
     # ------------------------- PROCESS PROFILES -------------------------
@@ -286,6 +312,10 @@ ROLES: dict[str, dict] = {
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
         "Settings": dict(_ALL_NO),
+        # Sends reminders/inquiries from its own mailbox.
+        "Mail": _mod(View="yes", Create="yes"),
+        "Integrations": dict(_ALL_NO),
+        "Platform": dict(_ALL_NO),
     },
 
     # The claims desk: owns the siniestro end to end, including the ruling
@@ -316,6 +346,10 @@ ROLES: dict[str, dict] = {
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
         "Settings": dict(_ALL_NO),
+        # v12 modules: none for this role.
+        "Mail": dict(_ALL_NO),
+        "Integrations": dict(_ALL_NO),
+        "Platform": dict(_ALL_NO),
     },
 
     # ============================= INSURED ==============================
@@ -346,6 +380,10 @@ ROLES: dict[str, dict] = {
         # Manages only the users of their own insured organization.
         "Users": _mod(View="yes", Create="yes", Edit="yes", Submit="yes", Approve="yes", Manage="partial"),
         "Settings": _mod(View="partial", Edit="partial", Upload="yes"),
+        # v12 modules: none for this role.
+        "Mail": dict(_ALL_NO),
+        "Integrations": dict(_ALL_NO),
+        "Platform": dict(_ALL_NO),
     },
 
     "insured_user": {
@@ -371,6 +409,10 @@ ROLES: dict[str, dict] = {
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
         "Settings": dict(_ALL_NO),
+        # v12 modules: none for this role.
+        "Mail": dict(_ALL_NO),
+        "Integrations": dict(_ALL_NO),
+        "Platform": dict(_ALL_NO),
     },
 
     # ============================= INSURER ==============================
@@ -401,6 +443,10 @@ ROLES: dict[str, dict] = {
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": _mod(View="yes", Create="yes", Edit="yes", Submit="yes", Approve="yes", Manage="partial"),
         "Settings": _mod(View="partial", Edit="partial", Upload="yes"),
+        # v12 modules: none for this role.
+        "Mail": dict(_ALL_NO),
+        "Integrations": dict(_ALL_NO),
+        "Platform": dict(_ALL_NO),
     },
 
     "insurer_underwriter": {
@@ -427,6 +473,10 @@ ROLES: dict[str, dict] = {
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
         "Settings": dict(_ALL_NO),
+        # v12 modules: none for this role.
+        "Mail": dict(_ALL_NO),
+        "Integrations": dict(_ALL_NO),
+        "Platform": dict(_ALL_NO),
     },
 
     "insurer_executive": {
@@ -453,13 +503,19 @@ ROLES: dict[str, dict] = {
         "Reports": dict(_OUT_OF_SCOPE),
         "Users": dict(_ALL_NO),
         "Settings": dict(_ALL_NO),
+        # v12 modules: none for this role.
+        "Mail": dict(_ALL_NO),
+        "Integrations": dict(_ALL_NO),
+        "Platform": dict(_ALL_NO),
     },
 }
 
 
 # ``broker_commercial`` IS the executive matrix (spec §6). Deriving it instead of
 # copying keeps the two in lockstep until the team deliberately splits them —
-# a copied 19x9 grid drifts silently, a derivation cannot.
+# a copied 19x9 grid drifts silently, a derivation cannot. It therefore also
+# inherits the executive's v12 grants (Collections edit, own Mail, portal
+# searches) — quoting through insurer portals is commercial work.
 ROLES["broker_commercial"] = {
     key: (value if key == "user_type" else dict(value))
     for key, value in ROLES["broker_executive"].items()

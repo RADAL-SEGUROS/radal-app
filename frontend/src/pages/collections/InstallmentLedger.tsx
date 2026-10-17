@@ -13,13 +13,16 @@
  *
  * The running column is the cumulative Σ: where the ledger drifts is visible on
  * the exact row that drifts it.
+ *
+ * v12: this view is read-only. The v1 "Marcar pagada" (full balance, today,
+ * no method) was a second, weaker payment path next to the cuota sheet's
+ * "Registrar pago" on the same page — it is gone; a caption points to the
+ * Cuotas block instead.
  */
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Coins, Wallet } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Coins } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -30,40 +33,21 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
-import { useCan } from "@/lib/permissions";
-import { useCollectionStatus, useInstallments, useUpdateInstallment } from "@/api/collections";
+import { useCollectionStatus, useInstallments } from "@/api/collections";
 import { useEndorsements } from "@/api/endorsements";
 import { usePolicy } from "@/api/policies";
-import { num, type CollectionInstallment } from "@/api/types";
+import { num } from "@/api/types";
 import {
-  DisabledHint,
   EmptyState,
   ErrorBanner,
   KeyValue,
   LoadingRows,
   MonoChip,
   Section,
-  apiError,
   uf,
 } from "@/pages/proposals/shared";
 import { PostsaleBadge, offBy } from "@/pages/policies/shared";
-
-const CLOSED: CollectionInstallment["status"][] = [
-  "paid",
-  "paid_late",
-  "credited",
-  "cancelled",
-];
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function daysLate(dueDate: string | null, paidOn: string): number | null {
-  if (!dueDate) return null;
-  const diff = new Date(paidOn).getTime() - new Date(dueDate).getTime();
-  return diff <= 0 ? 0 : Math.round(diff / 86_400_000);
-}
+import { INSTALLMENT_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 export function InstallmentLedger({
   planId,
@@ -73,12 +57,11 @@ export function InstallmentLedger({
   policyId: number;
 }) {
   const { t } = useTranslation("postsale");
+  const { t: tc } = useTranslation("collections");
   const installments = useInstallments(planId);
   const collectionStatus = useCollectionStatus(planId);
   const policy = usePolicy(policyId);
   const endorsements = useEndorsements({ policy_id: policyId, limit: 100 });
-  const update = useUpdateInstallment(planId);
-  const canEdit = useCan("Collections", "Edit");
 
   const rows = [...(installments.data ?? [])].sort((a, b) => a.number - b.number);
 
@@ -90,28 +73,6 @@ export function InstallmentLedger({
   const expected = num(collectionStatus.data?.expected_total_uf ?? null) ?? (policyGross ?? 0) + deltas;
   const difference = scheduled - expected;
   const balances = collectionStatus.data?.balances ?? !offBy(scheduled, expected);
-
-  const gate = canEdit.isLoading
-    ? t("shared.loading")
-    : canEdit.allowed
-      ? null
-      : t("installment.noPermission");
-
-  const markPaid = async (row: CollectionInstallment) => {
-    const paidOn = today();
-    const late = daysLate(row.due_date, paidOn);
-    try {
-      await update.mutateAsync({
-        number: row.number,
-        status: late && late > 0 ? "paid_late" : "paid",
-        paid_on: paidOn,
-        days_late: late,
-      });
-      toast.success(t("shared.saved"));
-    } catch (error) {
-      toast.error(apiError(error, t("shared.notFound")));
-    }
-  };
 
   let running = 0;
 
@@ -163,6 +124,7 @@ export function InstallmentLedger({
             />
           </div>
 
+          <p className="mb-3 text-caption text-ink-3">{tc("ledger.payFromCuotas")}</p>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -175,13 +137,11 @@ export function InstallmentLedger({
                   <TableHead>{t("installment.columns.paidOn")}</TableHead>
                   <TableHead>{t("installment.columns.daysLate")}</TableHead>
                   <TableHead>{t("installment.columns.status")}</TableHead>
-                  <TableHead className="text-right">{t("installment.markPaid")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((row) => {
                   running += num(row.gross_amount_uf) ?? 0;
-                  const closed = CLOSED.includes(row.status);
                   return (
                     <TableRow key={row.id}>
                       <TableCell className="tabular-nums font-medium">{row.number}</TableCell>
@@ -210,7 +170,7 @@ export function InstallmentLedger({
                         <div className="flex flex-col items-start gap-1">
                           <PostsaleBadge
                             value={row.status}
-                            label={t(`installment.status.${row.status}`)}
+                            label={enumLabel(t, INSTALLMENT_STATUS_LABEL, row.status)}
                           />
                           {row.endorsement_id ? (
                             <span className="text-caption text-text-muted">
@@ -218,19 +178,6 @@ export function InstallmentLedger({
                             </span>
                           ) : null}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DisabledHint hint={gate}>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={!canEdit.allowed || closed || update.isPending}
-                            onClick={() => void markPaid(row)}
-                          >
-                            <Wallet className="h-3.5 w-3.5" />
-                            {t("installment.markPaid")}
-                          </Button>
-                        </DisabledHint>
                       </TableCell>
                     </TableRow>
                   );

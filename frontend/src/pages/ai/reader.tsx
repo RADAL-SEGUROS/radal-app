@@ -55,6 +55,7 @@ import {
   MonoChip,
   Section,
 } from "@/pages/proposals/shared";
+import { DOCUMENT_CATEGORY_LABEL, enumLabel } from "@/i18n/labels";
 
 /** `GET /documents` caps `limit` at 200 (`routers/documents.py:600`). */
 const PAGE_SIZE = 200;
@@ -101,8 +102,8 @@ export default function AiReaderPage() {
       out.push(spec);
     }
     return out.sort((a, b) =>
-      td(`categories.${a.canonical_category}`, { defaultValue: a.canonical_category }).localeCompare(
-        td(`categories.${b.canonical_category}`, { defaultValue: b.canonical_category }),
+      enumLabel(td, DOCUMENT_CATEGORY_LABEL, a.canonical_category).localeCompare(
+        enumLabel(td, DOCUMENT_CATEGORY_LABEL, b.canonical_category),
       ),
     );
   }, [registry.data, td]);
@@ -163,7 +164,7 @@ export default function AiReaderPage() {
         header: () => t("ai.reader.table.category"),
         cell: ({ row }) => (
           <Badge variant="neutral">
-            {td(`categories.${row.original.category}`, { defaultValue: row.original.category })}
+            {enumLabel(td, DOCUMENT_CATEGORY_LABEL, row.original.category)}
           </Badge>
         ),
       },
@@ -266,9 +267,7 @@ export default function AiReaderPage() {
               <SelectItem value="all">{t("ai.reader.allCategories")}</SelectItem>
               {options.map((s) => (
                 <SelectItem key={s.canonical_category} value={s.canonical_category}>
-                  {td(`categories.${s.canonical_category}`, {
-                    defaultValue: s.canonical_category,
-                  })}
+                  {enumLabel(td, DOCUMENT_CATEGORY_LABEL, s.canonical_category)}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -1,0 +1,133 @@
+{
+  "title": "Notifications",
+  "description": "What you have to do and what you should know, in one list.",
+  "bell": {
+    "label": "Notifications",
+    "labelWithCount": "Notifications: {{count}} to do",
+    "viewAll": "View all",
+    "error": "We could not load the notifications."
+  },
+  "tray": {
+    "todo": "To do",
+    "fyi": "Good to know"
+  },
+  "status": {
+    "new": "New",
+    "seen": "Seen",
+    "closed": "Closed"
+  },
+  "filters": {
+    "allTrays": "All",
+    "open": "Open",
+    "closed": "History"
+  },
+  "item": {
+    "markSeen": "Mark as seen",
+    "close": "Close notification",
+    "noNumber": "no number",
+    "recipient": "For {{name}}",
+    "recipientUnknown": "no recipient"
+  },
+  "toast": {
+    "closed": "Notification closed",
+    "error": "We could not update the notification"
+  },
+  "empty": {
+    "todo": "Nothing to do. When something needs your action, it shows up here.",
+    "fyi": "Nothing new to know for now.",
+    "title": "You are up to date",
+    "hint": "Upcoming installments, received payments and insurer replies arrive here.",
+    "closedTitle": "No history",
+    "closedHint": "Closed notifications are kept here."
+  },
+  "platform": {
+    "title": "No brokerage notifications",
+    "hint": "Notifications belong to each user of a brokerage. Radal team accounts do not receive portfolio alerts."
+  },
+  "resultCount_one": "{{count}} notification",
+  "resultCount_other": "{{count}} notifications",
+  "pager": {
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}} of {{pages}}"
+  },
+  "kind": {
+    "installment_due": {
+      "title": "Installment due soon · policy {{policy}}",
+      "body": "Installment {{cuota}} of {{insured}} is due on {{due}} · {{amount}}."
+    },
+    "installment_overdue": {
+      "title": "Overdue installment · policy {{policy}}",
+      "body": "Installment {{cuota}} of {{insured}} is {{days}} days late · {{amount}}. Record the payment or a promise."
+    },
+    "termination_risk": {
+      "title": "Termination risk · policy {{policy}}",
+      "body": "Installment {{cuota}} is still unpaid after the collection cadence. Record the payment, a promise or the cancellation."
+    },
+    "direct_debit_rejected": {
+      "title": "Direct debit rejected · policy {{policy}}",
+      "body": "The automatic charge of installment {{cuota}} was rejected. Follow up with the policyholder.",
+      "titlePat": "PAT rejected · policy {{policy}}",
+      "titleGeneric": "Automatic charge rejected · policy {{policy}}"
+    },
+    "promise_broken": {
+      "title": "Broken promise · policy {{policy}}",
+      "body": "The promised date ({{promise}}) passed without payment of installment {{cuota}}."
+    },
+    "plan_missing": {
+      "title": "Policy without a payment plan",
+      "body": "Policy {{policy}} has no installments: load its payment plan so it enters Collections."
+    },
+    "inquiry_reply": {
+      "title": "The insurer replied · policy {{policy}}",
+      "body": "The reply to your payment status inquiry arrived. Review it and confirm what applies."
+    },
+    "evidence_pending": {
+      "title": "Reported payment to confirm · policy {{policy}}",
+      "body": "A reported payment (installment {{cuota}}) is waiting for your confirmation."
+    },
+    "payment_received": {
+      "title": "Payment received · policy {{policy}}",
+      "body": "The online payment of installment {{cuota}} for {{amount}} was recorded."
+    },
+    "native_collection_available": {
+      "title": "Online collection available",
+      "body": "{{insurer}} now collects online: its open installments move to online collection by themselves."
+    },
+    "portal_search_failed": {
+      "title": "The quote on {{portal}} did not finish",
+      "body": "Check what happened and pick another path: retry, another portal or upload the quote as a PDF."
+    },
+    "portal_search_done": {
+      "title": "Quote on {{portal}} ready",
+      "body": "Quotes received: {{quotes}}."
+    },
+    "mail_account_error": {
+      "title": "Problem with your mailbox",
+      "body": "We could not connect the mailbox {{address}}. Check its settings."
+    },
+    "sensitive_action": {
+      "title": "Sensitive action · policy {{policy}}",
+      "body": "There was a sensitive change on installment {{cuota}}. Review it."
+    },
+    "policy_linked_insured": {
+      "title": "Policy linked to an existing insured",
+      "body": "{{by}} registered policy {{policy}} and linked it to {{insured}}, already in the portfolio."
+    },
+    "unknown": {
+      "title": "Notification",
+      "body": "Open the detail to see what happened."
+    }
+  },
+  "sensitiveEvent": {
+    "chargeback": "The insurer reported a chargeback of the payment of installment {{cuota}}. Review the payment.",
+    "provider_payment_unconverted": "An online payment of installment {{cuota}} could not be converted to {{currency}}. Review it and record it by hand."
+  },
+  "scope": {
+    "label": "Which notifications to show",
+    "mine": "Mine",
+    "all": "All",
+    "mineHint": "Only yours",
+    "allHint": "Every one in the brokerage"
+  }
+}

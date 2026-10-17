@@ -42,6 +42,7 @@ import { useConvertLead, useLead, useUpdateLead } from "@/api/leads";
 import { useCan } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import { LEAD_STATUSES, type Lead, type LeadStatus } from "@/api/types";
+import { LEAD_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 export default function LeadDetailPage() {
   const { leadId: leadIdParam } = useParams();
@@ -88,7 +89,7 @@ export default function LeadDetailPage() {
         }
         actions={
           <>
-            <StatusBadge value={l.status} label={t(`statuses.${l.status}`)} />
+            <StatusBadge value={l.status} label={enumLabel(t, LEAD_STATUS_LABEL, l.status)} />
             {l.converted_case_file_id ? (
               <Button size="sm" variant="secondary" asChild>
                 <Link to={`/cases/${l.converted_case_file_id}`}>
@@ -152,7 +153,7 @@ export default function LeadDetailPage() {
                   disabled={!edit.allowed || update.isPending || converted}
                   onClick={() => update.mutate({ status: status as LeadStatus })}
                 >
-                  {t(`statuses.${status}`)}
+                  {enumLabel(t, LEAD_STATUS_LABEL, status)}
                 </Button>
               </DisabledHint>
             ))}

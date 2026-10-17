@@ -51,7 +51,7 @@ from app.services.analytics import (
     scope_predicates,
 )
 from app.core.config import settings
-from app.core.permissions import require_permission
+from app.core.permissions import require_permission, user_has_permission
 from app.models import (
     Asset,
     Broker,
@@ -517,6 +517,18 @@ def upload_document(
     expediente; the case is proved to belong to the same broker first.
     """
     resolve_entity(db, entity_type, entity_id, broker_id)
+    # The corredora's corporate logo is part of its profile: it brands every
+    # PDF and public page, so it takes Settings.Manage — Documents.Upload alone
+    # (an ejecutivo) must not replace it (QA v12).
+    if (
+        entity_type is EntityType.BROKER
+        and category is DocumentCategory.LOGO
+        and not user_has_permission(current_user, "Settings", "Manage")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo un administrador de la corredora puede cambiar el logo corporativo.",
+        )
     _validate_case_file(db, case_file_id, broker_id, current_user)
     if entity_type is EntityType.CASE_FILE and case_file_id is None:
         case_file_id = entity_id

@@ -49,6 +49,7 @@ import { useAccountGroup, useGroupTree } from "@/api/accountGroups";
 import { useBatchEndorsements, useIssueBatch } from "@/api/endorsements";
 import { useCan } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
+import { toWallClock } from "@/lib/wallclock";
 import type {
   EndorsementBatchResponse,
   GroupTree,
@@ -140,7 +141,8 @@ export default function ExtendPoliciesPage() {
         policy_ids: selected,
         kind: "period_extension",
         new_end_date: newEnd,
-        effective_at: new Date(effective).toISOString(),
+        // Contractual: Chile wall-clock as typed (12:00), never a UTC instant.
+        effective_at: toWallClock(effective) ?? effective,
         note: note.trim() || null,
       },
       { onSuccess: (result) => setBatch(result) },

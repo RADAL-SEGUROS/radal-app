@@ -31,6 +31,7 @@ import {
   Section,
   uf,
 } from "@/pages/proposals/shared";
+import { CLAIM_ITEM_KIND_LABEL, enumLabel } from "@/i18n/labels";
 
 export function ClaimItemsTable({ claimId }: { claimId: number }) {
   const { t } = useTranslation("postsale");
@@ -98,7 +99,7 @@ export function ClaimItemsTable({ claimId }: { claimId: number }) {
                       </div>
                     </TableCell>
                     <TableCell className="align-top">
-                      <Badge variant="neutral">{t(`claimItem.kind.${row.kind}`)}</Badge>
+                      <Badge variant="neutral">{enumLabel(t, CLAIM_ITEM_KIND_LABEL, row.kind)}</Badge>
                     </TableCell>
                     <TableCell className="text-right align-top tabular-nums">
                       {uf(row.notified_uf)}

@@ -1,0 +1,32 @@
+{
+  "title": "Catálogo de ramos",
+  "closedHint": "Ramos y subtipos son un catálogo cerrado, común a todas las corredoras. Si falta uno, pídelo al equipo RADAL.",
+  "select": {
+    "ramo": "Ramo",
+    "subtype": "Subtipo",
+    "ramoPlaceholder": "Elige el ramo",
+    "subtypePlaceholder": "Elige el subtipo",
+    "subtypeFirst": "Primero elige el ramo",
+    "error": "No pudimos cargar el catálogo de ramos.",
+    "retry": "Reintentar",
+    "empty": "El catálogo de ramos todavía no está cargado."
+  },
+  "route": {
+    "label": "Vía",
+    "suggested": "Vía sugerida",
+    "suggestedMark": "sugerida",
+    "traditional": "Tradicional",
+    "digital": "Digital",
+    "manual": "Manual",
+    "hint": "La propone el subtipo y nunca obliga: puedes cambiarla mientras la colocación no tenga póliza.",
+    "hints": {
+      "traditional": "Negocio a mercado: subes los antecedentes y tus bases técnicas.",
+      "digital": "Riesgo estándar, cotizado o emitido en el portal de la compañía.",
+      "manual": "Póliza registrada a mano, sin PDF."
+    }
+  },
+  "entry": {
+    "market": "suele ir a mercado",
+    "portal": "suele emitirse en el portal"
+  }
+}

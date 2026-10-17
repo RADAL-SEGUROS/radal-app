@@ -10,10 +10,14 @@
  *      a quiet segmented selector appears when there are several). Each card
  *      shows the line name, the Journey COMPACT rail (render-only — the
  *      transitions live on the account page) and quiet stat chips linking
- *      straight into the account's tabs (`?tab=records|quotes|proposals|policies`).
+ *      straight into the account's tabs (`?tab=policies|antecedentes|comparison|propuesta`).
  *   3. Underline tabs: Bitácora / Vigencias / Empresas. The Empresas tab is
  *      where membership is EDITED (add + remove) — group creation is not the
  *      only door, or a group created empty could never be filled.
+ *
+ * v12 — the group reads as a VIEWER: each ramo card leads with the policies it
+ * already holds (linked one by one), and "Nueva cuenta" is a secondary action,
+ * not the page's primary — most work now starts from a policy, not from here.
  *
  * Data notes that survive the restyle:
  *   - The Bitácora is cursor-paged (`next_before`), newest first, GROUPED BY
@@ -22,6 +26,7 @@
  *   - A group has NO RUT of its own: the companies (empresas) inside it do.
  *     The third tab lists them; their RUT renders as the company's identifier.
  */
+import { formatRut } from "@/pages/clients/rut";
 import * as React from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -32,6 +37,7 @@ import {
   Lock,
   Pencil,
   Plus,
+  ShieldCheck,
   TimerReset,
   Users,
 } from "lucide-react";
@@ -87,8 +93,13 @@ import {
   useGroupTree,
 } from "@/api/accountGroups";
 import { useCan } from "@/lib/permissions";
-import { formatDateTime } from "@/lib/format";
-import { useTimelineCopy } from "@/components/groups/timelineCopy";
+import {
+  DATE_ONLY_TIMELINE_KINDS,
+  collapseSkipped,
+  formatTimelineMoment,
+  useTimelineCopy,
+  type TranslatableTimelineEntry,
+} from "@/components/groups/timelineCopy";
 import type {
   GroupTimelineEntry,
   GroupTimelineKind,
@@ -96,6 +107,7 @@ import type {
   TreeLineNode,
   TreePeriodNode,
 } from "@/api/types";
+import { CASE_NEXT_LABEL, GROUP_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const ALL = "__all__";
 const PAGE_SIZE = 50;
@@ -209,7 +221,7 @@ export default function GroupOverviewPage() {
               <MonoChip>{g.latest_period_label}</MonoChip>
             ) : null}
             {g && g.status !== "active" ? (
-              <Badge variant="muted">{t(`group.status.${g.status}`)}</Badge>
+              <Badge variant="muted">{enumLabel(t, GROUP_STATUS_LABEL, g.status)}</Badge>
             ) : null}
           </span>
         }
@@ -249,7 +261,7 @@ export default function GroupOverviewPage() {
             )}
 
             {canCreateCase.allowed ? (
-              <Button size="sm" asChild>
+              <Button size="sm" variant="secondary" asChild>
                 <Link to={`/groups/${groupId}/accounts/new`}>
                   <Plus className="h-4 w-4" />
                   {t("tree.newAccount")}
@@ -257,7 +269,7 @@ export default function GroupOverviewPage() {
               </Button>
             ) : (
               <DisabledHint hint={t("account.noCreatePermission")}>
-                <Button size="sm" disabled>
+                <Button size="sm" variant="secondary" disabled>
                   <Plus className="h-4 w-4" />
                   {t("tree.newAccount")}
                 </Button>
@@ -459,11 +471,14 @@ export function GroupLineCard({
   const account = line.account;
   const accountPath = `/groups/${groupId}/accounts/${account.case_file_id}`;
 
+  // `?tab=` values are the account page's own vocabulary (antecedentes,
+  // comparison, propuesta, policies) — the v8 keys (records/quotes/proposals)
+  // silently fell back to Resumen.
   const stats: { tab: string; label: string; count: number }[] = [
-    { tab: "records", label: t("tree.records"), count: account.documents_count },
-    { tab: "quotes", label: t("tree.quotes"), count: account.quotes_count },
-    { tab: "proposals", label: t("tree.proposals"), count: account.proposals_count },
     { tab: "policies", label: t("tree.policies"), count: line.policies.length },
+    { tab: "antecedentes", label: t("tree.records"), count: account.documents_count },
+    { tab: "comparison", label: t("tree.quotes"), count: account.quotes_count },
+    { tab: "propuesta", label: t("tree.proposals"), count: account.proposals_count },
   ];
 
   // A LIGHT "next step" caption derived purely from the stage — no per-account
@@ -510,7 +525,7 @@ export function GroupLineCard({
         {nextStage ? (
           <p className="text-caption text-ink-3">
             <span className="font-medium text-ink-2">{tCases("journey.whatNext")}:</span>{" "}
-            {tCases(`journey.next.${nextStage}`, { defaultValue: nextStage })}
+            {enumLabel(tCases, CASE_NEXT_LABEL, nextStage)}
           </p>
         ) : null}
 
@@ -528,6 +543,50 @@ export function GroupLineCard({
           ))}
         </div>
       </div>
+
+      {/* The hero card leads with what exists: the ramo's policies. The period
+          page passes its own fuller list through `children`. */}
+      {linkCard ? (
+        line.policies.length > 0 ? (
+          <ul className="divide-y divide-line border-t border-line">
+            {line.policies.slice(0, 3).map((policy, index) => (
+              <li key={policy.id}>
+                <Link
+                  to={`/groups/${groupId}/policies/${policy.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex min-h-11 flex-wrap items-center gap-x-2 gap-y-0.5 px-5 py-2 no-underline transition-colors duration-150 hover:bg-paper-2/60"
+                >
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                  <span className="text-label tabular-nums text-ink">
+                    {t("tree.policyLabel", { n: index + 1, number: policy.policy_number })}
+                  </span>
+                  <span className="min-w-0 truncate text-caption text-ink-3">
+                    {policy.insurer_name ?? "—"}
+                  </span>
+                  <span className="ml-auto text-caption tabular-nums text-ink-3">
+                    {periodDates(policy.start_date, policy.end_date)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+            {line.policies.length > 3 ? (
+              <li>
+                <Link
+                  to={`${accountPath}?tab=policies`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="block px-5 py-2 text-caption text-brand-deep no-underline hover:underline"
+                >
+                  {t("tree.policies")} · {line.policies.length}
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+        ) : (
+          <p className="border-t border-line px-5 py-2.5 text-caption text-ink-3">
+            {t("viewer.cardNoPolicies")}
+          </p>
+        )
+      ) : null}
 
       {children}
     </Card>
@@ -578,8 +637,11 @@ function TimelinePane({ groupId, tree }: { groupId: number; tree: GroupTree | un
       if (bucket) bucket.push(row);
       else buckets.set(label, [row]);
     }
-    // Newest vigencia first; the unlabelled bucket sinks to the bottom.
-    return [...buckets.entries()].sort((a, b) => {
+    // Newest vigencia first; the unlabelled bucket sinks to the bottom. Each
+    // bucket folds its runs of omitida stage events into one line.
+    return [...buckets.entries()]
+      .map(([label, list]) => [label, collapseSkipped(list)] as const)
+      .sort((a, b) => {
       if (!a[0]) return 1;
       if (!b[0]) return -1;
       return b[0].localeCompare(a[0]);
@@ -649,7 +711,7 @@ function PeriodTimelineCard({
   defaultOpen,
 }: {
   label: string;
-  entries: GroupTimelineEntry[];
+  entries: (GroupTimelineEntry & TranslatableTimelineEntry)[];
   groupId: number;
   accountIds: Set<number>;
   defaultOpen: boolean;
@@ -719,7 +781,9 @@ function PeriodTimelineCard({
                       </span>
                     )}
                     <span className="text-caption text-ink-3">
-                      {formatDateTime(entry.occurred_at)}
+                      {formatTimelineMoment(entry.occurred_at, {
+                        dateOnly: entry.date_only ?? DATE_ONLY_TIMELINE_KINDS.has(entry.kind),
+                      })}
                     </span>
                   </div>
                   {timelineCopy(entry).detail ? (
@@ -876,12 +940,12 @@ function PeriodLineRow({ groupId, node }: { groupId: number; node: TreeLineNode 
   const [open, setOpen] = React.useState(false);
   const accountPath = `/groups/${groupId}/accounts/${node.account.case_file_id}`;
 
-  const quick: { key: string; tab: string }[] = [
-    { key: "records", tab: "records" },
-    { key: "technical", tab: "antecedentes" },
-    { key: "comparison", tab: "comparison" },
-    { key: "proposal", tab: "propuesta" },
-    { key: "policies", tab: "policies" },
+  const quick: { key: string; labelKey: string; tab: string }[] = [
+    { key: "policies", labelKey: "summary.quickLinks.policies", tab: "policies" },
+    { key: "records", labelKey: "summary.quickLinks.records", tab: "antecedentes" },
+    { key: "technical", labelKey: "summary.quickLinks.technical", tab: "bases-tecnicas" },
+    { key: "comparison", labelKey: "summary.quickLinks.comparison", tab: "comparison" },
+    { key: "proposal", labelKey: "summary.quickLinks.proposal", tab: "propuesta" },
   ];
 
   return (
@@ -913,7 +977,7 @@ function PeriodLineRow({ groupId, node }: { groupId: number; node: TreeLineNode 
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 shrink-0"
+          className="h-10 w-10 shrink-0 sm:h-8 sm:w-8"
           aria-expanded={open}
           aria-label={t("overview.shortcut.toggle")}
           onClick={() => setOpen((value) => !value)}
@@ -933,7 +997,7 @@ function PeriodLineRow({ groupId, node }: { groupId: number; node: TreeLineNode 
               to={`${accountPath}?tab=${item.tab}`}
               className="inline-flex items-center rounded-md border border-line bg-bone px-2.5 py-1 text-caption font-medium text-ink-2 no-underline transition-[border-color,background-color,color] duration-150 hover:border-line-strong hover:bg-paper-2/60 hover:text-ink"
             >
-              {t(`summary.quickLinks.${item.key}`)}
+              {t(item.labelKey)}
             </Link>
           ))}
         </div>
@@ -1160,7 +1224,7 @@ function ClientsPane({ groupId }: { groupId: number }) {
                   <span className="text-ink-3"> · {client.trade_name}</span>
                 ) : null}
               </Link>
-              <span className="text-caption tabular-nums text-ink-3">{client.rut}</span>
+              <span className="text-caption tabular-nums text-ink-3">{formatRut(client.rut)}</span>
               <ClientStatusBadge status={client.status} />
               <DisabledHint hint={canEdit.allowed ? null : t("group.noEditPermission")}>
                 <Button

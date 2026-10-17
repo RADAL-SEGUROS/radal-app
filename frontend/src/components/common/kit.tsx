@@ -13,6 +13,7 @@
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { AlertTriangle, Check, Clock, Copy, Inbox } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -30,6 +31,12 @@ import { cn } from "@/lib/utils";
 import { API_URL } from "@/lib/api";
 import { formatNumber, formatUF } from "@/lib/format";
 import { num, type DecimalString, type DeductibleTerm } from "@/api/types";
+import {
+  DEDUCTIBLE_BASIS_LABEL,
+  MONEY_RULE_FIELD_LABEL,
+  PERIL_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 
 // =============================================================================
@@ -201,7 +208,7 @@ export function formatDeductible(
   const p = num(term.pct as DecimalString | number | null);
   if (p !== null) {
     const basis = term.basis
-      ? t(`deductibleBasis.${term.basis}`, { defaultValue: String(term.basis) })
+      ? enumLabel(t, DEDUCTIBLE_BASIS_LABEL, term.basis)
       : null;
     parts.push(basis ? `${formatNumber(p, 2)} % ${basis}` : `${formatNumber(p, 2)} %`);
   }
@@ -249,7 +256,7 @@ export function resolveFileUrl(url: string | null | undefined): string | null {
 export function usePerilLabel() {
   const { t } = useTranslation("proposals");
   return React.useCallback(
-    (peril: string) => t(`perils.${peril}`, { defaultValue: peril.replace(/_/g, " ") }),
+    (peril: string) => enumLabel(t, PERIL_LABEL, peril, peril.replace(/_/g, " ")),
     [t],
   );
 }
@@ -560,6 +567,7 @@ export const MotionTr = motion.tr;
 interface ApiErrorShape {
   response?: { data?: { detail?: unknown } };
   message?: string;
+  isAxiosError?: boolean;
 }
 
 /**
@@ -567,19 +575,45 @@ interface ApiErrorShape {
  * plain string `detail`, a structured `{code, message}` (our 409s), or a
  * pydantic validation array — all three are handled here.
  */
-export function apiError(error: unknown, fallback = "Error"): string {
-  if (!error) return fallback;
+export function apiError(error: unknown, fallback?: string): string {
+  const fb = fallback ?? i18n.t("common:toast.error");
+  if (!error) return fb;
   if (typeof error === "string") return error;
   const err = error as ApiErrorShape;
   const detail = err.response?.data?.detail;
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
-    const first = detail[0] as { msg?: string; loc?: unknown[] } | undefined;
+    const first = detail[0] as
+      | { msg?: string; loc?: unknown[]; field?: string; rule?: string; expected?: unknown; received?: unknown }
+      | undefined;
     if (first?.msg) return first.msg;
+    // A money-rule 422 (`{field, rule, expected, received, …}`) — never shown raw.
+    if (first?.field && first.rule) return moneyRuleMessage(first.field, first.expected, first.received);
   }
   if (detail && typeof detail === "object") {
     const message = (detail as { message?: string }).message;
     if (message) return message;
   }
-  return err.message || fallback;
+  // The server answered but said nothing usable: the Spanish fallback, never
+  // axios' English "Request failed with status code …".
+  if (err.response || err.isAxiosError) return fb;
+  return err.message || fb;
+}
+
+/** Spanish copy for the `{field, rule, expected, received}` money 422 shape. */
+export function moneyRuleMessage(field: string, expected?: unknown, received?: unknown): string {
+  const label = enumLabel(
+    (key) => i18n.t(key),
+    MONEY_RULE_FIELD_LABEL,
+    field,
+    i18n.t("common:moneyRule.fields.generic"),
+  );
+  const fmt = (value: unknown) => {
+    const n = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(n)
+      ? n.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+      : String(value ?? "—");
+  };
+  if (expected === undefined || expected === null) return i18n.t("common:moneyRule.generic", { field: label });
+  return i18n.t("common:moneyRule.mismatch", { field: label, expected: fmt(expected), received: fmt(received) });
 }

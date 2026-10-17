@@ -121,17 +121,34 @@ import {
 
 /**
  * The single source of truth: ordered categories a Chilean insurance broker
- * recognises. Each carries a stable `key` (its i18n label lives under
- * `group.icon.categories.<key>`, dynamic-key consumed in BOTH locales), a list
- * of emoji, and a list of glyph names.
+ * recognises. Each carries a stable `key` (its i18n label is the literal key in
+ * `GROUP_ICON_CATEGORY_LABEL`, present in BOTH locales), a list of emoji, and a
+ * list of glyph names.
  *
  * `glyphs` names are the stable `icon_value` stored server-side; every one MUST
  * resolve in `GROUP_GLYPHS` below, so the avatar renders it and never falls back
  * to initials by accident. The picker (choose) and the avatar (render) share
  * this file so the two can never drift.
  */
+/** Category key → its literal i18n label key (no dynamic keys). */
+export const GROUP_ICON_CATEGORY_LABEL = {
+  property: "accounts:group.icon.categories.property",
+  vehicles: "accounts:group.icon.categories.vehicles",
+  agro: "accounts:group.icon.categories.agro",
+  industry: "accounts:group.icon.categories.industry",
+  health: "accounts:group.icon.categories.health",
+  liability: "accounts:group.icon.categories.liability",
+  commerce: "accounts:group.icon.categories.commerce",
+  finance: "accounts:group.icon.categories.finance",
+  engineering: "accounts:group.icon.categories.engineering",
+  marine: "accounts:group.icon.categories.marine",
+  general: "accounts:group.icon.categories.general",
+} as const;
+
+export type GroupIconCategoryKey = keyof typeof GROUP_ICON_CATEGORY_LABEL;
+
 export type GroupIconCategory = {
-  key: string;
+  key: GroupIconCategoryKey;
   emojis: string[];
   glyphs: string[];
 };

@@ -47,6 +47,18 @@ import { useScopeParams } from "@/components/common/ScopeFilter";
 const SUB_VIEWS = ["inMarket", "received", "presented"] as const;
 type SubView = (typeof SUB_VIEWS)[number];
 
+const SUB_VIEW_LABEL = {
+  inMarket: "analytics:quotesSub.inMarket",
+  received: "analytics:quotesSub.received",
+  presented: "analytics:quotesSub.presented",
+} as const satisfies Record<SubView, string>;
+
+const SUB_VIEW_HINT = {
+  inMarket: "analytics:quotesSub.inMarketHint",
+  received: "analytics:quotesSub.receivedHint",
+  presented: "analytics:quotesSub.presentedHint",
+} as const satisfies Record<SubView, string>;
+
 /**
  * Sub-view → the stages it means. These are the account stages between "the
  * bases técnicas left the desk" and "the insured has the comparison"; anything
@@ -201,7 +213,7 @@ export default function QuotesTab() {
             <TabsList>
               {SUB_VIEWS.map((view) => (
                 <TabsTrigger key={view} value={view}>
-                  {t(`quotesSub.${view}`)}
+                  {t(SUB_VIEW_LABEL[view])}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -212,7 +224,7 @@ export default function QuotesTab() {
         </div>
         {/* Three lists of the same shape are only useful if each says what it
             is — the hint is the difference between them. */}
-        <p className="text-caption text-text-muted">{t(`quotesSub.${sub}Hint`)}</p>
+        <p className="text-caption text-text-muted">{t(SUB_VIEW_HINT[sub])}</p>
       </div>
 
       <ErrorBanner error={list.error} />

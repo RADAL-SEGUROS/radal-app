@@ -15,8 +15,13 @@
  * only reads and routes. `onSelectTab` switches the account page's `?tab=` in
  * place, so a pending row and a quick chip both land the broker on the right
  * desk without a full navigation.
+ *
+ * v12: the account reads as a VIEWER first — a band of what EXISTS (the
+ * account's policies, linked one by one, and its files) leads the page, above
+ * the to-do band. Creation lives in the tabs, never as a competing CTA here.
  */
 import * as React from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
@@ -28,6 +33,7 @@ import {
   Layers,
   ScrollText,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 
@@ -39,7 +45,15 @@ import { KpiCard } from "@/components/common/KpiCard";
 import { EmptyState, ErrorBanner } from "@/components/common/kit";
 import { usePendingActions, pendingActionTab } from "@/api/pendingActions";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
+import { periodDates } from "@/pages/groups/shared";
 import type { CaseFileDetail, PendingAction, TreeLineNode } from "@/api/types";
+import {
+  PENDING_ACTION_CODE_LABEL,
+  PENDING_ACTION_REASON_LABEL,
+  PENDING_ACTION_SEVERITY_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 /** Blocker → danger, warning → warn, everything else → neutral/info. */
 function severityTone(severity: string): "danger" | "warn" | "neutral" {
@@ -65,6 +79,7 @@ function PendingRow({
 }) {
   const { t } = useTranslation("accounts");
   const tone = severityTone(action.severity);
+  const known = Object.prototype.hasOwnProperty.call(PENDING_ACTION_CODE_LABEL, action.code);
   return (
     <li className="flex flex-wrap items-start gap-3 px-5 py-3.5">
       <span className="mt-0.5 shrink-0">
@@ -73,10 +88,13 @@ function PendingRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-body font-medium text-ink">
-            {t(`summary.codes.${action.code}`, { defaultValue: action.code })}
+            {/* A code this bundle does not label yet (e.g. a new collection
+                alert) reads as the server's own Spanish sentence, never as
+                the raw token. */}
+            {known ? enumLabel(t, PENDING_ACTION_CODE_LABEL, action.code) : action.reason}
           </span>
           <Badge variant={tone} className="px-1.5 py-0">
-            {t(`summary.severity.${action.severity}`, { defaultValue: action.severity })}
+            {enumLabel(t, PENDING_ACTION_SEVERITY_LABEL, action.severity)}
           </Badge>
           {action.count > 1 ? (
             <span className="text-caption tabular-nums text-ink-3">
@@ -86,9 +104,11 @@ function PendingRow({
         </div>
         {/* Spanish copy keyed by the action code; the server's own sentence
             (English for `stage_blocked`) is the fallback when a code is new. */}
-        <p className="mt-0.5 text-pretty text-caption text-ink-2">
-          {t(`summary.reasons.${action.code}`, { defaultValue: action.reason })}
-        </p>
+        {known ? (
+          <p className="mt-0.5 text-pretty text-caption text-ink-2">
+            {enumLabel(t, PENDING_ACTION_REASON_LABEL, action.code, action.reason)}
+          </p>
+        ) : null}
       </div>
       <Button
         size="sm"
@@ -130,12 +150,117 @@ function QuickChip({
   );
 }
 
+/** What the account HOLDS — its policies and files — the viewer's first read. */
+function ExistingBand({
+  groupId,
+  line,
+  documentsCount,
+  onSelectTab,
+}: {
+  groupId?: number;
+  line: TreeLineNode | undefined;
+  documentsCount: number;
+  onSelectTab: (tab: string) => void;
+}) {
+  const { t } = useTranslation("accounts");
+  const policies = line?.policies ?? [];
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="overflow-hidden lg:col-span-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3 sm:px-5">
+          <h3 className="flex items-center gap-2 text-h3 tracking-tight text-ink">
+            <ShieldCheck className="h-4 w-4 text-brand" aria-hidden />
+            {t("viewer.policiesTitle")}
+          </h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-10 sm:h-8"
+            onClick={() => onSelectTab("policies")}
+          >
+            {t("viewer.openPolicies")}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        {policies.length === 0 ? (
+          <EmptyState
+            icon={<Layers className="h-6 w-6" />}
+            title={t("viewer.policiesEmpty")}
+            hint={t("viewer.policiesEmptyHint")}
+          />
+        ) : (
+          <ul className="divide-y divide-line">
+            {policies.map((policy, index) => {
+              const body = (
+                <>
+                  <span className="text-label tabular-nums text-ink">
+                    {t("tree.policyLabel", { n: index + 1, number: policy.policy_number })}
+                  </span>
+                  <span className="min-w-0 truncate text-caption text-ink-3">
+                    {policy.insurer_name ?? "—"}
+                  </span>
+                  <span className="w-full text-caption tabular-nums text-ink-3 sm:ml-auto sm:w-auto">
+                    {policy.extended_end_date
+                      ? t("tree.extendedUntil", { date: formatDate(policy.extended_end_date) })
+                      : periodDates(policy.start_date, policy.end_date)}
+                  </span>
+                </>
+              );
+              const rowClass =
+                "flex min-h-12 flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2.5 sm:px-5";
+              return (
+                <li key={policy.id}>
+                  {groupId ? (
+                    <Link
+                      to={`/groups/${groupId}/policies/${policy.id}`}
+                      className={cn(
+                        rowClass,
+                        "no-underline transition-colors duration-150 hover:bg-paper-2/60",
+                      )}
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <div className={rowClass}>{body}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+
+      <Card className="flex flex-col gap-3 p-4 sm:p-5">
+        <h3 className="flex items-center gap-2 text-h3 tracking-tight text-ink">
+          <FileText className="h-4 w-4 text-ink-3" aria-hidden />
+          {t("viewer.filesTitle")}
+        </h3>
+        <p className="text-h2 font-semibold tabular-nums text-ink">
+          {t("viewer.filesCount", { count: documentsCount })}
+        </p>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="mt-auto h-10 w-full sm:h-8 sm:w-fit"
+          onClick={() => onSelectTab("antecedentes")}
+        >
+          {t("viewer.openFiles")}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Button>
+      </Card>
+    </div>
+  );
+}
+
 export function AccountSummary({
+  groupId,
   caseId,
   line,
   detail,
   onSelectTab,
 }: {
+  /** Enables the per-policy links into the group's policy page. */
+  groupId?: number;
   caseId: number;
   line: TreeLineNode | undefined;
   detail: CaseFileDetail | undefined;
@@ -163,16 +288,24 @@ export function AccountSummary({
 
   const actions = pending.data?.actions ?? [];
 
-  const quickLinks: { key: string; tab: string; icon: React.ReactNode }[] = [
-    { key: "records", tab: "antecedentes", icon: <FileText /> },
-    { key: "technical", tab: "bases-tecnicas", icon: <ScrollText /> },
-    { key: "comparison", tab: "comparison", icon: <GitCompareArrows /> },
-    { key: "proposal", tab: "propuesta", icon: <Sparkles /> },
-    { key: "policies", tab: "policies", icon: <Layers /> },
+  const quickLinks: { key: string; labelKey: string; tab: string; icon: React.ReactNode }[] = [
+    { key: "records", labelKey: "summary.quickLinks.records", tab: "antecedentes", icon: <FileText /> },
+    { key: "technical", labelKey: "summary.quickLinks.technical", tab: "bases-tecnicas", icon: <ScrollText /> },
+    { key: "comparison", labelKey: "summary.quickLinks.comparison", tab: "comparison", icon: <GitCompareArrows /> },
+    { key: "proposal", labelKey: "summary.quickLinks.proposal", tab: "propuesta", icon: <Sparkles /> },
+    { key: "policies", labelKey: "summary.quickLinks.policies", tab: "policies", icon: <Layers /> },
   ];
 
   return (
     <div className="flex flex-col gap-4">
+      {/* 0. What exists — policies and files lead (v12: the account is a viewer). */}
+      <ExistingBand
+        groupId={groupId}
+        line={line}
+        documentsCount={documentsCount}
+        onSelectTab={onSelectTab}
+      />
+
       {/* 1. Critical pending actions — the "what must I do" band. */}
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
@@ -241,7 +374,7 @@ export function AccountSummary({
             <QuickChip
               key={link.key}
               icon={link.icon}
-              label={t(`summary.quickLinks.${link.key}`)}
+              label={t(link.labelKey)}
               onClick={() => onSelectTab(link.tab)}
             />
           ))}

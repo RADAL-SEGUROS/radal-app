@@ -22,6 +22,8 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN playwright install --with-deps chromium
 
 COPY app ./app
+# One-off maintenance jobs (app/jobs/maintenance.py) import the migration planner and the demo seed.
+COPY scripts ./scripts
 
 # Lambda Web Adapter (proxies Lambda Runtime API -> our uvicorn server)
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.7.0 /lambda-adapter /opt/extensions/lambda-adapter

@@ -33,6 +33,58 @@ import type {
   SummaryParams,
   ScopeParams,
 } from "@/api/types";
+import type { PlacementRoute } from "@/api/catalog";
+
+// =============================================================================
+// v12 — closed catalogue & partial journeys (types live here, not in types.ts)
+// =============================================================================
+
+/** How the colocación entered Radal (team `origen`; no screen of its own). */
+export type CaseEntryOrigin =
+  | "full_journey"
+  | "quote_comparison"
+  | "policy_upload"
+  | "manual_entry"
+  | "portal_rpa"
+  | "migration";
+
+/** One tick of the journey rail (`GET /case-files/{id}` → `stages[]`). */
+export type StageState = "done" | "current" | "skipped" | "pending";
+
+export interface CaseStageState {
+  stage: CaseStage;
+  state: StageState;
+  entered_at: string | null;
+  skipped: boolean;
+}
+
+/** The v12 fields every case-file read carries on top of the v11 shape. */
+export interface CaseFileV12Fields {
+  insurance_subtype_id?: number | null;
+  insurance_subtype_code?: string | null;
+  insurance_subtype_name?: string | null;
+  entry_origin?: CaseEntryOrigin | null;
+  route?: PlacementRoute | null;
+}
+
+/** `GET /case-files/{id}` as v12 serves it: the rail and the skip doors. */
+export interface CaseFileDetailV12 extends CaseFileDetail, CaseFileV12Fields {
+  stages: CaseStageState[];
+  has_policy: boolean;
+  /** Where "Saltar a…" may land (already ahead of the current stage). */
+  skip_targets: CaseStage[];
+}
+
+/** `POST /case-files` with the v12 catalogue fields. */
+export interface CaseFileCreateV12 extends CaseFileCreate {
+  /** An ACTIVE catalogue subtipo; the server derives the ramo from it (422 otherwise). */
+  insurance_subtype_id?: number | null;
+  /** The vía; omitted → the subtipo's `suggested_route`. */
+  route?: PlacementRoute | null;
+}
+
+/** Stages that only make sense once the folder holds a policy (server rule). */
+export const POLICY_SKIP_TARGETS: readonly CaseStage[] = ["policy_issued", "active"];
 
 export interface CaseFileListParams extends ScopeParams {
   kind?: CaseFileKind[];
@@ -92,7 +144,7 @@ export function useCaseFile(caseId: number | undefined) {
     queryKey: qk.caseFiles.detail(caseId ?? 0),
     enabled: !!caseId,
     queryFn: async () => {
-      const { data } = await api.get<CaseFileDetail>(`/case-files/${caseId}`);
+      const { data } = await api.get<CaseFileDetailV12>(`/case-files/${caseId}`);
       return data;
     },
   });
@@ -147,8 +199,8 @@ export function useCaseFileDocuments(
 export function useCreateCaseFile() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: CaseFileCreate) => {
-      const { data } = await api.post<CaseFileDetail>("/case-files", payload);
+    mutationFn: async (payload: CaseFileCreateV12) => {
+      const { data } = await api.post<CaseFileDetailV12>("/case-files", payload);
       return data;
     },
     onSuccess: () => {
@@ -196,6 +248,61 @@ export function useTransitionCaseFile(caseId: number) {
       void qc.invalidateQueries({ queryKey: qk.accountGroups.all });
       void qc.invalidateQueries({ queryKey: qk.navigator.all });
     },
+  });
+}
+
+/** Everything a stage move touches — the same fan-out as a transition. */
+function invalidateAfterStageMove(
+  qc: ReturnType<typeof useQueryClient>,
+  caseId: number,
+  data: CaseFileDetailV12,
+) {
+  qc.setQueryData(qk.caseFiles.detail(caseId), data);
+  void qc.invalidateQueries({ queryKey: qk.caseFiles.transitions(caseId) });
+  void qc.invalidateQueries({ queryKey: qk.caseFiles.pendingActions(caseId) });
+  void qc.invalidateQueries({ queryKey: qk.caseFiles.timeline(caseId) });
+  void qc.invalidateQueries({ queryKey: qk.caseFiles.lists() });
+  void qc.invalidateQueries({ queryKey: qk.caseFiles.summary() });
+  void qc.invalidateQueries({ queryKey: qk.accountGroups.all });
+  void qc.invalidateQueries({ queryKey: qk.navigator.all });
+}
+
+/**
+ * "Saltar a…" — `POST /case-files/{id}/skip-to`. Jumps an open account forward
+ * to one of `skip_targets`; every stage in between it never entered is written
+ * as *omitida* by the server. 409 when the target is not ahead, 422 for a
+ * policy target without a policy (Spanish `detail`, surfaced verbatim).
+ */
+export function useSkipCaseFileTo(caseId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { target_stage: CaseStage; note?: string | null }) => {
+      const { data } = await api.post<CaseFileDetailV12>(
+        `/case-files/${caseId}/skip-to`,
+        payload,
+      );
+      return data;
+    },
+    onSuccess: (data) => invalidateAfterStageMove(qc, caseId, data),
+  });
+}
+
+/**
+ * "Activar etapa" — `POST /case-files/{id}/activate-stage`. Re-enters a SKIPPED
+ * stage behind the current one; 409 once the folder has a policy (changes go
+ * through an endorsement or a correction).
+ */
+export function useActivateCaseFileStage(caseId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { stage: CaseStage; note?: string | null }) => {
+      const { data } = await api.post<CaseFileDetailV12>(
+        `/case-files/${caseId}/activate-stage`,
+        payload,
+      );
+      return data;
+    },
+    onSuccess: (data) => invalidateAfterStageMove(qc, caseId, data),
   });
 }
 

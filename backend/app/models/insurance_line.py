@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base_class import Base, TimestampMixin
@@ -21,6 +21,7 @@ from app.models.types import JSONType
 
 if TYPE_CHECKING:
     from app.models.broker import Broker
+    from app.models.catalog import InsuranceSubtype
     from app.models.placement import Placement
 
 
@@ -64,6 +65,11 @@ class InsuranceLine(Base, TimestampMixin):
     """An insurance line (ramo) the broker places business in.
 
     ``broker_id`` NULL = a global default line seeded by Radal.
+
+    v12 closed the catalogue: the 18 team ramos are GLOBAL rows carrying a
+    ``code`` (``VEH``, ``PRO`` …) and a ``sort_order``, upserted by code from
+    ``app/db/seed_assets/catalogo_ramos.csv``. Broker-owned rows stay (legacy,
+    ``code`` NULL) but no endpoint creates new ones.
     """
 
     __tablename__ = "insurance_line"
@@ -82,6 +88,12 @@ class InsuranceLine(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # CMF subdivision this line reports under, e.g. "4".
     cmf_subdivision: Mapped[str | None] = mapped_column(String(32))
+    # --- v12 closed catalogue -----------------------------------------------
+    # Team ramo code; set ONLY on global rows (``broker_id IS NULL``).
+    code: Mapped[str | None] = mapped_column(String(8), index=True)
+    sort_order: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
 
     # Dynamic form/comparator configuration driven by the line, NOT by code:
     # `min_fields` shapes asset.attributes, `comparator_fields` picks which
@@ -94,6 +106,11 @@ class InsuranceLine(Base, TimestampMixin):
         back_populates="insurance_line", cascade="all, delete-orphan"
     )
     placements: Mapped[list["Placement"]] = relationship(back_populates="insurance_line")
+    subtypes: Mapped[list["InsuranceSubtype"]] = relationship(
+        back_populates="insurance_line",
+        cascade="all, delete-orphan",
+        order_by="InsuranceSubtype.sort_order",
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<InsuranceLine id={self.id} name={self.name!r}>"

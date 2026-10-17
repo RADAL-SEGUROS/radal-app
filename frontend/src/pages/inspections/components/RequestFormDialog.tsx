@@ -32,6 +32,11 @@ import type {
 } from "@/api/types";
 import { INSPECTION_REQUEST_STATUSES } from "@/api/types";
 import { Field } from "./shared";
+import {
+  INSPECTION_REQUEST_STATUS_LABEL,
+  INSPECTION_URGENCY_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 /**
  * Create / edit an inspection request.
@@ -208,7 +213,7 @@ export function RequestFormDialog({
                 <SelectContent>
                   {PRIORITIES.map((priority) => (
                     <SelectItem key={priority} value={priority}>
-                      {t(`urgency.${priority}`)}
+                      {enumLabel(t, INSPECTION_URGENCY_LABEL, priority)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -239,7 +244,7 @@ export function RequestFormDialog({
                 <SelectContent>
                   {INSPECTION_REQUEST_STATUSES.map((status) => (
                     <SelectItem key={status} value={status}>
-                      {t(`status.request.${status}`)}
+                      {enumLabel(t, INSPECTION_REQUEST_STATUS_LABEL, status)}
                     </SelectItem>
                   ))}
                 </SelectContent>

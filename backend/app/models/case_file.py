@@ -36,11 +36,13 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base_class import Base, TimestampMixin, utcnow
 from app.models.enums import (
+    CaseEntryOrigin,
     CaseFileKind,
     CaseFileStatus,
     CaseOrigin,
@@ -48,6 +50,7 @@ from app.models.enums import (
     CaseStage,
     PackKind,
     PackStatus,
+    PlacementRoute,
     sql_enum,
 )
 from app.models.types import JSONType
@@ -56,6 +59,7 @@ if TYPE_CHECKING:
     from app.models.account_client import AccountClient
     from app.models.account_group import AccountGroup
     from app.models.broker import Broker
+    from app.models.catalog import InsuranceSubtype
     from app.models.client import Client
     from app.models.document import Document
     from app.models.insurance_line import InsuranceLine
@@ -146,6 +150,19 @@ class CaseFile(Base, TimestampMixin):
         ForeignKey("case_file.id", ondelete="SET NULL"), index=True
     )
 
+    # --- Closed catalogue & partial journeys (v12) --------------------------
+    # The colocación's subtipo (``PRO-02`` …); ``insurance_line_id`` is derived
+    # from it on create. SET NULL: a retired subtipo never takes the case away.
+    insurance_subtype_id: Mapped[int | None] = mapped_column(
+        ForeignKey("insurance_subtype.id", ondelete="SET NULL"), index=True
+    )
+    # Which DOOR the work came through (team ``origen``): full journey, quote
+    # comparison, policy upload … NOT the v3 origin axis above — that one is
+    # ``origin`` (new/renewal/period_change) and the two never mix.
+    entry_origin: Mapped[CaseEntryOrigin | None] = mapped_column(sql_enum(CaseEntryOrigin))
+    # How it is worked (team ``via_prevista``), defaulted from the subtipo.
+    route: Mapped[PlacementRoute | None] = mapped_column(sql_enum(PlacementRoute))
+
     kind: Mapped[CaseFileKind] = mapped_column(sql_enum(CaseFileKind), nullable=False)
     stage: Mapped[CaseStage] = mapped_column(sql_enum(CaseStage), nullable=False)
     status: Mapped[CaseFileStatus] = mapped_column(
@@ -189,6 +206,9 @@ class CaseFile(Base, TimestampMixin):
     )
     line_record_schema: Mapped["LineRecordSchema | None"] = relationship(
         foreign_keys=[line_record_schema_id]
+    )
+    insurance_subtype: Mapped["InsuranceSubtype | None"] = relationship(
+        foreign_keys=[insurance_subtype_id]
     )
     owner: Mapped["User | None"] = relationship(foreign_keys=[owner_user_id])
 
@@ -258,6 +278,11 @@ class CaseFileStageEvent(Base, TimestampMixin):
     )
     note: Mapped[str | None] = mapped_column(Text)
     meta: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    # v12 partial journeys: a stage the system marked *omitida* (never
+    # happened) — the rail draws it as a skipped tick, not as a completion.
+    is_skipped: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
 
     broker: Mapped["Broker"] = relationship()
     case_file: Mapped["CaseFile"] = relationship(back_populates="stage_events")

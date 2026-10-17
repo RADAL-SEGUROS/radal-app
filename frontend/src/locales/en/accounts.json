@@ -326,60 +326,23 @@
     "removeClient": "Remove a RUT from the account",
     "create": {
       "title": "New account",
-      "subtitle": "An account is one line within one validity period. Pick the dates and the lines.",
+      "subtitle": "An account is one line in one validity period. Pick the dates, the tax IDs and, for each line, its subtype and route.",
       "periodStart": "Validity period start",
       "periodEnd": "Validity period end",
-      "lines": "Insurance lines",
-      "linesHint": "One folder is created per line.",
-      "clients": "Account RUTs",
-      "submit": "Create the accounts",
-      "success": "{{count}} accounts created",
       "error": "We could not create the account",
       "results": "Accounts created",
       "datesInvalid": "The period end must be later than the period start.",
       "noExtraMembers": "This insured holds only this RUT.",
-      "noLines": "The broker has no active insurance lines yet.",
-      "linesRequired": "Pick at least one insurance line.",
-      "willCreate_one": "{{count}} folder will be created, one per line.",
-      "willCreate_other": "{{count}} folders will be created, one per line.",
-      "ramos": "Insurance lines",
-      "ramosHint": "One folder opens per line, with its Bases Técnicas template already assigned.",
-      "noRamos": "No lines available yet. Create one or adopt a recommended template.",
-      "ramosRequired": "Pick at least one line.",
-      "ramoTemplate": "Template",
-      "ramoCreate": "Create line",
-      "ramoCreateTitle": "New line",
-      "ramoCreateHint": "Create a line with the files you recommend gathering and assign it to the account.",
-      "ramoName": "Line name",
-      "ramoNamePlaceholder": "Fire & Earthquake",
-      "ramoLine": "Line category",
-      "ramoLinePlaceholder": "Choose a category",
-      "ramoNoLines": "No line categories available yet.",
-      "ramoNeedName": "Give the line a name.",
-      "ramoNeedLine": "Choose a line category.",
-      "ramoCreated": "Line created",
-      "ramoNoCreatePermission": "Your role cannot create lines; you can adopt an existing template.",
-      "ramoAssignFailed": "The account was created, but we could not assign the line.",
-      "ramo": "Line",
-      "ramoHint": "Pick the account's line. A folder opens with its Technical Basis template already assigned.",
-      "ramoPlaceholder": "Choose a line",
-      "ramoFileCount_one": "· {{count}} recommended file",
-      "ramoFileCount_other": "· {{count}} recommended files",
-      "ramoRequired": "Choose a line.",
-      "ramoLineOptional": "Line category (optional)",
-      "ramoFiles": "Recommended files",
-      "ramoFilesHint": "The documents suggested when gathering the antecedentes.",
-      "ramoAddFile": "Add file",
-      "ramoFileLabel": "File name",
-      "ramoFileType": "Document type",
-      "ramoFileRequired": "Required",
-      "ramoFileDescription": "Description or context (optional)",
-      "ramoFormat": {
-        "pdf": "PDF",
-        "word": "Word",
-        "pdf/word": "PDF or Word",
-        "image": "Image"
-      }
+      "ramo": "Lines and subtypes",
+      "ramoHint": "One account opens per line in this period. Line and subtype come from the Radal catalogue.",
+      "ramoRequired": "Choose the line and subtype of every row.",
+      "ramoDuplicate": "This line is already in the form: only one account opens per line and period.",
+      "rowTitle": "Line {{n}}",
+      "addRamo": "Add another line",
+      "removeRamo": "Remove this line",
+      "openExisting": "Open that account",
+      "submit_one": "Create the account",
+      "submit_other": "Create the {{count}} accounts"
     },
     "noCreatePermission": "You do not have permission to create accounts.",
     "openCase": "Open the full case file",
@@ -418,7 +381,9 @@
       "description": "The incremental comparator of the offers received for this account.",
       "hint": "Upload each quote and compare them side by side before issuing the propuesta.",
       "open": "Open comparator",
-      "noPermission": "You don't have permission to view the comparison."
+      "noPermission": "You don't have permission to view the comparison.",
+      "portalSearch": "Quote on portals",
+      "portalSearchNoPermission": "You don't have permission to quote on portals."
     },
     "policies": {
       "noCreatePermission": "You don't have permission to register policies."
@@ -433,7 +398,7 @@
       "upload": "Upload",
       "uploadOther": "Other file",
       "noRecommended": "This line has no recommended files",
-      "noRecommendedHint": "Upload antecedentes with \"Other file\" or edit the line.",
+      "noRecommendedHint": "Upload the records with “Other file”: the line catalogue has no recommended files for this one.",
       "otherTitle": "Other files",
       "otherHint": "Documents that do not match a recommended file.",
       "otherEmpty": "No other files.",
@@ -503,7 +468,28 @@
     "notes": {
       "internal": "Internal note",
       "shared": "Note"
-    }
+    },
+    "actions": {
+      "created": "Account created",
+      "updated": "Account updated",
+      "transitioned": "Stage change",
+      "skipped_to": "Stage jump",
+      "stage_activated": "Stage activated",
+      "versioned": "New version",
+      "renewed": "Renewal opened",
+      "reperiod": "Period changed",
+      "deleted": "Account deleted",
+      "pack_generated": "Pack generated",
+      "pack_summary_confirmed": "Pack summary confirmed",
+      "extraction_committed": "Extraction confirmed",
+      "note_created": "Note added",
+      "policy_created": "Policy registered",
+      "policy_completed": "Policy completed",
+      "policy_corrected": "Policy corrected",
+      "other": "Movement recorded"
+    },
+    "skippedCollapsed_one": "{{count}} stage skipped",
+    "skippedCollapsed_other": "{{count}} stages skipped"
   },
   "errors": {
     "period_locked": "The validity period is a folder: to change the dates, open a new one.",
@@ -563,7 +549,7 @@
       "antecedentes_unregistered": "The antecedentes record is a draft and still needs to be registered.",
       "proposals_unconfirmed": "There are unconfirmed quotes (suggest → confirm → commit).",
       "comparison_unaligned": "The comparison has unaligned columns.",
-      "propuesta_missing": "The account is in decision but has no issued proposal.",
+      "propuesta_missing": "The account is awaiting the insured's decision and has no proposal yet.",
       "stage_blocked": "Requirements to advance to the next stage are not yet met (for example, the technical brief). Check the Journey for details."
     },
     "severity": {
@@ -641,5 +627,50 @@
       "broker_proposal": "the proposal",
       "proposal": "the awarded quote"
     }
+  },
+  "journey": {
+    "skipped": "skipped",
+    "skippedHint": "Skipped stage: the account entered at a later stage. Its documents are still uploaded to the account.",
+    "skipTo": "Skip to…",
+    "skipNeedsPolicy": "To skip to issuance or active the placement needs a policy: upload it or register it by hand.",
+    "activate": "Activate stage",
+    "activateHasPolicy": "It already has a policy: changes go through an endorsement or a correction",
+    "noEditPermission": "You are not allowed to move this account's journey.",
+    "skipDialog": {
+      "title": "Skip to {{stage}}",
+      "description": "The intermediate stages that never happened are marked as skipped, by the system. They can be reactivated while the account has no policy.",
+      "willSkip": "Will be skipped",
+      "noneSkipped": "No stage is skipped: every intermediate one already happened.",
+      "note": "Reason (optional)",
+      "notePlaceholder": "E.g. the insured already quoted on the portal",
+      "confirm": "Skip",
+      "success": "Account moved to {{stage}}"
+    },
+    "activateDialog": {
+      "title": "Activate {{stage}}",
+      "description": "The account goes back to this stage to do it now. What was done stays in the log.",
+      "confirm": "Activate stage",
+      "success": "Stage activated: {{stage}}"
+    },
+    "partial": "partial",
+    "partialHint": "Skipped within this phase: {{stages}}."
+  },
+  "hiddenTabs": {
+    "show_one": "Show skipped stage ({{count}})",
+    "show_other": "Show skipped stages ({{count}})",
+    "hide": "Hide skipped stages",
+    "skippedMark": "skipped"
+  },
+  "viewer": {
+    "subtype": "Subtype",
+    "policiesTitle": "Account policies",
+    "policiesEmpty": "This account has no policies yet.",
+    "policiesEmptyHint": "Once the insurer issues, upload the policy or register it by hand in the Policies tab.",
+    "openPolicies": "Go to Policies",
+    "filesTitle": "Account files",
+    "filesCount_one": "{{count}} file",
+    "filesCount_other": "{{count}} files",
+    "openFiles": "See records",
+    "cardNoPolicies": "No policies yet"
   }
 }

@@ -26,6 +26,7 @@ import { ClientStatusBadge } from "@/pages/clients/status";
 import { CreateClientDialog } from "@/pages/clients/ClientForm";
 import { SoonButton } from "@/pages/clients/Soon";
 import { formatRut } from "@/pages/clients/rut";
+import { CLIENT_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 const ALL = "__all__";
 const PAGE_SIZE = 25;
@@ -243,7 +244,7 @@ export default function ClientsPage({ embedded }: EmbeddablePageProps = {}) {
               <SelectItem value={ALL}>{t("clients:filters.allStatuses")}</SelectItem>
               {CLIENT_STATUSES.map((value) => (
                 <SelectItem key={value} value={value}>
-                  {t(`clients:status.${value}`)}
+                  {enumLabel(t, CLIENT_STATUS_LABEL, value)}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -68,6 +68,14 @@ import {
   permille,
   uf,
 } from "@/pages/proposals/shared";
+import {
+  QUOTE_OFFERING_STATUS_LABEL,
+  QUOTE_ORIGIN_LABEL,
+  QUOTE_PRIORITY_LABEL,
+  QUOTE_PROPOSAL_STATUS_LABEL,
+  QUOTE_STATUS_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
 
 export default function QuoteDetailPage() {
   const { quoteId } = useParams<{ quoteId: string }>();
@@ -138,8 +146,8 @@ export default function QuoteDetailPage() {
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <MonoChip>COT-{String(q.id).padStart(4, "0")}</MonoChip>
-            <StatusBadge value={q.status} label={t(`status.${q.status}`)} />
-            <StatusBadge value={q.priority} label={t(`priority.${q.priority}`)} />
+            <StatusBadge value={q.status} label={enumLabel(t, QUOTE_STATUS_LABEL, q.status)} />
+            <StatusBadge value={q.priority} label={enumLabel(t, QUOTE_PRIORITY_LABEL, q.priority)} />
             {q.placement?.period ? (
               <span className="text-caption text-text-muted">{q.placement.period}</span>
             ) : null}
@@ -268,7 +276,7 @@ export default function QuoteDetailPage() {
                       <div className="mt-0.5 flex items-center gap-1.5">
                         <MonoChip>{p.insurer?.cmf_code ?? "—"}</MonoChip>
                         <Badge variant={p.origin === "native" ? "brand" : "neutral"}>
-                          {t(`origin.${p.origin}`)}
+                          {enumLabel(t, QUOTE_ORIGIN_LABEL, p.origin)}
                         </Badge>
                       </div>
                     </TableCell>
@@ -277,7 +285,7 @@ export default function QuoteDetailPage() {
                       {permille(p.comprehensive_rate_permille)}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge value={p.status} label={t(`proposalStatus.${p.status}`)} />
+                      <StatusBadge value={p.status} label={enumLabel(t, QUOTE_PROPOSAL_STATUS_LABEL, p.status)} />
                     </TableCell>
                     <TableCell>
                       {p.is_confirmed ? (
@@ -316,7 +324,7 @@ export default function QuoteDetailPage() {
                   >
                     <span className="flex items-center gap-2">
                       <MonoChip>OFR-{String(o.id).padStart(4, "0")}</MonoChip>
-                      <StatusBadge value={o.status} label={t(`offeringStatus.${o.status}`)} />
+                      <StatusBadge value={o.status} label={enumLabel(t, QUOTE_OFFERING_STATUS_LABEL, o.status)} />
                     </span>
                     <span className="text-caption text-text-muted">
                       {o.sent_at ? formatDateTime(o.sent_at) : t("detail.offeringNotSent")}
@@ -743,7 +751,7 @@ function SendDialog({
                         <span className="mt-0.5 flex items-center gap-1.5">
                           <MonoChip>{i.cmf_code}</MonoChip>
                           <Badge variant={i.is_native ? "brand" : "neutral"}>
-                            {t(`origin.${i.is_native ? "native" : "external"}`)}
+                            {enumLabel(t, QUOTE_ORIGIN_LABEL, i.is_native ? "native" : "external")}
                           </Badge>
                         </span>
                       </span>

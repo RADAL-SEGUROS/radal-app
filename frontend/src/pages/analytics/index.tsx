@@ -47,6 +47,7 @@ import {
   StageBarChart,
   useBucketLabel,
 } from "./charts";
+import { ANALYTICS_DIMENSION_LABEL, CASE_STAGE_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * The two entities charted here. Their dimensions do NOT match — `case_files`
@@ -137,7 +138,7 @@ export default function AnalyticsPage() {
   const bucketLabel = useBucketLabel(dimension);
 
   const stageLabel = React.useCallback(
-    (stage: string) => tCases(`stages.${stage}`, { defaultValue: stage }),
+    (stage: string) => enumLabel(tCases, CASE_STAGE_LABEL, stage),
     [tCases],
   );
 
@@ -146,11 +147,11 @@ export default function AnalyticsPage() {
   const proposalBuckets = (proposals.data as WithGroupedSummary | undefined)?.grouped
     ?.buckets;
 
-  // `defaultValue` matters: the catalog can name a dimension this build has no
-  // copy for yet, and a missing key must render as the key, not blank.
+  // The fallback matters: the catalog can name a dimension this build has no
+  // copy for yet, and it must render as its raw name, not blank or a raw key.
   const dimensionOptions = dimensions.map((value) => ({
     value,
-    label: t(`dimensions.${value}`, { defaultValue: value }),
+    label: enumLabel(t, ANALYTICS_DIMENSION_LABEL, value),
   }));
 
   return (
@@ -277,7 +278,7 @@ export default function AnalyticsPage() {
             dimension === TIME_DIMENSION ? (
               <BucketTrendChart
                 title={t("charts.casesBy.title", {
-                  dimension: t(`dimensions.${dimension}`),
+                  dimension: enumLabel(t, ANALYTICS_DIMENSION_LABEL, dimension),
                 })}
                 subtitle={t("charts.casesBy.subtitle")}
                 buckets={caseBuckets}
@@ -289,7 +290,7 @@ export default function AnalyticsPage() {
             ) : (
               <BucketBarChart
                 title={t("charts.casesBy.title", {
-                  dimension: t(`dimensions.${dimension}`),
+                  dimension: enumLabel(t, ANALYTICS_DIMENSION_LABEL, dimension),
                 })}
                 subtitle={t("charts.casesBy.subtitle")}
                 buckets={caseBuckets}
@@ -304,7 +305,7 @@ export default function AnalyticsPage() {
           {canSeeProposals && proposalsGrouped ? (
             <BucketBarChart
               title={t("charts.premiumBy.title", {
-                dimension: t(`dimensions.${dimension}`),
+                dimension: enumLabel(t, ANALYTICS_DIMENSION_LABEL, dimension),
               })}
               subtitle={t("charts.premiumBy.subtitle")}
               buckets={proposalBuckets}

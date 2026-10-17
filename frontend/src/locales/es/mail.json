@@ -1,0 +1,130 @@
+{
+  "title": "Correo",
+  "tab": {
+    "description": "Desde qué casilla salen los avisos de cobranza y las consultas a las compañías, y qué casillas lee Radal para detectar sus respuestas."
+  },
+  "noView": "Tu rol no puede ver las casillas de correo.",
+  "radal": {
+    "title": "Casilla de Radal",
+    "description": "Lista para usar, sin configurar nada. Los correos salen a nombre de tu corredora y las respuestas llegan a Radal.",
+    "address": "Dirección",
+    "displayName": "Nombre visible",
+    "readOnly": "Solo lectura",
+    "sendingOff": "En este entorno el envío real está apagado: los correos quedan registrados, pero no salen."
+  },
+  "providers": {
+    "title": "Conectar otra casilla",
+    "description": "Usa el correo de tu dominio para que los avisos salgan desde tu propia dirección.",
+    "custom": {
+      "name": "Servidor propio (SMTP / IMAP)",
+      "description": "GoDaddy, cPanel, Zoho y servidores similares."
+    },
+    "google": {
+      "name": "Google Workspace",
+      "description": "Gmail con la cuenta de tu empresa."
+    },
+    "microsoft": {
+      "name": "Microsoft 365",
+      "description": "Outlook con la cuenta de tu empresa."
+    },
+    "connect": "Conectar",
+    "unavailable": "No disponible todavía."
+  },
+  "accounts": {
+    "title": "Casillas conectadas",
+    "description": "Cada casilla se prueba antes de usarse. Una casilla tuya solo la usas tú; una compartida, toda la corredora.",
+    "empty": "Aún no conectas una casilla propia. Mientras tanto, todo sale desde la casilla de Radal.",
+    "lastSync": "Última lectura: {{date}}",
+    "sends": "Envía",
+    "reads": "Lee",
+    "off": "Apagado"
+  },
+  "owner": {
+    "me": "Solo yo",
+    "shared": "Compartida",
+    "other": "De otro usuario",
+    "radal": "Radal"
+  },
+  "status": {
+    "draft": "Sin probar",
+    "connected": "Conectada",
+    "error": "Con error",
+    "paused": "En pausa"
+  },
+  "security": {
+    "ssl": "SSL/TLS",
+    "starttls": "STARTTLS",
+    "none": "Sin cifrado"
+  },
+  "fields": {
+    "address": "Correo",
+    "displayName": "Nombre visible",
+    "displayNameHint": "Lo que ve quien recibe el correo. Vacío = el nombre de tu corredora.",
+    "username": "Usuario",
+    "usernameHint": "Casi siempre es el mismo correo.",
+    "password": "Contraseña",
+    "passwordKeep": "Déjala en blanco para mantener la guardada",
+    "passwordSaved": "Guardada ✓",
+    "passwordNone": "Sin contraseña guardada",
+    "smtpTitle": "Envío (SMTP)",
+    "imapTitle": "Lectura (IMAP)",
+    "host": "Servidor",
+    "port": "Puerto",
+    "security": "Seguridad",
+    "sendEnabled": "Enviar desde esta casilla",
+    "receiveEnabled": "Leer las respuestas que lleguen a esta casilla",
+    "owner": "Quién la usa",
+    "ownerMe": "Solo yo",
+    "ownerShared": "Toda la corredora"
+  },
+  "actions": {
+    "add": "Conectar casilla",
+    "test": "Probar conexión",
+    "testing": "Probando…",
+    "edit": "Editar",
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "delete": "Desconectar",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "cancel": "Cancelar"
+  },
+  "test": {
+    "ok": "Conexión correcta",
+    "failed": "La conexión falló",
+    "notChecked": "No se probó",
+    "checkedAt": "Probada el {{date}}"
+  },
+  "dialog": {
+    "createTitle": "Conectar casilla",
+    "createDescription": "Los datos los entrega tu proveedor de correo (GoDaddy, cPanel…). La contraseña se guarda cifrada y nunca se vuelve a mostrar.",
+    "editTitle": "Editar casilla",
+    "editDescription": "Si cambias el servidor o la contraseña, la casilla vuelve a quedar sin probar."
+  },
+  "delete": {
+    "title": "¿Desconectar {{address}}?",
+    "description": "Los correos ya registrados se conservan. Si era la casilla de envío de la cobranza, los avisos vuelven a salir desde la casilla de Radal.",
+    "confirm": "Desconectar"
+  },
+  "toast": {
+    "created": "Casilla conectada. Pruébala para empezar a usarla.",
+    "updated": "Casilla actualizada",
+    "deleted": "Casilla desconectada",
+    "paused": "Casilla en pausa",
+    "resumed": "Casilla reanudada. Pruébala de nuevo.",
+    "testOk": "La casilla funciona",
+    "testFailed": "La casilla no respondió bien"
+  },
+  "guard": {
+    "noCreate": "Tu rol no puede conectar casillas.",
+    "noManage": "Solo un administrador puede modificar una casilla compartida o de otro usuario.",
+    "sharedNeedsAdmin": "Solo un administrador puede conectar una casilla compartida."
+  },
+  "validation": {
+    "email": "Correo inválido",
+    "host": "Indica el servidor",
+    "port": "Puerto entre 1 y 65535",
+    "oneDirection": "La casilla debe enviar, leer o ambas",
+    "password": "Indica la contraseña de la casilla"
+  }
+}

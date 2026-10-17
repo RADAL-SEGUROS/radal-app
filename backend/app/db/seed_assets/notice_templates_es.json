@@ -1,0 +1,69 @@
+{
+  "version": 2,
+  "locale": "es",
+  "variables": [
+    "broker_name",
+    "insured_name",
+    "policy_number",
+    "insurer_name",
+    "installment_number",
+    "installment_count",
+    "due_date",
+    "amount_uf",
+    "amount_clp",
+    "share_url",
+    "insurer_instructions",
+    "inquiry_token",
+    "installments_table",
+    "recipient_name",
+    "balance_uf",
+    "balance_clp",
+    "paid_uf",
+    "gross_uf",
+    "paid_note"
+  ],
+  "templates": [
+    {
+      "kind": "payer_reminder",
+      "cadence_level": -5,
+      "channel": "email",
+      "subject": "Recordatorio: tu cuota {{installment_number}} de la póliza {{policy_number}} vence el {{due_date}}",
+      "body": "Hola {{recipient_name}}:\n\nTe recordamos que la cuota {{installment_number}} de {{installment_count}} de tu póliza {{policy_number}} con {{insurer_name}} vence el {{due_date}}.\n\nSaldo por pagar: UF {{balance_uf}} (aprox. ${{balance_clp}}).{{paid_note}}\n\nCómo pagar:\n{{insurer_instructions}}\n\nPuedes revisar tus cuotas y su estado aquí: {{share_url}}\n\nSi ya pagaste, no consideres este mensaje.\n\nSaludos,\n{{broker_name}}"
+    },
+    {
+      "kind": "payer_reminder",
+      "cadence_level": 0,
+      "channel": "email",
+      "subject": "Hoy vence tu cuota {{installment_number}} de la póliza {{policy_number}}",
+      "body": "Hola {{recipient_name}}:\n\nHoy, {{due_date}}, vence la cuota {{installment_number}} de {{installment_count}} de tu póliza {{policy_number}} con {{insurer_name}}.\n\nSaldo por pagar: UF {{balance_uf}} (aprox. ${{balance_clp}}).{{paid_note}}\n\nCómo pagar:\n{{insurer_instructions}}\n\nRevisa el detalle de tus cuotas aquí: {{share_url}}\n\nSi ya pagaste, no consideres este mensaje.\n\nSaludos,\n{{broker_name}}"
+    },
+    {
+      "kind": "payer_overdue",
+      "cadence_level": 3,
+      "channel": "email",
+      "subject": "Cuota {{installment_number}} de la póliza {{policy_number}} pendiente de pago",
+      "body": "Hola {{recipient_name}}:\n\nLa cuota {{installment_number}} de {{installment_count}} de tu póliza {{policy_number}} con {{insurer_name}} venció el {{due_date}} y aún figura pendiente.\n\nSaldo por pagar: UF {{balance_uf}} (aprox. ${{balance_clp}}).{{paid_note}}\n\nCómo pagar:\n{{insurer_instructions}}\n\nDetalle de tus cuotas: {{share_url}}\n\nSi ya pagaste, puedes subir tu comprobante en el mismo enlace o responder este correo.\n\nSaludos,\n{{broker_name}}"
+    },
+    {
+      "kind": "payer_overdue",
+      "cadence_level": 10,
+      "channel": "email",
+      "subject": "Importante: cuota vencida de la póliza {{policy_number}} — riesgo de término de cobertura",
+      "body": "Hola {{recipient_name}}:\n\nLa cuota {{installment_number}} de {{installment_count}} de tu póliza {{policy_number}} con {{insurer_name}} venció el {{due_date}} y sigue pendiente.\n\nSi la cuota no se paga, la compañía puede poner término a la póliza por no pago y dejarías de estar cubierto.\n\nSaldo por pagar: UF {{balance_uf}} (aprox. ${{balance_clp}}).{{paid_note}}\n\nCómo pagar:\n{{insurer_instructions}}\n\nDetalle de tus cuotas: {{share_url}}\n\nSi ya pagaste, sube tu comprobante en el mismo enlace o responde este correo para que lo verifiquemos.\n\nSaludos,\n{{broker_name}}"
+    },
+    {
+      "kind": "payment_link",
+      "cadence_level": null,
+      "channel": "email",
+      "subject": "Link de pago: póliza {{policy_number}} con {{insurer_name}}",
+      "body": "Hola {{recipient_name}}:\n\nTe enviamos el enlace para pagar en línea las cuotas de tu póliza {{policy_number}} con {{insurer_name}}:\n\n{{share_url}}\n\n{{installments_table}}\n\nEl pago se procesa de forma segura y la compañía recibe la confirmación automáticamente.\n\nSaludos,\n{{broker_name}}"
+    },
+    {
+      "kind": "insurer_status_inquiry",
+      "cadence_level": null,
+      "channel": "email",
+      "subject": "[RADAL-{{inquiry_token}}] Consulta de estado de pago — póliza {{policy_number}} ({{insured_name}})",
+      "body": "Estimados {{insurer_name}}:\n\nEn representación de {{broker_name}}, corredora de la póliza {{policy_number}} del asegurado {{insured_name}}, les pedimos confirmar el estado de pago de las siguientes cuotas:\n\n{{installments_table}}\n\nPueden responder directamente este correo (por favor mantengan el código [RADAL-{{inquiry_token}}] en el asunto) o informar el estado de cada cuota en este enlace, sin necesidad de crear una cuenta:\n\n{{share_url}}\n\nMuchas gracias.\n\nSaludos,\n{{broker_name}} vía Radal"
+    }
+  ]
+}

@@ -2,6 +2,8 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
+  /** Optional demo-credentials line shown under the login form. */
+  readonly VITE_LOGIN_HINT?: string;
 }
 
 interface ImportMeta {

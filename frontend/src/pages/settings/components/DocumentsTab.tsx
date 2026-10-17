@@ -40,6 +40,7 @@ import {
   type RadalDocument,
 } from "@/api/types";
 import { Field, GuardedButton, SectionCard, formatBytes, type Guard } from "./shared";
+import { DOCUMENT_CATEGORY_LABEL, ENTITY_TYPE_LABEL, enumLabel } from "@/i18n/labels";
 
 /**
  * The broker's whole file registry — `GET /documents`, the one table that holds
@@ -128,7 +129,7 @@ function EditDocumentDialog({ doc, onDone }: { doc: RadalDocument; onDone: () =>
               <SelectContent>
                 {DOCUMENT_CATEGORIES.map((entry) => (
                   <SelectItem key={entry} value={entry}>
-                    {td(`categories.${entry}`)}
+                    {enumLabel(td, DOCUMENT_CATEGORY_LABEL, entry)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -227,7 +228,7 @@ function UploadDialog({
               <SelectContent>
                 {DOCUMENT_CATEGORIES.map((entry) => (
                   <SelectItem key={entry} value={entry}>
-                    {td(`categories.${entry}`)}
+                    {enumLabel(td, DOCUMENT_CATEGORY_LABEL, entry)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -307,7 +308,7 @@ export function DocumentsTab() {
         accessorKey: "category",
         header: t("documents.columns.category"),
         cell: ({ row }) => (
-          <Badge variant="outline">{td(`categories.${row.original.category}`)}</Badge>
+          <Badge variant="outline">{enumLabel(td, DOCUMENT_CATEGORY_LABEL, row.original.category)}</Badge>
         ),
       },
       {
@@ -315,7 +316,7 @@ export function DocumentsTab() {
         header: t("documents.columns.entity"),
         cell: ({ row }) => (
           <span className="text-text-secondary">
-            {t(`entities.${row.original.entity_type}`)} #{row.original.entity_id}
+            {enumLabel(t, ENTITY_TYPE_LABEL, row.original.entity_type)} #{row.original.entity_id}
           </span>
         ),
       },
@@ -395,7 +396,7 @@ export function DocumentsTab() {
             <SelectItem value={ALL}>{t("documents.allCategories")}</SelectItem>
             {DOCUMENT_CATEGORIES.map((entry) => (
               <SelectItem key={entry} value={entry}>
-                {td(`categories.${entry}`)}
+                {enumLabel(td, DOCUMENT_CATEGORY_LABEL, entry)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -408,7 +409,7 @@ export function DocumentsTab() {
             <SelectItem value={ALL}>{t("documents.allEntities")}</SelectItem>
             {ENTITY_TYPES.map((entry) => (
               <SelectItem key={entry} value={entry}>
-                {t(`entities.${entry}`)}
+                {enumLabel(t, ENTITY_TYPE_LABEL, entry)}
               </SelectItem>
             ))}
           </SelectContent>

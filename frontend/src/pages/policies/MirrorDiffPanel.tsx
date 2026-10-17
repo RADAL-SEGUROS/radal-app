@@ -12,7 +12,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { CheckCircle2, GitCompareArrows, Plus } from "lucide-react";
+import { CheckCircle2, Clock, GitCompareArrows, MinusCircle, Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,14 +36,35 @@ import {
   apiError,
 } from "@/pages/proposals/shared";
 import { PostsaleBadge, humanizePath, renderValue } from "@/pages/policies/shared";
+import { ENDORSEMENT_KIND_LABEL, POSTSALE_SEVERITY_LABEL, enumLabel } from "@/i18n/labels";
 
-export function MirrorDiffPanel({ policyId }: { policyId: number }) {
+/** `MirrorDiff.missing_sources` tokens → literal keys (never printed raw). */
+const MIRROR_SOURCE_LABEL = {
+  issuance_proposal: "postsale:mirror.sources.issuance_proposal",
+  policy: "postsale:mirror.sources.policy",
+} as const;
+
+export function MirrorDiffPanel({
+  policyId,
+  hasProposal,
+}: {
+  policyId: number;
+  /** `policy.proposal_id != null`. Unknown → inferred from the missing sources. */
+  hasProposal?: boolean;
+}) {
   const { t } = useTranslation("postsale");
   const diff = useMirrorDiff(policyId);
   const queue = useQueueMirrorDiff(policyId);
   const canCreate = useCan("Endorsements", "Create");
 
-  const rows: MirrorDiffRow[] = diff.data?.rows ?? [];
+  const missing = diff.data?.missing_sources ?? [];
+  // A policy registered without a proposal (manual entry, PDF read, portal)
+  // has nothing to mirror: "no aplica" — never the green "calza" state, which
+  // would certify a comparison that never ran (review v12 #6).
+  const noProposal =
+    hasProposal === false ||
+    (hasProposal === undefined && !!diff.data && missing.includes("issuance_proposal"));
+  const rows: MirrorDiffRow[] = noProposal || missing.length > 0 ? [] : (diff.data?.rows ?? []);
   const [busyPath, setBusyPath] = React.useState<string | null>(null);
 
   const gate = canCreate.isLoading
@@ -66,7 +87,7 @@ export function MirrorDiffPanel({ policyId }: { policyId: number }) {
 
   const kindLabel = (kind: MirrorDiffRow["suggested_endorsement_kind"]) => {
     if (!kind || typeof kind !== "string") return t("mirror.noSuggestion");
-    const label = t(`endorsement.kind.${kind}`, { defaultValue: kind });
+    const label = enumLabel(t, ENDORSEMENT_KIND_LABEL, kind);
     return t("mirror.suggestedKind", { kind: label });
   };
 
@@ -93,15 +114,25 @@ export function MirrorDiffPanel({ policyId }: { policyId: number }) {
 
       {diff.isLoading ? <LoadingRows rows={4} /> : null}
 
-      {!diff.isLoading && (diff.data?.missing_sources?.length ?? 0) > 0 ? (
-        <p className="mb-3 text-caption text-warn-text">
-          {t("mirror.missingSources", {
-            sources: (diff.data?.missing_sources ?? []).join(", "),
-          })}
-        </p>
+      {!diff.isLoading && noProposal ? (
+        <EmptyState
+          title={t("mirror.notApplicable")}
+          hint={t("mirror.notApplicableHint")}
+          icon={<MinusCircle className="h-6 w-6 text-ink-3" />}
+        />
       ) : null}
 
-      {!diff.isLoading && rows.length === 0 ? (
+      {!diff.isLoading && !noProposal && missing.length > 0 ? (
+        <EmptyState
+          title={t("mirror.pendingTitle")}
+          hint={missing
+            .map((source) => enumLabel(t, MIRROR_SOURCE_LABEL, source, t("mirror.sources.other")))
+            .join(" ")}
+          icon={<Clock className="h-6 w-6 text-warn-text" />}
+        />
+      ) : null}
+
+      {!diff.isLoading && diff.data && missing.length === 0 && rows.length === 0 ? (
         <EmptyState
           title={t("mirror.empty")}
           hint={t("mirror.emptyHint")}
@@ -141,9 +172,7 @@ export function MirrorDiffPanel({ policyId }: { policyId: number }) {
                   <TableCell className="align-top">
                     <PostsaleBadge
                       value={row.severity}
-                      label={t(`shared.severity.${row.severity}`, {
-                        defaultValue: row.severity,
-                      })}
+                      label={enumLabel(t, POSTSALE_SEVERITY_LABEL, row.severity)}
                     />
                   </TableCell>
                   <TableCell className="align-top text-right">

@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.document import DocumentCategory
 from app.models.enums import CaseSection, EntityType
+from app.schemas.utc import UtcDatetime
 
 # --- Entity types a document may be attached to ------------------------------
 # Mirrors the S3 route documents/{entity_type}/{entity_id}/... The full
@@ -60,8 +61,8 @@ class DocumentRead(BaseModel):
     section: CaseSection | None = None
     document_code: str | None = None
     uploaded_by_id: int | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
+    created_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
 
 
 class DocumentDownload(BaseModel):

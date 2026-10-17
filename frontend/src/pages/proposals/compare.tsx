@@ -68,6 +68,7 @@ import {
   uf,
   usePerilLabel,
 } from "@/pages/proposals/shared";
+import { PROPOSAL_ORIGIN_LABEL, PROPOSAL_STATUS_LABEL, enumLabel } from "@/i18n/labels";
 
 export default function ProposalComparisonPage() {
   const { quoteId } = useParams<{ quoteId: string }>();
@@ -150,13 +151,33 @@ const COL_WIDTH = "min-w-[248px]";
 const LABEL_CELL =
   "sticky left-0 z-20 w-[220px] min-w-[220px] border-r border-line bg-bg-surface px-4 py-2.5 text-left text-caption font-medium text-text-muted";
 
+/** Comparison row key → its literal label key. */
+const COMPARE_ROW_LABEL = {
+  total_premium: "proposals:compare.rows.total_premium",
+  net_premium: "proposals:compare.rows.net_premium",
+  taxable_premium: "proposals:compare.rows.taxable_premium",
+  exempt_premium: "proposals:compare.rows.exempt_premium",
+  vat: "proposals:compare.rows.vat",
+  comprehensive_rate: "proposals:compare.rows.comprehensive_rate",
+  taxable_rate: "proposals:compare.rows.taxable_rate",
+  exempt_rate: "proposals:compare.rows.exempt_rate",
+  commission: "proposals:compare.rows.commission",
+  validity: "proposals:compare.rows.validity",
+  coverage_period: "proposals:compare.rows.coverage_period",
+  modality: "proposals:compare.rows.modality",
+  activity: "proposals:compare.rows.activity",
+  received_at: "proposals:compare.rows.received_at",
+  counts: "proposals:compare.rows.counts",
+  warranties: "proposals:compare.rows.warranties",
+} as const;
+
 function ComparisonGrid({ data }: { data: ProposalComparison }) {
   const { t } = useTranslation("proposals");
   const perilLabel = usePerilLabel();
   const { highlights } = data;
 
   const moneyRows: {
-    key: string;
+    key: keyof typeof COMPARE_ROW_LABEL;
     render: (col: ComparisonColumn) => React.ReactNode;
     best?: (col: ComparisonColumn) => boolean;
     bestLabel?: string;
@@ -261,7 +282,7 @@ function ComparisonGrid({ data }: { data: ProposalComparison }) {
             <tbody>
               {moneyRows.map((row) => (
                 <tr key={row.key} className="border-t border-line">
-                  <td className={LABEL_CELL}>{t(`compare.rows.${row.key}`)}</td>
+                  <td className={LABEL_CELL}>{t(COMPARE_ROW_LABEL[row.key])}</td>
                   {data.columns.map((col) => {
                     const isBest = row.best?.(col) ?? false;
                     return (
@@ -476,7 +497,7 @@ function ColumnHeader({
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <MonoChip>{column.insurer.cmf_code}</MonoChip>
             <Badge variant={column.origin === "native" ? "brand" : "neutral"}>
-              {t(`origin.${column.origin}`)}
+              {enumLabel(t, PROPOSAL_ORIGIN_LABEL, column.origin)}
             </Badge>
           </div>
         </div>
@@ -489,7 +510,7 @@ function ColumnHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusBadge value={column.status} label={t(`status.${column.status}`)} />
+        <StatusBadge value={column.status} label={enumLabel(t, PROPOSAL_STATUS_LABEL, column.status)} />
         {column.is_confirmed ? (
           <Badge variant="success" className="gap-1">
             <Check className="h-3 w-3" />
@@ -544,7 +565,7 @@ function DecisionButtons({
   const acceptHint = !canApprove.allowed
     ? t("decisions.noPermission")
     : closed
-      ? t("decisions.alreadyClosed", { status: t(`status.${column.status}`) })
+      ? t("decisions.alreadyClosed", { status: enumLabel(t, PROPOSAL_STATUS_LABEL, column.status) })
       : needsConfirmation
         ? t("decisions.confirmFirst")
         : null;
@@ -578,7 +599,7 @@ function DecisionButtons({
           !canApprove.allowed
             ? t("decisions.noPermission")
             : closed
-              ? t("decisions.alreadyClosed", { status: t(`status.${column.status}`) })
+              ? t("decisions.alreadyClosed", { status: enumLabel(t, PROPOSAL_STATUS_LABEL, column.status) })
               : null
         }
       >

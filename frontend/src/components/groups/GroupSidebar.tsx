@@ -57,14 +57,17 @@ function sortedPeriods(periods: TreePeriodNode[]): TreePeriodNode[] {
 }
 
 /** The journey parts of an account, in tab order — each a deep-link target. */
-const JOURNEY_PARTS: { key: string; icon: LucideIcon }[] = [
-  { key: "summary", icon: LayoutGrid },
-  { key: "antecedentes", icon: Paperclip },
-  { key: "bases-tecnicas", icon: FileText },
-  { key: "comparison", icon: GitCompareArrows },
-  { key: "propuesta", icon: ScrollText },
-  { key: "policies", icon: ShieldCheck },
-];
+const JOURNEY_PARTS = [
+  { key: "summary", labelKey: "accounts:account.tabs.summary", icon: LayoutGrid },
+  { key: "antecedentes", labelKey: "accounts:account.tabs.antecedentes", icon: Paperclip },
+  { key: "bases-tecnicas", labelKey: "accounts:account.tabs.bases-tecnicas", icon: FileText },
+  { key: "comparison", labelKey: "accounts:account.tabs.comparison", icon: GitCompareArrows },
+  { key: "propuesta", labelKey: "accounts:account.tabs.propuesta", icon: ScrollText },
+  { key: "policies", labelKey: "accounts:account.tabs.policies", icon: ShieldCheck },
+] as const satisfies readonly { key: string; labelKey: string; icon: LucideIcon }[];
+
+/** The literal label keys of the parts above (no dynamic keys). */
+type JourneyPartLabelKey = (typeof JOURNEY_PARTS)[number]["labelKey"];
 
 export function GroupSidebar({
   groupId,
@@ -196,7 +199,7 @@ export function GroupSidebar({
                             activeTab={activeTab}
                             currentPath={location.pathname}
                             onNavigate={onNavigate}
-                            partLabel={(key) => ta(`account.tabs.${key}`)}
+                            partLabel={(labelKey) => ta(labelKey)}
                           />
                         ))}
                       </div>
@@ -246,7 +249,7 @@ function AccountBranch({
   activeTab: string;
   currentPath: string;
   onNavigate?: () => void;
-  partLabel: (key: string) => string;
+  partLabel: (labelKey: JourneyPartLabelKey) => string;
 }) {
   const accountPath = `/groups/${groupId}/accounts/${line.account.case_file_id}`;
   const onAccount = currentPath === accountPath;
@@ -274,7 +277,7 @@ function AccountBranch({
                 className={railRowClass(active, "min-h-[28px] text-[12.5px]")}
               >
                 <Icon className="h-[14px] w-[14px] shrink-0" strokeWidth={1.5} />
-                <span className="truncate">{partLabel(part.key)}</span>
+                <span className="truncate">{partLabel(part.labelKey)}</span>
               </Link>
             </li>
           );
