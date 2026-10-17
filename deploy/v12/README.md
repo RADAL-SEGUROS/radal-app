@@ -75,6 +75,8 @@ No API Gateway, no EventBridge schedules, no SES identities exist yet. CI workfl
 `contacto@radalseguros.cl` would receive nothing and its mail would fail SPF/DMARC. Either set
 `RADAL_MAIL_ADDRESS` to the real Zoho mailbox (presumably `contacto@radal.ai`), or move/extend
 `radalseguros.cl` mail (MX + SPF `include:zohomail.com` + Zoho DKIM) before `MAIL_ENABLED=true`.
+**Superseded (2026-10-17):** sending moved to Amazon SES, which needs none of those root changes — see
+§4b "Mail via SES". The MX half of this note is still open (replies to `contacto@` land at Google).
 
 ## 0b. APPLIED to dev on 2026-10-17 (deploy of `5447c7b`)
 
@@ -218,15 +220,81 @@ The Lambda environment is capped at **4 KB** in total — check `wc -c` after ad
 | `JOBS_EVENTS_ENABLED` | `true` | `/events` is 404 without it |
 | `PUBLIC_APP_URL` | `https://dev.radalseguros.cl` | share links `/s/{token}` and mail links (blank ⇒ first CORS origin) |
 | `PUBLIC_API_URL` | `https://hooks.radalseguros.cl` | webhook URLs handed to Forpay (blank ⇒ `PUBLIC_APP_URL`, which Forpay cannot POST to) |
-| `MAIL_ENABLED` | `false` until egress is verified and the Zoho app password is in | `false` ⇒ every send is recorded `skipped`, no socket |
-| `RADAL_MAIL_USERNAME` / `RADAL_MAIL_PASSWORD` | `contacto@radalseguros.cl` / Zoho **app password** | never committed |
-| `RADAL_MAIL_SMTP_HOST`/`_PORT`/`_SECURITY`, `RADAL_MAIL_IMAP_*` | defaults `smtp.zoho.com:465 ssl`, `imap.zoho.com:993 ssl` | region hosts (`smtp.zoho.eu`) exist |
+| `MAIL_ENABLED` | `false` until `scripts.mail_preflight` is green (§4b) | `false` ⇒ every send is recorded `skipped`, no socket, no SES client |
+| `MAIL_TRANSPORT` / `SES_REGION` / `SES_CONFIGURATION_SET` | defaults `ses` / `us-east-1` / blank — **do not add** unless changing them (4 KB cap) | the system sender sends through Amazon SES with the Lambda role; no AWS key in env |
+| `MAIL_SENT_COPY` / `MAIL_SENT_FOLDER` | defaults `imap_append` / `Sent` — do not add | copy of each SES send in the Zoho mailbox |
+| `RADAL_MAIL_USERNAME` / `RADAL_MAIL_PASSWORD` | `contacto@radalseguros.cl` / Zoho **app password** | never committed; IMAP only (replies + sent copy) while `MAIL_TRANSPORT=ses` |
+| `RADAL_MAIL_IMAP_*` | defaults `imap.zoho.com:993 ssl` — do not add | |
+| `RADAL_MAIL_SMTP_HOST`/`_PORT`/`_SECURITY` | not needed with SES | only for the `MAIL_TRANSPORT=smtp` fallback |
 | `RADAL_OPS_EMAIL` | the team inbox | RPA/job failures; blank ⇒ nowhere |
 | `FX_SOURCE_URL` | default `https://mindicador.cl/api` | blank ⇒ `fx.daily` skips |
 | `FORPAY_DEFAULT_BASE_URL` | default sandbox `https://devapi.forpayservices.cl/white/label` | per-account `base_url` wins |
 | `RPA_ENABLED` | `false` until HDI credentials + page maps exist | every portal reads "en mantención" while off |
 | `RPA_INLINE` | **`false` on Lambda** | `true` runs the search in a FastAPI BackgroundTask, which a Lambda freezes after the response |
 | `RPA_HDI_BASE_URL` | blank until the team sends the portal | blank ⇒ "Conector en configuración" |
+
+## 4b. Mail via SES
+
+**Architecture.** The Radal system sender `contacto@radalseguros.cl` **sends** through Amazon SES v2
+(`send_email` with `Content.Raw`, identity `radalseguros.cl`, us-east-1) and **reads** replies from the Zoho
+Free mailbox of the same address over IMAP (`imap.zoho.com:993`). After each SES send a copy is IMAP-APPENDed
+to Zoho's `Sent` folder so a human sees what went out. SES rewrites `Message-ID`; the stored id is
+`<{MessageId}@email.amazonses.com>`, which is what replies quote. Broker custom mailboxes keep their own
+SMTP/IMAP. The four Google Workspace users are never used. Spec: tech-ref §19.7, `docs/v12/04-mail.md` §6.
+
+**DNS (in place 2026-10-17; the preflight re-checks DKIM and MAIL FROM status).** Only SES records are needed; the **root MX, SPF and DMARC are untouched** (Google
+keeps its four users):
+
+| record | value | why |
+|---|---|---|
+| 3 × `CNAME {token}._domainkey.radalseguros.cl` | `{token}.dkim.amazonses.com` | Easy DKIM, `d=radalseguros.cl` → DMARC aligns on DKIM |
+| `MX mail.radalseguros.cl` | `10 feedback-smtp.us-east-1.amazonses.com` | custom MAIL FROM (bounces to SES) |
+| `TXT mail.radalseguros.cl` | `"v=spf1 include:amazonses.com ~all"` | SPF passes on `mail.radalseguros.cl`, which aligns (relaxed) with the From domain |
+
+No `include:amazonses.com` at the root SPF is needed.
+
+**IAM (in place).** The Lambda role allows `ses:SendEmail` + `ses:SendRawEmail` on
+`arn:aws:ses:us-east-1:<account>:identity/radalseguros.cl`, plus `ses:GetAccount` and `ses:GetEmailIdentity`
+(read by the preflight). If `SES_CONFIGURATION_SET` is ever set, also allow `ses:SendEmail` on that
+configuration-set ARN or every send fails `AccessDenied`. In the sandbox SES also authorises the
+**recipient** identity — sends to `@radalseguros.cl` are covered by the same ARN.
+
+**Sandbox → production.** The account is in the **sandbox**: only verified addresses/domains can receive
+(`radalseguros.cl` is verified, so team tests work; a payer or insurer address fails with "Amazon SES está en
+modo sandbox y el destinatario no está verificado" on the `mail_message` row). Before real cobranza:
+SES console → *Account dashboard* → *Request production access* (mail type **Transactional**, site
+`https://radalseguros.cl`, use case "payer reminders and insurer status inquiries for insurance brokers;
+bounces and complaints handled"), or
+`aws sesv2 put-account-details --production-access-enabled --mail-type TRANSACTIONAL --website-url https://radalseguros.cl --use-case-description "…" --profile radal --region us-east-1`.
+The preflight prints `SANDBOX`/`producción`.
+
+**Env (dev Lambda).** Add to `deploy/backend.env` only: `RADAL_MAIL_USERNAME=contacto@radalseguros.cl`,
+`RADAL_MAIL_PASSWORD=<Zoho app password>`, and — once the preflight is green — `MAIL_ENABLED=true`. Every
+other mail key has the right default. Never add AWS keys (the role is the credential) and never set
+`AWS_REGION` (reserved in Lambda; `SES_REGION` is used instead).
+
+**Preflight** (from `backend/`, venv active; any creds with the IAM above, e.g. the `radal` profile):
+
+```bash
+AWS_PROFILE=radal RADAL_MAIL_USERNAME=contacto@radalseguros.cl RADAL_MAIL_PASSWORD='…' \
+  python -m scripts.mail_preflight                                   # read-only: SES account, identity, IMAP
+AWS_PROFILE=radal RADAL_MAIL_USERNAME=… RADAL_MAIL_PASSWORD='…' \
+  python -m scripts.mail_preflight --send-test you@radalseguros.cl   # one "[Radal] prueba de correo" via SES + sent copy
+```
+
+Exit `0` ready · `3` SES not ready (sending disabled, identity unverified, IAM, or the test send failed) ·
+`4` IMAP configured but the login failed. It prints IMAP host + user only, never the password.
+
+**OPEN — replies (verify before scheduling `mail.poll`).** The root MX of `radalseguros.cl` points to
+**Google**, so a reply to `contacto@radalseguros.cl` is delivered to Google first. It reaches the Zoho
+mailbox only if Google Workspace routes that address onward (split delivery / routing for unknown
+recipients to Zoho's MX); otherwise Google bounces it ("no such user") or keeps it. The same applies to SES
+bounce feedback, forwarded to the From address. Verify: `--send-test` to a team address, reply to it from
+an external mailbox (e.g. a personal Gmail), and check the reply lands in Zoho's Inbox. Until it does, keep
+the `mail.poll` schedule off (inquiry replies and bounces would never be read). Second thing to verify on
+the same pass: **Zoho Free has historically not included IMAP access** — if the preflight exits `4` with
+"Autenticación rechazada" even with a fresh app password, that is the likely cause, and both the sent copy
+and inbound reading depend on it.
 
 ## 5. Order of operations for the v12 dev deploy
 

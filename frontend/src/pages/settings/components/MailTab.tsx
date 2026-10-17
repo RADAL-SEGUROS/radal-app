@@ -203,11 +203,16 @@ export function MailTab() {
 
 function RadalSenderCard({ account, loading }: { account: MailAccount | null; loading: boolean }) {
   const { t } = useTranslation("mail");
+  const address = account?.address || "contacto@radalseguros.cl";
+  const description =
+    account?.transport === "smtp"
+      ? t("radal.descriptionSmtp", { address })
+      : t("radal.description", { address });
   return (
     <SectionCard
       title={t("radal.title")}
       icon={<ShieldCheck />}
-      description={t("radal.description")}
+      description={description}
       actions={<Badge variant="muted">{t("radal.readOnly")}</Badge>}
     >
       {loading || !account ? (
@@ -217,6 +222,9 @@ function RadalSenderCard({ account, loading }: { account: MailAccount | null; lo
           <div className="grid gap-3 sm:grid-cols-2">
             <ReadOnlyField label={t("radal.address")} value={account.address} />
             <ReadOnlyField label={t("radal.displayName")} value={account.display_name || "—"} />
+            {account.transport_label ? (
+              <ReadOnlyField label={t("radal.transport")} value={account.transport_label} />
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={STATUS_TONE[account.status]} dot>

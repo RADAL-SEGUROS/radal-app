@@ -46,6 +46,16 @@ os.environ["RADAL_MAIL_SMTP_HOST"] = "127.0.0.1"
 os.environ["RADAL_MAIL_SMTP_PORT"] = "9"
 os.environ["RADAL_MAIL_IMAP_HOST"] = "127.0.0.1"
 os.environ["RADAL_MAIL_IMAP_PORT"] = "9"
+# The Radal system sender goes through Amazon SES. Pin the transport (so a
+# developer's .env cannot flip it), and point the sesv2 endpoint at the discard
+# port: even a test that forgets to inject a fake client can never reach AWS
+# (the autouse ``_no_real_ses`` fixture below refuses to build one anyway).
+os.environ["MAIL_TRANSPORT"] = "ses"
+os.environ["SES_REGION"] = "us-east-1"
+os.environ["SES_CONFIGURATION_SET"] = ""
+os.environ["MAIL_SENT_COPY"] = "imap_append"
+os.environ["MAIL_SENT_FOLDER"] = "Sent"
+os.environ["AWS_ENDPOINT_URL_SESV2"] = "http://127.0.0.1:9/no-ses-in-tests"
 os.environ["FX_SOURCE_URL"] = "http://127.0.0.1:9/no-fx-in-tests"
 os.environ["FORPAY_DEFAULT_BASE_URL"] = "http://127.0.0.1:9/no-forpay-in-tests"
 os.environ["RPA_ENABLED"] = "false"
@@ -83,6 +93,22 @@ def _schema():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_ses(monkeypatch):
+    """No test ever builds a real boto3 ``sesv2`` client.
+
+    A test that wants SES injects a fake client (``SesTransport(client=…)`` or
+    by patching ``transport._ses_client`` itself); anything else that reaches
+    the real factory fails fast like an unreachable endpoint.
+    """
+    from app.services.mail import transport as transport_module
+
+    def _refuse(region, timeout):  # noqa: ANN001, ANN202
+        raise ConnectionError("Amazon SES is not reachable from the test suite")
+
+    monkeypatch.setattr(transport_module, "_ses_client", _refuse)
 
 
 @pytest.fixture()

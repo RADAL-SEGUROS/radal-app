@@ -94,6 +94,10 @@ class MailAccountRead(BaseModel):
     #: True when sending is live (``MAIL_ENABLED``); otherwise mail is only recorded.
     mail_enabled: bool = False
     can_manage: bool = False
+    #: Only on the Radal system entry: how it sends (``MAIL_TRANSPORT``) and a
+    #: Spanish one-liner for the card. ``None`` on broker mailboxes.
+    transport: Literal["ses", "smtp"] | None = None
+    transport_label: str | None = None
 
     @field_validator("last_sync_at")
     @classmethod

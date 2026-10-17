@@ -4764,9 +4764,44 @@ invented: refunds, link expiry, sub-merchant onboarding, webhook retry policy.
   `MAIL_ENABLED=false` (no socket), else `sent`/`failed`. Never raises; the caller commits.
 - **Transport seam:** `services/mail/transport.py` — `SmtpImapTransport` (`smtplib` SSL/STARTTLS,
   `imaplib` SSL, `SELECT INBOX` read-only, `UID SEARCH`, cursor `{uidvalidity, last_uid}`; a UIDVALIDITY
-  change re-reads 2 days, deduplicated by `Message-ID`). Tests install `FakeTransport` via the
-  `fake_transport` fixture (`_OVERRIDE`). Radal's box: Zoho `smtp.zoho.com:465 ssl` /
-  `imap.zoho.com:993 ssl`, app password in `RADAL_MAIL_PASSWORD` (env only).
+  change re-reads 2 days, deduplicated by `Message-ID`) and `SesTransport` (below). Two doors:
+  `get_transport()` (broker mailboxes + all inbound IMAP) and `get_system_transport()` (the Radal system
+  sender: `SesTransport` when `MAIL_TRANSPORT=ses`, the default; `SmtpImapTransport` with the Zoho SMTP
+  login when `smtp`). Tests install `FakeTransport` via the `fake_transport` fixture (`_OVERRIDE`), which
+  both doors honour.
+- **The Radal system sender = Amazon SES v2, replies read from Zoho.** `contacto@radalseguros.cl` is a
+  **Zoho Free** mailbox; the domain's other four mailboxes are Google Workspace and are never touched.
+  Sending: `sesv2.send_email(FromEmailAddress=RADAL_MAIL_ADDRESS, Destination={To,Cc,Bcc},
+  Content={"Raw": {"Data": <our MIME, CRLF>}}, ConfigurationSetName only when SES_CONFIGURATION_SET is
+  set)` — the exact message we build (From `"{broker} vía Radal" <contacto@…>`, Reply-To, `X-Radal-Token`
+  / `X-Radal-Kind`, text + HTML), identity `radalseguros.cl` (Easy DKIM, custom MAIL FROM
+  `mail.radalseguros.cl`, us-east-1). **SES rewrites `Message-ID`**: `send` returns
+  `<{MessageId}@email.amazonses.com>` (`{region}.amazonses.com` outside us-east-1), writes it back into the
+  message, and `send_mail` stores THAT in `mail_message.message_id_header` — so an insurer's
+  `In-Reply-To` keeps matching (`test_a_reply_to_the_ses_message_id_is_matched`). The boto3 client is lazy,
+  cached per region (`_ses_client`), 2 attempts, `MAIL_TIMEOUT_SECONDS` connect/read; `MAIL_ENABLED=false`
+  short-circuits in `send_mail` before any client exists. SES errors become Spanish categories
+  (`ERR_SES_*`: IAM, unverified identity, **sandbox recipient**, throttled, paused, unreachable); the AWS
+  text goes to the log only. Credentials: the Lambda role (`ses:SendEmail`/`SendRawEmail` on the identity,
+  `ses:GetAccount`, `ses:GetEmailIdentity`) — no AWS key in env.
+- **Sent copy (the "visual" Zoho part).** After a successful SES send, when `MAIL_SENT_COPY=imap_append`
+  and the Zoho IMAP login exists (`RADAL_MAIL_USERNAME`/`RADAL_MAIL_PASSWORD`), the raw message — with the
+  SES `Message-ID` — is IMAP `APPEND`ed to `MAIL_SENT_FOLDER` (`"Sent"`) flagged `\Seen`, in a daemon
+  thread joined for at most `MAIL_TIMEOUT_SECONDS`. Best-effort: a failure or timeout is a log line
+  (`mail sent copy: …`, no password), never a failed send, no schema change. Not done for
+  `MAIL_TRANSPORT=smtp` (Zoho's own SMTP files its sent mail) nor for broker mailboxes.
+- **Readiness:** `SesTransport.check()` = `GetAccount` (sending enabled; sandbox vs production; quota) +
+  `GetEmailIdentity` of the From domain (verified, DKIM, MAIL FROM) + the Zoho IMAP login; never raises.
+  `python -m scripts.mail_preflight [--send-test you@x] [--json]` prints the same (IMAP host/user only) and
+  exits `0` ready · `3` SES not ready / test send failed · `4` IMAP configured but refused.
+  `GET /mail/accounts`'s virtual Radal entry carries `transport: "ses"|"smtp"` and a Spanish
+  `transport_label` ("Amazon SES · respuestas a contacto@radalseguros.cl (Zoho)") shown on the Correo tab.
+- **OPEN — where do replies actually land?** The root MX of `radalseguros.cl` points to **Google**. A
+  reply to `contacto@` reaches the Zoho box only if Google routes that address to Zoho (split delivery /
+  unknown-recipient routing); otherwise Google bounces it or keeps it. The same applies to SES bounce
+  feedback (forwarded to the From address). **Verify with a real test reply before scheduling
+  `mail.poll`** (`deploy/v12/README.md` "Mail via SES"). Also verify that the Zoho Free plan allows IMAP
+  at all — Zoho has historically reserved IMAP for paid plans; preflight exit 4 is the symptom.
 - **Broker custom servers** (`POST /mail/accounts`): password Fernet-encrypted, write-only.
   **SSRF guard** (`check_mail_host`): ports limited to SMTP `{25, 465, 587, 2525}` / IMAP `{143, 993}`;
   hosts that are or resolve to loopback/private/link-local/reserved/shared/multicast are refused — on
@@ -4929,10 +4964,15 @@ its default instead of failing boot; mail security must be `ssl|starttls|none`.
 
 | setting | default | meaning |
 |---|---|---|
-| `MAIL_ENABLED` | `false` | master switch; false ⇒ every send is a `skipped` row, no socket |
-| `RADAL_MAIL_ADDRESS` / `_DISPLAY_NAME` | `contacto@radalseguros.cl` / `Radal` | the system sender |
-| `RADAL_MAIL_USERNAME` / `RADAL_MAIL_PASSWORD` | blank | Zoho login + **app password** (env / S3 only) |
-| `RADAL_MAIL_SMTP_HOST`/`_PORT`/`_SECURITY` | `smtp.zoho.com` / 465 / `ssl` | |
+| `MAIL_ENABLED` | `false` | master switch; false ⇒ every send is a `skipped` row, no socket, no boto3 client |
+| `MAIL_TRANSPORT` | `ses` | how the **Radal system sender** sends: `ses` (Amazon SES v2) \| `smtp` (Zoho SMTP fallback); validated. Broker mailboxes always use their own SMTP |
+| `SES_REGION` | `us-east-1` | where the `radalseguros.cl` identity lives |
+| `SES_CONFIGURATION_SET` | blank | sent as `ConfigurationSetName` only when set (the role then also needs `ses:SendEmail` on the configuration-set ARN) |
+| `MAIL_SENT_COPY` | `imap_append` | `imap_append` \| `none`: copy each SES-sent message into the Zoho mailbox |
+| `MAIL_SENT_FOLDER` | `Sent` | the Zoho folder the copy is APPENDed to |
+| `RADAL_MAIL_ADDRESS` / `_DISPLAY_NAME` | `contacto@radalseguros.cl` / `Radal` | the system sender (SES `FromEmailAddress`; must be on a verified identity) |
+| `RADAL_MAIL_USERNAME` / `RADAL_MAIL_PASSWORD` | blank | Zoho login + **app password** (env / S3 only) — IMAP (replies + sent copy), and SMTP when `MAIL_TRANSPORT=smtp` |
+| `RADAL_MAIL_SMTP_HOST`/`_PORT`/`_SECURITY` | `smtp.zoho.com` / 465 / `ssl` | only for `MAIL_TRANSPORT=smtp` |
 | `RADAL_MAIL_IMAP_HOST`/`_PORT`/`_SECURITY` | `imap.zoho.com` / 993 / `ssl` | |
 | `RADAL_OPS_EMAIL` | blank | where RPA/job failures go; blank = nowhere |
 | `MAIL_TIMEOUT_SECONDS` | 20 | |

@@ -1,0 +1,231 @@
+"""Is the Radal system mail ready? (v12 mail via Amazon SES — tech-ref §19.7.)
+
+Checks, in order, and prints NO secret (IMAP shows host + user only):
+
+1. the configuration (``MAIL_ENABLED``, ``MAIL_TRANSPORT``, From, region,
+   configuration set, sent-copy mode and folder);
+2. **SES** (``MAIL_TRANSPORT=ses``): ``GetAccount`` — sending enabled,
+   sandbox vs production, 24 h quota, sent in the last 24 h, max rate — and
+   ``GetEmailIdentity`` of the From domain — verified, DKIM, MAIL FROM.
+   (With ``MAIL_TRANSPORT=smtp`` the Zoho SMTP login is checked instead.)
+3. **IMAP** login to the Zoho mailbox (replies + the "Enviados" copy);
+4. ``--send-test you@example.com`` sends ONE "[Radal] prueba de correo"
+   through the real system path (SES + sent copy). While the SES account is
+   in the sandbox the recipient must be a verified address/domain.
+
+Exit codes: ``0`` ready · ``3`` the send side (SES/SMTP) is not ready or the
+test send failed · ``4`` IMAP is configured but the login failed. IMAP not
+configured (no ``RADAL_MAIL_PASSWORD``) is a warning, not a failure.
+
+Run (from backend/, venv active; AWS creds from the standard chain):
+    AWS_PROFILE=radal python -m scripts.mail_preflight
+    AWS_PROFILE=radal python -m scripts.mail_preflight --send-test you@radalseguros.cl
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from collections.abc import Callable
+from email.utils import make_msgid
+from typing import Any
+
+from app.core.config import settings
+from app.services.mail.sender import build_email
+from app.services.mail.transport import (
+    MailTransport,
+    SesTransport,
+    SmtpImapTransport,
+    get_system_transport,
+    radal_imap_config,
+    radal_smtp_config,
+    system_transport_kind,
+)
+
+EXIT_OK = 0
+EXIT_SEND_NOT_READY = 3
+EXIT_IMAP_FAILED = 4
+
+TEST_SUBJECT = "[Radal] prueba de correo"
+TEST_BODY = (
+    "Hola:\n\n"
+    "Este es un correo de prueba enviado por Radal a través de Amazon SES desde "
+    "{address}.\n\n"
+    "Si lo recibiste, el envío del sistema funciona. Las respuestas a este correo "
+    "llegan a la casilla {address}.\n\n"
+    "— Radal"
+)
+
+
+def _yes(value: Any) -> str:
+    if value is None:
+        return "—"
+    return "sí" if value else "no"
+
+
+def run(
+    argv: list[str] | None = None,
+    *,
+    transport: MailTransport | None = None,
+    out: Callable[[str], None] = print,
+) -> tuple[int, dict[str, Any]]:
+    """The preflight. Returns ``(exit_code, report)``; never raises."""
+    parser = argparse.ArgumentParser(prog="python -m scripts.mail_preflight", description=__doc__.split("\n")[0])
+    parser.add_argument("--send-test", metavar="EMAIL", help="send one test mail to EMAIL through the real path")
+    parser.add_argument("--json", action="store_true", help="print the report as JSON at the end")
+    args = parser.parse_args(argv)
+
+    kind = system_transport_kind()
+    address = settings.RADAL_MAIL_ADDRESS
+    report: dict[str, Any] = {
+        "config": {
+            "mail_enabled": bool(settings.MAIL_ENABLED),
+            "mail_transport": kind,
+            "from_address": address,
+            "display_name": settings.RADAL_MAIL_DISPLAY_NAME,
+            "ses_region": settings.SES_REGION,
+            "ses_configuration_set": settings.SES_CONFIGURATION_SET or None,
+            "sent_copy": settings.MAIL_SENT_COPY,
+            "sent_folder": settings.MAIL_SENT_FOLDER,
+        },
+        "send": None,
+        "imap": None,
+        "send_test": None,
+    }
+    cfg = report["config"]
+    out("== Radal mail preflight ==")
+    out(f"MAIL_ENABLED={cfg['mail_enabled']}  MAIL_TRANSPORT={kind}  From={address}")
+    out(
+        f"SES_REGION={cfg['ses_region']}  SES_CONFIGURATION_SET={cfg['ses_configuration_set'] or '(ninguno)'}"
+        f"  MAIL_SENT_COPY={cfg['sent_copy']}  MAIL_SENT_FOLDER={cfg['sent_folder']}"
+    )
+    if not cfg["mail_enabled"]:
+        out("AVISO: MAIL_ENABLED=false — la app registra los correos como 'skipped' y no envía nada.")
+
+    try:
+        system = transport or get_system_transport()
+    except Exception as exc:  # noqa: BLE001
+        out(f"ERROR: no se pudo crear el transporte del sistema ({type(exc).__name__})")
+        return EXIT_SEND_NOT_READY, report
+
+    # --- send side -----------------------------------------------------------
+    send_ok = False
+    if kind == "ses":
+        out("\n-- Amazon SES --")
+        if isinstance(system, SesTransport):
+            status = system.ses_status(address)
+        else:
+            check = system.check(radal_smtp_config(), None)
+            status = dict(check.details or {}, ok=bool(check.smtp_ok), error=check.smtp_error)
+        report["send"] = status
+        account = status.get("account") or {}
+        identity = status.get("identity_status") or {}
+        if account:
+            out(
+                f"cuenta: envío habilitado={_yes(account.get('sending_enabled'))}  "
+                f"{'SANDBOX' if account.get('sandbox') else 'producción'}  "
+                f"enforcement={account.get('enforcement_status') or '—'}"
+            )
+            out(
+                f"cuota 24 h={account.get('max_24h_send')}  enviados últimas 24 h={account.get('sent_last_24h')}"
+                f"  tasa máx={account.get('max_send_rate')}/s"
+            )
+        if identity:
+            out(
+                f"identidad {status.get('identity')}: verificada={_yes(identity.get('verified_for_sending'))}  "
+                f"DKIM={identity.get('dkim_status') or '—'} (firma {_yes(identity.get('dkim_signing_enabled'))})  "
+                f"MAIL FROM={identity.get('mail_from_domain') or '—'} ({identity.get('mail_from_status') or '—'})"
+            )
+        for warning in status.get("warnings") or []:
+            out(f"AVISO: {warning}")
+        send_ok = bool(status.get("ok"))
+        out("SES: listo" if send_ok else f"SES: NO listo — {status.get('error') or 'sin detalle'}")
+    else:
+        out("\n-- SMTP (Zoho) --")
+        smtp = radal_smtp_config()
+        check = system.check(smtp, None)
+        report["send"] = {"ok": bool(check.smtp_ok), "error": check.smtp_error, "host": smtp.host, "user": smtp.username}
+        send_ok = bool(check.smtp_ok)
+        out(f"SMTP {smtp.host}:{smtp.port} usuario {smtp.username}: " + ("ok" if send_ok else f"ERROR — {check.smtp_error}"))
+
+    # --- IMAP ----------------------------------------------------------------
+    out("\n-- IMAP (Zoho: respuestas y copia en Enviados) --")
+    imap = radal_imap_config()
+    imap_failed = False
+    if not (imap.host and imap.username and imap.password):
+        report["imap"] = {"configured": False, "host": imap.host, "user": imap.username}
+        out(
+            f"AVISO: IMAP no configurado ({imap.host or 'sin host'}, usuario {imap.username or '—'}, sin contraseña): "
+            "no habrá copia en Enviados ni lectura de respuestas."
+        )
+    else:
+        try:
+            result = SmtpImapTransport().check(None, imap)
+            imap_ok, imap_error = bool(result.imap_ok), result.imap_error
+        except Exception as exc:  # noqa: BLE001
+            imap_ok, imap_error = False, type(exc).__name__
+        report["imap"] = {"configured": True, "host": imap.host, "user": imap.username, "ok": imap_ok, "error": imap_error}
+        imap_failed = not imap_ok
+        out(f"IMAP {imap.host}:{imap.port} usuario {imap.username}: " + ("ok" if imap_ok else f"ERROR — {imap_error}"))
+
+    # --- test send -------------------------------------------------------------
+    test_failed = False
+    if args.send_test:
+        out(f"\n-- envío de prueba a {args.send_test} --")
+        if not send_ok:
+            test_failed = True
+            report["send_test"] = {"sent": False, "error": "el envío no está listo; no se intentó"}
+            out("no se intentó: el lado de envío no está listo")
+        else:
+            msg = build_email(
+                from_name=settings.RADAL_MAIL_DISPLAY_NAME,
+                from_address=address,
+                to=[args.send_test.strip()],
+                cc=None,
+                subject=TEST_SUBJECT,
+                text=TEST_BODY.format(address=address),
+                html=None,
+                reply_to=None,
+                message_id=make_msgid(domain=address.rpartition("@")[2] or "radalseguros.cl"),
+                kind="preflight",
+            )
+            try:
+                message_id = system.send(radal_smtp_config(), msg)
+                copy_ok = getattr(system, "last_sent_copy_ok", None)
+                report["send_test"] = {"sent": True, "message_id": message_id, "sent_copy_ok": copy_ok}
+                out(f"enviado: Message-ID {message_id}")
+                if copy_ok is None:
+                    out("copia en Enviados: no se intentó (MAIL_SENT_COPY=none o IMAP sin credenciales)")
+                else:
+                    out(f"copia en Enviados ({settings.MAIL_SENT_FOLDER}): " + ("ok" if copy_ok else "FALLÓ (ver log)"))
+            except Exception as exc:  # noqa: BLE001
+                test_failed = True
+                report["send_test"] = {"sent": False, "error": str(exc)[:300]}
+                out(f"ERROR: {str(exc)[:300]}")
+
+    if not send_ok or test_failed:
+        code = EXIT_SEND_NOT_READY
+    elif imap_failed:
+        code = EXIT_IMAP_FAILED
+    else:
+        code = EXIT_OK
+    report["exit_code"] = code
+    out(f"\nresultado: {'LISTO' if code == EXIT_OK else 'NO LISTO'} (exit {code})")
+    if args.json:
+        out(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+    return code, report
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        code, _report = run(argv)
+    except SystemExit:
+        raise
+    except Exception as exc:  # noqa: BLE001 - a preflight answers, it never tracebacks
+        print(f"ERROR inesperado: {type(exc).__name__}")
+        return EXIT_SEND_NOT_READY
+    return code
+
+
+if __name__ == "__main__":  # pragma: no cover
+    sys.exit(main())

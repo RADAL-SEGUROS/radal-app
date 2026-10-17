@@ -4,7 +4,8 @@ Owner: lane **B4** (mail + inquiries).
 
 * ``GET /mail/accounts`` (Mail.View) — the broker's mailboxes the caller may
   see (shared ones + their own; a Settings.Manage holder sees all), led by a
-  virtual read-only entry describing the Radal system sender, plus the
+  virtual read-only entry describing the Radal system sender (with
+  ``transport`` ``ses``|``smtp`` and a Spanish ``transport_label``), plus the
   provider picker (Google / Microsoft visibly unavailable — "pronto").
 * ``POST /mail/accounts`` (Mail.Create) — custom SMTP/IMAP only; ``google`` /
   ``microsoft`` -> 422 with the Spanish "pronto" reason. ``owner=shared`` needs
@@ -61,7 +62,13 @@ from app.services.mail.sender import (
     account_smtp_config,
     radal_display_name,
 )
-from app.services.mail.transport import MailHostRejected, check_mail_host, get_transport
+from app.services.mail.transport import (
+    MailHostRejected,
+    check_mail_host,
+    get_transport,
+    system_transport_kind,
+    system_transport_label,
+)
 
 router = APIRouter(prefix="/mail", tags=["mail"])
 
@@ -174,6 +181,8 @@ def _radal_entry(db: Session, broker_id: int) -> MailAccountRead:
         read_only=True,
         mail_enabled=bool(settings.MAIL_ENABLED),
         can_manage=False,
+        transport=system_transport_kind(),  # type: ignore[arg-type]
+        transport_label=system_transport_label(),
     )
 
 

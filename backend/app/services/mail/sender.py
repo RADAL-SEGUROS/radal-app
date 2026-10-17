@@ -18,8 +18,14 @@ notices, status inquiries, account tests, ops alerts). It:
 2. builds a plain-text + simple HTML ``EmailMessage`` with our own
    ``Message-ID`` (kept on the row even when nothing is sent, so a reply's
    ``In-Reply-To`` can be matched);
-3. records ONE ``mail_message(direction=outbound)`` — ``skipped`` when
-   ``MAIL_ENABLED`` is off (no socket), ``sent`` / ``failed`` otherwise.
+3. sends it — a broker mailbox through :func:`get_transport` (its own
+   SMTP), the Radal system sender through :func:`get_system_transport`
+   (Amazon SES when ``MAIL_TRANSPORT=ses``, Zoho SMTP otherwise). SES rewrites
+   the ``Message-ID``; the id the transport RETURNS is what the row keeps,
+   so ``In-Reply-To`` matching of the insurer's reply keeps working;
+4. records ONE ``mail_message(direction=outbound)`` — ``skipped`` when
+   ``MAIL_ENABLED`` is off (no socket, no boto3 client), ``sent`` / ``failed``
+   otherwise.
 
 It NEVER raises: a failed send is a ``failed`` row with ``error``. The row is
 added and flushed; the CALLER commits.
@@ -47,6 +53,7 @@ from app.services.mail.transport import (
     ImapConfig,
     MailTransportError,
     SmtpConfig,
+    get_system_transport,
     get_transport,
     radal_smtp_config,
 )
@@ -286,8 +293,12 @@ def send_mail(
                 kind=kind,
                 thread_token=thread_token,
             )
-            cfg = account_smtp_config(chosen) if chosen is not None else radal_smtp_config()
-            sent_id = get_transport().send(cfg, msg)
+            if chosen is not None:
+                # A broker's own mailbox: always its own SMTP, never SES.
+                cfg, transport = account_smtp_config(chosen), get_transport()
+            else:
+                cfg, transport = radal_smtp_config(), get_system_transport()
+            sent_id = transport.send(cfg, msg)
             row.message_id_header = (sent_id or message_id)[:255]
             row.status = MailMessageStatus.SENT
         except Exception as exc:  # noqa: BLE001 - a send never raises

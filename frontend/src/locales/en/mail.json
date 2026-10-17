@@ -6,9 +6,11 @@
   "noView": "Your role cannot see the mailboxes.",
   "radal": {
     "title": "Radal mailbox",
-    "description": "Ready to use, nothing to configure. Mail goes out under your brokerage's name and replies reach Radal.",
+    "description": "Ready to use, nothing to configure. Radal sends with Amazon SES from {{address}}, under your brokerage's name, and replies are read from that Zoho mailbox.",
+    "descriptionSmtp": "Ready to use, nothing to configure. Radal sends through Zoho SMTP from {{address}}, under your brokerage's name, and replies are read from that same mailbox.",
     "address": "Address",
     "displayName": "Display name",
+    "transport": "Sending",
     "readOnly": "Read only",
     "sendingOff": "Real sending is off in this environment: mail is recorded but not sent."
   },

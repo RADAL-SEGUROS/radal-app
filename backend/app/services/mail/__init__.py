@@ -1,8 +1,9 @@
 """Mail (v12, docs/v12/04-mail.md).
 
-Phase 1 ships the seam only: :mod:`.transport` (protocol + configs +
-``get_transport``; the real SMTP/IMAP transport is a stub), :mod:`.fake`
-(``FakeTransport`` for tests) and :mod:`.ops` (``notify_ops``). Lane B4 owns
-the rest of this package: sending with sender selection, template rendering,
-inbound classification and the ``mail.poll`` job.
+:mod:`.transport` (protocol + configs; ``SmtpImapTransport`` for broker
+mailboxes and inbound IMAP, ``SesTransport`` for the Radal system sender,
+``get_transport`` / ``get_system_transport``), :mod:`.sender` (the one door
+out), :mod:`.fake` (``FakeTransport`` for tests), :mod:`.ops`
+(``notify_ops``), :mod:`.inbound` (the ``mail.poll`` job), classification,
+evidence and inquiries.
 """

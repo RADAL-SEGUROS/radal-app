@@ -94,15 +94,30 @@ class Settings(BaseSettings):
 
     # --- v12: mail (docs/v12/04-mail.md §1) ---
     # Master switch. False => every send is recorded as status "skipped" and no
-    # socket is opened. The Radal system mailbox is the Zoho account; its app
-    # password lives ONLY in env / S3 deploy/backend.env, never in source.
+    # socket (and no boto3 client) is opened. The Radal system sender is
+    # contacto@radalseguros.cl: it SENDS through Amazon SES v2 (identity
+    # radalseguros.cl, Easy DKIM, MAIL FROM mail.radalseguros.cl) and its
+    # replies are READ from the Zoho mailbox over IMAP. The Zoho app password
+    # lives ONLY in env / S3 deploy/backend.env, never in source.
     MAIL_ENABLED: bool = False
+    # How the Radal SYSTEM sender sends: "ses" (Amazon SES v2, IAM role creds)
+    # or "smtp" (the Zoho SMTP fallback below). Broker custom mailboxes always
+    # use their own SMTP/IMAP, whatever this says.
+    MAIL_TRANSPORT: str = "ses"
+    SES_REGION: str = "us-east-1"
+    SES_CONFIGURATION_SET: str = ""  # blank => no ConfigurationSetName
+    # After a successful SES send, keep a copy in the Zoho mailbox so a human
+    # sees what Radal sent: "imap_append" (APPEND to MAIL_SENT_FOLDER, \Seen,
+    # best-effort) or "none".
+    MAIL_SENT_COPY: str = "imap_append"
+    MAIL_SENT_FOLDER: str = "Sent"
     RADAL_MAIL_ADDRESS: str = "contacto@radalseguros.cl"
     RADAL_MAIL_DISPLAY_NAME: str = "Radal"
     RADAL_MAIL_USERNAME: str = ""  # Zoho login (usually the address)
-    RADAL_MAIL_PASSWORD: str = ""
+    RADAL_MAIL_PASSWORD: str = ""  # Zoho app password (IMAP; SMTP when MAIL_TRANSPORT=smtp)
     # Zoho: smtp.zoho.com 465 SSL / 587 STARTTLS; imap.zoho.com 993 SSL.
     # Region hosts (smtp.zoho.eu …) exist, hence settings, not constants.
+    # The SMTP_* keys are only used when MAIL_TRANSPORT=smtp.
     RADAL_MAIL_SMTP_HOST: str = "smtp.zoho.com"
     RADAL_MAIL_SMTP_PORT: int = 465
     RADAL_MAIL_SMTP_SECURITY: str = "ssl"  # ssl | starttls | none
@@ -212,6 +227,35 @@ class Settings(BaseSettings):
                 return False
             if token in ("1", "true", "yes", "on"):
                 return True
+        return v
+
+    @field_validator("MAIL_TRANSPORT", mode="before")
+    @classmethod
+    def _check_mail_transport(cls, v):  # noqa: ANN001
+        token = (v or "").strip().lower() if isinstance(v, str) else v
+        if token == "":
+            return cls.model_fields["MAIL_TRANSPORT"].default
+        if token not in ("ses", "smtp"):
+            raise ValueError("MAIL_TRANSPORT must be one of: ses, smtp")
+        return token
+
+    @field_validator("MAIL_SENT_COPY", mode="before")
+    @classmethod
+    def _check_mail_sent_copy(cls, v):  # noqa: ANN001
+        token = (v or "").strip().lower() if isinstance(v, str) else v
+        if token == "":
+            return cls.model_fields["MAIL_SENT_COPY"].default
+        if token not in ("imap_append", "none"):
+            raise ValueError("MAIL_SENT_COPY must be one of: imap_append, none")
+        return token
+
+    @field_validator("SES_REGION", "MAIL_SENT_FOLDER", mode="before")
+    @classmethod
+    def _blank_is_default(cls, v, info: ValidationInfo):  # noqa: ANN001
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "":
+                return cls.model_fields[info.field_name].default
         return v
 
     @field_validator("RADAL_MAIL_SMTP_SECURITY", "RADAL_MAIL_IMAP_SECURITY", mode="before")

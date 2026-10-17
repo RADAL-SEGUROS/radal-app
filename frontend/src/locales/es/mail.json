@@ -6,9 +6,11 @@
   "noView": "Tu rol no puede ver las casillas de correo.",
   "radal": {
     "title": "Casilla de Radal",
-    "description": "Lista para usar, sin configurar nada. Los correos salen a nombre de tu corredora y las respuestas llegan a Radal.",
+    "description": "Lista para usar, sin configurar nada. Radal envía con Amazon SES desde {{address}}, a nombre de tu corredora, y las respuestas se leen desde esa casilla de Zoho.",
+    "descriptionSmtp": "Lista para usar, sin configurar nada. Radal envía por el SMTP de Zoho desde {{address}}, a nombre de tu corredora, y las respuestas se leen desde esa misma casilla.",
     "address": "Dirección",
     "displayName": "Nombre visible",
+    "transport": "Envío",
     "readOnly": "Solo lectura",
     "sendingOff": "En este entorno el envío real está apagado: los correos quedan registrados, pero no salen."
   },

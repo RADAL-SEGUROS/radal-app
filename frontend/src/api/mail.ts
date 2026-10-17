@@ -2,8 +2,9 @@
  * Mail — the broker's mailboxes (v12, `docs/v12/04-mail.md`, 02 §6).
  *
  * `GET /mail/accounts` always leads with a VIRTUAL, read-only entry (`id: null`,
- * `kind: "radal_system"`) describing the Radal sender (`contacto@radalseguros.cl`
- * on Zoho) that every broker can use out of the box, followed by the custom
+ * `kind: "radal_system"`) describing the Radal sender (`contacto@radalseguros.cl`,
+ * sent through Amazon SES; replies read from that Zoho mailbox — `transport` /
+ * `transport_label` say which) that every broker can use out of the box, followed by the custom
  * SMTP/IMAP mailboxes the caller may see, plus the provider picker (Google /
  * Microsoft come back `available: false` with the server's "pronto" reason —
  * the UI shows them disabled, never as a dead button).
@@ -48,6 +49,10 @@ export interface MailAccount {
   /** True when sending is live (`MAIL_ENABLED`); otherwise mail is only recorded. */
   mail_enabled: boolean;
   can_manage: boolean;
+  /** Radal system entry only: how it sends (`MAIL_TRANSPORT`); `null` on broker mailboxes. */
+  transport?: "ses" | "smtp" | null;
+  /** Radal system entry only: the server's Spanish one-liner, e.g. "Amazon SES · respuestas a … (Zoho)". */
+  transport_label?: string | null;
 }
 
 export interface MailProviderOption {
