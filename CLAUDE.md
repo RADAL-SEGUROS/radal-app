@@ -77,8 +77,8 @@ through `backend/scripts/migrate_case_files.py` before the branch is pushed.
 `https://dev.radalseguros.cl`): v9 the broker journey (`docs/handoff-2026-09-09-v9.md`), v10 the
 analysis destinations + expediente completo (`docs/handoff-2026-09-10-v10.md`, tech-ref §17), v11
 Portafolio/Asegurados (§18 — its rule still applies to every request: a list needs **an origin, a
-classifier and an owner**, or it renders permanently empty and reads as a broken app). **v12 is built on
-`feat/v12-policies-cobranza` but NOT committed, deployed or migrated** — read
+classifier and an owner**, or it renders permanently empty and reads as a broken app). **v12 is committed (`5447c7b`), pushed to `dev`, deployed and the
+dev RDS is migrated (2026-10-17)** — read
 `docs/handoff-2026-10-17-v12.md` (as-built, candid error log, what is owed) and
 `docs/technical-reference.md` **§19** (the spec); the build contract is `docs/v12/`. v12 makes
 **Pólizas the home** (`/` → `/policies`; journeys are **partial** — a PDF, a manual entry, portal quotes
@@ -105,15 +105,16 @@ lists, summaries and exports (`POST /exports/{entity}`, XLSX + PDF). **"Ver expe
 handoffs for the arc, plus `docs/deployment.md` (stale on NAT/CI — see `deploy/v12/README.md` §6) and
 `docs/usuarios-de-prueba.md`; delegate to `.claude/agents/`.
 
-**Deploy state / traps.** The dev RDS carries the **v9 schema + blank baseline**. **v12 NEEDS a
-migration, before the push:** `migrate_case_files --dialect mysql --pass v12` (review: 27 tables, 28
-columns) → snapshot → `--apply` → `python -m scripts.seed_v12 --apply`; then the v12 env keys
-(`CREDENTIALS_KEY` first) and the dry-run `deploy/v12/` scripts. **Verified 2026-10-17: the dev backend Lambda has NO
-internet egress** (default-VPC public subnets, no NAT/endpoints — dev AI calls die at the 30 s timeout); fix = `fck-nat.sh`
-mode C (`deploy/v12/README.md` §0). **Forpay is paused** until the team meets Forpay; Zoho lives on `radal.ai`, not
-`radalseguros.cl` (Google MX) — confirm `RADAL_MAIL_ADDRESS` before `MAIL_ENABLED=true`. CI
-(`.github/workflows/deploy-backend-dev.yml` / `deploy-frontend-dev.yml`, OIDC) fires on push to `dev`.
-**Still owed / watch:** the **full QA walk has never been run**; the backend image builds Chromium;
+**Deploy state / traps.** Dev runs **v12** (`5447c7b`); its RDS was migrated **inside the VPC** via the one-off
+job `db.migrate` (RDS stays private — never make it public; snapshot `radal-dev-db-pre-v12-20261017`), seeded with the
+catalogue and the demo broker *Corredora Demo SpA*. The backend Lambda now egresses through **fck-nat** (EIP
+3.230.124.80, private subnets 172.31.96–97.0/24, S3 gateway endpoint), timeout 120 s, CloudFront origin 60 s.
+EventBridge schedules (`radal-dev` group) run `fx.daily`, `collection.clock`, `collection.notices`,
+`collection.inquiries`, `notifications.expire` — **LWA 0.7.0 only accepts HTTP-shaped events**, so schedules send an
+HTTP v2 envelope to `POST /events`. **Forpay is paused**; Zoho lives on `radal.ai` and mail is OFF until its
+credentials exist. The account's **Lambda concurrency limit is 10** (raise to 1000 requested) — full details in
+`deploy/v12/README.md` §0b. CI (`.github/workflows/deploy-backend-dev.yml` / `deploy-frontend-dev.yml`, OIDC) fires
+on push to `dev`. **Still owed / watch:** the **full QA walk has never been run**; the backend image builds Chromium;
 **money-core extraction is unreliable** under tool-calling; the **vision fallback is stubbed**;
 comparison align can run **minutes** (do NOT change the buffered invoke mode, OAC constraint 4); real
 HDI / Zoho never exercised. Locally, run the backend with `MEDIA_BACKEND=local` (else

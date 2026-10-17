@@ -76,6 +76,19 @@ No API Gateway, no EventBridge schedules, no SES identities exist yet. CI workfl
 `RADAL_MAIL_ADDRESS` to the real Zoho mailbox (presumably `contacto@radal.ai`), or move/extend
 `radalseguros.cl` mail (MX + SPF `include:zohomail.com` + Zoho DKIM) before `MAIL_ENABLED=true`.
 
+## 0b. APPLIED to dev on 2026-10-17 (deploy of `5447c7b`)
+
+| what | result |
+|---|---|
+| `fck-nat.sh` mode C | NAT instance `radal-dev-nat` (t4g.nano, fck-nat 1.4.0, ASG of 1), EIP **3.230.124.80**, static ENI `eni-04a8460092f573981`, private subnets `subnet-0b6e7d056fdf8216e` (172.31.96.0/24, 1a) + `subnet-0fe29528eb50f5082` (172.31.97.0/24, 1b), route table `rtb-0ff0754ae882224a3`, S3 gateway endpoint. **The backend Lambda now runs on the private subnets.** Verified: a real agent turn on dev answered in 6.6 s (DeepInfra), RDS reachable. |
+| timeouts | Lambda `radal-backend-dev` 30 → **120 s**; CloudFront backend origin read timeout 30 → **60 s** (60 is the max without a quota increase) |
+| RDS migration | manual snapshot **`radal-dev-db-pre-v12-20261017`**, then — RDS stays private — the migration ran **inside the VPC** through the new one-off job `db.migrate` (`app/jobs/maintenance.py`, gated by `JOBS_TOKEN` + `ALLOW_DB_MAINTENANCE=true`): 27 tables (create_all) + 28 columns + 6 indexes + 5 FKs, zero drift. Then `db.seed_catalog` (18 ramos / 54 subtipos, 25 insurer profiles) and `db.seed_demo` (Corredora Demo SpA, 8 PDFs uploaded to S3). `ALLOW_DB_MAINTENANCE` was removed from the env afterwards. |
+| env | `deploy/backend.env` gained `CREDENTIALS_KEY`, `JOBS_TOKEN`, `JOBS_EVENTS_ENABLED`, `PUBLIC_APP_URL`, `PUBLIC_API_URL`, `MAIL_ENABLED=false`, `RPA_ENABLED=false`, `RPA_INLINE=false`, `FX_SOURCE_URL`. Backups: `backend.env.bak-2026-10-17-pre-v12`, `backend.env.v12-keys-backup-2026-10-17` (**keep it — losing `CREDENTIALS_KEY` makes stored secrets unreadable**). |
+| schedules | group `radal-dev`, role `radal-scheduler-dev`; ENABLED: `fx.daily`, `collection.clock`, `collection.notices`, `collection.inquiries`, `notifications.expire`. NOT created (integration off): `mail.poll`, `payments.sync`, `payments.payouts`, `rpa.run`. **LWA 0.7.0 does NOT pass bare events through** (they arrive as `GET /` → 404), so `schedules.sh` now sends a Function-URL-style **HTTP v2 envelope** (POST `/events` + `{job, token}` body); verified end to end with a one-time `noop` schedule. |
+| Forpay | paused by decision; the demo provider account was *Verificar*-ed and failed (points at a dead URL) → every insurer resolves to *Asistida*. |
+| Lambda concurrency | the account limit is **10** (new-account default) — the live smoke throttled the frontend Lambda (429). Requested **1000** via Service Quotas (request `861e2093096845a4a6c51381233a39a2JIe4WtHV`, PENDING). Mitigation shipped: `frontend/server.cjs` now serves `/assets/*` with `max-age=31536000, immutable`, so CloudFront stops re-fetching every chunk from the Lambda. |
+| `fx.daily` | mindicador.cl did not answer (also from outside AWS) on deploy day → the job records `failed`; rates fall back to the latest stored value (the demo seeded 61 days). |
+
 ## 1. Egress — `fck-nat.sh`
 
 **Recommendation (08-infra §1): fck-nat now, NAT Gateway later.**

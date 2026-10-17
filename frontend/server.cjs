@@ -7,9 +7,17 @@ const path = require('path');
 const app = express();
 const dist = path.join(__dirname, 'dist');
 
+// Vite fingerprints everything under /assets (content hash in the filename), so those files
+// never change and CloudFront may keep them for a year. Without this, express's default
+// `max-age=0` made CloudFront re-fetch every chunk from this Lambda on every page load, and a
+// single visit could exhaust the account's Lambda concurrency (429s seen on dev, 2026-10-17).
 app.use(express.static(dist, {
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache');
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
   },
 }));
 

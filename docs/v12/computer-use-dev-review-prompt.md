@@ -1,8 +1,10 @@
 # Handoff prompt — reviewing Radal v12 on the REAL dev cloud with computer use
 
 Target: **https://dev.radalseguros.cl** (AWS: CloudFront → Lambda, RDS MySQL, S3, DeepInfra AI). This is the
-deployed build, not a local demo. Unlike the local review, **AI is ON** (real extraction, comparison and agent),
-**scheduled jobs run** (cuota clock, UF/USD rates), and files go to S3. Mail is still OFF (no Zoho credentials yet),
+deployed build, not a local demo. Unlike the local review, **AI is ON** (real extraction, comparison and agent — verified: GLM-5.3 answers in ~7 s),
+**scheduled jobs run** (cuota clock 06:30, notices 09:00, inquiries 10:00, UF/USD 08:00 Chile time — mindicador.cl was
+not answering on deploy day, so `fx.daily` may show as failed; rates fall back to the last loaded value), and files go
+to S3. Mail is still OFF (no Zoho credentials yet),
 Forpay is PAUSED by decision, and the HDI portal is not connected.
 
 ## For the human, before starting
@@ -28,6 +30,8 @@ have access to the code and you do not fix anything. Write your report in **Span
 - Every write you make (payments, policies, links) stays in dev. That is fine, but name anything you create
   with the prefix **"QA "** so the team can find it.
 - Take a screenshot for every finding. Note the exact URL and the time (Chile).
+- The AWS account's Lambda concurrency limit was 10 at deploy time (an increase to 1000 was requested). If you see a
+  page that half-loads or a "429", reload once and note it as a finding with the time.
 - If something takes longer than 60 s, note it, take a screenshot and move on. The cloud cuts requests at
   60 s; a long AI comparison may hit that limit, and that is a finding.
 
@@ -41,7 +45,9 @@ have access to the code and you do not fix anything. Write your report in **Span
 
 Public share links (open them in a private/incognito window, logged out):
 ```
-<filled in by the orchestrator after seeding dev — see docs/v12/dev-demo-links.md>
+https://dev.radalseguros.cl/s/HC1KFTUmVwzZYXHxuUuSkSiemayTeVC_   (insurer · consulta INQ)
+https://dev.radalseguros.cl/s/HsWb9LqBbq8dlKkD7GTvH2GqR8KvOYKq   (insured · Transportes del Sur · cuotas HDI)
+https://dev.radalseguros.cl/s/qZJgVZhu_w_OHYBU5ovHELwVF5H7be22   (insurer · Sura · póliza 5520-0001)
 ```
 
 ### What v12 is (the features to judge)
@@ -100,7 +106,7 @@ Public share links (open them in a private/incognito window, logged out):
      user see?).
    - Generate the propuesta.
    - Judge the comparison's quality: does the table read correctly, and does the recommendation make sense?
-8. **Agente:** activate the *Revisión de cobranza* skill and ask "¿Qué cuotas están en riesgo y qué le
+8. **Agente:** activate the *Revisar cobranza* skill and ask "¿Qué cuotas están en riesgo y qué le
    pregunto a cada compañía?". Check the answer against the Cobranza screen. Ask it to register a payment:
    it must PROPOSE, and only write after you confirm.
 9. **Configuración** (all tabs, as admin): approve one template only and check the others are unaffected.

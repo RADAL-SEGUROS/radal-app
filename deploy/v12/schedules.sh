@@ -101,8 +101,23 @@ while IFS='|' read -r JOB EXPR; do
     case " $ONLY " in *" $JOB "*) ;; *) continue;; esac
   fi
   NAME="$SCHEDULE_PREFIX-$(printf '%s' "$JOB" | tr '.' '-')"
-  INPUT="{\\\"job\\\":\\\"$JOB\\\",\\\"token\\\":\\\"$JOBS_TOKEN\\\"}"
-  TARGET="{\"Arn\":\"$LAMBDA_ARN\",\"RoleArn\":\"$ROLE_ARN\",\"Input\":\"$INPUT\",\"RetryPolicy\":{\"MaximumRetryAttempts\":$RETRY_ATTEMPTS,\"MaximumEventAgeInSeconds\":$MAX_EVENT_AGE_S}}"
+  # Lambda Web Adapter 0.7.0 does NOT pass bare non-HTTP events through (verified 2026-10-17: it
+  # turns them into "GET /" -> 404). So the scheduler sends a Function-URL-style HTTP v2 event:
+  # POST /events with the {job, token} JSON body, which 0.7.0 forwards as a normal request.
+  TARGET=$(JOB="$JOB" TOKEN="$JOBS_TOKEN" ARN="$LAMBDA_ARN" ROLE="$ROLE_ARN" RETRY="$RETRY_ATTEMPTS" AGE="$MAX_EVENT_AGE_S" python3 -c '
+import json, os
+body = json.dumps({"job": os.environ["JOB"], "token": os.environ["TOKEN"]})
+event = {"version": "2.0", "routeKey": "$default", "rawPath": "/events", "rawQueryString": "",
+         "headers": {"content-type": "application/json"},
+         "requestContext": {"http": {"method": "POST", "path": "/events", "protocol": "HTTP/1.1",
+                                     "sourceIp": "127.0.0.1", "userAgent": "eventbridge-scheduler"},
+                            "accountId": "anonymous", "apiId": "scheduler", "domainName": "scheduler",
+                            "domainPrefix": "scheduler", "requestId": "scheduler", "routeKey": "$default",
+                            "stage": "$default", "time": "01/Jan/2026:00:00:00 +0000", "timeEpoch": 0},
+         "body": body, "isBase64Encoded": False}
+print(json.dumps({"Arn": os.environ["ARN"], "RoleArn": os.environ["ROLE"], "Input": json.dumps(event),
+                  "RetryPolicy": {"MaximumRetryAttempts": int(os.environ["RETRY"]),
+                                  "MaximumEventAgeInSeconds": int(os.environ["AGE"])}}))')
   FOUND=$(aws_read scheduler get-schedule --name "$NAME" --group-name "$SCHEDULE_GROUP" --query Name)
   if [ -z "$FOUND" ]; then VERB=create-schedule; else VERB=update-schedule; fi
   note "$JOB  $EXPR  -> $NAME ($VERB)"
@@ -119,5 +134,5 @@ EOF
 log "Done: $COUNT schedule(s). Before they do anything the Lambda env (S3 deploy/backend.env) needs:"
 note "JOBS_TOKEN=<same token>  JOBS_EVENTS_ENABLED=true   — otherwise POST /events answers 404 and every run is a no-op"
 note "verify: aws lambda invoke --profile $PROFILE --region $REGION --function-name $LAMBDA_FUNCTION \\"
-note "        --cli-binary-format raw-in-base64-out --payload '{\"job\":\"noop\",\"token\":\"<JOBS_TOKEN>\"}' /dev/stdout"
+note "        (send an HTTP v2 envelope: POST /events with body {\"job\":\"noop\",\"token\":\"<JOBS_TOKEN>\"} — see the TARGET builder above)"
 note "        -> {\"job\":\"noop\",\"status\":\"succeeded\",\"executed\":true,…}; then GET /api/v1/platform/jobs as a platform admin"
