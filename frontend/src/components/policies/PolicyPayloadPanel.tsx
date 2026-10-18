@@ -18,12 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Policy } from "@/api/types";
-import { useDocumentDownload } from "@/api/documents";
-import {
-  DisabledHint,
-  Section,
-  resolveFileUrl,
-} from "@/components/common/kit";
+import { DisabledHint, Section } from "@/components/common/kit";
+import { PreviewDocButton } from "@/components/common/DownloadDocButton";
 import { asRows, humanizePath, renderValue } from "@/pages/policies/shared";
 import { POLICY_CORE_FIELD_LABEL, enumLabel } from "@/i18n/labels";
 
@@ -196,11 +192,9 @@ export function PolicyPayloadPanel({ policy }: { policy: Policy }) {
   );
 }
 
-/** Prominent "Abrir archivo original" — resolves the presigned URL, opens it. */
+/** Prominent "Abrir archivo original" — a fresh link on click (`lib/download.ts`). */
 export function OpenSourceLink({ documentId }: { documentId: number | null }) {
   const { t } = useTranslation("postsale");
-  const download = useDocumentDownload(documentId ?? undefined, documentId != null);
-  const url = resolveFileUrl(download.data?.url);
 
   if (documentId == null) {
     return (
@@ -213,21 +207,13 @@ export function OpenSourceLink({ documentId }: { documentId: number | null }) {
     );
   }
 
-  if (!url) {
-    return (
-      <Button size="sm" variant="secondary" disabled>
-        <FileText className="h-4 w-4" />
-        {download.isError ? t("policy.overview.noSource") : t("policy.overview.opening")}
-      </Button>
-    );
-  }
-
   return (
-    <Button size="sm" variant="secondary" asChild>
-      <a href={url} target="_blank" rel="noreferrer">
-        <ExternalLink className="h-4 w-4" />
-        {t("policy.extracted.openSource")}
-      </a>
-    </Button>
+    <PreviewDocButton
+      documentId={documentId}
+      variant="secondary"
+      size="sm"
+      icon={<ExternalLink className="h-4 w-4" aria-hidden />}
+      label={t("policy.extracted.openSource")}
+    />
   );
 }

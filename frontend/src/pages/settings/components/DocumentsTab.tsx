@@ -24,7 +24,6 @@ import {
 import { DataTable } from "@/components/common/DataTable";
 import {
   useDeleteDocument,
-  useDocumentDownload,
   useDocuments,
   useUpdateDocument,
   useUploadDocument,
@@ -32,6 +31,8 @@ import {
 import { useAuth } from "@/providers/AuthProvider";
 import { useModulePermissions } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/format";
+import { downloadDocument } from "@/lib/download";
+import { apiError } from "@/components/common/kit";
 import {
   DOCUMENT_CATEGORIES,
   ENTITY_TYPES,
@@ -51,18 +52,11 @@ import { DOCUMENT_CATEGORY_LABEL, ENTITY_TYPE_LABEL, enumLabel } from "@/i18n/la
 
 const ALL = "__all__";
 
-/** Download is a two-step: ask for a short-lived URL, then open it. */
+/** Download is a two-step: a fresh short-lived link, then open it
+ *  (`lib/download.ts`: presigned S3 direct, local bytes via the auth blob). */
 function DownloadButton({ doc }: { doc: RadalDocument }) {
   const { t } = useTranslation("settings");
-  const [wanted, setWanted] = React.useState(false);
-  const { data } = useDocumentDownload(doc.id, wanted);
-
-  React.useEffect(() => {
-    if (wanted && data?.url) {
-      window.open(data.url, "_blank", "noopener,noreferrer");
-      setWanted(false);
-    }
-  }, [wanted, data]);
+  const [busy, setBusy] = React.useState(false);
 
   return (
     <Button
@@ -70,7 +64,13 @@ function DownloadButton({ doc }: { doc: RadalDocument }) {
       size="icon"
       className="h-8 w-8"
       aria-label={t("documents.download")}
-      onClick={() => setWanted(true)}
+      disabled={busy}
+      onClick={() => {
+        setBusy(true);
+        downloadDocument(doc.id, doc.original_name)
+          .catch((error: unknown) => toast.error(apiError(error, t("documents.download"))))
+          .finally(() => setBusy(false));
+      }}
     >
       <Download />
     </Button>

@@ -42,6 +42,10 @@ GLOBAL rows (`broker_id NULL`, `is_template=true`).
 | PATCH | `/policies/{id}` | Policies.Edit [B] | "Completar" — only fills NULL fields; changing a non-null field requires `correction_reason` and writes an activity with before/after |
 | PUT | `/policies/{id}/parties` | Policies.Edit [B] | replace parties; validates exactly one `policyholder`, ≥1 `insured`; payer optional |
 | POST | `/policies/upload` | Policies.Create [B] | EXISTING. Change: sets `origin=reader`, `has_source_document=true`, attaches/creates colocación by rule; **also commits the extracted payment schedule** into `collection_plan`+installments (`source=reader`) when the Σ check passes (otherwise leaves a warning, as today). |
+| GET | `/policies/{id}/technical-read` | Policies.View [B] | **fast reading** (docs/v12/11): the newest non-discarded technical read of the policy's PDF as `TechnicalRead`, or `{status:"none"}` |
+| POST | `/policies/{id}/technical-read[?force=true]` | Policies.Create [B] | runs the 3 technical groups in parallel on the source PDF; one `extraction` row (`policy-technical-v1`); returns `TechnicalRead`. Unconfirmed `ready`/live `running` returned as-is unless `force`. 409 `no_source_document`; all groups failed = 200 `status:"failed"` + `error_code` |
+| POST | `/policies/{id}/technical-read/{extraction_id}/confirm` | Policies.Create [B] | body `{sections?: [items, coverages, deductibles, warranties, exclusions, particular_clauses, limits]}` (default all). Fills only EMPTY policy fields (differences → `warnings`), upserts warranties, merges sections into `payload`, Activity `policy.technical_confirmed`. 409 `technical_read_confirmed`/`_dismissed`/`_not_ready` |
+| POST | `/policies/{id}/technical-read/{extraction_id}/discard` | Policies.Create [B] | marks the read dismissed (`raw_output.dismissed`); writes nothing to the policy; 409 if already confirmed |
 
 **As built (§2):**
 - `POST /policies` has two modes. The v12 manual entry (colocación on demand, parties, **409** on a duplicate number) runs when the
@@ -59,9 +63,42 @@ GLOBAL rows (`broker_id NULL`, `is_template=true`).
 - `POST /policies/upload` with no folder needs `insurance_subtype_id` (422 otherwise); the insured comes from `client_id` or the
   extracted RUT (a client is created when the broker lacks it), else 422 `insured_unresolved`. Committed cuotas are always `pending`;
   an existing non-reader plan, or one with payments, is never overwritten (warning).
+- `POST /policies/upload` body gains `insurer_id` — the broker's explicit choice when the PDF names the insurer without rut/cmf.
+  Without it (and no account proposal to infer from) → 422 `{code:"insurer_unresolved", reason, field:"insurer", read_name,
+  suggestions:[{id,name,rut,cmf_code}] (≤ 3, name-token SUGGESTIONS only), extraction_id}`; an id the broker cannot see → 422
+  `{code:"insurer_not_found", reason, field:"insurer_id", insurer_id}`; a PDF that states rut/cmf ignores it (warning on mismatch).
+  The retry re-uses the unconfirmed core read of the same document from the last 30 min (no second AI call). Re-post every prior
+  choice (`create_client`, `client_id`, `insurer_id`): each 422 rolls the attempt back.
 - `PolicyDetail` adds `parties[]`, `missing[]`, `operability[] {feature, enabled, reason, missing[]}`, `collection_summary
   {plan_id, state, next_due_date, next_due_amount_uf, overdue_count, overdue_uf, level, level_reason, installments_count,
   paid_count}`, `journey`. Shapes: `app/schemas/policy.py` (`PolicyRead`, `PolicyDetail`, `PolicySummary`, `PartiesReplace`).
+
+**Fast reading (docs/v12/11, as built 2026-10-18):**
+- `POST /policies/upload` runs only the **core** read — `core_identity_money` + `core_plan` in parallel, 50 s per call —
+  into the unchanged commit path; row `prompt_version="policy-core-v1"`, `raw_output.groups.{name}.{seconds, prompt_tokens,
+  completion_tokens, finish_reason}`. Response adds `"technical_read": {"status": "pending"}`. Read beneficiaries become
+  `policy_party(role=beneficiary, beneficiary_kind)` and further insureds `additional_insured` (only when none exist). One failed
+  core group = the typed AI error as before (504 `ai_timeout` / 502 / 422 `ai_parse` / 503).
+- Technical-read errors are structured `detail = {code, message}` (Spanish): `not_found` (404, also another tenant's policy),
+  `no_source_document` (409), `technical_read_confirmed|technical_read_dismissed|technical_read_not_ready` (409), AI failures via
+  `services/ai_error_copy.ai_user_error` (`ai_timeout` 504 · `ai_unavailable` 502/503 · `ai_parse` 422 · `document_unavailable` 422,
+  same `X-Radal-AI-Error` header).
+- `TechnicalRead` example (`ready`, one group failed):
+
+```json
+{"status": "ready", "extraction_id": 812, "started_at": "2026-10-18T14:02:11Z", "finished_at": "2026-10-18T14:02:47Z",
+ "error_code": null, "message": "No se pudo leer: deducibles, garantías. El resto de los datos está listo para revisar.",
+ "sections": {"items": [{"type": "ubicación", "description": "Bodega central", "address_or_plate": "Av. Uno 123", "insured_amount_uf": "10000"}],
+              "coverages": [{"code": "POL120130", "name": "Incendio", "limit_uf": "17920", "sublimit_text": "Remoción de escombros 10%"}],
+              "deductibles": [], "warranties": [],
+              "exclusions": [{"number": "1", "title": "Guerra"}], "particular_clauses": [{"number": "3", "title": "Cláusula de 72 horas"}],
+              "limits": {"indemnity_limit": "UF 17.920 por evento", "aggregate_limit_uf": "17920", "valuation_basis": "Valor de reposición",
+                         "average_rate_permille": "1.32", "cmf_policy_code": "POL120130"}},
+ "counts": {"items": 1, "coverages": 1, "deductibles": 0, "warranties": 0, "exclusions": 1, "particular_clauses": 1},
+ "section_errors": {"deductibles": "La lectura tardó más de lo esperado. Reintenta; si persiste, avísanos.",
+                    "warranties": "La lectura tardó más de lo esperado. Reintenta; si persiste, avísanos."},
+ "confirmed_sections": [], "warnings": []}
+```
 
 **Colocación-on-demand rule (team R1/2b.6):** a policy without `case_file_id` gets one: find an open `case_file(kind=account)` of the
 same client + subtype (or line) whose period contains `start_date`; else create one with `entry_origin` (`CaseEntryOrigin`; NOT `case_file.origin`, which stays the v3
@@ -232,6 +269,8 @@ Existing message/confirm/discard endpoints unchanged in shape; the tool registry
 **As built (§9):** `GET /ai/skills` rows are `{key, title, description, tools[], triggers[]}`; `GET /ai/threads/{id}/skills` also
 exists. Write tools reuse the router functions (same transaction, activity rows and errors). `run_portal_search` confirmations are
 queued for the `rpa.run` job.
+
+**Fast-reading delta (2026-10-18, tech-ref §19.18):** new READ tool `search_document_text(document_id, query, max_hits=5)` (`Documents.View`, broker-scoped 404) → `{document_id, original_name, category, query, terms[], total_matches, paragraphs_searched, hits[{paragraph, page, matched_terms[], text, before, after}], note}` — verbatim paragraphs, page numbers for PDFs, accent/case-insensitive; in the `policy_intake` and `file_check` skills.
 
 **Copilot-pass delta (2026-10-18, tech-ref §19.17)** — no schema change:
 

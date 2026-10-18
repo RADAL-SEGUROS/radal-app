@@ -1,9 +1,10 @@
 /**
- * Download / preview a stored document — authenticated.
+ * Download / preview a stored document.
  *
- * The bytes live behind `GET /documents/{id}/content`, which requires the auth
- * header, so a plain `<a href>` 401s. These buttons fetch the bytes through the
- * shared axios instance (see `lib/download.ts`) and hand the browser a Blob.
+ * Both go through `lib/download.ts`: a FRESH `GET /documents/{id}/download`
+ * link on every click, then the presigned S3 URL opened directly (no auth
+ * headers) or, on the local backend, the authenticated `…/content` bytes as a
+ * Blob. Never render a cached link into an `href` — S3 links expire.
  */
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -62,12 +63,15 @@ export function DownloadDocButton({
 export function PreviewDocButton({
   documentId,
   label,
+  icon,
   variant = "ghost",
   size = "sm",
   className,
 }: {
   documentId: number;
   label?: string;
+  /** Replaces the default eye icon (same size rules). */
+  icon?: React.ReactNode;
   variant?: ButtonVariant;
   size?: ButtonSize;
   className?: string;
@@ -91,7 +95,7 @@ export function PreviewDocButton({
       {busy ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
       ) : (
-        <Eye className="h-3.5 w-3.5" aria-hidden />
+        (icon ?? <Eye className="h-3.5 w-3.5" aria-hidden />)
       )}
       {label ?? t("actions.view")}
     </Button>

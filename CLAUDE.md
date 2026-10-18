@@ -92,7 +92,12 @@ the **Mantenedor** (`/platform`, platform users only) configures insurers/provid
 (Por hacer / Para saber; admins get Mías/Todas; to-dos go to the account **owner**); per-template approved
 reminders; status inquiries to insurers; an **RPA** framework (HDI showcase, `selectors/hdi.json`) — **portal search is "pronto"** (`PORTAL_SEARCH_ENABLED=false`,
 `GET /meta/features`; portals need each insurer's user + password to filter), code kept;
-**agent skills** (`load_skill`) + 26 tools, confirm-before-write. **WhatsApp = open door only; Google/Microsoft OAuth
+**agent skills** (`load_skill`) + 26 tools, confirm-before-write. **Fast reading** (tech-ref §19.18, `docs/v12/11-fast-reading.md`): AI reads run as **parallel field groups** —
+the policy upload reads only the core (~5–15 s; real PDFs never print the insurer's RUT/CMF, so the broker picks it
+from name suggestions, re-using the read), *Datos técnicos* are a second request that lands as a **suggestion to
+confirm**; cotizaciones read in 5 parallel calls and the comparison standardizes **by facet group**. GLM-5.3-Flash
+swings 40–150 tok/s, so calls get 90 s and the SPA recovers answers the 60 s edge cut (the Lambda finishes them).
+**WhatsApp = open door only; Google/Microsoft OAuth
 deferred.** **Verified: 1 496 backend tests; `tsc -b`/`build`/`check:locales` clean (30 ns, 5 968 keys; zero
 dynamic i18n keys — explicit maps in `frontend/src/i18n/labels.ts`); live smoke of dev at 1440/375 px.** The
 **full QA walk has never been run** — the next one is `docs/v12/computer-use-dev-review-prompt.md` (computer use on

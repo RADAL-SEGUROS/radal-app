@@ -422,6 +422,9 @@ def test_confirming_a_policy_payload_commits_the_policy(
         "insurer": {"legal_name": "HDI Seguros S.A.", "rut": "99301000-6",
                     "cmf_code": "CMF-HDI-001"},
         "total_insured_amount_uf": "UF 17.920",
+        # Fast reading fixed ``_present``: an all-null broker block no longer
+        # counts as a corredor, so the reviewed payload names the printed one.
+        "broker": {"legal_name": "Fuenzalida SR Corredores de Seguros SpA"},
         # v8: the POLICY commit now runs the fixed-core gate — a vigencia is part
         # of the minimal core, so the confirmed payload must carry it.
         "period_start_at": "2026-01-01T12:00:00Z",

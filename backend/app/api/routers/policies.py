@@ -94,6 +94,8 @@ from app.services import case_files as machine
 from app.services import catalog as catalog_service
 from app.services import extraction_commit
 from app.services import mirror as mirror_service
+from app.services import policy_reading
+from app.services import policy_reading_commit
 from app.services import policy_registry as registry
 
 router = APIRouter(prefix="/policies", tags=["policies"])
@@ -1234,7 +1236,6 @@ def upload_policy(
     the extracted payment schedule becomes its collection plan when Σ cuotas
     equals the gross premium (else a warning, as before).
     """
-    from app.models.document import DocumentCategory
 
     # The document must be in this workspace (a foreign row is a 404, never 403).
     document = ai_service.get_document(db, payload.document_id, broker_id)
@@ -1294,14 +1295,15 @@ def upload_policy(
                     status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
                 )
 
-    # SUGGEST: writes exactly one extraction row in every outcome.
+    # SUGGEST: writes exactly one extraction row in every outcome. Fast reading
+    # (docs/v12/11): only the CORE groups run here, in parallel; the technical
+    # data is a second request (``POST /policies/{id}/technical-read``).
     try:
-        result = ai_service.extract_document(
+        result = policy_reading.read_policy_core(
             db,
             document_id=document.id,
             broker_id=broker_id,
             user=current_user,
-            category=DocumentCategory.POLICY,
         )
     except ai_service.AIError as exc:
         from app.api.routers.ai import _ai_http_error
@@ -1406,6 +1408,9 @@ def upload_policy(
             user=current_user,
             override=payload.override,
             policy_client_id=upload_client.id if upload_client is not None else None,
+            # The broker's explicit insurer choice (the retry after a 422
+            # ``insurer_unresolved``) — used only when the PDF states no rut/cmf.
+            policy_insurer_id=payload.insurer_id,
         )
     except extraction_commit.CommitError as exc:
         db.rollback()
@@ -1466,6 +1471,15 @@ def upload_policy(
                     "phone": getattr(holder, "contact_phone", None),
                 }
         registry.ensure_default_parties(db, policy, policyholder=holder_data)
+        # Fast reading: the beneficiaries / acreedores the core read found.
+        policy_reading_commit.add_beneficiary_parties(
+            db,
+            policy,
+            getattr(result.payload, "beneficiaries", None),
+            additional_insureds=getattr(result.payload, "insured_parties", None),
+        )
+        if created_now and getattr(result.payload, "is_provisional_certificate", None) is True:
+            policy.is_provisional = True
 
         if on_demand and linked_existing and upload_client is not None:
             registry.notify_policy_linked_insured(
@@ -1514,6 +1528,8 @@ def upload_policy(
         core_validation=policy.core_validation,
         overridden=bool(commit_result.extra.get("overridden")),
         warnings=[*result.warnings, *commit_result.warnings, *attach_warnings],
+        # The SPA fires the technical read next (a separate request).
+        technical_read={"status": "pending"},
     )
 
 
@@ -2060,7 +2076,11 @@ def get_mirror_diff(
     """Field-by-field: what the 07 proposed vs what the 08 actually issued."""
     policy = get_policy_or_404(db, policy_id, broker_id)
     sources = mirror_service.load_sources(db, policy=policy)
-    rows = mirror_service.diff_payloads(sources.proposal_payload, sources.policy_payload)
+    rows = mirror_service.diff_payloads(
+        sources.proposal_payload,
+        sources.policy_payload,
+        include_collections=sources.policy_collections_read,
+    )
     return MirrorDiffRead(
         policy_id=policy.id,
         proposal_extraction_id=sources.proposal_extraction_id,
@@ -2083,7 +2103,11 @@ def queue_mirror_diff(
     """Turn selected diff rows into ``endorsement(status=draft)`` — suggestions."""
     policy = get_policy_or_404(db, policy_id, broker_id)
     sources = mirror_service.load_sources(db, policy=policy)
-    rows = mirror_service.diff_payloads(sources.proposal_payload, sources.policy_payload)
+    rows = mirror_service.diff_payloads(
+        sources.proposal_payload,
+        sources.policy_payload,
+        include_collections=sources.policy_collections_read,
+    )
     if payload.paths:
         wanted = set(payload.paths)
         rows = [row for row in rows if row.path in wanted]

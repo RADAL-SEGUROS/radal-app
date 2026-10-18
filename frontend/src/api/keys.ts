@@ -139,6 +139,9 @@ export const qk = {
     mirrorDiff: (id: number) => ["policies", "detail", String(id), "mirror-diff"] as const,
     warranties: (id: number) => ["policies", "detail", String(id), "warranties"] as const,
     caseFiles: (id: number) => ["policies", "detail", String(id), "case-files"] as const,
+    /** Fast reading (11): the second, technical read of the policy PDF. */
+    technicalRead: (id: number) =>
+      ["policies", "detail", String(id), "technical-read"] as const,
   },
   endorsements: {
     ...scope("endorsements"),

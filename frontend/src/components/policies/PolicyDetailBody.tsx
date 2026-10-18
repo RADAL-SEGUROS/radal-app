@@ -90,6 +90,7 @@ import {
   PolicyPayloadPanel,
 } from "@/components/policies/PolicyPayloadPanel";
 import { PolicyV12Blocks } from "@/components/policies/PolicyV12Blocks";
+import { PolicyTechnicalRead } from "@/components/policies/PolicyTechnicalRead";
 import { StatusCell } from "@/components/policies/PolicyCells";
 import { PolicyHeaderActions } from "@/components/policies/PolicyHeaderActions";
 import { toWallClock } from "@/lib/wallclock";
@@ -570,6 +571,9 @@ export function PolicyDetailBody({ policyId }: { policyId: number }) {
           <FadeUp className="flex flex-col gap-[18px]">
             <PolicyV12Blocks policy={p} />
           </FadeUp>
+
+          {/* Fast reading: the technical read, a suggestion to confirm. */}
+          <PolicyTechnicalRead policy={p} />
 
           <FadeUp>
             <Section title={t("policy.detail.identity")} description={t("policy.noonHint")}>

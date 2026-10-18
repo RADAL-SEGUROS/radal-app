@@ -17,6 +17,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { clean, qk } from "@/api/keys";
+import type { TechnicalReadStatus } from "@/api/technicalRead";
 import type {
   MirrorDiff,
   MirrorDiffQueueRequest,
@@ -229,6 +230,21 @@ export interface PolicyUploadRequestV12 extends PolicyUploadRequest {
   client_id?: number | null;
   insurance_subtype_id?: number | null;
   create_client?: boolean;
+  /**
+   * The broker's explicit insurer choice — sent on the retry after a 422
+   * `insurer_unresolved` (the PDF printed the insurer only by name). An id
+   * unknown to the server answers 422 `insurer_not_found`.
+   */
+  insurer_id?: number | null;
+}
+
+/**
+ * `POST /policies/upload` success, fast reading (docs/v12/11): the upload ran
+ * only the CORE read; `technical_read.status === "pending"` tells the SPA to
+ * fire `POST /policies/{id}/technical-read` next (`api/technicalRead.ts`).
+ */
+export interface PolicyUploadResponseV12 extends PolicyUploadResponse {
+  technical_read?: { status: "pending" | TechnicalReadStatus } | null;
 }
 
 /** The 422 body when the insured RUT read from the PDF is not in the portfolio. */
@@ -237,6 +253,36 @@ export interface PolicyInsuredUnresolved {
   reason?: string;
   suggestion?: { rut: string | null; legal_name: string | null } | null;
   extraction_id?: number;
+}
+
+/** One insurer the server matched against the name read from the PDF, best first. */
+export interface PolicyInsurerSuggestion {
+  id: number;
+  name: string;
+  rut?: string | null;
+  cmf_code?: string | null;
+}
+
+/**
+ * The 422 body when the PDF names the insurer without its RUT or CMF code, so
+ * the server cannot resolve it: the broker picks the insurer and re-posts the
+ * same document with `insurer_id` (the AI read is re-used — the retry is cheap).
+ */
+export interface PolicyInsurerUnresolved {
+  code: "insurer_unresolved";
+  reason?: string;
+  field?: "insurer";
+  /** The insurer name as printed in the PDF. */
+  read_name?: string | null;
+  suggestions?: PolicyInsurerSuggestion[];
+  extraction_id?: number;
+}
+
+/** The 422 body when the `insurer_id` sent on the upload is unknown. */
+export interface PolicyInsurerNotFound {
+  code: "insurer_not_found";
+  reason?: string;
+  message?: string;
 }
 
 /** `GET /policies` — the server sends an offset page. */
@@ -435,7 +481,7 @@ export function useUploadPolicy() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: PolicyUploadRequestV12) => {
-      const { data } = await api.post<PolicyUploadResponse>("/policies/upload", payload);
+      const { data } = await api.post<PolicyUploadResponseV12>("/policies/upload", payload);
       return data;
     },
     onSuccess: (data) => {

@@ -11,7 +11,8 @@ The core:
   * **corredor** — the placing broker must be named (the policy is the broker's
     own artifact; an issued policy with no corredor is malformed);
   * **vigencia / fecha** — a cover period start and end must be present;
-  * **prima** — the Chilean premium block must RECONCILE through the shared
+  * **prima** — the policy's OWN premium (the ``premium`` block or the top
+    level, never an installment row) must RECONCILE through the shared
     :func:`app.schemas.proposal.reconcile_money` (never re-implemented here);
   * **asegurado** — CONDITIONALLY required: skipped when the account already
     carries a complete identity (a registered ``RecordExpediente`` / a client on
@@ -89,28 +90,61 @@ def _walk(node: Any):
             yield from _walk(item)
 
 
+def _has_leaf(value: Any) -> bool:
+    """True when ``value`` carries at least one non-empty leaf.
+
+    A dict of all-null keys (``{"legal_name": null, "rut": null}`` — what every
+    schema default dumps to) is NOT a value: before this, *corredor* and
+    *asegurado* could never fail.
+    """
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_has_leaf(item) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_has_leaf(item) for item in value)
+    return True
+
+
 def _present(payload: Any, keys: tuple[str, ...]) -> bool:
     """True when any of ``keys`` appears anywhere with a non-empty value."""
     wanted = {k.lower() for k in keys}
     for key, value in _walk(payload):
         if not isinstance(key, str) or key.lower() not in wanted:
             continue
-        if value is None:
-            continue
-        if isinstance(value, str) and not value.strip():
-            continue
-        if isinstance(value, (list, dict, tuple, set)) and len(value) == 0:
-            continue
-        return True
+        if _has_leaf(value):
+            return True
     return False
 
 
-def _first_number(payload: Any, key: str) -> Any:
-    """The first non-null value found for ``key`` anywhere in the payload."""
-    for found_key, value in _walk(payload):
-        if isinstance(found_key, str) and found_key.lower() == key and value is not None:
-            return value
-    return None
+#: Where the POLICY'S premium lives. An installment row also carries
+#: ``net_premium_uf`` and must never stand in for the policy's prima.
+_PREMIUM_CONTAINERS = ("premium", "premium_summary", "money", "totals")
+
+
+def _premium_values(payload: Any) -> dict[str, Any]:
+    """The premium components of the policy itself.
+
+    Read from the ``premium`` block (the registry shape) or the top level (the
+    flat proposal shape) — never from a nested row such as an installment.
+    """
+    if not isinstance(payload, dict):
+        return {}
+    lowered = {str(k).lower(): v for k, v in payload.items()}
+    values: dict[str, Any] = {}
+    for container in _PREMIUM_CONTAINERS:
+        block = lowered.get(container)
+        if isinstance(block, dict):
+            block_lower = {str(k).lower(): v for k, v in block.items()}
+            for key in MONEY_UF_KEYS:
+                if values.get(key) is None and block_lower.get(key) is not None:
+                    values[key] = block_lower[key]
+    for key in MONEY_UF_KEYS:
+        if values.get(key) is None and lowered.get(key) is not None:
+            values[key] = lowered[key]
+    return values
 
 
 def _has_account_identity(case: Any) -> bool:
@@ -161,8 +195,7 @@ def validate_policy_core(payload: dict[str, Any] | None, case: Any = None) -> di
 
     # Premium: reconcile the components found anywhere in the payload. A single
     # taxable figure derives the rest; contradictions come back as errors.
-    money_values = {key: _first_number(payload, key) for key in MONEY_UF_KEYS}
-    money_values = {k: v for k, v in money_values.items() if v is not None}
+    money_values = {k: v for k, v in _premium_values(payload).items() if v is not None}
     money_errors: list[dict[str, Any]] = []
     prima_present = bool(
         money_values.get("total_premium_uf")

@@ -67,6 +67,9 @@ import type {
   WarrantyStatus,
 } from "@/api/types";
 
+import type { AiErrorCode } from "@/lib/aiErrors";
+import type { TechnicalSection } from "@/api/technicalRead";
+
 type LabelMap = Readonly<Record<string, string>>;
 
 /** Any translate function — a `useTranslation()` `t`, `i18n.t`, or a wrapper. */
@@ -915,3 +918,31 @@ export const INSURER_MATCHED_ON_LABEL = {
   cmf_code: "proposals:upload.matchedOn.cmf_code",
 } as const satisfies Record<NonNullable<InsurerMatchResult["matched_on"]>, string>;
 
+
+// =============================================================================
+// Fast reading (docs/v12/11) — honest AI failures, the technical read
+// =============================================================================
+
+/** `TechnicalRead.error_code` and the start request's failure, by code. */
+export const TECHNICAL_READ_ERROR_LABEL = {
+  ai_timeout: "policies:technical.errors.ai_timeout",
+  ai_unavailable: "policies:technical.errors.ai_unavailable",
+  ai_parse: "policies:technical.errors.ai_parse",
+} as const satisfies Record<AiErrorCode, string>;
+
+/** The comparison's AI failures — a timeout is NOT "proveedor no disponible". */
+export const COMPARISON_AI_ERROR_LABEL = {
+  ai_timeout: "comparison:aiError.ai_timeout",
+  ai_unavailable: "comparison:aiError.ai_unavailable",
+  ai_parse: "comparison:aiError.ai_parse",
+} as const satisfies Record<AiErrorCode, string>;
+
+/** The six reviewable sections of the technical read. */
+export const TECHNICAL_SECTION_LABEL = {
+  items: "policies:technical.sections.items",
+  coverages: "policies:technical.sections.coverages",
+  deductibles: "policies:technical.sections.deductibles",
+  warranties: "policies:technical.sections.warranties",
+  exclusions: "policies:technical.sections.exclusions",
+  particular_clauses: "policies:technical.sections.particular_clauses",
+} as const satisfies Record<TechnicalSection, string>;

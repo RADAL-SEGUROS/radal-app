@@ -59,9 +59,10 @@ import {
   StatusBadge,
   apiError,
   permille,
-  resolveFileUrl,
   uf,
 } from "@/pages/proposals/shared";
+import { PreviewDocButton } from "@/components/common/DownloadDocButton";
+import { previewDocument } from "@/lib/download";
 import {
   OFFERING_CHANNEL_LABEL,
   OFFERING_STATUS_LABEL,
@@ -281,7 +282,8 @@ function PdfPanel({ offering }: { offering: Offering }) {
   const pdf = useOfferingPdf(offering.id, offering.pdf_document_id !== null);
   const regenerate = useRegenerateOfferingPdf(offering.id);
   const canEdit = useCan("Offerings", "Edit");
-  const fileUrl = resolveFileUrl(pdf.data?.url);
+  // The link is re-minted on click (S3 links expire): only the id is kept.
+  const pdfId = pdf.data?.id ?? null;
 
   return (
     <FadeUp delay={0.1}>
@@ -319,13 +321,14 @@ function PdfPanel({ offering }: { offering: Offering }) {
               <p className="text-caption text-text-muted">{t("detail.pdfStub")}</p>
             </div>
           </div>
-          {fileUrl ? (
-            <Button variant="secondary" size="sm" asChild>
-              <a href={fileUrl} target="_blank" rel="noreferrer">
-                <Download className="h-4 w-4" />
-                {t("detail.openPdf")}
-              </a>
-            </Button>
+          {pdfId != null ? (
+            <PreviewDocButton
+              documentId={pdfId}
+              variant="secondary"
+              size="sm"
+              icon={<Download className="h-4 w-4" aria-hidden />}
+              label={t("detail.openPdf")}
+            />
           ) : (
             <DisabledHint hint={t("detail.pdfUnavailable")}>
               <Button variant="secondary" size="sm" disabled>
@@ -382,10 +385,13 @@ function SharePanel({ offering }: { offering: Offering }) {
     stamp("email");
   };
 
-  const pdfUrl = resolveFileUrl(pdf.data?.url);
+  const pdfUrl = pdf.data?.url ?? null;
 
   const openDownload = () => {
-    if (pdfUrl) window.open(pdfUrl, "_blank", "noopener");
+    if (!pdf.data) return;
+    previewDocument(pdf.data.id).catch((error: unknown) =>
+      toast.error(apiError(error, tc("toast.error"))),
+    );
     stamp("download");
   };
 

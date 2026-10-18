@@ -10,7 +10,12 @@
  * RBAC reuses the `Proposals` module (View / Create / Edit; promote =
  * `Proposals.Approve`).
  */
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import api from "@/lib/api";
 import { qk } from "@/api/keys";
 import type {
@@ -49,6 +54,37 @@ export function useComparison(comparisonId: number | undefined) {
       return data;
     },
   });
+}
+
+/**
+ * Re-read the comparison until `done(comparison)` holds — the recovery path
+ * when an entry upload / align lost its answer (network drop, a 504 from the
+ * 60 s CloudFront edge while the Lambda kept working for up to 120 s). Each
+ * read lands in the detail cache, so the grid updates as it goes. Resolves to
+ * the matching comparison, or `null` when the server never got there.
+ */
+export async function pollComparison(
+  qc: QueryClient,
+  comparisonId: number,
+  done: (comparison: Comparison) => boolean,
+  { attempts = 14, intervalMs = 5_000, signal }: {
+    attempts?: number;
+    intervalMs?: number;
+    signal?: { cancelled: boolean };
+  } = {},
+): Promise<Comparison | null> {
+  for (let i = 0; i < attempts; i += 1) {
+    if (signal?.cancelled) return null;
+    try {
+      const { data } = await api.get<Comparison>(`/comparisons/${comparisonId}`);
+      qc.setQueryData(qk.comparisons.detail(comparisonId), data);
+      if (done(data)) return data;
+    } catch {
+      /* a transient failure: keep polling */
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return null;
 }
 
 /** POST /comparisons — create-or-get the account's live comparison. */

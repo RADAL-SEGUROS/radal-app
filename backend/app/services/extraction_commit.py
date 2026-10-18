@@ -141,6 +141,9 @@ class _Ctx:
     #: the folder). A policy CREATED by this commit is registered under it, not
     #: under the folder's primary RUT. Ignored by every other target.
     policy_client_id: int | None = None
+    #: v12 policy: the broker's explicit choice of the issuing insurer, used
+    #: only when the payload states no insurer rut/cmf (never matched by name).
+    policy_insurer_id: int | None = None
 
     @property
     def user_id(self) -> int | None:
@@ -1741,6 +1744,113 @@ def _commit_compliance_notice(ctx: _Ctx) -> CommitResult:
     )
 
 
+def _insurer_visibility(broker_id: int):
+    """The SAME rule as ``GET /insurers`` (``routers.insurers._visible_insurers``):
+    insurers are canonical (no ``broker_id``), a broker sees every native or
+    global company plus the external ones it created itself."""
+    from sqlalchemy import or_
+
+    from app.models.insurer import Insurer
+
+    return or_(
+        Insurer.is_native.is_(True),
+        Insurer.created_by_broker_id.is_(None),
+        Insurer.created_by_broker_id == broker_id,
+    )
+
+
+def _visible_insurer(db: Session, broker_id: int, insurer_id: int):
+    from app.models.insurer import Insurer
+
+    return db.scalars(
+        select(Insurer).where(Insurer.id == insurer_id, _insurer_visibility(broker_id))
+    ).first()
+
+
+def _read_insurer_name(insurer_ref: Any) -> str | None:
+    for attr in ("legal_name", "trade_name"):
+        value = (getattr(insurer_ref, attr, None) or "").strip()
+        if value:
+            return value
+    return None
+
+
+#: Words every insurer's name carries — dropped before comparing names, so
+#: "Southbridge Compañía de Seguros Generales S.A." and "SOUTHBRIDGE SEGUROS"
+#: share their DISTINCTIVE token ("southbridge").
+_INSURER_NAME_NOISE = frozenset(
+    {
+        "compania", "cia", "de", "del", "la", "las", "el", "los", "y", "e",
+        "seguros", "seguro", "generales", "general", "vida", "reaseguros",
+        "aseguradora", "asegurador", "sa", "s", "a", "spa", "ltda", "limitada",
+        "chile", "chilena", "chileno", "corp", "corporacion", "grupo", "group",
+        "insurance", "company", "co", "inc",
+    }
+)
+
+
+def _name_tokens(value: str | None) -> list[str]:
+    """Lowercase, accents stripped, split on anything not a letter/digit
+    ("S.A." -> "s", "a", both noise)."""
+    import re
+    import unicodedata
+
+    folded = "".join(
+        ch
+        for ch in unicodedata.normalize("NFKD", value or "")
+        if not unicodedata.combining(ch)
+    ).lower()
+    return [token for token in re.split(r"[^a-z0-9]+", folded) if token]
+
+
+def _distinctive_tokens(value: str | None) -> set[str]:
+    return {
+        token
+        for token in _name_tokens(value)
+        if token not in _INSURER_NAME_NOISE and len(token) >= 2
+    }
+
+
+def insurer_name_suggestions(
+    db: Session, broker_id: int, read_name: str | None, *, limit: int = 3
+) -> list[dict[str, Any]]:
+    """Catalogue insurers whose normalised name shares the distinctive token(s)
+    of the name read from the PDF — best first, at most ``limit``.
+
+    SUGGESTIONS ONLY (rule 7: an insurer is never auto-matched by name): the
+    broker confirms one and re-posts it as ``insurer_id``. Restricted to the
+    insurers the broker can see (the ``GET /insurers`` rule).
+    """
+    from app.models.insurer import Insurer
+
+    wanted = _distinctive_tokens(read_name)
+    if not wanted:
+        return []
+    all_read = set(_name_tokens(read_name))
+    scored: list[tuple[int, int, str, Any]] = []
+    for insurer in db.scalars(select(Insurer).where(_insurer_visibility(broker_id))).all():
+        names = [insurer.legal_name, insurer.trade_name]
+        tokens: set[str] = set()
+        every: set[str] = set()
+        for name in names:
+            tokens |= _distinctive_tokens(name)
+            every |= set(_name_tokens(name))
+        shared = len(wanted & tokens)
+        if not shared:
+            continue
+        scored.append((-shared, -len(all_read & every), insurer.legal_name or "", insurer))
+    scored.sort(key=lambda row: row[:3])
+    return [
+        {
+            "id": insurer.id,
+            "name": insurer.legal_name or insurer.trade_name,
+            "rut": insurer.rut,
+            "cmf_code": insurer.cmf_code,
+        }
+        for *_rank, insurer in scored[:limit]
+    ]
+
+
 def _account_insurer_id(ctx: _Ctx, case: CaseFile) -> int | None:
     """The insurer the ACCOUNT already knows, for a policy PDF that names it only
     by name (corpus-wide, real policies carry no insurer rut/cmf).
@@ -1850,6 +1960,30 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
                     f"The issuing insurer could not be identified: {exc} — identity "
                     "is matched by rut/cmf_code, never by name"
                 ) from exc
+            if ctx.policy_insurer_id is not None and ctx.policy_insurer_id != insurer.id:
+                ctx.warnings.append(
+                    "La compañía elegida por el corredor no coincide con el RUT/CMF que "
+                    f"trae el PDF; se usó la del PDF ({insurer.legal_name})."
+                )
+        elif ctx.policy_insurer_id is not None:
+            # Real policy PDFs name the insurer only by NAME: the broker's
+            # explicit choice (suggest -> confirm) resolves it, never the name.
+            insurer = _visible_insurer(db, ctx.broker_id, ctx.policy_insurer_id)
+            if insurer is None:
+                raise CommitError(
+                    {
+                        "code": "insurer_not_found",
+                        "reason": (
+                            "La compañía elegida no existe o no está disponible para "
+                            "tu corredora. Elígela de nuevo del catálogo."
+                        ),
+                        "field": "insurer_id",
+                        "insurer_id": ctx.policy_insurer_id,
+                    }
+                )
+            ctx.warnings.append(
+                "Compañía elegida por el corredor (el PDF no trae su RUT/CMF)."
+            )
         else:
             # Real policy PDFs name the insurer only by NAME. Resolve it from the
             # ACCOUNT context (the accepted proposal / placement), never by name.
@@ -1860,16 +1994,21 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
                 else None
             )
             if insurer is None:
+                read_name = _read_insurer_name(insurer_ref)
                 raise CommitError(
                     {
                         "code": "insurer_unresolved",
                         "reason": (
-                            "The policy does not state the insurer's rut/cmf and the "
-                            "account has no accepted proposal to resolve it from. Supply "
-                            "the insurer's RUT or CMF code (an insurer is never matched "
-                            "by name)."
+                            "La póliza no trae el RUT ni el código CMF de la compañía. "
+                            "Elige la compañía que la emitió."
                         ),
                         "field": "insurer",
+                        "read_name": read_name,
+                        # SUGGESTIONS only: the broker confirms one (insurer_id).
+                        "suggestions": insurer_name_suggestions(
+                            db, ctx.broker_id, read_name
+                        ),
+                        "extraction_id": ctx.extraction.id,
                     }
                 )
             ctx.warnings.append(
@@ -2354,11 +2493,15 @@ def commit_extraction(
     user: User | None,
     override: bool = False,
     policy_client_id: int | None = None,
+    policy_insurer_id: int | None = None,
 ) -> CommitResult:
     """Dispatch a confirmed payload to its category's committer.
 
     ``policy_client_id`` (POLICY only): the insured a newly created policy is
     registered under, when it is a member of the folder.
+
+    ``policy_insurer_id`` (POLICY only): the broker's explicit insurer choice
+    for a PDF that names the issuing insurer without its rut/cmf.
 
     Flushes, never commits: the caller owns the transaction and commits once
     the confirmation stamp is staged too. Raises :class:`CommitError` (-> 422)
@@ -2404,5 +2547,6 @@ def commit_extraction(
         case_file=_resolve_case_file(db, extraction, document, broker_id),
         override=override,
         policy_client_id=policy_client_id,
+        policy_insurer_id=policy_insurer_id,
     )
     return committer(ctx)

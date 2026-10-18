@@ -139,6 +139,10 @@ def create_app() -> FastAPI:
 
     app.include_router(policies.router, prefix=prefix)
     app.include_router(policies.warranties_router, prefix=prefix)
+    # Fast reading: the policy's technical data, a suggestion read in a second request.
+    from app.api.routers import policy_technical
+
+    app.include_router(policy_technical.router, prefix=prefix)
     # The policy's post-sale sub-funnel is a case-file view under /policies.
     app.include_router(case_files.policy_cases_router, prefix=prefix)
     app.include_router(endorsements.router, prefix=prefix)

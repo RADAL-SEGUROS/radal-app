@@ -35,9 +35,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { resolveFileUrl } from "@/components/common/kit";
+import { toast } from "sonner";
+import { apiError } from "@/components/common/kit";
 import { useCan } from "@/lib/permissions";
-import { useDocumentDownload } from "@/api/documents";
+import { previewDocument } from "@/lib/download";
 import type { PolicyDetail } from "@/api/policies";
 import { OpenSourceLink } from "@/components/policies/PolicyPayloadPanel";
 import { ShareDialog } from "@/components/share/ShareDialog";
@@ -78,29 +79,24 @@ function DisabledEntry({
   );
 }
 
+/** "Abrir archivo original": a fresh link on select (S3 links expire). */
 function SourceEntry({ documentId }: { documentId: number | null }) {
   const { t } = useTranslation("postsale");
-  const download = useDocumentDownload(documentId ?? undefined, documentId != null);
-  const url = resolveFileUrl(download.data?.url);
   const label = t("policy.extracted.openSource");
   if (documentId == null) {
     return <DisabledEntry icon={<FileText />} label={label} reason={t("policy.overview.noSource")} />;
   }
-  if (!url) {
-    return (
-      <DisabledEntry
-        icon={<FileText />}
-        label={label}
-        reason={download.isError ? t("policy.overview.noSource") : t("policy.overview.opening")}
-      />
-    );
-  }
   return (
-    <DropdownMenuItem asChild className="min-h-10">
-      <a href={url} target="_blank" rel="noreferrer">
-        <ExternalLink />
-        {label}
-      </a>
+    <DropdownMenuItem
+      className="min-h-10"
+      onSelect={() => {
+        previewDocument(documentId).catch((error: unknown) =>
+          toast.error(apiError(error, t("policy.overview.noSource"))),
+        );
+      }}
+    >
+      <ExternalLink />
+      {label}
     </DropdownMenuItem>
   );
 }

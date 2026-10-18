@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import { useCan } from "@/lib/permissions";
 import { useCaseFileDocuments } from "@/api/caseFiles";
+import { PreviewDocButton } from "@/components/common/DownloadDocButton";
 import { useExtractDocument } from "@/api/ai";
 import { usePolicyWarranties } from "@/api/policies";
 import type { CaseDocument, Claim, DocumentCategory } from "@/api/types";
@@ -38,7 +39,6 @@ import {
   MonoChip,
   Section,
   apiError,
-  resolveFileUrl,
 } from "@/pages/proposals/shared";
 import { PostsaleBadge, asRows, pick, renderValue } from "@/pages/policies/shared";
 import { CLAIM_RULING_LABEL, WARRANTY_STATUS_LABEL, enumLabel } from "@/i18n/labels";
@@ -132,12 +132,14 @@ function ReportCard({
 
         <div className="flex flex-wrap items-center gap-2">
           {doc ? (
-            <Button asChild variant="ghost" size="sm">
-              <a href={resolveFileUrl(doc.url) ?? "#"} target="_blank" rel="noreferrer">
-                <ExternalLink className="h-3.5 w-3.5" />
-                {t("adjuster.openDocument")}
-              </a>
-            </Button>
+            // A fresh link on click — the listed `doc.url` may have expired.
+            <PreviewDocButton
+              documentId={doc.id}
+              variant="ghost"
+              size="sm"
+              icon={<ExternalLink className="h-3.5 w-3.5" aria-hidden />}
+              label={t("adjuster.openDocument")}
+            />
           ) : null}
           <DisabledHint
             hint={

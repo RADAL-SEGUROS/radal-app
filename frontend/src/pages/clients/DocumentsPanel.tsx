@@ -2,7 +2,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Download, FileText, Loader2, Trash2, Upload } from "lucide-react";
-import api, { API_URL } from "@/lib/api";
+import { downloadDocument } from "@/lib/download";
 import { formatDateTime } from "@/lib/format";
 import { useCan } from "@/lib/permissions";
 import {
@@ -13,7 +13,6 @@ import {
 import {
   DOCUMENT_CATEGORIES,
   type DocumentCategory,
-  type DocumentDownload,
   type EntityType,
   type RadalDocument,
 } from "@/api/types";
@@ -42,7 +41,8 @@ import { CLIENT_DOCUMENT_CATEGORY_LABEL, enumLabel } from "@/i18n/labels";
  *
  * `document` is the ONLY table that holds an S3 key, so every file here is
  * fetched through `GET /documents?entity_type=&entity_id=` and opened through
- * `GET /documents/{id}/download`, which mints the (expiring) URL server-side.
+ * `GET /documents/{id}/download`, which mints the (expiring) URL server-side
+ * (`lib/download.ts`).
  */
 interface DocumentsPanelProps {
   entityType: EntityType;
@@ -100,19 +100,8 @@ export function DocumentsPanel({
   const onDownload = async (doc: RadalDocument) => {
     setDownloadingId(doc.id);
     try {
-      const { data: link } = await api.get<DocumentDownload>(
-        `/documents/${doc.id}/download`,
-      );
-      // The local backend answers with a root-relative path (`/media/...`),
-      // which must resolve against the API origin, not the SPA origin.
-      const href = /^https?:\/\//i.test(link.url)
-        ? link.url
-        : new URL(link.url, API_URL.replace(/\/api\/v1\/?$/, "/")).toString();
-      const anchor = document.createElement("a");
-      anchor.href = href;
-      anchor.target = "_blank";
-      anchor.rel = "noopener";
-      anchor.click();
+      // Fresh link, presigned S3 opened directly / local bytes via auth blob.
+      await downloadDocument(doc.id, doc.original_name);
     } catch {
       toast.error(t("clients:documents.downloadError"));
     } finally {

@@ -1,9 +1,9 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Download, FileCheck2, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useDocument, useDocumentDownload, useUploadDocument } from "@/api/documents";
+import { FileCheck2, Upload } from "lucide-react";
+import { useDocument, useUploadDocument } from "@/api/documents";
+import { DownloadDocButton } from "@/components/common/DownloadDocButton";
 import { useUpdateInspection } from "@/api/inspections";
 import type { Inspection } from "@/api/types";
 import { formatDateTime } from "@/lib/format";
@@ -30,18 +30,6 @@ export function ReportCard({
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const { data: doc } = useDocument(inspection.report_document_id ?? undefined);
-  const [wantDownload, setWantDownload] = React.useState(false);
-  const { data: download } = useDocumentDownload(
-    inspection.report_document_id ?? undefined,
-    wantDownload,
-  );
-
-  React.useEffect(() => {
-    if (wantDownload && download?.url) {
-      window.open(download.url, "_blank", "noopener,noreferrer");
-      setWantDownload(false);
-    }
-  }, [wantDownload, download]);
 
   const upload = useUploadDocument();
   const update = useUpdateInspection(inspection.id);
@@ -115,9 +103,14 @@ export function ReportCard({
               {doc?.created_at ? formatDateTime(doc.created_at) : "—"}
             </p>
           </div>
-          <Button variant="secondary" size="sm" onClick={() => setWantDownload(true)}>
-            <Download /> {t("report.download")}
-          </Button>
+          {/* Fresh link on click: presigned S3 direct, local bytes via auth blob. */}
+          <DownloadDocButton
+            documentId={inspection.report_document_id}
+            filename={doc?.original_name}
+            variant="secondary"
+            size="sm"
+            label={t("report.download")}
+          />
         </div>
       )}
     </SectionCard>

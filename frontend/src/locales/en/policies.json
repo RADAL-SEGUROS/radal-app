@@ -282,7 +282,36 @@
     "createClient": "Create this insured and continue",
     "pickClient": "Or pick a client from the book",
     "useClient": "Use this client",
-    "tryAnother": "Upload another PDF"
+    "tryAnother": "Upload another PDF",
+    "progress": {
+      "title": "Reading the policy…",
+      "hint": "We read the main data first: insured, period, premium and instalments. It usually takes 10 to 20 seconds.",
+      "uploading": "Uploading",
+      "readingCore": "Reading main data",
+      "ready": "Done"
+    },
+    "technical": {
+      "reading": "Reading technical data… (it will appear on the policy for review)",
+      "failed": "The technical data could not be read. You can retry from the policy.",
+      "ready": "Technical data read: review and confirm it on the policy."
+    },
+    "lost": "The read took longer than expected and no answer arrived. Check the policy list before retrying: it may already be registered.",
+    "insurer": {
+      "title": "Which insurer issued this policy?",
+      "noName": "The PDF does not show the insurer's name.",
+      "reasonFallback": "The policy shows neither the insurer's RUT nor its CMF code. Pick the insurer that issued it.",
+      "label": "Insurer",
+      "placeholder": "Pick the insurer",
+      "suggestedGroup": "Suggested",
+      "suggested": "Suggested",
+      "allGroup": "All insurers",
+      "loading": "Loading insurers…",
+      "empty": "There are no insurers to pick from.",
+      "onlySuggestions": "Your role cannot see every insurer: pick one of the suggestions.",
+      "pickFirst": "Pick the insurer first",
+      "use": "Use this insurer and continue",
+      "notFound": "The selected insurer is no longer available. Pick another one."
+    }
   },
   "form": {
     "submit": "Save policy",
@@ -373,5 +402,73 @@
     "clients": "Your role cannot view clients.",
     "collections": "Your role cannot view collections.",
     "cases": "Your role cannot view case folders."
+  },
+  "technical": {
+    "title": "Technical data read by AI",
+    "suggestion": "Read by AI — Review and confirm",
+    "reading": "Reading technical data…",
+    "readingHint": "Items, coverages, deductibles, warranties, exclusions and clauses. It usually takes under a minute; you can keep working.",
+    "steps": {
+      "reading": "Reading technical data",
+      "review": "Ready to review"
+    },
+    "readyHint": "Review what was read. Nothing is saved to the policy until you confirm.",
+    "readyHintAt": "Read on {{when}}. Nothing is saved to the policy until you confirm.",
+    "noneHint": "Read the items, coverages, deductibles, warranties, exclusions and clauses from the PDF to review and confirm them.",
+    "read": "Read technical data",
+    "retry": "Retry",
+    "confirm": "Confirm technical data",
+    "discard": "Discard",
+    "confirmed": "Technical data confirmed",
+    "discarded": "Technical read discarded",
+    "confirmedLine": "Technical data confirmed",
+    "sectionFailed": "Could not be read",
+    "noPermission": "Your role cannot read or confirm policy technical data",
+    "noPdf": "The policy has no PDF; upload it to read the technical data",
+    "noExtraction": "The read reference is missing; reload the page",
+    "sections": {
+      "items": "Items",
+      "coverages": "Coverages",
+      "deductibles": "Deductibles",
+      "warranties": "Warranties",
+      "exclusions": "Exclusions",
+      "particular_clauses": "Particular clauses"
+    },
+    "limits": {
+      "indemnity": "Indemnity limit",
+      "aggregate": "Aggregate limit",
+      "valuation": "Valuation basis",
+      "rate": "Average rate",
+      "cmf": "CMF code"
+    },
+    "columns": {
+      "number": "No.",
+      "title": "Title",
+      "type": "Type",
+      "description": "Description",
+      "addressOrPlate": "Address or plate",
+      "insuredAmount": "Insured amount",
+      "code": "Code",
+      "coverage": "Coverage",
+      "limit": "Limit",
+      "sublimit": "Sublimit",
+      "peril": "Peril",
+      "pct": "%",
+      "min": "Minimum",
+      "max": "Maximum",
+      "days": "Days",
+      "text": "Text",
+      "warranty": "Warranty",
+      "requirement": "Requirement",
+      "deadlineDays": "Deadline (days)",
+      "dueDate": "Due"
+    },
+    "errors": {
+      "ai_timeout": "The read took longer than expected. Retry; if it persists, let us know.",
+      "ai_unavailable": "The AI provider is unavailable. Retry in a few minutes.",
+      "ai_parse": "The AI answered something we could not interpret. Retry.",
+      "generic": "The technical read could not be completed."
+    },
+    "empty": "We found no technical data in the PDF (items, coverages, deductibles, warranties, exclusions or clauses). You can discard this reading."
   }
 }

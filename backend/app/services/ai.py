@@ -1272,12 +1272,15 @@ class DocumentExtractionResult:
 # streaming chat.
 
 
-def _chat_model(*, temperature: float = 0.0, max_tokens: int | None = None):
+def _chat_model(
+    *, temperature: float = 0.0, max_tokens: int | None = None, timeout: float | None = None
+):
     """Build the chat model. Raises :class:`AINotConfigured` when the key is unset.
 
     ``max_retries=0``: a retry inside the SDK hides the failure from the
     extraction row, and every AI call here is already user-triggered and
-    re-runnable.
+    re-runnable. ``timeout`` overrides ``AI_TIMEOUT_SECONDS`` for one call (the
+    fast tiered reads pass 50 s — a call past the 60 s edge is lost anyway).
     """
     ensure_ai_configured()
     try:
@@ -1292,7 +1295,7 @@ def _chat_model(*, temperature: float = 0.0, max_tokens: int | None = None):
         base_url=settings.AI_BASE_URL,
         api_key=settings.AI_API_KEY,
         model=settings.AI_MODEL,
-        timeout=float(settings.AI_TIMEOUT_SECONDS),
+        timeout=float(timeout if timeout is not None else settings.AI_TIMEOUT_SECONDS),
         max_retries=0,
         temperature=temperature,
         **extra,
@@ -2612,7 +2615,9 @@ def consolidate_antecedentes(
 
 # --- 1c. Dynamic budget-proposal extraction (v8) -----------------------------
 
-BUDGET_PROPOSAL_PROMPT_VERSION = "budget-proposal-v1"
+# v2: the read runs as parallel groups (``app.services.budget_read``). Mirrors the
+# registry spec, which is what the extraction row records.
+BUDGET_PROPOSAL_PROMPT_VERSION = "budget-proposal-v2"
 
 # The premium columns the fixed core carries — invariant-checked, never re-derived.
 _BUDGET_MONEY_KEYS = (
@@ -2630,8 +2635,10 @@ _BUDGET_MONEY_KEYS = (
 def _budget_proposal_messages(
     spec: "CategorySpec", document: Document, text: str
 ) -> list[dict[str, str]]:
-    """OpenAI-style messages for the tool-calling budget-proposal read.
+    """OpenAI-style messages for the LEGACY single-call budget-proposal read.
 
+    Production reads now go through :mod:`app.services.budget_read` (parallel
+    groups); this builder is kept for ``scripts/compare_timing_probe.py --baseline``.
     Unlike ``_extraction_messages`` this does NOT inline the JSON schema hint —
     the SLIM tool schema carries the shape, which is exactly what shed the
     ~5.6 KB of prompt bloat that drove the Stage-5 timeouts. The Spanish guidance
@@ -2695,9 +2702,15 @@ def extract_budget_proposal(
     The fixed money/period core is invariant-checked with the SHARED
     :func:`reconcile_money`; a contradiction is recorded as a WARNING (SUGGEST
     never raises on money — 422 belongs to the confirm step).
+
+    Fast reading (docs/v12/11-fast-reading.md): the provider work runs as
+    PARALLEL groups — ``money_core`` + ``facets`` (three facet calls by group on
+    a long document) — in :mod:`app.services.budget_read`, DB-free, each call
+    capped at 50 s. Still ONE row per attempt; ``raw_output.groups`` keeps each
+    group's seconds / tokens / finish_reason.
     """
-    from app.schemas.extraction.budget_proposal import budget_proposal_tool_schema
     from app.schemas.extraction.registry import spec_for
+    from app.services.budget_read import read_budget_proposal
 
     document = get_document(db, document_id, broker_id)
     if document is None:
@@ -2722,20 +2735,17 @@ def extract_budget_proposal(
     db.add(extraction)
     db.flush()
 
-    def _fail(exc: AIError) -> None:
+    def _fail(exc: AIError, raw_output: dict[str, Any] | None = None) -> None:
         extraction.status = ExtractionStatus.FAILED
         extraction.error = f"{type(exc).__name__}: {exc}"
+        if raw_output is not None:
+            extraction.raw_output = raw_output
         extraction.finished_at = datetime.now(timezone.utc)
         db.commit()
 
+    # The provider work (threads) never touches ``db``; only this thread does.
     try:
-        result = tool_call(
-            messages=_budget_proposal_messages(spec, document, text),
-            tool_schema=budget_proposal_tool_schema(),
-            model=model_for(AITask.EXTRACT),
-            timeout=settings.AI_TIMEOUT_SECONDS,
-            schema=spec.schema,
-        )
+        read = read_budget_proposal(spec, document, text, model=model_for(AITask.EXTRACT))
     except AIError as exc:
         _fail(exc)
         raise
@@ -2743,15 +2753,16 @@ def extract_budget_proposal(
         wrapped = _wrap_provider_error(exc)
         _fail(wrapped)
         raise wrapped from exc
+    if read.error is not None:
+        _fail(read.error, read.raw)
+        raise read.error
 
-    payload = result.payload
-    parsed = result.parsed
-    raw = result.raw
-    model_name = result.model or settings.AI_MODEL
-    usage = result.usage or {}
-    prompt_tokens = usage.get("prompt_tokens")
-    completion_tokens = usage.get("completion_tokens")
-    warnings = list(result.warnings)
+    parsed = read.parsed
+    payload, warnings = _coerce_payload(spec.schema, dict(parsed or {}))
+    raw = read.raw
+    model_name = read.model or settings.AI_MODEL
+    prompt_tokens = read.prompt_tokens or None
+    completion_tokens = read.completion_tokens or None
 
     # Reconcile the fixed money core — best-effort, warnings only (SUGGEST).
     if payload is not None:
@@ -2820,7 +2831,8 @@ def extract_budget_proposal(
 # AIError into a clean 502/503/504), never silently degraded to a half-baked
 # comparison.
 
-COMPARE_PROMPT_VERSION = "comparison-submit-v1"
+# v2: batches in parallel + cells reference facets (app.services.comparison_standardize).
+COMPARE_PROMPT_VERSION = "comparison-submit-v2"
 RECOMMEND_PROMPT_VERSION = "comparison-recommend-v1"
 PROPUESTA_PROMPT_VERSION = "propuesta-submit-v1"
 
@@ -2948,11 +2960,32 @@ def _source_reading(db: Session, source: "ComparisonSource") -> dict[str, Any]:
     This is the holistic input — the model sees the whole offer, not a compacted
     facet slug. Labels / verbatim are capped so a wide programme stays bounded.
     """
+    return build_reading(
+        comparison_source_id=source.id,
+        proposal_id=source.proposal_id,
+        is_wrong_file=bool(source.is_wrong_file),
+        wrong_file_reason=source.wrong_file_reason,
+        money_core=_source_money_core(db, source),
+        facets=_source_facets(source),
+    )
+
+
+def build_reading(
+    *,
+    comparison_source_id: int | None,
+    proposal_id: int | None,
+    is_wrong_file: bool,
+    wrong_file_reason: str | None,
+    money_core: dict[str, Any],
+    facets: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """The standardizer's input for ONE column — pure (no DB), so the timing probe can
+    build it from an in-memory read."""
     reading: dict[str, Any] = {
-        "comparison_source_id": source.id,
-        "proposal_id": source.proposal_id,
-        "is_wrong_file": bool(source.is_wrong_file),
-        "money_core": _source_money_core(db, source),
+        "comparison_source_id": comparison_source_id,
+        "proposal_id": proposal_id,
+        "is_wrong_file": bool(is_wrong_file),
+        "money_core": money_core,
         "facets": [
             {
                 "key": f.get("key"),
@@ -2962,11 +2995,12 @@ def _source_reading(db: Session, source: "ComparisonSource") -> dict[str, Any]:
                 "value": f.get("value"),
                 "verbatim": _short(f.get("verbatim"), COMPARE_VERBATIM_CHARS),
             }
-            for f in _source_facets(source)
+            for f in facets
+            if isinstance(f, dict)
         ],
     }
-    if source.is_wrong_file:
-        reading["wrong_file_reason"] = source.wrong_file_reason
+    if is_wrong_file:
+        reading["wrong_file_reason"] = wrong_file_reason
     return reading
 
 
@@ -3240,96 +3274,20 @@ def submit_comparison(
     prior_structure = {"dictionary": prior_dictionary}
 
     readings = [_source_reading(db, source) for source in sources]
-    blob = _compare_input_blob(readings, prior_structure)
 
-    warnings: list[str] = []
-    batched = False
-    batch_count = 1
-    compare_model = model_for(AITask.COMPARE)
-    prompt_tokens = 0
-    completion_tokens = 0
-    model_name = compare_model
+    # Provider work only (no DB): one call for a small input, else the batches IN
+    # PARALLEL merged in batch order, then the always-recommend step.
+    from app.services.comparison_standardize import standardize_readings
 
-    if len(blob) <= settings.AI_COMPARE_MAX_INPUT_CHARS:
-        result = tool_call(
-            messages=_submit_comparison_messages(readings, prior_structure),
-            tool_schema=_submit_comparison_tool_schema(),
-            model=compare_model,
-            timeout=settings.AI_TIMEOUT_SECONDS,
-            max_tokens=settings.AI_COMPARE_MAX_TOKENS,
-        )
-        parsed = result.parsed or {}
-        dimensions = _normalize_dimensions(parsed.get("dimensions"))
-        recommendation = _normalize_recommendation(parsed.get("recommendation"))
-        model_name = result.model or compare_model
-        prompt_tokens = (result.usage or {}).get("prompt_tokens") or 0
-        completion_tokens = (result.usage or {}).get("completion_tokens") or 0
-        # HARD GUARD: an empty table means a truncated / empty model answer.
-        # Block cleanly — NEVER commit an empty table with a 200 (the bug this fixes).
-        if not dimensions:
-            raise AIProviderError(
-                "The comparison produced no dimensions (truncated or empty model "
-                "answer); the step is blocked rather than committing an empty table"
-            )
-    else:
-        batched = True
-        batches = _batch_readings(readings, settings.AI_COMPARE_MAX_INPUT_CHARS, prior_structure)
-        batch_count = len(batches)
-        merged: list[dict[str, Any]] = []
-        for batch in batches:
-            r = tool_call(
-                messages=_submit_comparison_messages(batch, prior_structure),
-                tool_schema=_submit_comparison_tool_schema(),
-                model=compare_model,
-                timeout=settings.AI_TIMEOUT_SECONDS,
-                max_tokens=settings.AI_COMPARE_MAX_TOKENS,
-            )
-            batch_dimensions = _normalize_dimensions((r.parsed or {}).get("dimensions"))
-            # HARD GUARD per batch: a truncated batch would silently drop a whole
-            # insurer's dimensions from the merged table.
-            if not batch_dimensions:
-                raise AIProviderError(
-                    "A comparison batch produced no dimensions (truncated or empty "
-                    "model answer); the step is blocked"
-                )
-            merged = _merge_dimensions(merged, batch_dimensions)
-            prompt_tokens += (r.usage or {}).get("prompt_tokens") or 0
-            completion_tokens += (r.usage or {}).get("completion_tokens") or 0
-            model_name = r.model or compare_model
-        dimensions = merged
-        recommendation = None  # produced by the unified always-recommend step below
-        if not dimensions:
-            raise AIProviderError(
-                "The merged comparison produced no dimensions; the step is blocked"
-            )
-        warnings.append(
-            f"Comparison input exceeded {settings.AI_COMPARE_MAX_INPUT_CHARS} chars; "
-            f"ran in {batch_count} batches and merged."
-        )
-
-    # ALWAYS produce a recommendation: if the holistic / merged answer named no
-    # pick (or gave none at all), run the dedicated recommend call over the table.
-    if recommendation is None or recommendation.get("recommended_comparison_source_id") is None:
-        rec = tool_call(
-            messages=_recommend_messages(dimensions, readings),
-            tool_schema=_recommend_tool_schema(),
-            model=model_for(AITask.RECOMMEND),
-            timeout=settings.AI_TIMEOUT_SECONDS,
-            max_tokens=settings.AI_COMPARE_MAX_TOKENS,
-        )
-        rec_value = _normalize_recommendation((rec.parsed or {}).get("recommendation"))
-        if rec_value is not None:
-            recommendation = rec_value
-        prompt_tokens += (rec.usage or {}).get("prompt_tokens") or 0
-        completion_tokens += (rec.usage or {}).get("completion_tokens") or 0
-        # SOFT GUARD: the required-pick schema is model-steering, not a hard block.
-        # If the model still named no pick, degrade to a warning rather than 500 —
-        # the caveats/rationale (if any) are preserved and the table still commits.
-        if recommendation is None or recommendation.get("recommended_comparison_source_id") is None:
-            warnings.append(
-                "The AI recommendation named no pick "
-                "(recommended_comparison_source_id is null); review the caveats manually."
-            )
+    standardized = standardize_readings(readings, prior_structure)
+    dimensions = standardized.dimensions
+    recommendation = standardized.recommendation
+    batched = standardized.batched
+    batch_count = standardized.batch_count
+    model_name = standardized.model_name
+    prompt_tokens = standardized.prompt_tokens
+    completion_tokens = standardized.completion_tokens
+    warnings: list[str] = list(standardized.warnings)
 
     dictionary, canonical_version = _merge_dictionary(
         prior_dictionary, dimensions, comparison.canonical_version, prior_len
@@ -3368,7 +3326,13 @@ def submit_comparison(
             finished_at=datetime.now(timezone.utc),
             prompt_tokens=prompt_tokens or None,
             completion_tokens=completion_tokens or None,
-            raw_output={"batched": batched, "batch_count": batch_count},
+            raw_output={
+                "batched": batched,
+                "batch_count": batch_count,
+                "parallel": batched,
+                "wall_seconds": round(standardized.wall_seconds, 2),
+                "calls": standardized.call_stats,
+            },
             parsed=table,
             created_by_id=getattr(user, "id", None),
         )

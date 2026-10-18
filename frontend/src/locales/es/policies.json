@@ -282,7 +282,36 @@
     "createClient": "Crear este asegurado y seguir",
     "pickClient": "O elige un cliente de la cartera",
     "useClient": "Usar este cliente",
-    "tryAnother": "Subir otro PDF"
+    "tryAnother": "Subir otro PDF",
+    "progress": {
+      "title": "Leyendo la póliza…",
+      "hint": "Primero leemos los datos principales: asegurado, vigencia, prima y cuotas. Suele tardar entre 10 y 20 segundos.",
+      "uploading": "Subiendo",
+      "readingCore": "Leyendo datos principales",
+      "ready": "Listo"
+    },
+    "technical": {
+      "reading": "Leyendo datos técnicos… (aparecerán en la ficha para revisar)",
+      "failed": "No se pudieron leer los datos técnicos. Puedes reintentar desde la ficha.",
+      "ready": "Datos técnicos leídos: revísalos y confírmalos en la ficha."
+    },
+    "lost": "La lectura tardó más de lo esperado y no recibimos la respuesta. Revisa la lista de pólizas antes de reintentar: puede haber quedado registrada.",
+    "insurer": {
+      "title": "¿Qué compañía emitió esta póliza?",
+      "noName": "El PDF no trae el nombre de la compañía.",
+      "reasonFallback": "La póliza no trae el RUT ni el código CMF de la compañía. Elige la compañía que la emitió.",
+      "label": "Compañía",
+      "placeholder": "Elige la compañía",
+      "suggestedGroup": "Sugeridas",
+      "suggested": "Sugerida",
+      "allGroup": "Todas las compañías",
+      "loading": "Cargando compañías…",
+      "empty": "No hay compañías para elegir.",
+      "onlySuggestions": "Tu rol no puede ver todas las compañías: elige entre las sugeridas.",
+      "pickFirst": "Elige primero la compañía",
+      "use": "Usar esta compañía y seguir",
+      "notFound": "La compañía elegida ya no está disponible. Elige otra."
+    }
   },
   "form": {
     "submit": "Guardar póliza",
@@ -373,5 +402,73 @@
     "clients": "Tu rol no puede ver los clientes.",
     "collections": "Tu rol no puede ver la cobranza.",
     "cases": "Tu rol no puede ver las carpetas."
+  },
+  "technical": {
+    "title": "Datos técnicos leídos por IA",
+    "suggestion": "Leído por IA — Revisar y confirmar",
+    "reading": "Leyendo datos técnicos…",
+    "readingHint": "Ítems, coberturas, deducibles, garantías, exclusiones y cláusulas. Suele tardar menos de un minuto; puedes seguir trabajando.",
+    "steps": {
+      "reading": "Leyendo datos técnicos",
+      "review": "Listo para revisar"
+    },
+    "readyHint": "Revisa lo leído. Nada se guarda en la póliza hasta que confirmes.",
+    "readyHintAt": "Leído el {{when}}. Nada se guarda en la póliza hasta que confirmes.",
+    "noneHint": "Lee del PDF los ítems, coberturas, deducibles, garantías, exclusiones y cláusulas para revisarlos y confirmarlos.",
+    "read": "Leer datos técnicos",
+    "retry": "Reintentar",
+    "confirm": "Confirmar datos técnicos",
+    "discard": "Descartar",
+    "confirmed": "Datos técnicos confirmados",
+    "discarded": "Lectura técnica descartada",
+    "confirmedLine": "Datos técnicos confirmados",
+    "sectionFailed": "No se pudo leer",
+    "noPermission": "Tu rol no permite leer ni confirmar datos técnicos de pólizas",
+    "noPdf": "La póliza no tiene su PDF; súbelo para leer los datos técnicos",
+    "noExtraction": "Falta la referencia de la lectura; recarga la página",
+    "sections": {
+      "items": "Ítems",
+      "coverages": "Coberturas",
+      "deductibles": "Deducibles",
+      "warranties": "Garantías",
+      "exclusions": "Exclusiones",
+      "particular_clauses": "Cláusulas particulares"
+    },
+    "limits": {
+      "indemnity": "Límite de indemnización",
+      "aggregate": "Límite agregado",
+      "valuation": "Base de valorización",
+      "rate": "Tasa promedio",
+      "cmf": "Código CMF"
+    },
+    "columns": {
+      "number": "N°",
+      "title": "Título",
+      "type": "Tipo",
+      "description": "Descripción",
+      "addressOrPlate": "Dirección o patente",
+      "insuredAmount": "Monto asegurado",
+      "code": "Código",
+      "coverage": "Cobertura",
+      "limit": "Límite",
+      "sublimit": "Sublímite",
+      "peril": "Riesgo",
+      "pct": "%",
+      "min": "Mínimo",
+      "max": "Máximo",
+      "days": "Días",
+      "text": "Texto",
+      "warranty": "Garantía",
+      "requirement": "Requisito",
+      "deadlineDays": "Plazo (días)",
+      "dueDate": "Vence"
+    },
+    "errors": {
+      "ai_timeout": "La lectura tardó más de lo esperado. Reintenta; si persiste, avísanos.",
+      "ai_unavailable": "El proveedor de IA no está disponible. Reintenta en unos minutos.",
+      "ai_parse": "La IA respondió algo que no pudimos interpretar. Reintenta.",
+      "generic": "No se pudo completar la lectura técnica."
+    },
+    "empty": "No encontramos datos técnicos en el PDF (ítems, coberturas, deducibles, garantías, exclusiones ni cláusulas). Puedes descartar esta lectura."
   }
 }

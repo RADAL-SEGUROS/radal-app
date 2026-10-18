@@ -338,7 +338,8 @@ literal en español. La vigencia de la oferta va en días hábiles.
         f"{_PKG}.budget_proposal",
         """
 Es una OFERTA / COTIZACIÓN de una compañía de seguros, leída de forma DINÁMICA para el
-comparador incremental. Devuelves TRES cosas en un solo objeto JSON.
+comparador incremental. La lectura tiene TRES partes; se hace en llamadas paralelas y cada
+llamada te indica qué partes registrar.
 
 1) DISCRIMINADOR DE ARCHIVO (detección de archivo equivocado):
    - `document_type` = "budget_proposal" solo si el documento ES una oferta de una aseguradora
@@ -356,13 +357,15 @@ comparador incremental. Devuelves TRES cosas en un solo objeto JSON.
 3) FACETS: una lista DINÁMICA de dimensiones de la oferta, una por línea. Cada facet lleva:
    `group` ("coverage", "exclusion", "deductible", "sublimit", "clause", "warranty" u "other"),
    `key` (un slug estable en minúsculas, p. ej. "sismo"), `label` (etiqueta corta en español),
-   `description` (resumen en lenguaje llano de qué dice esa dimensión), `verbatim` (la redacción
-   EXACTA copiada del documento — en esta cartera la redacción ES la cobertura), `present`
-   (true si la ampara, false si la excluye) y `value` (montos, porcentajes, mínimos UF, base del
-   deducible, días…). No inventes facets: extrae solo lo que el documento declara.
+   `verbatim` (la redacción EXACTA copiada del documento — en esta cartera la redacción ES la
+   cobertura), `present` (true si la ampara, false si la excluye) y `value` (montos,
+   porcentajes, mínimos UF, base del deducible, días…). No inventes facets: extrae solo lo que
+   el documento declara. Omite las claves sin valor.
 """,
         "comparison_source.facets + the fixed core -> the proposal money/period columns",
-        prompt_version="budget-proposal-v1",
+        # v2 (fast reading, docs/v12/11-fast-reading.md): read as parallel groups
+        # (money core + facets by group); the unused facet `description` is gone.
+        prompt_version="budget-proposal-v2",
         extraction_kind=ExtractionKind.PROPOSAL,
     ),
     _spec(

@@ -191,5 +191,8 @@
     },
     "mismatch": "Los montos no cuadran: {{field}} debería ser {{expected}} y se recibió {{received}}.",
     "generic": "Los montos no cuadran ({{field}}). Revisa las cifras."
+  },
+  "reading": {
+    "elapsed": "{{seconds}} s"
   }
 }

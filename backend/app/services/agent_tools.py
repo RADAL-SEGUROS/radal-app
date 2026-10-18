@@ -126,6 +126,12 @@ class ListDocumentsArgs(_Args):
         return self
 
 
+class SearchDocumentTextArgs(_Args):
+    document_id: int = Field(..., gt=0)
+    query: str = Field(..., min_length=2, max_length=200)
+    max_hits: int = Field(default=5, ge=1, le=10)
+
+
 class CreateGroupArgs(_Args):
     name: str = Field(..., min_length=1, max_length=255)
     notes: str | None = None
@@ -416,6 +422,44 @@ def _exec_list_documents(db: Session, *, broker_id: int, user: User, args: ListD
             for row in rows
         ],
         "total": len(rows),
+    }
+
+
+def _exec_search_document_text(
+    db: Session, *, broker_id: int, user: User, args: SearchDocumentTextArgs
+) -> dict:
+    """Quote the paragraphs of ONE broker-scoped document that match the query.
+
+    Fast reading keeps only clause TITLES in the structured read; the wording is
+    quoted from the file itself, verbatim, with its page when it is a PDF.
+    """
+    from app.services import ai as ai_service
+    from app.services.document_search import document_paragraphs, search_paragraphs
+
+    document = ai_service.get_document(db, args.document_id, broker_id)
+    if document is None:  # another tenant's file is a 404, never a 403
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    try:
+        paragraphs = document_paragraphs(document)
+    except ai_service.DocumentUnavailable:
+        return {
+            "document_id": document.id,
+            "original_name": document.original_name,
+            "error": "document_unreadable",
+            "detail": "El documento no tiene texto legible (puede ser un escaneo sin OCR).",
+            "hits": [],
+        }
+    result = search_paragraphs(paragraphs, args.query, max_hits=args.max_hits)
+    return {
+        "document_id": document.id,
+        "original_name": document.original_name,
+        "category": document.category.value if document.category else None,
+        "query": args.query,
+        **result,
+        "note": (
+            "Cita los párrafos tal cual (entre comillas, con su página). Si no hay "
+            "resultados, prueba con otros términos antes de concluir que no existe."
+        ),
     }
 
 
@@ -2372,6 +2416,21 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             ),
             args_schema=ListDocumentsArgs,
             execute=_exec_list_documents,
+        ),
+        ToolSpec(
+            name="search_document_text",
+            kind="read",
+            module="Documents",
+            action="View",
+            description=(
+                "Busca en el TEXTO de un documento (p. ej. la póliza en PDF) y devuelve "
+                "los párrafos que contienen los términos, con el párrafo anterior y el "
+                "siguiente y su página. Úsalo para citar literal una exclusión, cláusula, "
+                "deducible o condición: la lectura estructurada guarda solo los títulos."
+            ),
+            args_schema=SearchDocumentTextArgs,
+            execute=_exec_search_document_text,
+            max_result_chars=9_000,
         ),
         # --- WRITE (propose-only in the loop; execute at confirm) -------------
         ToolSpec(

@@ -191,5 +191,8 @@
     },
     "mismatch": "The amounts do not add up: {{field}} should be {{expected}} but {{received}} was received.",
     "generic": "The amounts do not add up ({{field}}). Check the figures."
+  },
+  "reading": {
+    "elapsed": "{{seconds}} s"
   }
 }

@@ -68,7 +68,8 @@ import {
   useProposal,
   useRejectProposal,
 } from "@/api/proposals";
-import { useDocument, useDocumentDownload } from "@/api/documents";
+import { useDocument } from "@/api/documents";
+import { PreviewDocButton } from "@/components/common/DownloadDocButton";
 import {
   useAgentMessages,
   useAgentThreads,
@@ -87,7 +88,6 @@ import {
   apiError,
   deductibleText,
   formatDeductible,
-  resolveFileUrl,
   permille,
   pct,
   uf,
@@ -614,8 +614,6 @@ function CoveragesPanel({ proposal: p }: { proposal: Proposal }) {
 function SourceDocumentPanel({ proposal: p }: { proposal: Proposal }) {
   const { t } = useTranslation("proposals");
   const doc = useDocument(p.source_document_id);
-  const download = useDocumentDownload(p.source_document_id);
-  const fileUrl = resolveFileUrl(download.data?.url);
 
   return (
     <FadeUp delay={0.14}>
@@ -637,14 +635,15 @@ function SourceDocumentPanel({ proposal: p }: { proposal: Proposal }) {
             </div>
           </div>
 
-          <DisabledHint hint={fileUrl ? null : t("detail.downloadUnavailable")}>
-            {fileUrl ? (
-              <Button variant="secondary" size="sm" asChild>
-                <a href={fileUrl} target="_blank" rel="noreferrer">
-                  <Download className="h-4 w-4" />
-                  {t("detail.openDocument")}
-                </a>
-              </Button>
+          <DisabledHint hint={doc.data ? null : t("detail.downloadUnavailable")}>
+            {doc.data ? (
+              <PreviewDocButton
+                documentId={doc.data.id}
+                variant="secondary"
+                size="sm"
+                icon={<Download className="h-4 w-4" aria-hidden />}
+                label={t("detail.openDocument")}
+              />
             ) : (
               <Button variant="secondary" size="sm" disabled>
                 <Download className="h-4 w-4" />

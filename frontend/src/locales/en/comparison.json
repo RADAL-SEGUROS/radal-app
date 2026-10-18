@@ -18,7 +18,16 @@
     "working": "Reading the quotation…",
     "added": "Quotation added: {{name}}",
     "rejected": "That file does not look like a quotation: {{name}}",
-    "noPermission": "Your role does not allow adding quotations"
+    "noPermission": "Your role does not allow adding quotations",
+    "recovering": "Checking with the server…",
+    "recoveringHint": "The answer took longer than expected; we are checking whether the quotation was already saved.",
+    "progressHint": "{{name}} · {{index}} of {{total}}",
+    "steps": {
+      "uploading": "Uploading",
+      "reading": "Reading the quotation",
+      "checking": "Checking with the server",
+      "added": "Added"
+    }
   },
   "align": {
     "action": "Re-align",
@@ -28,8 +37,12 @@
     "blocked": {
       "title": "The AI provider is unavailable",
       "hint": "The comparison could not be standardized. It was not aligned; retry in a moment.",
-      "retry": "Retry"
-    }
+      "retry": "Retry",
+      "timeoutTitle": "The read took longer than expected",
+      "timeoutHint": "The comparison was not aligned. Retry; if it persists, let us know."
+    },
+    "recovered": "The comparison finished aligning on the server.",
+    "recovering": "The answer took long; checking whether the comparison is already aligned…"
   },
   "recommendation": {
     "eyebrow": "AI recommendation",
@@ -117,5 +130,10 @@
   "rejection": {
     "title": "This file is not a quotation",
     "reasonFallback": "The reader did not recognize an insurance offer in this document."
+  },
+  "aiError": {
+    "ai_timeout": "The read took longer than expected. Retry; if it persists, let us know.",
+    "ai_unavailable": "The AI provider is unavailable. Retry in a moment.",
+    "ai_parse": "The AI answered something we could not interpret. Retry."
   }
 }

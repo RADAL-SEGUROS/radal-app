@@ -80,33 +80,40 @@ class _FieldRule:
     numeric: bool = False
 
 
+#: Premium spellings: the registry schemas' ``PremiumBlock`` names first, the
+#: older net_*/gross_* spellings as fallbacks.
+_TAXABLE_KEYS = ("taxable_premium_uf", "net_taxable", "net_premium_taxable_uf", "net_taxable_uf")
+_EXEMPT_KEYS = ("exempt_premium_uf", "net_exempt", "net_premium_exempt_uf", "net_exempt_uf")
+_NET_KEYS = ("net_premium_uf", "net_total", "net_premium_total_uf", "net_total_uf")
+_GROSS_KEYS = ("total_premium_uf", "gross_uf", "gross_premium_uf")
+
 #: The hand-checked alignment. ``proposal_keys``/``policy_keys`` are tried in
 #: order, so a registry rename does not silently drop a comparison.
 MIRROR_FIELDS: tuple[_FieldRule, ...] = (
     # --- the five premium fields (money aligns on these, §7.6) --------------
     _FieldRule(
         "premium.net_taxable_uf",
-        ("net_taxable", "net_premium_taxable_uf", "net_taxable_uf"),
-        ("net_taxable", "net_premium_taxable_uf", "net_taxable_uf"),
+        _TAXABLE_KEYS,
+        _TAXABLE_KEYS,
         SEVERITY_HIGH, None, True,
     ),
     _FieldRule(
         "premium.net_exempt_uf",
-        ("net_exempt", "net_premium_exempt_uf", "net_exempt_uf"),
-        ("net_exempt", "net_premium_exempt_uf", "net_exempt_uf"),
+        _EXEMPT_KEYS,
+        _EXEMPT_KEYS,
         SEVERITY_HIGH, None, True,
     ),
     _FieldRule(
         "premium.net_total_uf",
-        ("net_total", "net_premium_total_uf", "net_total_uf"),
-        ("net_total", "net_premium_total_uf", "net_total_uf"),
+        _NET_KEYS,
+        _NET_KEYS,
         SEVERITY_HIGH, None, True,
     ),
     _FieldRule("premium.vat_uf", ("vat_uf",), ("vat_uf",), SEVERITY_HIGH, None, True),
     _FieldRule(
         "premium.gross_uf",
-        ("gross_uf", "gross_premium_uf"),
-        ("gross_uf", "gross_premium_uf"),
+        _GROSS_KEYS,
+        _GROSS_KEYS,
         SEVERITY_HIGH, None, True,
     ),
     # --- the insured amount and the period ----------------------------------
@@ -151,11 +158,15 @@ MIRROR_FIELDS: tuple[_FieldRule, ...] = (
     ),
     _FieldRule(
         "commission_pct",
-        ("commission_pct", "broker_commission_pct"),
-        ("commission_pct", "broker_commission_pct"),
+        # The 07 states it as ``commission: {pct, amount_uf}``.
+        ("commission.pct", "commission_pct", "broker_commission_pct"),
+        ("commission_pct", "broker_commission_pct", "commission.pct"),
         SEVERITY_LOW, None, True,
     ),
 )
+
+#: Self-reported quality signals both schemas share — never a contract delta.
+_NOT_DIFFED = frozenset({"confidence", "extraction_notes"})
 
 #: Keys under which each side keeps its coverage / deductible collections.
 _COVERAGE_KEYS = ("coverages_to_issue", "coverages", "covered_coverages")
@@ -169,6 +180,12 @@ _WARRANTY_KEYS = ("warranties", "warranties_to_issue")
 
 def _first(payload: dict[str, Any], keys: tuple[str, ...]) -> Any:
     for key in keys:
+        if "." in key:  # a nested path, e.g. the 07's ``commission.pct``
+            head, _, tail = key.partition(".")
+            block = payload.get(head)
+            if isinstance(block, dict) and block.get(tail) not in (None, "", [], {}):
+                return block[tail]
+            continue
         if key in payload and payload[key] not in (None, "", [], {}):
             return payload[key]
         # Premium blocks are sometimes nested under "premium"/"premium_summary".
@@ -285,6 +302,12 @@ class MirrorSources:
     missing: list[str] | None = None
     proposal_source: str | None = None
     policy_source: str | None = None
+    #: Fast reading: the policy side came from the CORE tier and no technical
+    #: read exists yet, so its coverages / deductibles / warranties were never
+    #: read — those collections are not diffed (an absent read is not a delta).
+    policy_collections_read: bool = True
+    #: The technical read overlaid on the policy side, when one served.
+    policy_technical_extraction_id: int | None = None
 
 
 def _is_confirmed(row: Extraction) -> bool:
@@ -296,6 +319,8 @@ def _is_confirmed(row: Extraction) -> bool:
 def _latest_extraction(
     db: Session, *, broker_id: int, category: DocumentCategory,
     case_file_id: int | None, document_id: int | None,
+    exclude_prompt_versions: tuple[str, ...] = (),
+    only_prompt_versions: tuple[str, ...] = (),
 ) -> tuple[Extraction | None, str | None]:
     """The best usable extraction of a category for this case / document.
 
@@ -309,6 +334,10 @@ def _latest_extraction(
         Extraction.category == category,
         Extraction.status == ExtractionStatus.SUCCEEDED,
     )
+    if exclude_prompt_versions:
+        stmt = stmt.where(Extraction.prompt_version.notin_(exclude_prompt_versions))
+    if only_prompt_versions:
+        stmt = stmt.where(Extraction.prompt_version.in_(only_prompt_versions))
     candidates: list[Extraction] = []
     if document_id is not None:
         candidates.extend(
@@ -329,12 +358,21 @@ def _latest_extraction(
             ).all()
             if row.id not in seen
         )
+    # A suggestion the broker discarded never serves (fast reading, technical tier).
+    candidates = [
+        row for row in candidates
+        if not (isinstance(row.raw_output, dict) and isinstance(row.raw_output.get("dismissed"), dict))
+    ]
     for row in candidates:
         if _is_confirmed(row):
             return row, SOURCE_CONFIRMED
     if candidates:
         return candidates[0], SOURCE_LATEST_SUCCEEDED
     return None, None
+
+
+#: Technical-tier sections -> the policy payload keys the diff reads.
+_TECHNICAL_OVERLAY = ("coverages", "deductibles", "warranties", "exclusions", "particular_clauses")
 
 
 def load_sources(db: Session, *, policy: Policy) -> MirrorSources:
@@ -347,25 +385,58 @@ def load_sources(db: Session, *, policy: Policy) -> MirrorSources:
         case_file_id=policy.case_file_id,
         document_id=None,
     )
+    from app.services.policy_reading import CORE_PROMPT_VERSION, TECHNICAL_PROMPT_VERSION
+
+    # Fast reading: a policy is read in two tiers on the SAME document. The
+    # policy side is the core/full read; a technical read (confirmed first)
+    # overlays its sections — it never stands in for the whole policy.
     policy_row, policy_source = _latest_extraction(
         db,
         broker_id=policy.broker_id,
         category=DocumentCategory.POLICY,
         case_file_id=policy.case_file_id,
         document_id=policy.source_document_id,
+        exclude_prompt_versions=(TECHNICAL_PROMPT_VERSION,),
     )
     if proposal_row is None:
         missing.append("issuance_proposal")
     if policy_row is None:
         missing.append("policy")
+    policy_payload = dict(policy_row.parsed or {}) if policy_row else {}
+    collections_read = True
+    technical_id: int | None = None
+    if policy_row is not None and policy_row.prompt_version == CORE_PROMPT_VERSION:
+        technical_row, _source = _latest_extraction(
+            db,
+            broker_id=policy.broker_id,
+            category=DocumentCategory.POLICY,
+            case_file_id=None,
+            document_id=policy_row.document_id,
+            only_prompt_versions=(TECHNICAL_PROMPT_VERSION,),
+        )
+        if technical_row is not None and isinstance(technical_row.parsed, dict):
+            technical_id = technical_row.id
+            for key in _TECHNICAL_OVERLAY:
+                rows = technical_row.parsed.get(key)
+                if isinstance(rows, list):
+                    policy_payload[key] = rows
+            limits = technical_row.parsed.get("limits")
+            if isinstance(limits, dict):
+                for key, value in limits.items():
+                    if value not in (None, "") and policy_payload.get(key) in (None, ""):
+                        policy_payload[key] = value
+        else:
+            collections_read = False
     return MirrorSources(
         proposal_payload=dict(proposal_row.parsed or {}) if proposal_row else {},
-        policy_payload=dict(policy_row.parsed or {}) if policy_row else {},
+        policy_payload=policy_payload,
         proposal_extraction_id=proposal_row.id if proposal_row else None,
         policy_extraction_id=policy_row.id if policy_row else None,
         missing=missing,
         proposal_source=proposal_source,
         policy_source=policy_source,
+        policy_collections_read=collections_read,
+        policy_technical_extraction_id=technical_id,
     )
 
 
@@ -394,7 +465,9 @@ def _registry_extra_fields() -> tuple[str, ...]:
         sorted(
             name
             for name in shared
-            if name not in mapped and not name.startswith(skip_prefixes)
+            if name not in mapped
+            and name not in _NOT_DIFFED
+            and not name.startswith(skip_prefixes)
         )
     )
 
@@ -406,14 +479,25 @@ def _registry_extra_fields() -> tuple[str, ...]:
 def mirror_diff(db: Session, *, policy: Policy) -> list[MirrorDiffRow]:
     """Compare the confirmed 07 against the confirmed 08 and return the deltas."""
     sources = load_sources(db, policy=policy)
-    rows = diff_payloads(sources.proposal_payload, sources.policy_payload)
+    rows = diff_payloads(
+        sources.proposal_payload,
+        sources.policy_payload,
+        include_collections=sources.policy_collections_read,
+    )
     return rows
 
 
 def diff_payloads(
-    proposal: dict[str, Any], policy_payload: dict[str, Any]
+    proposal: dict[str, Any],
+    policy_payload: dict[str, Any],
+    *,
+    include_collections: bool = True,
 ) -> list[MirrorDiffRow]:
-    """Pure comparison of two payloads — the unit-testable core."""
+    """Pure comparison of two payloads — the unit-testable core.
+
+    ``include_collections=False`` skips coverages / deductibles / warranties:
+    the policy side has not read them yet (fast reading, core tier only).
+    """
     rows: list[MirrorDiffRow] = []
     if not proposal or not policy_payload:
         return rows
@@ -459,6 +543,9 @@ def diff_payloads(
                 suggested_endorsement_kind=None,
             )
         )
+
+    if not include_collections:
+        return rows
 
     # --- coverages, aligned on their number ---------------------------------
     rows.extend(

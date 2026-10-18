@@ -120,7 +120,8 @@ _POLICY_INTAKE = SkillSpec(
 3. Propone create_policy_manual SOLO con datos que la persona entregó. Nunca inventes número de póliza, primas ni comisión. Sin número queda "Sin n°" y se completa después.
 4. Primas en UF: neta = afecta + exenta; IVA = 0,19 × la parte AFECTA (el sismo es exento); total = neta + IVA. Si solo te dan el total, pásalo tal cual y no derives el resto.
 5. Luego revisa check_policy_files: PDF de respaldo, plan de pago, correo del pagador, comisión. Rellena datos vacíos con update_policy_fields (solo completa campos vacíos; un dato ya registrado se corrige en la ficha con su motivo).
-6. Con plan de pago cargado, ofrece start_collection. El plan de pago y las partes (contratante, pagador) se cargan en la ficha de la póliza.""",
+6. Con plan de pago cargado, ofrece start_collection. El plan de pago y las partes (contratante, pagador) se cargan en la ficha de la póliza.
+7. La lectura de la póliza guarda solo los TÍTULOS de exclusiones y cláusulas. Para citar el texto exacto de una exclusión, cláusula, deducible o condición, ubica el PDF (list_documents) y usa search_document_text; cita literal, con su página. Nunca parafrasees una cobertura como si fuera el texto.""",
     tools=(
         "search_entities",
         "get_catalog",
@@ -130,6 +131,8 @@ _POLICY_INTAKE = SkillSpec(
         "create_policy_manual",
         "update_policy_fields",
         "start_collection",
+        "list_documents",
+        "search_document_text",
     ),
     triggers=(
         "registrar póliza", "nueva póliza", "ingresar póliza", "cargar póliza",
@@ -175,11 +178,13 @@ _FILE_CHECK = SkillSpec(
 2. Póliza: check_policy_files entrega el "Falta: X" (PDF de respaldo, n° de póliza, plan de pago, prima bruta, correo del pagador, primas, comisión) y qué funciones quedan deshabilitadas por eso.
 3. Prioriza lo que bloquea la operación: sin plan o sin prima bruta no hay cobranza; sin correo del pagador no salen avisos; sin n° de póliza no se puede endosar.
 4. Tú no subes archivos: indica dónde hacerlo (Antecedentes de la cuenta, o Subir póliza en la ficha).
-5. Puedes proponer update_policy_fields para rellenar datos vacíos que la persona te dicte, o add_note para dejar el pendiente anotado.""",
+5. Puedes proponer update_policy_fields para rellenar datos vacíos que la persona te dicte, o add_note para dejar el pendiente anotado.
+6. Para responder qué dice un documento (una exclusión, una cláusula, un plazo), usa search_document_text sobre ese documento y cita los párrafos literales con su página.""",
     tools=(
         "check_case_files",
         "check_policy_files",
         "list_documents",
+        "search_document_text",
         "get_policy",
         "update_policy_fields",
         "add_note",

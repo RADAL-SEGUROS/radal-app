@@ -65,9 +65,11 @@ import type {
   ComparisonPremiumCore,
   ComparisonRecommendation,
 } from "@/api/types";
-import { useDocumentDownload, useUploadDocument } from "@/api/documents";
+import { useUploadDocument } from "@/api/documents";
+import { PreviewDocButton } from "@/components/common/DownloadDocButton";
 import {
   isProviderDown,
+  pollComparison,
   useAddEntry,
   useAlign,
   useComparison,
@@ -84,10 +86,51 @@ import {
   apiError,
   permille,
   pct,
-  resolveFileUrl,
   uf,
 } from "@/components/common/kit";
-import { COMPARISON_STATUS_LABEL, FACET_GROUP_LABEL, enumLabel } from "@/i18n/labels";
+import {
+  COMPARISON_AI_ERROR_LABEL,
+  COMPARISON_STATUS_LABEL,
+  FACET_GROUP_LABEL,
+  enumLabel,
+} from "@/i18n/labels";
+import { ReadingProgress } from "@/components/common/ReadingProgress";
+import {
+  aiErrorCode,
+  aiServerMessage,
+  isLostResponse,
+  type AiErrorCode,
+} from "@/lib/aiErrors";
+import { useQueryClient } from "@tanstack/react-query";
+
+/**
+ * The honest copy for a failed comparison call: a TIMEOUT reads "La lectura
+ * tardó más de lo esperado…", never "El proveedor de IA no está disponible"
+ * (docs/v12/11 decision 7); anything else keeps the server's own message.
+ */
+function useComparisonErrorMessage() {
+  const { t } = useTranslation("comparison");
+  const { t: tc } = useTranslation("common");
+  return React.useCallback(
+    (error: unknown) => {
+      const code = aiErrorCode(error);
+      if (code) return aiServerMessage(error) ?? enumLabel(t, COMPARISON_AI_ERROR_LABEL, code);
+      return apiError(error, tc("state.error"));
+    },
+    [t, tc],
+  );
+}
+
+/** Where one cotización upload stands (the stepped bar). */
+interface UploadProgress {
+  name: string;
+  index: number;
+  total: number;
+  /** 0 = filing the PDF, 1 = the AI read (`POST …/entries`). */
+  step: 0 | 1;
+  /** The answer was lost (504 / network): re-reading the comparison. */
+  recovering: boolean;
+}
 
 /** The `detail.code` of a structured 422, when the server sent one. */
 function errorCode(error: unknown): string | null {
@@ -199,20 +242,32 @@ function ComparisonBoard({
   comparison: Comparison;
 }) {
   const { t } = useTranslation("comparison");
-  const { t: tc } = useTranslation("common");
 
   const canCreate = useCan("Proposals", "Create");
   const canEdit = useCan("Proposals", "Edit");
 
+  const qc = useQueryClient();
   const upload = useUploadDocument();
   const addEntry = useAddEntry(comparison.id);
   const align = useAlign(comparison.id);
+  const errorMessage = useComparisonErrorMessage();
 
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = React.useState(false);
   const alignTimer = React.useRef<number | null>(null);
+  const [progress, setProgress] = React.useState<UploadProgress | null>(null);
+  const [alignRecovering, setAlignRecovering] = React.useState(false);
+  // Stops a recovery poll when the board unmounts.
+  const alive = React.useRef({ cancelled: false });
+  React.useEffect(() => {
+    const signal = { cancelled: false };
+    alive.current = signal;
+    return () => {
+      signal.cancelled = true;
+    };
+  }, []);
 
-  const busy = upload.isPending || addEntry.isPending;
+  const busy = upload.isPending || addEntry.isPending || progress !== null;
 
   // Debounced auto-align: a fresh column supersedes the last alignment, so we
   // re-run it shortly after an upload settles (Edit permission required).
@@ -221,7 +276,7 @@ function ComparisonBoard({
     if (alignTimer.current) window.clearTimeout(alignTimer.current);
     alignTimer.current = window.setTimeout(() => {
       align.mutate(undefined, {
-        onError: (error) => toast.error(apiError(error, tc("state.error"))),
+        onError: (error) => void onAlignError(error),
       });
     }, 900);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,17 +289,56 @@ function ComparisonBoard({
     [],
   );
 
+  /**
+   * A lost align answer (504 at the edge / network) is not a failed align: the
+   * server may still finish. Re-read the comparison; if it comes back aligned,
+   * clear the error instead of showing the blocked banner.
+   */
+  async function onAlignError(error: unknown) {
+    if (!isLostResponse(error)) {
+      toast.error(errorMessage(error));
+      return;
+    }
+    setAlignRecovering(true);
+    const aligned = await pollComparison(
+      qc,
+      comparison.id,
+      (c) => c.status === "aligned",
+      { attempts: 10, signal: alive.current },
+    );
+    setAlignRecovering(false);
+    if (aligned) {
+      align.reset();
+      toast.success(t("align.recovered"));
+    } else {
+      toast.error(errorMessage(error));
+    }
+  }
+
   const runAlign = () =>
     align.mutate(undefined, {
       onSuccess: (res) => {
         if (res.warnings.length) toast.message(res.warnings[0]);
       },
-      onError: (error) => toast.error(apiError(error, tc("state.error"))),
+      onError: (error) => void onAlignError(error),
     });
+
+  const announce = (name: string, wrongFile: boolean) => {
+    if (wrongFile) {
+      toast.warning(t("upload.rejected", { name }));
+    } else {
+      toast.success(t("upload.added", { name }));
+      scheduleAutoAlign();
+    }
+  };
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    for (const file of Array.from(files)) {
+    const list = Array.from(files);
+    for (const [index, file] of list.entries()) {
+      const base = { name: file.name, index: index + 1, total: list.length };
+      setProgress({ ...base, step: 0, recovering: false });
+      let documentId: number | null = null;
       try {
         const doc = await upload.mutateAsync({
           file,
@@ -252,17 +346,31 @@ function ComparisonBoard({
           entity_id: caseId,
           category: "insurer_quotation",
         });
+        documentId = doc.id;
+        setProgress({ ...base, step: 1, recovering: false });
         const result = await addEntry.mutateAsync({ document_id: doc.id });
-        if (result.is_wrong_file) {
-          toast.warning(t("upload.rejected", { name: file.name }));
-        } else {
-          toast.success(t("upload.added", { name: file.name }));
-          scheduleAutoAlign();
-        }
+        announce(file.name, result.is_wrong_file);
       } catch (error) {
-        toast.error(apiError(error, tc("state.error")));
+        // The read may have finished server-side after the edge gave up:
+        // look for this document's column before calling it lost.
+        if (documentId !== null && isLostResponse(error)) {
+          setProgress({ ...base, step: 1, recovering: true });
+          const id = documentId;
+          const found = await pollComparison(
+            qc,
+            comparison.id,
+            (c) => c.entries.some((e) => e.document_id === id),
+            { signal: alive.current },
+          );
+          const entry = found?.entries.find((e) => e.document_id === id);
+          if (entry) announce(file.name, entry.is_wrong_file);
+          else toast.error(errorMessage(error));
+        } else {
+          toast.error(errorMessage(error));
+        }
       }
     }
+    setProgress(null);
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -275,7 +383,8 @@ function ComparisonBoard({
 
   // BLOCK-ON-PROVIDER-DOWN: a 502/503/504 on align means the comparison was NOT
   // aligned — surface a persistent, retryable banner instead of an empty grid.
-  const providerDown = align.isError && isProviderDown(align.error);
+  const providerDown = align.isError && !alignRecovering && isProviderDown(align.error);
+  const alignErrorCode: AiErrorCode | null = providerDown ? aiErrorCode(align.error) : null;
   // The readings were run in batches then merged (large input) — surfaced subtly.
   const batched = matrix?.batched ?? false;
   // The AI's recommended offer (first-class field, mirrored inside the matrix).
@@ -354,21 +463,68 @@ function ComparisonBoard({
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={!canEdit.allowed || liveEntries.length === 0 || align.isPending}
+                  disabled={
+                    !canEdit.allowed ||
+                    liveEntries.length === 0 ||
+                    align.isPending ||
+                    alignRecovering
+                  }
                   onClick={runAlign}
                 >
-                  <Sparkles className={cn("h-4 w-4", align.isPending && "animate-pulse")} />
+                  <Sparkles
+                    className={cn(
+                      "h-4 w-4",
+                      (align.isPending || alignRecovering) && "animate-pulse",
+                    )}
+                  />
                   {t("align.action")}
                 </Button>
               </DisabledHint>
             </div>
           </div>
+
+          {/* ── The read in progress: a stepped bar, never a still screen ── */}
+          {progress ? (
+            <ReadingProgress
+              key={`${progress.index}-${progress.name}`}
+              className="mt-3"
+              title={progress.recovering ? t("upload.recovering") : t("upload.working")}
+              hint={
+                progress.recovering
+                  ? t("upload.recoveringHint")
+                  : t("upload.progressHint", {
+                      name: progress.name,
+                      index: progress.index,
+                      total: progress.total,
+                    })
+              }
+              active={progress.step}
+              steps={[
+                { label: t("upload.steps.uploading"), expectedSeconds: 3 },
+                {
+                  label: progress.recovering
+                    ? t("upload.steps.checking")
+                    : t("upload.steps.reading"),
+                  expectedSeconds: progress.recovering ? 30 : 25,
+                },
+                { label: t("upload.steps.added") },
+              ]}
+            />
+          ) : alignRecovering ? (
+            <p role="status" className="mt-3 text-caption text-ink-3">
+              {t("align.recovering")}
+            </p>
+          ) : null}
         </Card>
       </FadeUp>
 
       {/* ── Block-on-provider-down: retryable, never a broken grid ── */}
       {providerDown ? (
-        <AlignBlockedBanner onRetry={runAlign} pending={align.isPending} />
+        <AlignBlockedBanner
+          onRetry={runAlign}
+          pending={align.isPending}
+          timeout={alignErrorCode === "ai_timeout"}
+        />
       ) : null}
 
       {/* ── AI recommendation ── */}
@@ -524,9 +680,12 @@ function RecommendationCard({
 function AlignBlockedBanner({
   onRetry,
   pending,
+  timeout,
 }: {
   onRetry: () => void;
   pending: boolean;
+  /** A timeout, not an outage — different, honest copy. */
+  timeout: boolean;
 }) {
   const { t } = useTranslation("comparison");
   return (
@@ -539,10 +698,10 @@ function AlignBlockedBanner({
             </span>
             <div className="min-w-0">
               <div className="text-body font-medium text-ink">
-                {t("align.blocked.title")}
+                {timeout ? t("align.blocked.timeoutTitle") : t("align.blocked.title")}
               </div>
               <p className="mt-0.5 text-caption text-ink-2">
-                {t("align.blocked.hint")}
+                {timeout ? t("align.blocked.timeoutHint") : t("align.blocked.hint")}
               </p>
             </div>
           </div>
@@ -1176,27 +1335,18 @@ function PromoteDialog({
   );
 }
 
+/** The column's source PDF — a fresh link on click (`lib/download.ts`). */
 function SourceDocLink({ documentId }: { documentId: number | null }) {
   const { t } = useTranslation("comparison");
-  const download = useDocumentDownload(documentId ?? undefined, documentId != null);
-  const url = resolveFileUrl(download.data?.url);
-
   if (documentId == null) return null;
-  if (!url) {
-    return (
-      <Button variant="ghost" size="sm" disabled>
-        <FileText className="h-4 w-4" />
-        {t("column.document")}
-      </Button>
-    );
-  }
   return (
-    <Button variant="ghost" size="sm" asChild>
-      <a href={url} target="_blank" rel="noreferrer">
-        <FileText className="h-4 w-4" />
-        {t("column.document")}
-      </a>
-    </Button>
+    <PreviewDocButton
+      documentId={documentId}
+      variant="ghost"
+      size="sm"
+      icon={<FileText className="h-4 w-4" aria-hidden />}
+      label={t("column.document")}
+    />
   );
 }
 

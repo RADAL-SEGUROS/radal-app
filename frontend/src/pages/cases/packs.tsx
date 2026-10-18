@@ -32,8 +32,8 @@ import {
   Section,
   SoonButton,
   StatusBadge,
-  resolveFileUrl,
 } from "@/pages/proposals/shared";
+import { openFileUrl } from "@/lib/download";
 import { useCaseFile } from "@/api/caseFiles";
 import {
   fetchPackDownload,
@@ -246,7 +246,6 @@ function PackDownload({ pack, part }: { pack: CasePack; part: PackPart }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<unknown>(null);
 
-  const inline = part === "pdf" ? pack.pdf : pack.zip;
   const documentId = part === "pdf" ? pack.pdf_document_id : pack.zip_document_id;
   const Icon = part === "pdf" ? FileText : FileArchive;
 
@@ -254,9 +253,10 @@ function PackDownload({ pack, part }: { pack: CasePack; part: PackPart }) {
     setBusy(true);
     setError(null);
     try {
-      const direct = resolveFileUrl(inline?.url);
-      const url = direct ?? resolveFileUrl((await fetchPackDownload(pack.id, part)).url);
-      if (url) window.open(url, "_blank", "noreferrer");
+      // Always a fresh link (the pack's inline one may have expired); the
+      // presigned S3 URL opens directly, a local path through the auth blob.
+      const link = await fetchPackDownload(pack.id, part);
+      await openFileUrl(link.url, "download", link.original_name, null);
     } catch (err) {
       setError(err);
     } finally {

@@ -18,7 +18,16 @@
     "working": "Leyendo la cotización…",
     "added": "Cotización agregada: {{name}}",
     "rejected": "Ese archivo no parece una cotización: {{name}}",
-    "noPermission": "Tu rol no permite agregar cotizaciones"
+    "noPermission": "Tu rol no permite agregar cotizaciones",
+    "recovering": "Confirmando con el servidor…",
+    "recoveringHint": "La respuesta tardó más de lo esperado; revisamos si la cotización ya quedó guardada.",
+    "progressHint": "{{name}} · {{index}} de {{total}}",
+    "steps": {
+      "uploading": "Subiendo",
+      "reading": "Leyendo la cotización",
+      "checking": "Confirmando con el servidor",
+      "added": "Agregada"
+    }
   },
   "align": {
     "action": "Realinear",
@@ -28,8 +37,12 @@
     "blocked": {
       "title": "El proveedor de IA no está disponible",
       "hint": "No se pudo estandarizar la comparación. La comparación no se alineó; reintenta en unos momentos.",
-      "retry": "Reintentar"
-    }
+      "retry": "Reintentar",
+      "timeoutTitle": "La lectura tardó más de lo esperado",
+      "timeoutHint": "La comparación no se alineó. Reintenta; si persiste, avísanos."
+    },
+    "recovered": "La comparación terminó de alinearse en el servidor.",
+    "recovering": "La respuesta tardó; revisando si la comparación ya quedó alineada…"
   },
   "recommendation": {
     "eyebrow": "Recomendación de la IA",
@@ -117,5 +130,10 @@
   "rejection": {
     "title": "Este archivo no es una cotización",
     "reasonFallback": "El lector no reconoció una oferta de seguro en este documento."
+  },
+  "aiError": {
+    "ai_timeout": "La lectura tardó más de lo esperado. Reintenta; si persiste, avísanos.",
+    "ai_unavailable": "El proveedor de IA no está disponible. Reintenta en unos momentos.",
+    "ai_parse": "La IA respondió algo que no pudimos interpretar. Reintenta."
   }
 }

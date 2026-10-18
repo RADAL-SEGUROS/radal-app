@@ -18,8 +18,10 @@ import { Download, FileText, Loader2 } from "lucide-react";
 
 import { DataTable } from "@/components/common/DataTable";
 import { Button } from "@/components/ui/button";
-import { EmptyState, ErrorBanner, resolveFileUrl } from "@/components/common/kit";
-import { useDocuments, useDocumentDownload } from "@/api/documents";
+import { toast } from "sonner";
+import { EmptyState, ErrorBanner, apiError } from "@/components/common/kit";
+import { useDocuments } from "@/api/documents";
+import { downloadDocument } from "@/lib/download";
 import { formatDate } from "@/lib/format";
 import {
   DOCUMENT_CATEGORIES,
@@ -55,18 +57,10 @@ function formatBytes(bytes: number | null | undefined): string {
   return `${value.toLocaleString("de-DE", { maximumFractionDigits: 1 })} ${unit}`;
 }
 
-/** Per-row download: fetch the short-lived URL on demand, then open it. */
-function DownloadCell({ documentId }: { documentId: number }) {
+/** Per-row download: a fresh short-lived link on click (`lib/download.ts`). */
+function DownloadCell({ documentId, filename }: { documentId: number; filename: string }) {
   const { t } = useTranslation("analytics");
-  const [wanted, setWanted] = React.useState(false);
-  const download = useDocumentDownload(documentId, wanted);
-
-  React.useEffect(() => {
-    if (!wanted || !download.data) return;
-    const url = resolveFileUrl(download.data.url);
-    if (url) window.open(url, "_blank", "noopener,noreferrer");
-    setWanted(false);
-  }, [wanted, download.data]);
+  const [busy, setBusy] = React.useState(false);
 
   return (
     <Button
@@ -75,13 +69,16 @@ function DownloadCell({ documentId }: { documentId: number }) {
       className="h-7 w-7"
       aria-label={t("documents.download")}
       title={t("documents.download")}
-      disabled={wanted && download.isFetching}
+      disabled={busy}
       onClick={(event) => {
         event.stopPropagation();
-        setWanted(true);
+        setBusy(true);
+        downloadDocument(documentId, filename)
+          .catch((error: unknown) => toast.error(apiError(error, t("documents.download"))))
+          .finally(() => setBusy(false));
       }}
     >
-      {wanted && download.isFetching ? (
+      {busy ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <Download className="h-4 w-4" />
@@ -178,7 +175,9 @@ export default function DocumentsTab() {
         id: "download",
         header: () => <span className="sr-only">{t("documents.download")}</span>,
         enableSorting: false,
-        cell: ({ row }) => <DownloadCell documentId={row.original.id} />,
+        cell: ({ row }) => (
+          <DownloadCell documentId={row.original.id} filename={row.original.original_name} />
+        ),
       },
     ],
     [t, tDocuments, tSettings],

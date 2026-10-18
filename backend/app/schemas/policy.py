@@ -260,6 +260,12 @@ class PolicyUploadRequest(BaseModel):
     #: new client. Without it an unknown RUT is a 422 ``insured_unresolved``
     #: carrying the suggestion — the reader never creates a client on its own.
     create_client: bool = False
+    #: The broker's explicit choice of the issuing insurer when the PDF states
+    #: no rut/cmf (real policies print the insurer only by name, and an insurer
+    #: is never matched by name). Sent on the retry after a 422
+    #: ``insurer_unresolved``; an id the broker cannot see is a 422
+    #: ``insurer_not_found``. Ignored when the PDF does state a rut/cmf.
+    insurer_id: int | None = Field(default=None, gt=0)
 
 
 class PolicyUploadResponse(BaseModel):
@@ -271,6 +277,10 @@ class PolicyUploadResponse(BaseModel):
     core_validation: dict[str, Any] | None = None
     overridden: bool = False
     warnings: list[str] = Field(default_factory=list)
+    #: Fast reading (docs/v12/11): the upload ran only the CORE read;
+    #: ``{"status": "pending"}`` tells the SPA to fire
+    #: ``POST /policies/{id}/technical-read`` next.
+    technical_read: dict[str, Any] | None = None
 
 
 class PolicyFromProposal(BaseModel):

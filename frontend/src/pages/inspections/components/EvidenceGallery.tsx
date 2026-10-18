@@ -22,6 +22,7 @@ import {
 } from "@/api/documents";
 import type { RadalDocument } from "@/api/types";
 import { formatDate } from "@/lib/format";
+import { downloadDocument } from "@/lib/download";
 import { EmptyState, GuardedButton, SectionCard, type Guard } from "./shared";
 
 /**
@@ -102,15 +103,7 @@ function AttachmentRow({
   deleteGuard: Guard;
 }) {
   const { t } = useTranslation("inspections");
-  const [wanted, setWanted] = React.useState(false);
-  const { data } = useDocumentDownload(doc.id, wanted);
-
-  React.useEffect(() => {
-    if (wanted && data?.url) {
-      window.open(data.url, "_blank", "noopener,noreferrer");
-      setWanted(false);
-    }
-  }, [wanted, data]);
+  const [busy, setBusy] = React.useState(false);
 
   return (
     <li className="flex items-center gap-3 rounded-lg border border-line px-3 py-2.5">
@@ -124,7 +117,14 @@ function AttachmentRow({
         size="icon"
         className="h-8 w-8"
         aria-label={t("evidence.open")}
-        onClick={() => setWanted(true)}
+        disabled={busy}
+        onClick={() => {
+          // Fresh link on click (`lib/download.ts`), never a stale presigned URL.
+          setBusy(true);
+          downloadDocument(doc.id, doc.original_name)
+            .catch(() => toast.error(t("evidence.open")))
+            .finally(() => setBusy(false));
+        }}
       >
         <Download />
       </Button>

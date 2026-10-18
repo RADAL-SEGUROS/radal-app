@@ -33,7 +33,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { apiError, DisabledHint, resolveFileUrl } from "@/components/common/kit";
+import { apiError, DisabledHint } from "@/components/common/kit";
+import { openFileUrl } from "@/lib/download";
 
 export function DownloadArchiveButton({
   groupId,
@@ -65,8 +66,10 @@ export function DownloadArchiveButton({
       const result = await createArchive.mutateAsync(
         scope ? { period_label: scope } : {},
       );
-      const url = resolveFileUrl(result.download?.url);
-      if (url) window.open(url, "_blank", "noreferrer");
+      // Presigned S3 URL straight to the browser; a local path via auth blob.
+      if (result.download?.url) {
+        await openFileUrl(result.download.url, "download", result.download.original_name, null);
+      }
       toast.success(t("archive.ready"), { id: toastId });
     } catch (error) {
       toast.error(apiError(error, t("archive.error")), { id: toastId });

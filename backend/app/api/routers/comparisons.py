@@ -57,6 +57,7 @@ from app.schemas.comparison import (
 )
 from app.schemas.proposal import reconcile_money_verbose
 from app.services import ai as ai_service
+from app.services.ai_error_copy import ai_user_error
 
 router = APIRouter(prefix="/comparisons", tags=["comparisons"])
 
@@ -94,6 +95,20 @@ _PREMIUM_KEYS = (
 
 
 # --- Internal helpers --------------------------------------------------------
+
+def _comparison_ai_error(exc: ai_service.AIError) -> HTTPException:
+    """A typed AI failure of a comparison read/standardization, as a structured error.
+
+    Same status and ``X-Radal-AI-Error`` header as :func:`_ai_http_error`; the body is
+    the structured ``{"code", "message"}`` the other comparison errors use, so the SPA
+    can tell a TIMEOUT (``ai_timeout``) from an outage (``ai_unavailable``) and show
+    the Spanish copy as-is.
+    """
+    base = _ai_http_error(exc)
+    return HTTPException(
+        status_code=base.status_code, detail=ai_user_error(exc), headers=base.headers
+    )
+
 
 def _first_present(*values: Any) -> str | None:
     """The first non-empty (trimmed) string among ``values``, else ``None``.
@@ -354,7 +369,7 @@ def add_entry(
             db, document_id=document.id, broker_id=broker_id, user=current_user
         )
     except ai_service.AIError as exc:
-        raise _ai_http_error(exc) from exc
+        raise _comparison_ai_error(exc) from exc
 
     source = ComparisonSource(
         broker_id=broker_id,
@@ -496,7 +511,7 @@ def align(
             db, comparison=comparison, sources=sources, broker_id=broker_id, user=current_user
         )
     except ai_service.AIError as exc:
-        raise _ai_http_error(exc) from exc
+        raise _comparison_ai_error(exc) from exc
     db.refresh(comparison)
     return ComparisonAlignmentResult(
         comparison=_comparison_read(db, comparison),

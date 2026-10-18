@@ -5242,6 +5242,213 @@ as the group sub-sidebar — with *Nueva conversación*, search (`q`), date buck
 disabled with a "Pronto" chip and the server's reason (no dead buttons); in Configuración → Integraciones the portal
 credentials button is a `SoonButton` with the same reason, plus a link to the coming-soon page. `api/meta.ts` (`useFeatures`), `api/copilot.ts` (home + sessions hooks).
 
+### 19.18 Fast reading (parallel, tiered AI reads)
+
+#### Comparisons (cotizaciones)
+
+Spec: `docs/v12/11-fast-reading.md` § Comparisons. Code: `services/budget_read.py` (the read, DB-free),
+`services/comparison_standardize.py` (the standardization, DB-free), `services/ai_error_copy.py` (codes + copy),
+`services/ai_parallel.py` (`run_groups`). `ai.extract_budget_proposal` / `ai.submit_comparison` keep their
+signatures, own the DB and the `extraction` rows.
+
+- **Read = parallel groups.** `money_core` (verdict, insurer rut/cmf/name, premiums, rates, commission, validity,
+  dates, quotation number; 4 k tokens) + facets. A document of ≥ `FACET_SPLIT_MIN_CHARS` (8 000) chars splits the
+  facets by `group` into **four** calls (`FACET_GROUP_SPLIT`): `facets_sublimits` (sublimit) · `facets_cover`
+  (coverage, deductible) · `facets_exclusions` (exclusion) · `facets_conditions` (warranty, clause, other); shorter →
+  one `facets` call. Each split call carries a **definition in the insurer's vocabulary** (`_GROUP_DEFINITIONS`: the
+  "cuadro de extensiones de cobertura y sublímites" is `sublimit`, coverages are only the principal ones) — with the
+  group labels alone the model filed every extension as a coverage and re-emitted it (60 facets, 46 s). A split
+  call's facets of a group it does not own are **dropped server-side**. `verbatim` is the decisive sentence
+  (≤ 300 chars; exclusions/clauses ≤ 160 — title or first sentence). Same system + document prefix in every call
+  (provider prefix cache). Core keys come **only** from `money_core`; facets concatenate in plan order with
+  **cross-call** duplicates dropped; `MAX_FACETS` applies on coercion. **Any failed group fails the read** (a column
+  missing its exclusions reads as broader cover). `ai_parallel.MAX_PARALLEL_CALLS = 5`.
+- **One row per attempt, unchanged contract.** `prompt_version="budget-proposal-v2"`; `raw_output = {parallel,
+  wall_seconds, groups: {name: {seconds, prompt_tokens, completion_tokens, finish_reason, model, facet_count,
+  content, reasoning | error}}, parsed}` — also on a FAILED row. Tokens are summed across groups.
+- **Timeouts & retries.** Reads: **90 s** per call (`FAST_READ_TIMEOUT_SECONDS`) — deliberately not the 60 s edge:
+  GLM-5.3-Flash streamed 40–150 tok/s on the same day, the server finishes a request the edge already cut (dev logs:
+  entries committed at 100 s) and the SPA recovers it by polling. `tool_call(max_retries=0)`; a failure faster than
+  8 s is retried once, a **429** (the provider caps simultaneous requests per account — seen with 15 calls in flight)
+  up to twice more with 1.5 s / 3 s + jitter backoff; a timeout never; a provider 504/408 counts as a timeout.
+  Standardization: 70 s per call, the recommend call gets what is left of a 110 s step budget (clamped 15–45 s).
+- **Standardization by facet group.** Above `GROUP_SPLIT_MIN_FACETS` (30, all readings together) the table is
+  standardized as **one parallel call per `FACET_GROUP_SPLIT` bucket** (`comparison_standardize.group_slices`): each
+  call sees EVERY reading (money core included) but only that bucket's facets and the prior dictionary entries of
+  those groups, and returns only its rows (no recommendation); slices merge in bucket order with `_merge_dimensions`
+  (dimensions never cross groups). Batching by reading had every batch re-emit the whole ~105-row table (6.6 k
+  tokens, 54 s for ONE offer). Otherwise (few facets): one call when the input fits `AI_COMPARE_MAX_INPUT_CHARS`,
+  else the reading batches run **in
+  parallel** and merge in **batch order** with the same `_merge_dimensions` (the batches never saw each other's
+  output before either). The first failing batch in batch order blocks the step. Prompt `comparison-submit-v2`:
+  every input facet carries a number `n`, cells answer `facet_n` instead of re-copying verbatim, and
+  `fill_cells` copies the reading's `verbatim` (+ `value`/`present` when the model left them out); without a
+  usable `facet_n` it falls back to the facet whose slug equals the dimension key/label. The table shape is
+  unchanged. `raw_output.calls` keeps per-call seconds/tokens/finish_reason.
+- **Errors.** `POST /comparisons/{id}/entries` and `/align` answer a typed AI failure with the same status and
+  `X-Radal-AI-Error` header as before, and a structured body: a timeout is
+  `504 {"detail": {"code": "ai_timeout", "message": "La lectura tardó más de lo esperado. Reintenta; si persiste,
+  avísanos."}}`; provider down/unconfigured is `502/503 … "code": "ai_unavailable"`; `ai_parse` (422) and
+  `document_unavailable` (422) likewise.
+- **Live probe** (manual, never in the suite): `MEDIA_BACKEND=local .venv/bin/python -m scripts.compare_timing_probe
+  [--baseline] [--no-standardize] [--sequential] [--env-file PATH] a.pdf b.pdf c.pdf`. 2026-10-18, the three Viña
+  Indómita cotizaciones (~17 k chars, ~105 facets each): old single call **80.9 s**. Final settings, read **one after
+  another** as the SPA uploads them, provider at only ~40–45 tok/s that hour: **47.0 / 42.3 / 50.7 s** per cotización
+  (105–106 facets, sublimits 41/41, no cross-group duplicates); standardization of the three by facet group
+  **78.7 s** (4 slices 45–63 s in parallel + recommend 15.6 s, 118 dimensions, a pick) — over the 60 s edge, inside
+  the 120 s Lambda, recovered by the SPA's polling. All three read at once (15 calls) drew **429s**, hence the backoff.
+  Model bake-off on the heaviest call (Southbridge sublimits, 41 rows): GLM-5.3-Flash 52.6 s / 46 tok/s, correct ·
+  DeepSeek-V4.1-Flash 22.1 s / 147 tok/s but read "10.000" UF as **10** · gpt-oss-120b-Ultra 21.4 s, 38/41 rows,
+  no values · Qwen3.8-Flash 37.1 s · Qwen3-Next-80B 42.9 s. GLM stays; a faster model needs a Chilean-number guard.
+
+#### Policies (pólizas)
+
+Spec: `docs/v12/11-fast-reading.md` § Policy read. Code: `schemas/extraction/policy_tiers.py` (the five slim group
+schemas + compact hints), `services/policy_reading.py` (prompting, the tiered runner, the merge, both reads — the
+provider calls never touch the session), `services/policy_reading_commit.py` (parties from the core read; the
+technical read's view / confirm / discard), `api/routers/policy_technical.py` (the four routes),
+`schemas/policy_reading.py` (`TechnicalRead`). `ai.py` changed by one line only: `_chat_model(timeout=…)`.
+
+- **Core tier, inside `POST /policies/upload`.** `core_identity_money` (policy n°, renewal n°, insurer, **insured
+  list**, policyholder, **beneficiaries** `{name, rut, type ∈ hipotecario·prendario·leasing·endosatario·otro,
+  amount_uf}`, the printed broker, line hint, modality, `is_provisional_certificate`, vigencia, issue date, currency,
+  insured amount, `premium{…}`, `commission_pct`, confidence, ≤ 3 notes) and `core_plan` (payment mode + cuotas)
+  run **in parallel**, 4 000 output tokens each, **90 s per call** (`READ_TIMEOUT_SECONDS`, `min`'d with
+  `AI_TIMEOUT_SECONDS`), `json_mode` through `_chat_model` (the existing test seam). Messages are built once:
+  system rules + optional account context + the document, then ONE task message per group (identical prefix →
+  provider cache). `merge_core` maps the groups onto `PolicyExtraction` so the **commit path is untouched**
+  (`_commit_policy` → `validate_policy_core`, plan, `ensure_default_parties`, client resolution): `insured` = the
+  first party (what `_insured_suggestion` reads) and `insured_parties` = the list when > 1; extras survive
+  (`extra="allow"`); keys owned by the technical tier are dropped from the core (they arrive as a suggestion).
+  After the commit the upload adds `policy_party` rows for the read beneficiaries (`role=beneficiary`,
+  `beneficiary_kind` = type, client linked by RUT) and further insureds (`additional_insured`) — only when the
+  policy has no party of that role yet; the amount stays in `policy.payload`. `is_provisional_certificate=true`
+  on a newly created policy sets `policy.is_provisional`. **One failed core group fails the read**: the row is
+  `failed`, the router answers the typed error as before (`504 ai_timeout` with "La lectura tardó más de lo
+  esperado…", `502` provider, `422 ai_parse`, `503` unconfigured). Row: `kind=policy`, `category=policy`,
+  `prompt_version="policy-core-v1"`, `raw_output = {tier:"core", wall_seconds, groups:{name:{seconds,
+  prompt_tokens, completion_tokens, finish_reason, model, warnings, content | error, error_code}}, parsed}`,
+  tokens summed. Response gains `"technical_read": {"status": "pending"}`.
+- **Name-only insurer → the broker's explicit choice (2026-10-18).** Real policy PDFs print the insurer only by
+  name and a colocación created on demand has no accepted proposal, so `POST /policies/upload` accepts
+  `insurer_id` (`PolicyUploadRequest`). `_commit_policy` resolves, when the payload has **no** rut/cmf: (a)
+  `insurer_id` (same visibility as `GET /insurers`: native / global / created by this broker; else 422
+  `{code:"insurer_not_found", reason, field:"insurer_id", insurer_id}`) + warning *"Compañía elegida por el corredor
+  (el PDF no trae su RUT/CMF)."*; (b) the account context (`_account_insurer_id`); (c) 422 `{code:"insurer_unresolved",
+  reason, field:"insurer", read_name, suggestions:[{id,name,rut,cmf_code}] ≤ 3, extraction_id}`. Suggestions =
+  visible insurers sharing a **distinctive** name token (lowercase, accents stripped, legal noise — *compañía, de,
+  seguros, generales, vida, s.a., chile…* — dropped; `extraction_commit.insurer_name_suggestions`) — suggestions
+  only, rule 7 holds. A payload WITH rut/cmf ignores `insurer_id` (warning on mismatch). Every 422 rolls back
+  (no client from `create_client`, no colocación). **A retry re-uses the read**: `read_policy_core` returns the
+  latest `succeeded` `policy-core-v1` row of the same broker + document + folder context created ≤ 30 min ago
+  and not yet confirmed (`raw_output.confirmation`) — no provider call, no new row, warning *"Se reutilizó la
+  lectura…"* (`policy_reading.reusable_core_read`, `CORE_REUSE_WINDOW`). So insured_unresolved → insurer_unresolved
+  → 201 reads the PDF once. Tests: `tests/test_policy_upload_insurer_choice.py`.
+- **Technical tier, a second request** (`tech_risk` items/principal coverages/limits · `tech_sublimits` the
+  extensions/sublimits table, one row each, appended to *Coberturas* (`EXTRA_SECTION_GROUPS`) — with sublimits
+  "merged into their coverage" one live run packed all 41 TRBF sublimits into ONE text · `tech_deductibles` deductibles +
+  warranties · `tech_clauses` exclusions + particular clauses, **number + title only**, ≤ 120 chars), 6 000 tokens
+  each, 90 s per call, in parallel. One row `prompt_version="policy-technical-v1"`; a failed group empties only its
+  sections (`raw_output.section_errors`), all failed → row `failed` with `raw_output.error_code`/`message`.
+- **Slim schemas.** Hints are compact templates, not JSON Schema: 876 / 159 / 326 / 201 / 93 chars (was 13 591 of
+  14 000 for one call). No server-computed field (`PremiumBlock.inconsistencies` is applied on the merged payload,
+  never asked). Lenient like every registry schema, and **row by row**: a row that will not coerce is dropped
+  alone; a bare string row becomes its title/text; closed vocabularies snap accent-insensitively.
+  Deviation from the contract: the core keeps `broker {legal_name}` because `validate_policy_core` requires a
+  *corredor* — and since the `_present` fix below, an all-null broker no longer passes.
+- **Endpoints** (`Policies.View` for GET, `Policies.Create` — as the upload — for the rest; another tenant's policy
+  is a 404; every error is `detail = {code, message}` in Spanish):
+  - `GET /policies/{id}/technical-read` → the newest non-discarded read, or `{"status":"none", …}`.
+  - `POST /policies/{id}/technical-read[?force=true]` → runs the read; an unconfirmed `ready` or a live `running`
+    read is returned as-is unless `force`. `409 {"code":"no_source_document"}` when the policy has no PDF.
+    All groups failing is a **200** with `status:"failed"` + `error_code` (`ai_timeout|ai_unavailable|ai_parse`);
+    an unconfigured key is `503 {"code":"ai_unavailable"}`; an unreadable file `422 document_unavailable`.
+  - `POST /policies/{id}/technical-read/{extraction_id}/confirm` body `{"sections": [...]}` (optional; default all;
+    `limits` travel with `items`/`coverages`). Writes only when the policy field is **empty** — `deductibles`
+    JSON (`{peril: row}`), `indemnity_limit`, `aggregate_limit_uf`, `insured_amount_semantics` (← valuation
+    basis), `average_rate_permille`, `cmf_policy_code` — and reports every difference with an existing value in
+    `warnings` (never overwritten); upserts warranties by code; merges each confirmed section into
+    `policy.payload` (only where the payload's section is empty) plus `payload.technical_read = {extraction_id,
+    confirmed_at, sections}`; Activity `policy.technical_confirmed` (Spanish description); `record_confirmation`
+    (target `policy.technical`). `409` codes: `technical_read_confirmed` · `technical_read_dismissed` ·
+    `technical_read_not_ready`.
+  - `POST /policies/{id}/technical-read/{extraction_id}/discard` → `raw_output.dismissed = {at, by_user_id}`
+    (no enum change, no migration); nothing is written to the policy; GET then reads `none`.
+  - `TechnicalRead = {status: none|running|ready|confirmed|failed, extraction_id, started_at, finished_at,
+    error_code, message, sections:{items, coverages, deductibles, warranties, exclusions, particular_clauses,
+    limits:{indemnity_limit, aggregate_limit_uf, valuation_basis, average_rate_permille, cmf_policy_code}},
+    counts:{…six…}, section_errors:{section: Spanish message}, confirmed_sections:[…], warnings:[…]}`. A `running`
+    row older than 150 s (its Lambda died) reads `failed / ai_timeout`.
+- **Mirror** (`services/mirror.py`). The policy side excludes technical rows and is the core/full read; a technical
+  read of the same document (confirmed first, else the latest succeeded, never a discarded one) **overlays**
+  coverages / deductibles / warranties / exclusions / clauses and fills empty limits. A core read with no
+  technical read skips the collection diffs (`include_collections=False` — an unread section is not a delta).
+  Premium aliases now include the registry names (`taxable_/exempt_/net_/total_premium_uf`), the 07's
+  `commission.pct` is read (dotted keys in `_first`), and `confidence`/`extraction_notes` are never diffed.
+- **Core validation** (`services/policy_validation.py`). `_present` needs a non-empty LEAF (a dict of nulls is not a
+  corredor/asegurado); *prima* reads the policy's own `premium` block or the flat top level, never an installment.
+- **Agent.** READ tool `search_document_text(document_id, query, max_hits=5≤10)` (`Documents.View`, broker-scoped
+  404, `services/document_search.py`): PDF pages are read one by one (up to 600 k chars, beyond the AI read's 45 k),
+  split into paragraphs (blank lines; long blocks re-chunked at ~900 chars), terms folded accent/case-insensitively
+  without stopwords, ranked by distinct terms → phrase bonus → hits → position; each hit is quoted verbatim (≤ 900
+  chars) with its page and the ±1 neighbours (≤ 300 chars each); a scan folds `document_unreadable`. Registered in
+  the `policy_intake` and `file_check` skills.
+- **Live probe** (manual, never in the suite): `MEDIA_BACKEND=local .venv/bin/python -m scripts.ai_timing_probe
+  a.pdf [b.pdf] [--tier core|technical|both]` (transient unsaved `Document`, no DB; prints per-group seconds /
+  tokens / finish_reason / item counts and the core checks). 2026-10-18, GLM-5.3-Flash on DeepInfra:
+
+  | PDF | old one call | 4-group probe | **core (upload)** | **technical (2nd request)** |
+  |---|---|---|---|---|
+  | TRBF Southbridge 0020119904 (23 k chars) | 89.5 s | 28.7 s | **15.1 s** (identity 15.1 · plan 5.7; 625 out tok) | **36.1 s** (risk 12.2 · deductibles 36.1 · clauses 8.2; 2 283 out tok) |
+  | Coccolino Consorcio V-FL-0091447 (19 k chars) | 68.8 s | 21.6 s | **11.9 s** (identity 11.9 · plan 6.7; 644 out tok) | **17.8 s** (risk 17.8 · deductibles 9.7 · clauses 5.8; 1 984 out tok) |
+
+  Core values checked: policy numbers right; premiums reconcile (TRBF afecta 439.14 + exenta 658.70 = neta 1 097.84,
+  IVA 83.44, total 1 181.28; Coccolino 65.13 + 0, IVA 12.37, total 77.50); 10 cuotas each, **Σ cuotas = total**;
+  commission 10 % / 15 %; TRBF beneficiary read as *prendario*. Item counts: TRBF 2 items · 1 coverage · 16
+  deductibles · 8 warranties · 20 exclusions · 8 clauses; Coccolino 3 · 26 · 12 · 7 · 15 · 9. Every call
+  `finish_reason=stop`. The TRBF `tech_deductibles` call (1 223 out tokens in 36 s) is the outlier — over the
+  35 s target and the one to split (warranties into their own group, the pool allows 4) if it repeats.
+  Neither PDF prints the insurer's RUT/CMF: the upload resolves the insurer from the account (unchanged rule).
+  With `tech_sublimits` (live, same day): technical **10.6 s / 9.4 s** — TRBF 1 principal coverage + **41 sublimit
+  rows**, 16 deductibles, 8 warranties, 20 exclusions, 8 clauses; Coccolino 9 coverages + 8 sublimits. Browser e2e
+  (local, AI on, real TRBF PDF, Pólizas → Subir póliza): core 7.8 s → *Crear este asegurado* → company step with
+  Southbridge suggested (no re-read) → policy page at 8.7 s → technical card ready at 20.6 s → Confirmar OK.
+  Second live run (orchestrator, same day): core **5.3 s / 5.7 s**, technical **19.7 s / 26.1 s** (TRBF: 43 coverages
+  — sublimits merged in — 15 deductibles, 7 warranties, 20 exclusions, 8 clauses); same values. A run during a
+  network outage timed every call out at the then-50 s limit: the typed `ai_timeout` path behaved as designed.
+
+#### Frontend
+
+The contract is `docs/v12/11-fast-reading.md`. `PolicyUploadDialog` shows an honest stepped bar while the
+core read runs (`components/common/ReadingProgress.tsx`: Subiendo · Leyendo datos principales · Listo, a time-based
+creep that never reaches 100 % before the answer, plus a seconds counter). When `POST /policies/upload` answers
+`technical_read.status === "pending"` the dialog fires `POST /policies/{id}/technical-read` **before** `onUploaded`
+(the Pólizas list navigates away on success): the mutation (`api/technicalRead.ts::useStartTechnicalRead`, key
+`["policies","technical-read","start"]`, matched by `policyId`) keeps its cache work in mutation-level
+`onSuccess`/`onSettled`, so it lands after the dialog unmounts, and the ficha finds it through `useIsMutating`.
+`components/policies/PolicyTechnicalRead.tsx` (mounted in `PolicyDetailBody`'s summary tab, so `/policies/:id` and
+the group policy page share it) renders the states: reading (mutation in flight or server `running`; the GET polls
+every 4 s) → ready (counts per section, expandable tables — exclusions/clauses number + title only — per-section
+errors from `section_errors`, **Confirmar datos técnicos** / **Descartar**, confirm warnings shown) → failed (server
+message + **Reintentar** with `?force=true`) → none (**Leer datos técnicos** only when the policy has its PDF) →
+confirmed (one line). Actions gate on `Policies.Create`, like the upload. Honest errors: `lib/aiErrors.ts` reads the
+code from the structured `detail: {code, message}` first, then `X-Radal-AI-Error` (not in CORS `expose_headers`, so
+unreadable cross-origin), then the status (504 → `ai_timeout`, 502/503 → `ai_unavailable`); explicit maps
+`TECHNICAL_READ_ERROR_LABEL` / `COMPARISON_AI_ERROR_LABEL` in `i18n/labels.ts`. `isLostResponse` = no response, or a
+504 **without** our structured body/header (the 60 s CloudFront cut while the Lambda keeps working): the comparison
+entry upload then polls `GET /comparisons/{id}` (`api/comparisons.ts::pollComparison`, 14 × 5 s) for a column with
+that `document_id` before declaring it lost, and a lost *Realinear* polls for `status === "aligned"`; a lost policy
+upload says "puede haber quedado registrada" instead of a generic error. **Downloads**: `lib/download.ts` always
+asks `GET /documents/{id}/download` for a fresh link — an absolute (presigned S3) URL is opened directly with an
+anchor / a tab reserved synchronously inside the click (no axios, so no auth/OAC headers on S3); a relative one (local
+backend, the auth-gated `…/content`) goes through the axios blob path. `GET …/content` 409s on S3, which is what broke
+every download on dev. Every document opener uses it (`DownloadDocButton`/`PreviewDocButton`, documents panels,
+analytics/settings document tables, policy source links, comparison column PDFs, offering PDFs, proposal source,
+adjuster reports, inspection report/evidence, pack and group-archive downloads via `openFileUrl`); none renders a
+cached presigned URL into an `href` any more (they expire in 15 min). Still on `<img src>` with a presigned URL: the
+broker logo and inspection evidence thumbnails (fine on S3; an `<img>` cannot carry auth on the local backend).
+Public share pages use their own unauthenticated URLs and were left as they are.
+
 ### 19.15 Verified state & still open
 
 The handoff for this pass — as-built, the candid error log of the build and the full owed list — is

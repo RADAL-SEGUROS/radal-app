@@ -24,6 +24,25 @@
  * confirms "Crear asegurado" (`create_client: true`) or picks the client —
  * suggest → confirm → commit, the reader never creates a client on its own.
  * Copy for these v12 steps lives in the `policies` namespace (`upload.*`).
+ *
+ * Fast reading (docs/v12/11): the upload runs only the CORE read (≈10–20 s),
+ * shown as an honest stepped bar (Subiendo · Leyendo datos principales · Listo
+ * — never a still screen). When the answer carries
+ * `technical_read.status === "pending"` the dialog fires
+ * `POST /policies/{id}/technical-read` at once; that mutation outlives the
+ * dialog (the Pólizas list navigates away on success) and the ficha picks it
+ * up as "Leyendo datos técnicos…".
+ *
+ * Insurer by name only: real policy PDFs often print the insurer's name with
+ * neither RUT nor CMF code, and the server answers 422 `insurer_unresolved`
+ * with the name it read and its best matches. The dialog asks "¿Qué compañía
+ * emitió esta póliza?" (suggestions first, the first one preselected) and
+ * re-posts the SAME document with every choice already made (subtipo, client /
+ * create_client, override) plus `insurer_id` — the server re-uses the AI read.
+ * An id the server no longer knows (`insurer_not_found`) returns to that step
+ * with the reason. Every choice travels in the stage (`Choices`), so a second
+ * 422 (insured after insurer, or the reverse) never drops the first answer.
+ * Any other structured 422 shows the server's own `reason` / `message`.
  */
 import * as React from "react";
 import { Link } from "react-router-dom";
@@ -32,8 +51,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   FileText,
+  Loader2,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Upload,
 } from "lucide-react";
 
@@ -50,12 +71,34 @@ import {
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { useUploadDocument } from "@/api/documents";
-import { useUploadPolicy, type PolicyInsuredUnresolved } from "@/api/policies";
-import type {
-  PolicyNotAPolicyDetail,
-  PolicyUploadResponse,
-} from "@/api/types";
-import { ErrorBanner } from "@/components/common/kit";
+import { useInsurers } from "@/api/insurers";
+import {
+  useUploadPolicy,
+  type PolicyInsuredUnresolved,
+  type PolicyInsurerUnresolved,
+  type PolicyUploadResponseV12,
+} from "@/api/policies";
+import {
+  useLastTechnicalReadError,
+  useStartTechnicalRead,
+  useTechnicalReadInFlight,
+} from "@/api/technicalRead";
+import type { PolicyNotAPolicyDetail } from "@/api/types";
+import { ErrorBanner, apiError } from "@/components/common/kit";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { TouchHint } from "@/components/policies/TouchHint";
+import { useCan } from "@/lib/permissions";
+import { ReadingProgress } from "@/components/common/ReadingProgress";
+import { isLostResponse } from "@/lib/aiErrors";
 import { useAuth } from "@/providers/AuthProvider";
 import { RamoSubtypeSelect } from "@/components/catalog/RamoSubtypeSelect";
 import { ClientPicker, type PickedClient } from "@/components/policies/ClientPicker";
@@ -90,17 +133,69 @@ function insuredUnresolved(error: unknown): PolicyInsuredUnresolved | null {
   return null;
 }
 
+/** The structured body of an axios error, when the server sent one. */
+function errorDetail(error: unknown): { code?: string; reason?: string; message?: string } | null {
+  const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data
+    ?.detail;
+  return detail && typeof detail === "object" && !Array.isArray(detail)
+    ? (detail as { code?: string; reason?: string; message?: string })
+    : null;
+}
+
+/** The structured `insurer_unresolved` body (the PDF names the insurer only), if that is what it is. */
+function insurerUnresolved(error: unknown): PolicyInsurerUnresolved | null {
+  const detail = errorDetail(error);
+  return detail?.code === "insurer_unresolved" ? (detail as PolicyInsurerUnresolved) : null;
+}
+
+/** The server's own Spanish explanation (`reason`, else `message`), if it sent one. */
+function serverReason(error: unknown): string | null {
+  const detail = errorDetail(error);
+  return detail?.reason || detail?.message || null;
+}
+
+/**
+ * Every answer the broker has already given for this document. Carried in the
+ * stage so a re-post (override, insured, insurer) never drops an earlier one.
+ */
+interface Choices {
+  clientId?: number | null;
+  createClient?: boolean;
+  insurerId?: number | null;
+}
+
+/** 0 = filing the PDF, 1 = the core read (`POST /policies/upload`). */
+type WorkingStep = 0 | 1;
+
 type Stage =
   | { kind: "idle" }
-  | { kind: "working" }
-  | { kind: "rejected"; documentId: number; reject: PolicyNotAPolicyDetail; fileName: string }
+  | { kind: "working"; step: WorkingStep }
+  | {
+      kind: "rejected";
+      documentId: number;
+      reject: PolicyNotAPolicyDetail;
+      fileName: string;
+      choices: Choices;
+    }
   | {
       kind: "unresolved";
       documentId: number;
       unresolved: PolicyInsuredUnresolved;
       fileName: string;
+      override: boolean;
+      choices: Choices;
     }
-  | { kind: "done"; result: PolicyUploadResponse };
+  | {
+      kind: "insurer";
+      documentId: number;
+      unresolved: PolicyInsurerUnresolved;
+      fileName: string;
+      override: boolean;
+      choices: Choices;
+      /** Why the broker is asked again (e.g. `insurer_not_found`). */
+      notice?: string;
+    }
+  | { kind: "done"; result: PolicyUploadResponseV12; technical: boolean };
 
 export function PolicyUploadDialog({
   caseId,
@@ -117,7 +212,7 @@ export function PolicyUploadDialog({
   open: boolean;
   onOpenChange: (value: boolean) => void;
   /** Fired once a policy is committed (either clean or via override). */
-  onUploaded?: (result: PolicyUploadResponse) => void;
+  onUploaded?: (result: PolicyUploadResponseV12) => void;
 }) {
   const { t } = useTranslation("postsale");
   const { t: tp } = useTranslation("policies");
@@ -126,6 +221,7 @@ export function PolicyUploadDialog({
 
   const uploadDoc = useUploadDocument();
   const uploadPolicy = useUploadPolicy();
+  const startTechnical = useStartTechnicalRead();
 
   const onDemand = caseId === undefined;
   const [subtypeId, setSubtypeId] = React.useState<number | null>(null);
@@ -135,10 +231,13 @@ export function PolicyUploadDialog({
   const [error, setError] = React.useState<unknown>(null);
   const [dragOver, setDragOver] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  /** The last `insurer_unresolved` body — re-shown when the pick is `insurer_not_found`. */
+  const insurerAsk = React.useRef<PolicyInsurerUnresolved | null>(null);
 
   const reset = React.useCallback(() => {
     setStage({ kind: "idle" });
     setError(null);
+    insurerAsk.current = null;
   }, []);
 
   // Fresh dialog every open — never show the last upload's verdict.
@@ -155,48 +254,92 @@ export function PolicyUploadDialog({
       documentId: number,
       override: boolean,
       fileName: string,
-      opts: { clientId?: number | null; createClient?: boolean } = {},
+      choices: Choices = {},
     ) => {
       setError(null);
-      setStage({ kind: "working" });
+      setStage({ kind: "working", step: 1 });
+      const insurerId = choices.insurerId ?? null;
       uploadPolicy.mutate(
         onDemand
           ? {
               document_id: documentId,
               override,
               insurance_subtype_id: subtypeId,
-              client_id: opts.clientId ?? client?.id ?? null,
-              create_client: opts.createClient ?? false,
+              client_id: choices.clientId ?? client?.id ?? null,
+              create_client: choices.createClient ?? false,
+              ...(insurerId !== null ? { insurer_id: insurerId } : {}),
             }
-          : { document_id: documentId, case_file_id: caseId, override },
+          : {
+              document_id: documentId,
+              case_file_id: caseId,
+              override,
+              ...(insurerId !== null ? { insurer_id: insurerId } : {}),
+            },
         {
           onSuccess: (result) => {
-            setStage({ kind: "done", result });
+            // Fire the technical read BEFORE `onUploaded` (which may navigate
+            // away): the mutation's cache work is mutation-level, so it lands
+            // on the ficha even once this dialog is gone.
+            const technical = result.technical_read?.status === "pending";
+            if (technical) startTechnical.mutate({ policyId: result.policy.id });
+            setStage({ kind: "done", result, technical });
             onUploaded?.(result);
           },
           onError: (err) => {
             const reject = notAPolicy(err);
             const unresolved = insuredUnresolved(err);
+            const insurerAsked = insurerUnresolved(err);
             if (reject) {
-              setStage({ kind: "rejected", documentId, reject, fileName });
+              setStage({ kind: "rejected", documentId, reject, fileName, choices });
             } else if (unresolved) {
-              setStage({ kind: "unresolved", documentId, unresolved, fileName });
+              setStage({ kind: "unresolved", documentId, unresolved, fileName, override, choices });
+            } else if (insurerAsked) {
+              insurerAsk.current = insurerAsked;
+              setStage({
+                kind: "insurer",
+                documentId,
+                unresolved: insurerAsked,
+                fileName,
+                override,
+                choices,
+              });
+            } else if (errorDetail(err)?.code === "insurer_not_found" && insurerAsk.current) {
+              // The picked id is gone: back to the same question, saying why.
+              setStage({
+                kind: "insurer",
+                documentId,
+                unresolved: insurerAsk.current,
+                fileName,
+                override,
+                choices: { ...choices, insurerId: null },
+                notice: serverReason(err) ?? tp("upload.insurer.notFound"),
+              });
             } else {
               setStage({ kind: "idle" });
-              setError(err);
+              // A lost answer (edge 504 / dropped connection) is not a failed
+              // read: the policy may have been committed. Say so honestly.
+              // Otherwise the server's own Spanish reason beats the generic
+              // "Error al cargar" (which stays only as ErrorBanner's fallback).
+              setError(
+                isLostResponse(err)
+                  ? tp("upload.lost")
+                  : errorDetail(err)?.code === "insurer_not_found"
+                    ? (serverReason(err) ?? tp("upload.insurer.notFound"))
+                    : (serverReason(err) ?? err),
+              );
             }
           },
         },
       );
     },
-    [caseId, client?.id, onDemand, onUploaded, subtypeId, uploadPolicy],
+    [caseId, client?.id, onDemand, onUploaded, startTechnical, subtypeId, tp, uploadPolicy],
   );
 
   const handleFile = React.useCallback(
     async (file: File | undefined) => {
       if (!file) return;
       setError(null);
-      setStage({ kind: "working" });
+      setStage({ kind: "working", step: 0 });
       // Folder upload: file it in the folder. No folder: on the picked client,
       // else on the broker itself (the server moves it into the colocación).
       const target: { entity_type: "case_file" | "client" | "broker"; entity_id: number } | null =
@@ -221,7 +364,7 @@ export function PolicyUploadDialog({
         commit(doc.id, false, file.name);
       } catch (err) {
         setStage({ kind: "idle" });
-        setError(err);
+        setError(serverReason(err) ?? err);
       }
     },
     [caseId, client, commit, onDemand, tp, uploadDoc, user?.broker_id],
@@ -263,8 +406,22 @@ export function PolicyUploadDialog({
           </div>
         ) : null}
 
-        {/* ── Dropzone (idle / working) ── */}
-        {stage.kind === "idle" || stage.kind === "working" ? (
+        {/* ── Working: the honest stepped bar, never a still screen ── */}
+        {stage.kind === "working" ? (
+          <ReadingProgress
+            title={tp("upload.progress.title")}
+            hint={tp("upload.progress.hint")}
+            active={stage.step}
+            steps={[
+              { label: tp("upload.progress.uploading"), expectedSeconds: 3 },
+              { label: tp("upload.progress.readingCore"), expectedSeconds: 15 },
+              { label: tp("upload.progress.ready") },
+            ]}
+          />
+        ) : null}
+
+        {/* ── Dropzone (idle) ── */}
+        {stage.kind === "idle" ? (
           <>
             <input
               ref={inputRef}
@@ -324,7 +481,7 @@ export function PolicyUploadDialog({
             reject={stage.reject}
             fileName={stage.fileName}
             overriding={busy}
-            onOverride={() => commit(stage.documentId, true, stage.fileName)}
+            onOverride={() => commit(stage.documentId, true, stage.fileName, stage.choices)}
             onRetry={reset}
           />
         ) : null}
@@ -334,17 +491,47 @@ export function PolicyUploadDialog({
           <UnresolvedPanel
             unresolved={stage.unresolved}
             fileName={stage.fileName}
-            onCreate={() => commit(stage.documentId, false, stage.fileName, { createClient: true })}
+            onCreate={() =>
+              commit(stage.documentId, stage.override, stage.fileName, {
+                ...stage.choices,
+                clientId: null,
+                createClient: true,
+              })
+            }
             onPick={(picked) => {
               setClient(picked);
-              commit(stage.documentId, false, stage.fileName, { clientId: picked.id });
+              commit(stage.documentId, stage.override, stage.fileName, {
+                ...stage.choices,
+                clientId: picked.id,
+                createClient: false,
+              });
             }}
             onRetry={reset}
           />
         ) : null}
 
+        {/* ── The PDF names the insurer without RUT / CMF code ── */}
+        {stage.kind === "insurer" ? (
+          <InsurerPanel
+            // Remount on each ask so the preselection follows the new answer.
+            key={`${stage.documentId}-${stage.notice ?? ""}`}
+            unresolved={stage.unresolved}
+            fileName={stage.fileName}
+            notice={stage.notice}
+            onUse={(insurerId) =>
+              commit(stage.documentId, stage.override, stage.fileName, {
+                ...stage.choices,
+                insurerId,
+              })
+            }
+            onRetry={reset}
+          />
+        ) : null}
+
         {/* ── Success ── */}
-        {stage.kind === "done" ? <DonePanel result={stage.result} /> : null}
+        {stage.kind === "done" ? (
+          <DonePanel result={stage.result} technical={stage.technical} />
+        ) : null}
 
         <DialogFooter>
           {stage.kind === "done" ? (
@@ -428,7 +615,14 @@ function RejectPanel({
   );
 }
 
-function DonePanel({ result }: { result: PolicyUploadResponse }) {
+function DonePanel({
+  result,
+  technical,
+}: {
+  result: PolicyUploadResponseV12;
+  /** The technical read was fired for this policy. */
+  technical: boolean;
+}) {
   const { t } = useTranslation("postsale");
   const p = result.policy;
 
@@ -464,6 +658,8 @@ function DonePanel({ result }: { result: PolicyUploadResponse }) {
           </Badge>
         ))}
       </div>
+
+      {technical ? <TechnicalReadLine policyId={p.id} /> : null}
 
       <Button size="sm" variant="secondary" asChild>
         <Link to={`/policies/${p.id}`}>
@@ -542,5 +738,198 @@ function UnresolvedPanel({
         </div>
       </div>
     </div>
+  );
+}
+
+interface InsurerOption {
+  id: number;
+  name: string;
+  suggested: boolean;
+}
+
+function InsurerPanel({
+  unresolved,
+  fileName,
+  notice,
+  onUse,
+  onRetry,
+}: {
+  unresolved: PolicyInsurerUnresolved;
+  fileName: string;
+  notice?: string;
+  onUse: (insurerId: number) => void;
+  onRetry: () => void;
+}) {
+  const { t } = useTranslation("policies");
+  // Same gate as the manual form (`pages/policies/new.tsx`): the list is
+  // `GET /insurers`, so it needs Insurers:View. The server's suggestions come
+  // inside the 422 itself and stay pickable without it.
+  const canInsurers = useCan("Insurers", "View");
+  const insurers = useInsurers({ limit: 200 }, canInsurers.allowed);
+
+  const suggestions = React.useMemo(() => unresolved.suggestions ?? [], [unresolved.suggestions]);
+  const [selected, setSelected] = React.useState<string>(
+    suggestions[0] ? String(suggestions[0].id) : "",
+  );
+
+  const options = React.useMemo<{ suggested: InsurerOption[]; rest: InsurerOption[] }>(() => {
+    const ids = new Set(suggestions.map((s) => s.id));
+    return {
+      suggested: suggestions.map((s) => ({ id: s.id, name: s.name, suggested: true })),
+      rest: (insurers.data?.items ?? [])
+        .filter((ins) => !ids.has(ins.id))
+        .map((ins) => ({
+          id: ins.id,
+          name: ins.trade_name ?? ins.legal_name,
+          suggested: false,
+        })),
+    };
+  }, [insurers.data?.items, suggestions]);
+
+  const hasOptions = options.suggested.length + options.rest.length > 0;
+  const listing = canInsurers.allowed && insurers.isLoading;
+  /** Why the select cannot be used at all — shown, never a silent dead control. */
+  const selectBlocked = hasOptions
+    ? null
+    : !canInsurers.allowed
+      ? t("noPermission.insurers")
+      : listing
+        ? t("upload.insurer.loading")
+        : insurers.isError
+          ? apiError(insurers.error)
+          : t("upload.insurer.empty");
+  const useBlocked = selectBlocked ?? (selected ? null : t("upload.insurer.pickFirst"));
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-warn-line bg-warn-soft/40 p-4">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-warn-soft text-warn-text">
+          <AlertTriangle className="h-4 w-4" />
+        </span>
+        <div className="min-w-0">
+          <div className="text-body font-medium text-ink">{t("upload.insurer.title")}</div>
+          <p className="mt-0.5 flex items-center gap-1.5 text-caption text-ink-3">
+            <FileText className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{fileName}</span>
+          </p>
+        </div>
+      </div>
+
+      {notice ? (
+        <p role="alert" className="text-caption font-medium text-neg">
+          {notice}
+        </p>
+      ) : null}
+
+      <div className="flex flex-col gap-1 rounded-lg border border-line bg-bone p-3">
+        <div className="text-caption text-ink-3">{t("upload.suggestion")}</div>
+        <div className="text-body font-medium text-ink">
+          {unresolved.read_name || t("upload.insurer.noName")}
+        </div>
+      </div>
+
+      <p className="text-caption text-ink-2">
+        {unresolved.reason || t("upload.insurer.reasonFallback")}
+      </p>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="upload-insurer">{t("upload.insurer.label")}</Label>
+        <TouchHint hint={selectBlocked} className="w-full">
+          <Select
+            value={selected || undefined}
+            onValueChange={setSelected}
+            disabled={!!selectBlocked}
+          >
+            <SelectTrigger
+              id="upload-insurer"
+              className="h-10 w-full"
+              aria-label={t("upload.insurer.label")}
+            >
+              <SelectValue placeholder={t("upload.insurer.placeholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              {options.suggested.length > 0 ? (
+                <SelectGroup>
+                  <SelectLabel>{t("upload.insurer.suggestedGroup")}</SelectLabel>
+                  {options.suggested.map((o) => (
+                    <SelectItem key={o.id} value={String(o.id)}>
+                      {o.name}
+                      <span className="ml-1.5 text-caption font-medium text-brand-deep">
+                        · {t("upload.insurer.suggested")}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ) : null}
+              {options.suggested.length > 0 && options.rest.length > 0 ? (
+                <SelectSeparator />
+              ) : null}
+              {options.rest.length > 0 ? (
+                <SelectGroup>
+                  <SelectLabel>{t("upload.insurer.allGroup")}</SelectLabel>
+                  {options.rest.map((o) => (
+                    <SelectItem key={o.id} value={String(o.id)}>
+                      {o.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ) : null}
+            </SelectContent>
+          </Select>
+        </TouchHint>
+        {/* Visible, not only a tooltip: on a phone the reason must show. */}
+        {selectBlocked ? (
+          <span className="text-caption text-ink-3">{selectBlocked}</span>
+        ) : !canInsurers.allowed ? (
+          <span className="text-caption text-ink-3">{t("upload.insurer.onlySuggestions")}</span>
+        ) : listing ? (
+          <span className="text-caption text-ink-3">{t("upload.insurer.loading")}</span>
+        ) : insurers.isError ? (
+          <span className="text-caption text-ink-3">{apiError(insurers.error)}</span>
+        ) : null}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <TouchHint hint={useBlocked}>
+          <Button size="sm" disabled={!!useBlocked} onClick={() => selected && onUse(Number(selected))}>
+            <ShieldCheck className="h-4 w-4" />
+            {t("upload.insurer.use")}
+          </Button>
+        </TouchHint>
+        <Button size="sm" variant="ghost" onClick={onRetry}>
+          {t("upload.tryAnother")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** The second (technical) read, as one honest line under the done card. */
+function TechnicalReadLine({ policyId }: { policyId: number }) {
+  const { t } = useTranslation("policies");
+  const inFlight = useTechnicalReadInFlight(policyId);
+  const failed = useLastTechnicalReadError(policyId);
+
+  if (inFlight) {
+    return (
+      <p role="status" className="flex items-center gap-2 text-caption text-ink-2">
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none text-brand" />
+        {t("upload.technical.reading")}
+      </p>
+    );
+  }
+  if (failed) {
+    return (
+      <p className="flex items-center gap-2 text-caption text-ink-2">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn-text" />
+        {t("upload.technical.failed")}
+      </p>
+    );
+  }
+  return (
+    <p className="flex items-center gap-2 text-caption text-ink-2">
+      <Sparkles className="h-3.5 w-3.5 shrink-0 text-brand" />
+      {t("upload.technical.ready")}
+    </p>
   );
 }
