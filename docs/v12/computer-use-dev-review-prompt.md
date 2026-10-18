@@ -4,8 +4,10 @@ Target: **https://dev.radalseguros.cl** (AWS: CloudFront → Lambda, RDS MySQL, 
 deployed build, not a local demo. Unlike the local review, **AI is ON** (real extraction, comparison and agent — verified: GLM-5.3 answers in ~7 s),
 **scheduled jobs run** (cuota clock 06:30, notices 09:00, inquiries 10:00, UF/USD 08:00 Chile time — mindicador.cl was
 not answering on deploy day, so `fx.daily` may show as failed; rates fall back to the last loaded value), and files go
-to S3. Mail is still OFF (no Zoho credentials yet),
-Forpay is PAUSED by decision, and the HDI portal is not connected.
+to S3. **Mail is ON** (Amazon SES, from `contacto@radalseguros.cl`, a Bcc copy lands in the Zoho mailbox `contacto@`; insurer
+replies go to `respuestas@correo.radalseguros.cl` and are processed every 5 min). For safety dev only delivers to
+**@radalseguros.cl** addresses; anything else is recorded as *omitido*. Forpay is PAUSED by decision, and the HDI
+portal is not connected.
 
 ## For the human, before starting
 
@@ -60,8 +62,8 @@ https://dev.radalseguros.cl/s/qZJgVZhu_w_OHYBU5ovHELwVF5H7be22   (insurer · Sur
 - **Closed ramo catalogue:** ramo → subtipo comes from a fixed list.
 - **Cobranza:** each cuota is at one of three levels. *Registro* means record only. *Asistida* means
   reminders and asking the insurer for the status. *En línea* (Forpay) is paused, so no cuota should offer
-  online payment. There are payments, promises, PAC rejections, reversals, reminders (mail OFF, so they are
-  recorded as "omitido"), inquiries to insurers, and the "Respuestas por confirmar" inbox. Every broker
+  online payment. There are payments, promises, PAC rejections, reversals, reminders (mail ON but dev only delivers to
+  @radalseguros.cl, so reminders to demo payers are recorded as "omitido"), inquiries to insurers, and the "Respuestas por confirmar" inbox. Every broker
   confirmation is required: Radal never marks a cuota paid on its own.
 - **Public links** for the insured (cuotas, payment instructions, receipt upload) and for the insurer
   (report a cuota's status).
@@ -92,6 +94,11 @@ https://dev.radalseguros.cl/s/qZJgVZhu_w_OHYBU5ovHELwVF5H7be22   (insurer · Sur
    - Promise, PAC rejected, reverse with a reason.
    - Reminder preview: amount = the **balance**, greeting = the actual recipient.
    - Inquiry to the insurer: a second one for the same cuota must be refused with a link to the first.
+   - **Real mail loop:** create an inquiry for a cuota with destination `contacto@radalseguros.cl`. Ask the human to
+     open the Zoho mailbox `contacto@` and reply to it (the reply goes to `respuestas@correo.radalseguros.cl`) with
+     something like "Confirmamos que la cuota está pagada, UF X el dd-mm-aaaa". Within ~5 min the reply must appear in
+     *Respuestas por confirmar* as a suggestion (Radal never books it alone), the admin gets a *Por hacer*, the inquiry
+     shows "respondida", and a forwarded copy appears in Zoho.
 4. **Public links (logged out):** the insured view (instructions, upload a receipt → "Comprobante en
    revisión" persists on reload; no "Pagar" because Forpay is paused) and the insurer view (report a status).
    Then log in as **ejecutivo@demo.cl** (the owner) and find the new to-dos.
