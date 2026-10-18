@@ -1,6 +1,12 @@
 /**
  * Cotizar en portales — the portal-search RPA (`/portal-searches/*`, v12 06-rpa).
  *
+ * **Gated by the server flag** (copilot pass): while `GET /meta/features`
+ * reports `portal_search.enabled: false` — the portals need each insurer's own
+ * user + password before filters can be applied — the route renders the
+ * coming-soon page (`ComingSoon.tsx`) with the server's reason and NO forms.
+ * The workspace below mounts only once the server turns the flag on.
+ *
  * Three tabs, all state in the URL so every view is a link (the bell's
  * `portal_search_*` notifications point at `?run=ID`, Configuración →
  * Integraciones points at `?tab=credentials`):
@@ -26,6 +32,8 @@ import { useTranslation } from "react-i18next";
 import { FileUp, Lock } from "lucide-react";
 
 import { usePortals, type PortalRun } from "@/api/rpa";
+import { useFeature } from "@/api/meta";
+import { PortalSearchComingSoon } from "@/pages/portal-search/ComingSoon";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState, ErrorBanner, LoadingRows } from "@/components/common/kit";
 import { Button } from "@/components/ui/button";
@@ -51,7 +59,14 @@ function asTab(value: string | null): TabId {
   return (TABS as readonly string[]).includes(value ?? "") ? (value as TabId) : "search";
 }
 
-export default function PortalSearchPage() {
+export default function PortalSearchRoute() {
+  const portal = useFeature("portal_search");
+  if (portal.isLoading) return <LoadingRows rows={4} />;
+  if (!portal.enabled) return <PortalSearchComingSoon reason={portal.reason} />;
+  return <PortalSearchPage />;
+}
+
+function PortalSearchPage() {
   const { t } = useTranslation("rpa");
   const { t: tc } = useTranslation("common");
 

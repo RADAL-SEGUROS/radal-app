@@ -47,6 +47,9 @@ __all__ = [
     "READ_TOOLS",
     "WRITE_TOOLS",
     "openai_tools",
+    "exposed_tools",
+    "is_tool_exposed",
+    "tool_disabled_payload",
     "gates_for",
     "action_anchor",
     "action_allowed",
@@ -195,6 +198,10 @@ class ToolSpec:
     # v12: a READ tool that needs the conversation (``load_skill`` records the
     # skill on ``agent_thread.active_skills``) receives ``thread=`` as well.
     thread_aware: bool = False
+    # Product feature flag key (``services.features``). While that feature is
+    # off the tool is NOT offered to the model, a stray call folds
+    # ``feature_disabled`` and an old proposal is not confirmable.
+    feature: str | None = None
 
 
 def gates_for(spec: ToolSpec, args: Any) -> list[tuple[str, str]]:
@@ -1438,7 +1445,19 @@ def _exec_load_skill(
     spec = agent_skills.get_skill(args.key)
     if spec is None:
         raise _unprocessable(
-            f"Habilidad desconocida: {args.key}. Disponibles: " + ", ".join(agent_skills.SKILLS)
+            f"Habilidad desconocida: {args.key}. Disponibles: "
+            + ", ".join(s.key for s in agent_skills.list_skills())
+        )
+    if not agent_skills.skill_enabled(spec):
+        # A "pronto" skill: folds to the model with the Spanish reason, and is
+        # NOT recorded on the thread.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "feature_disabled",
+                "feature": spec.feature,
+                "message": agent_skills.disabled_reason(spec),
+            },
         )
     active = agent_skills.active_keys(getattr(thread, "active_skills", None))
     if thread is not None and spec.key not in active:
@@ -2594,6 +2613,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             ),
             args_schema=ListPortalSearchesArgs,
             execute=_exec_list_portal_searches,
+            feature="portal_search",
         ),
         ToolSpec(
             name="get_portal_search",
@@ -2608,6 +2628,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             args_schema=PortalSearchIdArgs,
             execute=_exec_get_portal_search,
             max_result_chars=8_000,
+            feature="portal_search",
         ),
         ToolSpec(
             name="list_notifications",
@@ -2828,6 +2849,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             summarize=_summarize_run_portal_search,
             validate_proposal=_validate_run_portal_search,
             anchor=lambda arguments: (EntityType.PORTAL_SEARCH, None),
+            feature="portal_search",
         ),
     )
 }
@@ -2854,12 +2876,40 @@ def _validate_registry() -> None:
 _validate_registry()
 
 
+def is_tool_exposed(name_or_spec: "str | ToolSpec") -> bool:
+    """Whether the tool's product feature is on (a tool without one always is)."""
+    from app.services.features import feature_enabled
+
+    spec = TOOL_REGISTRY.get(name_or_spec) if isinstance(name_or_spec, str) else name_or_spec
+    if spec is None:
+        return False
+    return spec.feature is None or feature_enabled(spec.feature)
+
+
+def exposed_tools() -> list[ToolSpec]:
+    """The registry minus the tools whose feature flag is off."""
+    return [spec for spec in TOOL_REGISTRY.values() if is_tool_exposed(spec)]
+
+
+def tool_disabled_payload(spec: ToolSpec) -> dict:
+    """The fold for a call to a tool whose feature is off (Spanish "pronto")."""
+    from app.services.features import feature_reason
+
+    return {
+        "error": "feature_disabled",
+        "tool": spec.name,
+        "feature": spec.feature,
+        "detail": feature_reason(spec.feature or "") or "Función no disponible.",
+    }
+
+
 def openai_tools() -> list[dict]:
-    """The registry as OpenAI-compatible ``tools`` dicts.
+    """The EXPOSED registry as OpenAI-compatible ``tools`` dicts.
 
     Parameters are the args schema's JSON Schema run through the existing
     ``_compact_schema`` pruning in :mod:`app.services.ai` (title/default noise
-    stripped), so the payload stays a model-friendly size.
+    stripped), so the payload stays a model-friendly size. Tools behind a
+    product flag that is off (``ToolSpec.feature``) are not offered at all.
     """
     from app.services.ai import _compact_schema
 
@@ -2872,7 +2922,7 @@ def openai_tools() -> list[dict]:
                 "parameters": _compact_schema(spec.args_schema),
             },
         }
-        for spec in TOOL_REGISTRY.values()
+        for spec in exposed_tools()
     ]
 
 
@@ -2894,7 +2944,7 @@ def action_allowed(action: Any, user: User) -> bool:
     disabled-with-reason; the confirm endpoint re-checks regardless.
     """
     spec = TOOL_REGISTRY.get(action.tool)
-    if spec is None:
+    if spec is None or not is_tool_exposed(spec):
         return False
     try:
         args = spec.args_schema.model_validate(action.arguments or {})

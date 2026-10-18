@@ -49,7 +49,8 @@
     "portalSearch": "Portal quotes",
     "platform": "Maintainer",
     "notifications": "Notifications",
-    "overdueInstallments": "Overdue installments: {{count}}"
+    "overdueInstallments": "Overdue installments: {{count}}",
+    "portalSearchSoonReason": "Coming soon: the portals need each insurer's user and password to apply filters."
   },
   "sidebar": {
     "collapse": "Collapse sidebar",

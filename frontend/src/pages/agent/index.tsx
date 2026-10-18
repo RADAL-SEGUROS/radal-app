@@ -1,45 +1,43 @@
 /**
- * The AI agent — an agentic conversation, not a plain chat.
+ * The copilot — the broker's home (`/agent`) and every stored session
+ * (`/agent/:threadId`). One route (`agent/:threadId?`), so this component
+ * survives the hop from the welcome to the conversation it just opened: the
+ * optimistic bubble and the in-flight turn are not lost to a remount.
+ *
+ *  - **No thread** → the `Welcome` hero (greeting, floating indicators, common
+ *    queries). Sending from here — typed or a query card — creates the thread
+ *    (`POST /ai/threads`), loads the query's skill when it names one
+ *    (`POST /ai/threads/{id}/skills`), navigates to `/agent/:id` and sends.
+ *  - **A thread** → the agentic conversation: @-mentions, slash commands, the
+ *    skills strip, tool traces and pending-action cards.
  *
  * Every turn goes through the BUFFERED `POST /ai/agent/messages`
- * (`useAgentTurn`): context refs (@-mentions) + the server tool loop + write
- * PROPOSALS. A tool loop cannot stream usefully and CloudFront buffers the
- * body anyway, so this page shows an honest staged indicator instead
- * ("Pensando…" → "Consultando datos…"). The SSE helper `streamAgentMessage`
- * stays in `api/ai.ts`, untouched (its OAC re-implementation is frozen).
+ * (`useAgentTurn`): a tool loop cannot stream usefully and CloudFront buffers
+ * the body anyway, so the page shows an honest staged indicator ("Pensando…"
+ * → "Consultando datos…"). `streamAgentMessage` stays in `api/ai.ts`, untouched.
  *
- * Rule 6 — suggest → human confirm → commit: a write the agent proposes is
- * rendered as a pending-action card (Confirmar / Descartar) and is executed
- * ONLY by the confirm endpoint. Nothing here auto-confirms.
+ * Rule 6 — suggest → human confirm → commit: a write the agent proposes is a
+ * pending-action card (Confirmar / Descartar) executed ONLY by the confirm
+ * endpoint. Nothing here auto-confirms.
  *
- * v12 additions: the skills strip (`GET /ai/skills`), the thread's active
- * skills as removable chips (`POST /ai/threads/{id}/skills`), a suggested
- * skill from the server triggers while typing, labels for every registry
- * tool, and confirmed results that open absolute URLs (share / checkout
- * links) in a new tab and in-app paths through the router.
+ * The session list lives in the rail (`components/agent/AgentSidebar`, the
+ * Sidebar's agent mode); each turn invalidates `qk.agentThreads.lists()` so a
+ * fresh title appears there as soon as the server sets it.
  */
 import * as React from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bot, Loader2, Plus, Send, User as UserIcon } from "lucide-react";
+import { Archive, BookOpen, Loader2, MessageSquareOff, Send } from "lucide-react";
 
-import { PageHeader } from "@/components/common/PageHeader";
-import { EmptyState, ErrorBanner, apiError } from "@/components/common/kit";
+import { ErrorBanner, apiError } from "@/components/common/kit";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   useAgentActions,
   useAgentMessages,
   useAgentSkills,
-  useAgentThreads,
   useAgentTurn,
   useConfirmAgentAction,
   useCreateAgentThread,
@@ -48,25 +46,24 @@ import {
   useThreadSkills,
   type AgentAction,
   type AgentSkill,
-  type AgentToolCallMeta,
   type AgentTurnMessage,
-  type ContextRef,
 } from "@/api/ai";
+import { copilotHomeKey, useAgentSession, useUpdateAgentSession } from "@/api/copilot";
+import { qk } from "@/api/keys";
 import { ContextChips } from "@/components/agent/ContextChips";
 import { CommandPalette, filterCommands, type SlashCommand } from "@/components/agent/CommandPalette";
 import { MentionPopover, useMentionOptions, type MentionOption } from "@/components/agent/MentionPopover";
 import { PendingActionCard } from "@/components/agent/PendingActionCard";
-import { ToolTraceRow } from "@/components/agent/ToolTraceRow";
 import {
   ActiveSkillChips,
   SkillSuggestion,
   SkillsStrip,
   suggestSkill,
 } from "@/components/agent/SkillsStrip";
-import { RefIcon, type AgentChip } from "@/components/agent/refs";
-import { refTypeLabelKey } from "@/components/agent/labels";
-import { formatDateTime } from "@/lib/format";
+import type { AgentChip } from "@/components/agent/refs";
 import { cn } from "@/lib/utils";
+import { Bubble, TranscriptRow, buildRows } from "./Transcript";
+import { Welcome, type QueryStart } from "./Welcome";
 
 /** Server cap on `context_refs` per message (`MAX_CONTEXT_REFS`). */
 const MAX_REFS = 6;
@@ -76,121 +73,34 @@ const TOOLS_STAGE_MS = 4000;
 const MENTION_LISTBOX = "agent-mention-listbox";
 const COMMAND_LISTBOX = "agent-command-listbox";
 
-// --- Transcript model ---------------------------------------------------------------
-
-type Row =
-  | { kind: "user"; id: string; content: string; refs: ContextRef[] }
-  | { kind: "assistant"; id: string; content: string; model: string | null }
-  | { kind: "trace"; id: string; tool: string; status: string; content: string | null; summary: string | null }
-  | { kind: "action"; id: string; action: AgentAction }
-  | { kind: "note"; id: string; status: string; detail: string | null };
-
-function parseJson(content: string | null): Record<string, unknown> | null {
-  if (!content) return null;
-  try {
-    const parsed: unknown = JSON.parse(content);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
+function httpStatus(error: unknown): number {
+  return (error as { response?: { status?: number } } | null)?.response?.status ?? 0;
 }
 
-function toolMeta(message: AgentTurnMessage): AgentToolCallMeta | null {
-  const meta = message.tool_calls;
-  if (!meta || Array.isArray(meta)) return null;
-  return meta as AgentToolCallMeta;
+/** The optimistic user bubble, pinned to the thread it was sent to. */
+interface PendingUser {
+  threadId: number;
+  content: string;
+  chips: AgentChip[];
 }
-
-const NOTE_STATUSES = new Set(["confirmed", "discarded", "failed"]);
-
-function buildRows(
-  messages: AgentTurnMessage[],
-  actionsById: Map<number, AgentAction>,
-  skillTitle: (key: string) => string | null,
-  t: (key: string, opts?: Record<string, unknown>) => string,
-): { rows: Row[]; rendered: Set<number> } {
-  const rows: Row[] = [];
-  const rendered = new Set<number>();
-  for (const message of messages) {
-    const id = `m-${message.id}`;
-    if (message.role === "user") {
-      rows.push({
-        kind: "user",
-        id,
-        content: message.content ?? "",
-        refs: (message.context_refs ?? []).filter(
-          (ref): ref is ContextRef =>
-            !!ref && typeof ref.entity_type === "string" && typeof ref.entity_id === "number",
-        ),
-      });
-      continue;
-    }
-    if (message.role === "assistant") {
-      // Iteration messages carry only tool_calls; their tool rows follow.
-      if (message.content && message.content.trim()) {
-        rows.push({ kind: "assistant", id, content: message.content, model: message.model });
-      }
-      continue;
-    }
-    if (message.role !== "tool") continue;
-
-    const meta = toolMeta(message);
-    const tool = meta?.name ?? "";
-    const status = meta?.status ?? "ok";
-    const payload = parseJson(message.content);
-
-    if (status === "pending_confirmation") {
-      const actionId = Number(payload?.action_id ?? meta?.action_id);
-      const action = Number.isFinite(actionId) ? actionsById.get(actionId) : undefined;
-      if (action) {
-        if (!rendered.has(action.id)) {
-          rows.push({ kind: "action", id: `a-${action.id}`, action });
-          rendered.add(action.id);
-        }
-        continue;
-      }
-    }
-    if (NOTE_STATUSES.has(status) && meta?.action_id) {
-      const detail = typeof payload?.detail === "string" ? payload.detail : null;
-      rows.push({ kind: "note", id, status, detail });
-      continue;
-    }
-
-    let summary: string | null = null;
-    if (tool === "load_skill" && status === "ok") {
-      const key = typeof payload?.key === "string" ? payload.key : null;
-      const title =
-        (typeof payload?.title === "string" ? payload.title : null) ?? (key ? skillTitle(key) : null);
-      if (title) summary = t("agent.trace.skillLoaded", { title });
-    }
-    rows.push({ kind: "trace", id, tool, status, content: message.content, summary });
-  }
-  return { rows, rendered };
-}
-
-// --- Page ------------------------------------------------------------------------------
 
 export default function AgentPage() {
   const { t } = useTranslation("dashboard");
+  const navigate = useNavigate();
+  const qc = useQueryClient();
 
-  // Threads -------------------------------------------------------------------------
-  const threads = useAgentThreads();
-  const createThread = useCreateAgentThread();
-  const [threadId, setThreadId] = React.useState<number | null>(null);
-  /** "Nueva conversación" opens a draft: the first send creates the thread. */
-  const [draft, setDraft] = React.useState(false);
-
-  // Opens on the newest conversation that has messages. A thread with none
-  // (a turn whose AI call failed after skills were set, say) is not a
-  // conversation and never surfaces as an empty "Conversación #1" (review v12).
+  // Thread from the URL --------------------------------------------------------------
+  const { threadId: rawThreadId } = useParams<{ threadId?: string }>();
+  const threadId = rawThreadId && /^\d+$/.test(rawThreadId) ? Number(rawThreadId) : null;
   React.useEffect(() => {
-    if (threadId !== null || draft) return;
-    const first = threads.data?.items.find((item) => item.last_message_at != null);
-    if (first) setThreadId(first.id);
-  }, [threadId, draft, threads.data]);
+    if (rawThreadId && threadId === null) navigate("/agent", { replace: true });
+  }, [rawThreadId, threadId, navigate]);
+  const threadRef = React.useRef(threadId);
+  threadRef.current = threadId;
 
+  const session = useAgentSession(threadId);
+  const updateSession = useUpdateAgentSession();
+  const createThread = useCreateAgentThread();
   const messages = useAgentMessages(threadId ?? undefined);
   const actions = useAgentActions(threadId ?? undefined);
   const turn = useAgentTurn();
@@ -201,8 +111,9 @@ export default function AgentPage() {
   const skills = useAgentSkills();
   const threadSkills = useThreadSkills(threadId);
   const setSkills = useSetThreadSkills();
-  /** Skills chosen before the conversation exists — held here, not on a thread. */
+  /** Skills chosen on the welcome, before a conversation exists. */
   const [draftSkills, setDraftSkills] = React.useState<string[]>([]);
+  const [skillsOpen, setSkillsOpen] = React.useState(false);
   const activeKeys: string[] = !threadId
     ? draftSkills
     : setSkills.isPending && setSkills.variables
@@ -220,25 +131,11 @@ export default function AgentPage() {
     .map((key) => skillByKey.get(key))
     .filter((s): s is AgentSkill => !!s);
   const [dismissed, setDismissed] = React.useState<Set<string>>(() => new Set());
-  /**
-   * Skill changes are locked while a turn is in flight: in draft mode the turn
-   * itself creates the thread server-side, so `ensureThread()` would create a
-   * second, orphan thread and the skill would never reach the conversation.
-   */
-  const skillsLocked = turn.isPending || setSkills.isPending || createThread.isPending;
-
-  const ensureThread = async (): Promise<number> => {
-    if (threadId) return threadId;
-    const thread = await createThread.mutateAsync({ scope: "general" });
-    setDraft(false);
-    setThreadId(thread.id);
-    return thread.id;
-  };
+  /** True for the whole welcome → thread hop (create + skills), not just the POST. */
+  const [starting, setStarting] = React.useState(false);
+  const skillsLocked = turn.isPending || setSkills.isPending || starting;
 
   const applySkills = async (next: string[]) => {
-    // No conversation yet: keep the choice locally. Creating a thread just to
-    // hold skills left an empty conversation behind whenever the first turn
-    // then failed; the thread is created on the first send instead.
     if (!threadId) {
       setDraftSkills(next);
       return;
@@ -268,9 +165,9 @@ export default function AgentPage() {
   const [closedFor, setClosedFor] = React.useState<string | null>(null);
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [pendingCommand, setPendingCommand] = React.useState<SlashCommand | null>(null);
-  const [pendingUser, setPendingUser] = React.useState<{ content: string; chips: AgentChip[] } | null>(null);
+  const [pendingUser, setPendingUser] = React.useState<PendingUser | null>(null);
+  const [startingKey, setStartingKey] = React.useState<string | null>(null);
   const [stage, setStage] = React.useState<"thinking" | "tools">("thinking");
-
 
   React.useEffect(() => {
     if (!turn.isPending) return;
@@ -278,6 +175,31 @@ export default function AgentPage() {
     const timer = window.setTimeout(() => setStage("tools"), TOOLS_STAGE_MS);
     return () => window.clearTimeout(timer);
   }, [turn.isPending]);
+
+  /**
+   * Chips, dismissals, draft skills and a half-typed command belong to one
+   * conversation: switching sessions in the rail resets them — except for the
+   * hop this page makes itself (welcome → the thread it just created), which
+   * must keep the optimistic bubble and the in-flight turn.
+   */
+  const ownNavigation = React.useRef<number | null>(null);
+  const previousThread = React.useRef(threadId);
+  React.useEffect(() => {
+    if (previousThread.current === threadId) return;
+    previousThread.current = threadId;
+    if (ownNavigation.current !== null && ownNavigation.current === threadId) {
+      ownNavigation.current = null;
+      return;
+    }
+    setChips([]);
+    setDraftSkills([]);
+    setDismissed(new Set());
+    setPendingCommand(null);
+    setClosedFor(null);
+    setInput("");
+    setCaret(0);
+    setSkillsOpen(false);
+  }, [threadId]);
 
   const beforeCaret = input.slice(0, caret);
   const popoverClosed = closedFor === input;
@@ -349,56 +271,95 @@ export default function AgentPage() {
       applyCommandTemplate(command, chip);
       return;
     }
-    // The command needs a ref first: open the @ popover, then prefill.
     setPendingCommand(command);
     setText("@");
   };
 
-  const send = async () => {
-    const content = input.trim();
-    // A thread may be being created right now; sending before it lands would
-    // make the server open a second thread.
-    if (!content || turn.isPending || createThread.isPending || setSkills.isPending) return;
-    const sentChips = chips;
-    setPendingUser({ content, chips: sentChips });
-    setText("");
-    setPendingCommand(null);
-    const restore = () => {
-      setPendingUser(null);
-      setInput(content); // never lose what the broker typed
-    };
+  // Sending ----------------------------------------------------------------------------------
 
-    // Skills picked in a draft must reach the FIRST turn: only then is a
-    // thread opened ahead of it (and, if the turn fails, it stays unlisted —
-    // it has no messages — and the retry reuses it).
-    let target = threadId;
-    if (!target && draftSkills.length > 0) {
-      try {
-        target = await ensureThread();
-        await setSkills.mutateAsync({ threadId: target, skills: draftSkills });
-        setDraftSkills([]);
-      } catch (error) {
-        restore();
-        toast.error(apiError(error, t("agent.skills.updateError")));
-        return;
-      }
-    }
-
+  /** One buffered turn on an EXISTING thread. */
+  const runTurn = (target: number, content: string, sentChips: AgentChip[]) => {
+    setPendingUser({ threadId: target, content, chips: sentChips });
     turn.mutate(
+      { thread_id: target, content, context_refs: sentChips.map((chip) => chip.ref) },
       {
-        thread_id: target ?? undefined,
-        content,
-        context_refs: sentChips.map((chip) => chip.ref),
-      },
-      {
-        onSuccess: (data) => {
-          setDraft(false);
-          setThreadId(data.thread.id);
+        onSuccess: () => {
           setPendingUser(null);
+          // The server titles a thread from its first message: refresh the
+          // header and the rail as soon as the turn lands.
+          void qc.invalidateQueries({ queryKey: qk.agentThreads.detail(target) });
+          void qc.invalidateQueries({ queryKey: qk.agentThreads.lists() });
         },
-        onError: restore,
+        onError: () => {
+          setPendingUser(null);
+          // Never lose what the broker typed — if they are still looking at it.
+          if (threadRef.current === target) setInput(content);
+        },
       },
     );
+  };
+
+  /**
+   * Welcome → conversation: create the thread, load the skills, hop to it,
+   * send. A failed turn leaves a thread with no message, which the server
+   * does not list; the retry reuses it from the conversation view.
+   */
+  const startConversation = async (
+    content: string,
+    sentChips: AgentChip[],
+    query: QueryStart | null,
+  ) => {
+    if (turn.isPending || starting) return;
+    setStarting(true);
+    setStartingKey(query?.key ?? null);
+    let id: number;
+    try {
+      id = (await createThread.mutateAsync({ scope: "general" })).id;
+    } catch (error) {
+      setStarting(false);
+      setStartingKey(null);
+      if (!query) setInput(content);
+      toast.error(apiError(error, t("agent.home.startError")));
+      return;
+    }
+    const wanted = [...draftSkills];
+    if (query?.skill && !wanted.includes(query.skill)) {
+      // Only a skill the catalogue knows (the portal skill, say, is not listed
+      // while the feature is off). Unknown catalogue = trust the server's hint.
+      if (!skills.data || skills.data.some((s) => s.key === query.skill)) wanted.push(query.skill);
+    }
+    if (wanted.length > 0) {
+      try {
+        await setSkills.mutateAsync({ threadId: id, skills: wanted });
+      } catch {
+        toast.warning(t("agent.home.skillWarning"));
+      }
+    }
+    setDraftSkills([]);
+    setStarting(false);
+    setStartingKey(null);
+    ownNavigation.current = id;
+    navigate(`/agent/${id}`);
+    runTurn(id, content, sentChips);
+  };
+
+  const send = async () => {
+    const content = input.trim();
+    if (!content || turn.isPending || starting || setSkills.isPending) return;
+    const sentChips = chips;
+    setText("");
+    setPendingCommand(null);
+    setChips([]);
+    if (!threadId) {
+      await startConversation(content, sentChips, null);
+      return;
+    }
+    runTurn(threadId, content, sentChips);
+  };
+
+  const onQuery = (query: QueryStart) => {
+    void startConversation(query.prompt, chips, query);
+    setChips([]);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -463,6 +424,8 @@ export default function AgentPage() {
       onSuccess: (result) => {
         if (result.status === "failed") toast.error(result.error ?? t("agent.action.failed"));
         else toast.success(t("agent.action.confirmedToast"));
+        // A confirmed write can move the welcome's numbers.
+        void qc.invalidateQueries({ queryKey: copilotHomeKey });
       },
       onError: (error) => toast.error(apiError(error, t("agent.action.failed"))),
     });
@@ -485,199 +448,180 @@ export default function AgentPage() {
     [items, actionsById, skillByKey, t],
   );
   const orphanActions = [...actionsById.values()].filter((a) => !rendered.has(a.id));
+  const pendingHere = pendingUser && pendingUser.threadId === threadId ? pendingUser : null;
+  const turnHere = turn.isPending && turn.variables?.thread_id === threadId;
+  const turnErrorHere = !!turn.error && turn.variables?.thread_id === threadId;
 
   const bottomRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
+    if (threadId === null) return;
     bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [rows.length, pendingUser, orphanActions.length]);
+  }, [threadId, rows.length, pendingHere, orphanActions.length, turnHere]);
 
-  // Only real conversations are listed: a thread with no message yet is never
-  // shown as an empty "Conversación #N".
-  const threadItems = (threads.data?.items ?? []).filter((item) => item.last_message_at != null);
-  const threadLabel = (thread: { id: number; title: string | null }) =>
-    thread.title ?? t("agent.untitled", { id: thread.id });
-  /** Chips, dismissals and a half-typed command belong to one conversation. */
-  const resetComposer = () => {
-    setChips([]);
-    setDraftSkills([]);
-    setDismissed(new Set());
-    setPendingCommand(null);
-    setClosedFor(null);
-  };
-  const openThread = (id: number) => {
-    if (id === threadId) return;
-    resetComposer();
-    setDraft(false);
-    setThreadId(id);
-  };
-  const startDraft = () => {
-    resetComposer();
-    setDraft(true);
-    setThreadId(null);
-    setText("");
-  };
-
-  const conversationEmpty = rows.length === 0 && !pendingUser && orphanActions.length === 0;
+  const notFound =
+    threadId !== null && (httpStatus(messages.error) === 404 || httpStatus(session.error) === 404);
+  const conversationEmpty = rows.length === 0 && !pendingHere && orphanActions.length === 0;
+  // A thread with no message yet carries the server's dated fallback title;
+  // until its first turn lands it reads as what it is — a new conversation.
+  const fresh = !!session.data && !session.data.last_message_at && !session.data.message_count;
+  const title =
+    (!fresh && session.data?.title?.trim()) || t("agent.sessions.untitledNew");
+  const composerLocked = turn.isPending || starting;
 
   return (
-    <div className="flex flex-col gap-5">
-      <PageHeader
-        title={t("agent.title")}
-        subtitle={t("agent.subtitle")}
-        actions={
-          <Button
-            size="sm"
-            variant="secondary"
-            className="min-h-10 sm:min-h-8"
-            disabled={turn.isPending}
-            onClick={startDraft}
-          >
-            <Plus className="h-4 w-4" />
-            {t("agent.newThread")}
-          </Button>
-        }
-      />
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
-        {/* Threads — a list on desktop, a compact picker on a phone. */}
-        <Card className="hidden max-h-[72vh] flex-col gap-1 overflow-y-auto p-2 lg:flex">
-          <p className="px-3 pb-1 pt-2 text-caption font-medium text-ink-3">{t("agent.threads")}</p>
-          {threads.isLoading ? (
-            <Skeleton className="h-24 w-full" />
-          ) : threadItems.length === 0 ? (
-            <p className="p-3 text-caption text-ink-3">{t("agent.noThreads")}</p>
-          ) : (
-            threadItems.map((thread) => (
-              <button
-                key={thread.id}
-                type="button"
-                onClick={() => openThread(thread.id)}
-                className={cn(
-                  "rounded-[10px] px-3 py-2 text-left text-caption transition-[background-color,color] duration-150 ease-out",
-                  thread.id === threadId
-                    ? "bg-brand-soft font-medium text-brand-deep"
-                    : "text-ink-2 hover:bg-paper-2",
-                )}
-              >
-                <span className="block truncate">{threadLabel(thread)}</span>
-                <span className="block truncate text-[11px] text-ink-3">
-                  {formatDateTime(thread.last_message_at ?? thread.created_at)}
-                </span>
-              </button>
-            ))
-          )}
-        </Card>
-
-        <Card className="flex min-h-[70dvh] min-w-0 flex-col gap-3 p-3 sm:p-4 lg:h-[calc(100dvh-210px)] lg:min-h-[520px]">
-          {threadItems.length > 0 ? (
-            <div className="lg:hidden">
-              <Select
-                value={threadId ? String(threadId) : ""}
-                onValueChange={(value) => openThread(Number(value))}
-              >
-                <SelectTrigger aria-label={t("agent.threadPicker")} className="h-10">
-                  <SelectValue placeholder={t("agent.pickThread")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {threadItems.map((thread) => (
-                    <SelectItem key={thread.id} value={String(thread.id)}>
-                      {threadLabel(thread)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Scroll region: the welcome, or the conversation. */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-[880px] flex-col px-4 pb-6 pt-5 sm:px-7">
+          {threadId === null ? (
+            <Welcome onStart={onQuery} startingKey={startingKey} disabled={composerLocked} />
+          ) : notFound ? (
+            <div className="flex flex-col items-center gap-3 py-20 text-center">
+              <span className="grid h-10 w-10 place-items-center rounded-sm bg-paper-2 text-ink-3">
+                <MessageSquareOff className="h-5 w-5" strokeWidth={1.5} aria-hidden />
+              </span>
+              <p className="text-h3 text-ink">{t("agent.session.notFound")}</p>
+              <p className="max-w-md text-caption text-ink-3 [text-wrap:pretty]">
+                {t("agent.session.notFoundHint")}
+              </p>
+              <Button asChild variant="secondary" size="sm" className="min-h-10 sm:min-h-8">
+                <Link to="/agent">{t("agent.session.backHome")}</Link>
+              </Button>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex flex-col gap-4">
+              <header className="flex min-w-0 flex-col gap-1 border-b border-line pb-3">
+                {session.isLoading && !pendingHere ? (
+                  <Skeleton className="h-6 w-2/3" />
+                ) : (
+                  <h1 className="truncate text-h2 text-ink" title={title}>
+                    {title}
+                  </h1>
+                )}
+                <p className="text-caption text-ink-3">{t("agent.action.writesNote")}</p>
+              </header>
 
-          <SkillsStrip
-            skills={skills.data}
-            activeKeys={activeKeys}
-            onToggle={toggleSkill}
-            isLoading={skills.isLoading}
-            isError={skills.isError}
-            disabled={skillsLocked}
-          />
-          {turn.isPending ? (
-            <p className="-mt-1 text-caption text-ink-3" aria-live="polite">
-              {t("agent.skills.waitTurn")}
-            </p>
-          ) : null}
+              {session.data?.is_archived ? (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg bg-paper-2 px-3.5 py-2.5">
+                  <Archive className="h-4 w-4 shrink-0 text-ink-3" strokeWidth={1.5} aria-hidden />
+                  <p className="min-w-0 flex-1 text-caption text-ink-2">
+                    {t("agent.session.archivedBanner")}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-10 sm:min-h-8"
+                    disabled={updateSession.isPending}
+                    onClick={() =>
+                      updateSession.mutate(
+                        { threadId, is_archived: false },
+                        {
+                          onSuccess: () => toast.success(t("agent.sessions.restoredToast")),
+                          onError: (error) =>
+                            toast.error(apiError(error, t("agent.sessions.restoreError"))),
+                        },
+                      )
+                    }
+                  >
+                    {t("agent.sessions.restore")}
+                  </Button>
+                </div>
+              ) : null}
 
-          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto border-t border-line px-1 pt-3">
-            {threadId && messages.isLoading ? (
-              <Skeleton className="h-40 w-full" />
-            ) : conversationEmpty ? (
-              <EmptyState
-                title={t("agent.empty")}
-                hint={t("agent.emptyHint")}
-                icon={<Bot />}
+              {messages.isLoading && !pendingHere ? (
+                <div className="flex flex-col gap-3">
+                  <Skeleton className="h-14 w-3/5 self-end" />
+                  <Skeleton className="h-24 w-4/5" />
+                </div>
+              ) : messages.isError && !notFound ? (
+                <ErrorBanner error={messages.error} />
+              ) : conversationEmpty && !turnHere ? (
+                <p className="py-10 text-center text-caption text-ink-3">{t("agent.emptyHint")}</p>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {rows.map((row) => (
+                    <TranscriptRow
+                      key={row.id}
+                      row={row}
+                      onConfirm={onConfirm}
+                      onDiscard={onDiscard}
+                      isMutating={actionMutating}
+                    />
+                  ))}
+                  {orphanActions.length > 0 ? (
+                    <li className="flex flex-col gap-2">
+                      <p className="text-caption text-ink-3 sm:ps-9">{t("agent.action.unanchored")}</p>
+                      {orphanActions.map((action) => (
+                        <PendingActionCard
+                          key={action.id}
+                          action={action}
+                          onConfirm={onConfirm}
+                          onDiscard={onDiscard}
+                          isMutating={actionMutating}
+                        />
+                      ))}
+                    </li>
+                  ) : null}
+                  {pendingHere ? (
+                    <Bubble role="user" content={pendingHere.content} chips={pendingHere.chips} />
+                  ) : null}
+                  {turnHere ? (
+                    <li className="flex items-center gap-2 text-caption text-ink-3 sm:ps-9" aria-live="polite">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                      <span className="animate-pulse">
+                        {stage === "tools" ? t("agent.progress.tools") : t("agent.progress.thinking")}
+                      </span>
+                    </li>
+                  ) : null}
+                </ul>
+              )}
+
+              {turnErrorHere ? (
+                <ErrorBanner
+                  error={
+                    // Provider down / not configured: a localized line, never
+                    // a provider's developer message.
+                    [502, 503, 504].includes(httpStatus(turn.error))
+                      ? t("agent.providerUnavailable")
+                      : turn.error
+                  }
+                />
+              ) : null}
+              <div ref={bottomRef} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Composer dock — always visible. */}
+      {!notFound ? (
+        <div className="shrink-0 border-t border-line bg-paper">
+          <div className="mx-auto flex w-full max-w-[880px] flex-col gap-2 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 sm:px-7">
+            {skillsOpen ? (
+              <SkillsStrip
+                skills={skills.data}
+                activeKeys={activeKeys}
+                onToggle={toggleSkill}
+                isLoading={skills.isLoading}
+                isError={skills.isError}
+                disabled={skillsLocked}
               />
-            ) : (
-              <ul className="flex flex-col gap-3">
-                {rows.map((row) => (
-                  <TranscriptRow
-                    key={row.id}
-                    row={row}
-                    onConfirm={onConfirm}
-                    onDiscard={onDiscard}
-                    isMutating={actionMutating}
-                  />
-                ))}
-                {orphanActions.length > 0 ? (
-                  <li className="flex flex-col gap-2">
-                    <p className="text-caption text-ink-3 sm:ps-9">{t("agent.action.unanchored")}</p>
-                    {orphanActions.map((action) => (
-                      <PendingActionCard
-                        key={action.id}
-                        action={action}
-                        onConfirm={onConfirm}
-                        onDiscard={onDiscard}
-                        isMutating={actionMutating}
-                      />
-                    ))}
-                  </li>
-                ) : null}
-                {pendingUser ? (
-                  <Bubble role="user" content={pendingUser.content} chips={pendingUser.chips} />
-                ) : null}
-                {turn.isPending ? (
-                  <li className="flex items-center gap-2 text-caption text-ink-3 sm:ps-9" aria-live="polite">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                    <span className="animate-pulse">
-                      {stage === "tools" ? t("agent.progress.tools") : t("agent.progress.thinking")}
-                    </span>
-                  </li>
-                ) : null}
-              </ul>
-            )}
-            <div ref={bottomRef} />
-          </div>
+            ) : null}
+            {skillsOpen && turn.isPending ? (
+              <p className="-mt-1 text-caption text-ink-3" aria-live="polite">
+                {t("agent.skills.waitTurn")}
+              </p>
+            ) : null}
 
-          {turn.error ? (
-            <ErrorBanner
-              error={
-                // Provider down / not configured: a localized line, never a
-                // provider's developer message.
-                [502, 503, 504].includes(
-                  (turn.error as { response?: { status?: number } }).response?.status ?? 0,
-                )
-                  ? t("agent.providerUnavailable")
-                  : turn.error
-              }
-            />
-          ) : null}
+            {suggestion ? (
+              <SkillSuggestion
+                skill={suggestion}
+                disabled={skillsLocked}
+                onActivate={() => activateSkill(suggestion.key)}
+                onDismiss={() => setDismissed((prev) => new Set(prev).add(suggestion.key))}
+              />
+            ) : null}
 
-          {suggestion ? (
-            <SkillSuggestion
-              skill={suggestion}
-              disabled={skillsLocked}
-              onActivate={() => activateSkill(suggestion.key)}
-              onDismiss={() => setDismissed((prev) => new Set(prev).add(suggestion.key))}
-            />
-          ) : null}
-
-          {/* Composer */}
-          <div className="flex flex-col gap-2">
             {chips.length > 0 || activeSkills.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5">
                 <ActiveSkillChips
@@ -691,6 +635,7 @@ export default function AgentPage() {
                 />
               </div>
             ) : null}
+
             <div className="relative flex items-end gap-2">
               {mentionQuery !== null ? (
                 <MentionPopover
@@ -713,8 +658,9 @@ export default function AgentPage() {
                 ref={textareaRef}
                 rows={2}
                 value={input}
-                disabled={turn.isPending}
+                disabled={composerLocked}
                 role="combobox"
+                aria-label={t("agent.placeholder")}
                 aria-expanded={mentionQuery !== null || slashQuery !== null}
                 aria-controls={
                   mentionQuery !== null ? MENTION_LISTBOX : slashQuery !== null ? COMMAND_LISTBOX : undefined
@@ -733,136 +679,50 @@ export default function AgentPage() {
                 }}
                 onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
                 onKeyDown={onKeyDown}
-                placeholder={t("agent.placeholder")}
-                className="min-h-[60px] min-w-0 flex-1 resize-none rounded-[10px] border border-line bg-bg-recessed px-3 py-2 text-body text-ink outline-none transition-[border-color,box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                placeholder={threadId === null ? t("agent.home.placeholder") : t("agent.placeholder")}
+                className="min-h-[60px] min-w-0 flex-1 resize-none rounded-lg border border-line bg-bone px-3 py-2 text-body text-ink shadow-elev outline-none transition-[border-color,box-shadow] duration-150 ease-out focus-visible:border-line-strong focus-visible:ring-2 focus-visible:ring-brand-ring disabled:opacity-60"
               />
               <Button
                 className="min-h-10 shrink-0"
-                disabled={!input.trim() || turn.isPending || createThread.isPending}
+                disabled={!input.trim() || composerLocked}
                 onClick={() => void send()}
                 aria-label={t("agent.send")}
               >
-                <Send className="h-4 w-4" />
+                {starting && startingKey === null ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
                 <span className="hidden sm:inline">{t("agent.send")}</span>
               </Button>
             </div>
-            <p className="hidden text-caption text-ink-3 sm:block">{t("agent.composerHint")}</p>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
 
-// --- Rows -------------------------------------------------------------------------------------
-
-function TranscriptRow({
-  row,
-  onConfirm,
-  onDiscard,
-  isMutating,
-}: {
-  row: Row;
-  onConfirm: (action: AgentAction) => void;
-  onDiscard: (action: AgentAction) => void;
-  isMutating: boolean;
-}) {
-  const { t } = useTranslation("dashboard");
-  switch (row.kind) {
-    case "user":
-      return <Bubble role="user" content={row.content} refs={row.refs} />;
-    case "assistant":
-      return <Bubble role="assistant" content={row.content} />;
-    case "trace":
-      return (
-        <li>
-          <ToolTraceRow tool={row.tool} status={row.status} content={row.content} summary={row.summary} />
-        </li>
-      );
-    case "action":
-      return (
-        <li>
-          <PendingActionCard
-            action={row.action}
-            onConfirm={onConfirm}
-            onDiscard={onDiscard}
-            isMutating={isMutating}
-          />
-        </li>
-      );
-    case "note": {
-      const label =
-        row.status === "confirmed"
-          ? t("agent.notes.confirmed")
-          : row.status === "failed"
-            ? t("agent.notes.failed")
-            : t("agent.notes.discarded");
-      return (
-        <li className="flex items-center gap-2 text-caption text-ink-3 sm:ps-9">
-          <span className="h-px w-4 bg-line" aria-hidden />
-          <span className="min-w-0 [text-wrap:pretty]">
-            {label}
-            {row.detail ? ` · ${row.detail}` : ""}
-          </span>
-        </li>
-      );
-    }
-  }
-}
-
-function Bubble({
-  role,
-  content,
-  refs,
-  chips,
-}: {
-  role: "user" | "assistant";
-  content: string;
-  /** Persisted refs (type + id only). */
-  refs?: ContextRef[];
-  /** Optimistic chips (with their labels). */
-  chips?: AgentChip[];
-}) {
-  const { t } = useTranslation("dashboard");
-  const isUser = role === "user";
-  const refItems = chips?.length
-    ? chips.map((chip) => ({ key: chip.key, type: chip.ref.entity_type, label: chip.label }))
-    : (refs ?? []).map((ref) => ({
-        key: `${ref.entity_type}:${ref.entity_id}`,
-        type: ref.entity_type,
-        label: `${t(refTypeLabelKey(ref.entity_type))} #${ref.entity_id}`,
-      }));
-  return (
-    <li className={cn("flex gap-2.5", isUser && "flex-row-reverse")}>
-      <span
-        className={cn(
-          "mt-0.5 hidden h-7 w-7 shrink-0 items-center justify-center rounded-full sm:flex",
-          isUser ? "bg-paper-2 text-ink-2" : "bg-brand-soft text-brand-deep",
-        )}
-      >
-        {isUser ? <UserIcon className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
-      </span>
-      <div
-        className={cn(
-          "max-w-[92%] rounded-[12px] px-3.5 py-2.5 sm:max-w-[80%]",
-          isUser ? "bg-paper-2" : "border border-line bg-bone",
-        )}
-      >
-        {refItems.length > 0 ? (
-          <div className="mb-1.5 flex flex-wrap gap-1">
-            {refItems.map((ref) => (
-              <span
-                key={ref.key}
-                className="inline-flex max-w-full items-center gap-1 rounded-[5px] bg-brand-soft px-1.5 py-0.5 text-[11px] text-brand-deep"
+            <div className="flex items-center justify-between gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn("-ml-2 min-h-10 sm:min-h-8", skillsOpen && "text-ink")}
+                aria-expanded={skillsOpen}
+                onClick={() => setSkillsOpen((v) => !v)}
               >
-                <RefIcon entityType={ref.type} className="h-3 w-3 shrink-0" />
-                <span className="truncate">{ref.label}</span>
+                <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+                {t("agent.skills.title")}
+                {activeKeys.length > 0 ? (
+                  <span className="rounded-full bg-brand-soft px-1.5 text-[11px] tabular-nums leading-[18px] text-brand-deep">
+                    {activeKeys.length}
+                  </span>
+                ) : null}
+              </Button>
+              <p className="hidden min-w-0 truncate text-caption text-ink-3 sm:block">
+                {t("agent.composerHint")}
+              </p>
+              <span className="text-caption text-ink-3 sm:hidden" aria-live="polite">
+                {starting ? t("agent.home.starting") : ""}
               </span>
-            ))}
+            </div>
           </div>
-        ) : null}
-        <p className="whitespace-pre-wrap break-words text-body text-ink-2">{content}</p>
-      </div>
-    </li>
+        </div>
+      ) : null}
+    </div>
   );
 }

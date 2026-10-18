@@ -293,9 +293,16 @@ def _money(rows: Iterable[BoardRow]) -> dict[str, Any]:
     }
 
 
-def summary_cards(db: Session, broker_id: int, *, today: date) -> dict[str, Any]:
-    """The Cobranza cards (02 §4)."""
-    rows = load_rows(db, broker_id, today=today)
+def summary_cards(
+    db: Session, broker_id: int, *, today: date, owner_user_id: int | None = None
+) -> dict[str, Any]:
+    """The Cobranza cards (02 §4).
+
+    ``owner_user_id`` narrows the CUOTA cards to that person's book (the
+    board's ``owner=me``); ``unconfirmed_payments``, ``pending_evidence`` and
+    ``plans_missing`` stay broker-wide (team inboxes).
+    """
+    rows = load_rows(db, broker_id, today=today, owner_user_id=owner_user_id)
     open_rows = [r for r in rows if r.state.state in OPEN_STATES]
     due_7 = [
         r for r in open_rows

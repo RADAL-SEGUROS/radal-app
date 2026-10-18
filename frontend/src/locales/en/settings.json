@@ -624,7 +624,8 @@
       "credentials": "Manage credentials",
       "credentialsReason": "Only an administrator can save portal credentials.",
       "open": "Go to Quote on portals",
-      "noAccess": "Your role has no access to Quote on portals."
+      "noAccess": "Your role has no access to Quote on portals.",
+      "learnMore": "See what's coming"
     }
   },
   "tabsLocked": "Your role has no access to: {{tabs}}. Ask a brokerage administrator for access.",

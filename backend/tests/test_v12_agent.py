@@ -61,6 +61,12 @@ V4_WRITE = {"create_group", "attach_client_to_group", "create_case_file", "renew
 # --- fixtures & helpers ----------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _portal_search_feature_on(portal_search_on):
+    """This suite asserts the FULL registry (portal tools + skill included);
+    the flag-off behaviour lives in tests/test_copilot_home_sessions.py."""
+
+
 @pytest.fixture()
 def ai_key(monkeypatch):
     monkeypatch.setattr(settings, "AI_API_KEY", "test-key")

@@ -69,6 +69,8 @@ os.environ["FX_SOURCE_URL"] = "http://127.0.0.1:9/no-fx-in-tests"
 os.environ["FORPAY_DEFAULT_BASE_URL"] = "http://127.0.0.1:9/no-forpay-in-tests"
 os.environ["RPA_ENABLED"] = "false"
 os.environ["RPA_INLINE"] = "false"
+# Product flag: portal search is "pronto" by default; tests that need it opt in.
+os.environ["PORTAL_SEARCH_ENABLED"] = "false"
 os.environ["JOBS_TOKEN"] = "test-jobs-token"
 os.environ["CREDENTIALS_KEY"] = "ke98T-bXHmbtkNFikVw727WbSqP-XSnUcIjhurwbZc8="
 
@@ -126,6 +128,14 @@ def _no_real_ses(monkeypatch):
 
     monkeypatch.setattr(s3_inbound_module, "_s3_client", _refuse_s3)
     monkeypatch.setattr(s3_inbound_module, "_OVERRIDE", None)
+
+
+@pytest.fixture()
+def portal_search_on(monkeypatch):
+    """Opt a test into the portal-search feature (product flag, off by default)."""
+    from app.core.config import settings as _settings
+
+    monkeypatch.setattr(_settings, "PORTAL_SEARCH_ENABLED", True)
 
 
 @pytest.fixture()

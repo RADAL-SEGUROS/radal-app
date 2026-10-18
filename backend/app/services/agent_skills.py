@@ -23,6 +23,9 @@ __all__ = [
     "SkillSpec",
     "SKILLS",
     "UnknownSkill",
+    "SkillDisabled",
+    "skill_enabled",
+    "disabled_reason",
     "list_skills",
     "get_skill",
     "active_keys",
@@ -45,6 +48,9 @@ class SkillSpec:
     tools: tuple[str, ...]  # tool names it relies on (must exist in TOOL_REGISTRY)
     triggers: tuple[str, ...]  # Spanish keywords for auto-suggestion in the UI
     version: int = 1
+    # Product feature flag key (``services.features``). While it is off the
+    # skill is not listed, not loadable and never rides in a system prompt.
+    feature: str | None = None
 
 
 class UnknownSkill(ValueError):
@@ -53,6 +59,15 @@ class UnknownSkill(ValueError):
     def __init__(self, keys: Sequence[str]):
         self.keys = list(keys)
         super().__init__("Habilidad desconocida: " + ", ".join(self.keys))
+
+
+class SkillDisabled(UnknownSkill):
+    """A known skill whose product feature is off ("pronto"). -> 422."""
+
+    def __init__(self, keys: Sequence[str], reason: str):
+        self.keys = list(keys)
+        self.reason = reason
+        ValueError.__init__(self, reason)
 
 
 _COLLECTIONS_REVIEW = SkillSpec(
@@ -222,6 +237,7 @@ _PORTAL_QUOTES = SkillSpec(
         "run_portal_search",
         "get_case_file",
     ),
+    feature="portal_search",
     triggers=(
         "portal", "portales", "cotizar", "cotización", "hdi", "patente",
         "vehículo", "auto",
@@ -257,11 +273,29 @@ def _validate_skills() -> None:
 _validate_skills()
 
 
+def skill_enabled(spec: SkillSpec) -> bool:
+    """Whether the skill's product feature is on (no feature = always on)."""
+    from app.services.features import feature_enabled
+
+    return spec.feature is None or feature_enabled(spec.feature)
+
+
+def disabled_reason(spec: SkillSpec) -> str | None:
+    """The Spanish "pronto" reason when the skill is switched off, else ``None``."""
+    from app.services.features import feature_reason
+
+    if skill_enabled(spec):
+        return None
+    return feature_reason(spec.feature or "") or "Habilidad no disponible por ahora."
+
+
 def list_skills() -> list[SkillSpec]:
-    return list(SKILLS.values())
+    """The catalogue the UI and the base prompt see: enabled skills only."""
+    return [spec for spec in SKILLS.values() if skill_enabled(spec)]
 
 
 def get_skill(key: str) -> SkillSpec | None:
+    """Raw registry lookup (enabled or not) — callers check :func:`skill_enabled`."""
     return SKILLS.get(str(key or "").strip())
 
 
@@ -269,28 +303,33 @@ def normalize_skill_keys(keys: Iterable[str] | None) -> list[str]:
     """Strip + dedupe preserving order; :class:`UnknownSkill` for a bad key."""
     out: list[str] = []
     unknown: list[str] = []
+    disabled: list[str] = []
     for raw in keys or []:
         key = str(raw or "").strip()
         if not key:
             continue
         if key not in SKILLS:
             unknown.append(key)
+        elif not skill_enabled(SKILLS[key]):
+            disabled.append(key)
         elif key not in out:
             out.append(key)
     if unknown:
         raise UnknownSkill(unknown)
+    if disabled:
+        raise SkillDisabled(disabled, disabled_reason(SKILLS[disabled[0]]) or "")
     return out
 
 
 def active_keys(raw: object) -> list[str]:
     """A thread's stored ``active_skills`` cleaned of anything no longer known
-    (a retired skill must never break a thread)."""
+    or switched off (a retired or "pronto" skill must never break a thread)."""
     if not isinstance(raw, list):
         return []
     out: list[str] = []
     for item in raw:
         key = str(item or "").strip()
-        if key in SKILLS and key not in out:
+        if key in SKILLS and skill_enabled(SKILLS[key]) and key not in out:
             out.append(key)
     return out
 
@@ -302,7 +341,7 @@ def skills_index_prompt() -> str:
         "- Para tareas de varios pasos carga la habilidad que corresponda con "
         "load_skill(key) y sigue su playbook. Habilidades disponibles:",
     ]
-    for spec in SKILLS.values():
+    for spec in list_skills():
         lines.append(f"  · {spec.key} — {spec.title}: {spec.description}")
     return "\n".join(lines)
 

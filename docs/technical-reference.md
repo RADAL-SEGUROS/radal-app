@@ -49,7 +49,7 @@ of orientation and current state, nothing more.** When a pass adds detail, it go
 | 16 | [v5·v6·v7 — Signal UI · Antecedentes → Bases Técnicas · broker Lines](#16-v5--v6--v7--signal-ui-antecedentes--bases-técnicas-broker-defined-lines-as-built) | the UI direction, the expediente/bases-técnicas builder, and broker-defined lines |
 | 17 | [v10 — Datos/Analítica, expediente completo, scope & exports](#17-v10--datosanalítica-el-expediente-completo-filtros-y-exportes-as-built) | the two analysis destinations, the account super-overview, the shared filter vocabulary and the export layer |
 | 18 | [v11 — Portafolio & Asegurados](#18-v11--portafolio--asegurados-as-built) | the broker-vocabulary rename and the nine-tab Portafolio, driven by team-filed issues #1 and #2 |
-| 19 | [v12 — policies first, three-level cobranza, Forpay, mail, share links, RPA, agent skills](#19-v12--policies-first-three-level-cobranza-forpay-mail-share-links-rpa-agent-skills) | **the latest arc (built, not deployed)** — data model + endpoint delta, RBAC, jobs runbook, webhook security, mail, share links, RPA (and how to fix a connector), agent skills, migration/deploy runbook, settings, traps |
+| 19 | [v12 — policies first, three-level cobranza, Forpay, mail, share links, RPA, agent skills](#19-v12--policies-first-three-level-cobranza-forpay-mail-share-links-rpa-agent-skills) | **the latest arc (built, not deployed)** — data model + endpoint delta, RBAC, jobs runbook, webhook security, mail, share links, RPA (and how to fix a connector), agent skills, migration/deploy runbook, settings, traps; **§19.17 copilot home, chat sessions & feature flags (portal search "pronto")** |
 
 **Current state (verified 2026-09-14):** **757 backend tests passing in ~155 s** · `npx tsc -b
 --noEmit`, `npm run build` and `npm run check:locales` (**22 namespaces, 3 719 keys per locale**)
@@ -2800,7 +2800,7 @@ All app routes are declared in one file, `src/App.tsx` — there is exactly one 
 | Path | Page file (`src/`) | Module | What it does |
 |---|---|---|---|
 | `/login` | `pages/auth/Login.tsx` | — (public) | Email + password → JWT pair in `localStorage`. |
-| `/` | `pages/dashboard/index.tsx` | `Dashboard` | KPI row + activity feed; composes the three summary endpoints (there is no `/dashboard` aggregate). Gates its create shortcuts on `Clients.Create` / `Placements.Create`. |
+| `/` | `HomeRedirect` (`components/layout/RequirePermission.tsx`) | — | **the front door (copilot pass, §19.17):** broker with `Dashboard.View` → `/agent`; platform user → `/platform`; a broker role without the agent grant → `/policies`. (v12 sent everyone to `/policies`; the KPI dashboard still lives at `/dashboard`.) |
 | `/leads` | `pages/leads/index.tsx` | `Leads` | Lead pipeline list. `Leads.Create` / `Leads.Edit`. |
 | `/leads/:leadId` | `pages/leads/detail.tsx` | `Leads` | Lead detail + notes + **Convertir** → creates client, placement and a case file in one call (`POST /leads/{id}/convert`). A technician sees the button disabled with the reason. |
 | `/cases` | `pages/cases/index.tsx` | `CaseFiles` | The expediente list — the app's real front door. |
@@ -2831,7 +2831,7 @@ All app routes are declared in one file, `src/App.tsx` — there is exactly one 
 | `/data` | `pages/data/index.tsx` | `Dashboard` (per-tab module gates) | **Portafolio** (v11; the route keeps its English name) — **nine** table tabs behind one scope (asegurado · cuenta · fechas) + XLSX/PDF export: Asegurados · Pipeline · Cotizaciones · Propuestas · Pólizas · Endosos · Cobranza · Siniestros · Documentos. Asegurados and Cotizaciones each split further on `?sub=`; Clientes and Leads reuse the standalone pages with `embedded`. Colocaciones/Inspecciones/Ofertas lost their tabs but keep their routes. |
 | `/analytics` | `pages/analytics/index.tsx` | `Dashboard` | **Analítica** — visuals only. KPI row + a `?by=` dimension (read from `GET /exports/entities`) driving generic bucket charts. |
 | `/groups/:groupId/accounts/:caseId/expediente` | `pages/groups/expediente.tsx` | `CaseFiles` | **El expediente completo** — the account super-overview + its branded PDF. This is what "Ver expediente completo" opens; it used to go to `/cases/:id`. |
-| `/agent` | `pages/agent/index.tsx` | `Dashboard` | SSE agent chat with a 5 s non-streaming fallback (§12.6). |
+| `/agent`, `/agent/:threadId` | `pages/agent/index.tsx` (+ `Welcome.tsx`, `Transcript.tsx`, `catalog.ts`; sub-sidebar `components/agent/AgentSidebar.tsx`) | `Dashboard` | **the broker's home (§19.17).** No thread → the copilot welcome ("Hola, {nombre}", floating indicators from `GET /ai/copilot/home`, common queries + "Ver más"); a thread → SSE chat with a 5 s non-streaming fallback (§12.6). Rendered outside `StandardPage`; the rail switches to the sessions sub-sidebar (Hoy / Ayer / Últimos 7 días / Anteriores, search, rename, archive with *Deshacer*, Archivadas). |
 | `/settings` | `pages/settings/index.tsx` | `Settings` / `Users` | Broker profile, team, documents. Sidebar entry shown only when `isBrokerAdmin()` — i.e. `Settings.Manage` **or** `Users.Manage` **and** `user_type === "broker"`. |
 | `*` | — | — | `<Navigate to="/" replace />`. |
 
@@ -4436,7 +4436,8 @@ JSON. The infra scripts are in `deploy/v12/` (README there; nothing applied).
 
 ### 19.1 What the product owner decided (and the code now assumes)
 
-1. **Policies are the home** (`/` → `/policies`). Journeys are *partial*: a broker may start from a
+1. **Policies are the home** (`/` → `/policies`) — *superseded by the copilot pass (§19.17): the
+   broker's home is now the agent copilot chat; the rest of this decision stands.* Journeys are *partial*: a broker may start from a
    policy PDF, from portal quotes, or from the full market process. The account (`case_file(kind=account)`)
    becomes a viewer that shows only the stages that actually happened; skipped stages are recorded,
    not faked.
@@ -4457,7 +4458,9 @@ JSON. The infra scripts are in `deploy/v12/` (README there; nothing applied).
 8. Radal's own mail = Zoho `contacto@radalseguros.cl` over `smtplib`/`imaplib`; brokers may connect a
    custom SMTP/IMAP server. **Google/Microsoft OAuth are visibly disabled "pronto"**, not built.
 9. The agent gains policy/cobranza/RPA tools and **skills** (on-demand instruction packs).
-10. **RPA**: Playwright, **HDI only**, as a showcase — a framework whose portal map is JSON.
+10. **RPA**: Playwright, **HDI only**, as a showcase — a framework whose portal map is JSON. *Copilot
+    pass: shipped as "pronto" behind `PORTAL_SEARCH_ENABLED` (off) — the portals need each insurer's
+    user + password to apply filters; the code stays (§19.17).*
 11. **WhatsApp**: an enum value and a disabled chip; nothing is sent.
 12. **Deployment**: NAT (cheapest first) — documented and scripted, not applied.
 13. Responsive web app; no native mobile app.
@@ -4631,8 +4634,13 @@ python3 docs/v12/api_lookup.py schema InstallmentRow                  # one sche
 | POST | `/portal-searches/{run_id}/retry` | Integrations.Submit [B] | a NEW run cloned from this one |
 | POST | `/portal-searches/{run_id}/cancel` | Integrations.Submit [B] | cancel queued/running (a running step finishes, the outcome is discarded) |
 | **agent** ||||
-| GET | `/ai/skills` | Dashboard.View [B] | skill catalogue `{key, title, description, tools[], triggers[]}` |
-| GET · POST | `/ai/threads/{thread_id}/skills` | Dashboard.View [B], thread owner | active skills of a thread · set them (unknown key 422) |
+| GET | `/ai/skills` | Dashboard.View [B] | skill catalogue `{key, title, description, tools[], triggers[]}` (enabled skills only — §19.17) |
+| GET · POST | `/ai/threads/{thread_id}/skills` | Dashboard.View [B], thread owner | active skills of a thread · set them (unknown key 422 `unknown_skill`, flagged-off key 422 `skill_disabled`) |
+| **copilot pass (§19.17)** ||||
+| GET | `/meta/features` | any authenticated user (platform too) | `{portal_search: {enabled, reason}}` |
+| GET | `/ai/threads` | Dashboard.View [B], own | sessions: `?archived=false&q=&limit=50&offset=0` → `{items, total, limit, offset}` |
+| GET · PATCH · DELETE | `/ai/threads/{thread_id}` | Dashboard.View [B], own (else 404) | one session · `{title?, is_archived?}` · archive (204) |
+| GET | `/ai/copilot/home` | Dashboard.View [B] | greeting, scope, five indicators, 4–6 ranked suggestions |
 | **jobs** ||||
 | POST | `/internal/jobs/{name}` | header `X-Radal-Job-Token` = `JOBS_TOKEN` (blank ⇒ 404) | run a job now (idempotent per slot); returns the `job_run` |
 | POST | **`/events`** (no prefix) | body `token` + `JOBS_EVENTS_ENABLED` (else 404) | EventBridge Scheduler → LWA entry point |
@@ -4935,6 +4943,10 @@ portal itself: URLs, selectors, steps, captcha selectors, value maps, timeouts, 
 5. Deploy. The map is read **once at import** (`registry.CONNECTORS`), and it ships inside the image —
    a JSON edit is a code deploy, not a hot fix.
 
+**Copilot pass: the whole feature is behind `PORTAL_SEARCH_ENABLED` (default off, §19.17).** To work
+on a connector locally set it to `true` as well as `RPA_ENABLED`; the RPA suites opt in with the
+`portal_search_on` fixture (`tests/conftest.py`).
+
 Only a new *kind* of step or a new input field needs Python (`interpreter.py` / `connectors/hdi.py`
 `INPUT_FIELDS`, whose labels live in the `rpa` namespace). HDI's real credentials, flows and page maps
 have **not** been received; the shipped map drives the fake portal and `insurer.rut`/`cmf_code` are
@@ -4958,7 +4970,15 @@ READ tool `load_skill(key)` to pull the full Spanish playbook, and the key is ap
 prompt (budget `MAX_ACTIVE_SKILLS_CHARS = 6 000`, truncated with the existing marker). Every skill's
 tools are validated against the registry at import. Shipped: `collections_review` · `policy_intake` ·
 `partial_journey` · `file_check` · `portfolio_analysis` (read-only) · `portal_quotes`.
-`MAX_TOOL_ITERATIONS = 6` / `MAX_TOOL_CALLS_PER_TURN = 12` were not raised. Gaps: no tool for
+`MAX_TOOL_ITERATIONS = 6` / `MAX_TOOL_CALLS_PER_TURN = 12` were not raised.
+**Feature-flagged tools and skills (copilot pass, §19.17):** `ToolSpec.feature` / `SkillSpec.feature`
+name a product flag; while it is off the tool is **not offered** (`openai_tools()` = `exposed_tools()`),
+a stray call folds `{"error": "feature_disabled", "detail": <Spanish reason>}`, `action_allowed` is
+false and confirming an old proposal is 409 (row stays `proposed`); the skill is not listed by
+`GET /ai/skills`, not in the base prompt's index, dropped from `active_keys()` and `load_skill` folds the
+same "pronto" error without recording it. Today: `run_portal_search`, `list_portal_searches`,
+`get_portal_search` and `portal_quotes` (flag `portal_search`). The registry itself is unchanged
+(37 tools, 6 skills) — the code stays. Gaps: no tool for
 `PUT /policies/{id}/parties`; share/checkout URLs in a confirmed result must open outside the SPA.
 
 ### 19.11 Frontend surface (summary)
@@ -5040,6 +5060,7 @@ its default instead of failing boot; mail security must be `ssl|starttls|none`.
 | `FORPAY_DEFAULT_BASE_URL` | Forpay sandbox | the account's `base_url` wins |
 | `RPA_ENABLED` / `RPA_INLINE` / `RPA_HEADLESS` | `false` / `false` / `true` | `RPA_INLINE` must stay false on Lambda |
 | `RPA_HDI_BASE_URL` | blank | blank ⇒ "Conector en configuración" |
+| `PORTAL_SEARCH_ENABLED` | `false` | **product flag** (§19.17): off ⇒ portal search is "pronto" — runs/retries 409, portals `coming_soon`, `rpa.run` skips, agent portal tools + `portal_quotes` skill hidden. Checked *before* `RPA_ENABLED` |
 
 Secrets rule (every one of them): stored **encrypted** in a `*_ciphertext` column with
 `app/core/crypto.py` (Fernet; a wrong key raises `SecretDecryptionError` without echoing), **write-only**
@@ -5118,6 +5139,108 @@ The walk is `docs/handoff-2026-10-17-v12-review-fixes.md`; regressions in `tests
 - **Inquiries**: one OPEN inquiry per cuota (409 `{code: inquiry_exists, existing_inquiry_id}`); the
   inquiries job cancels unanswered inquiries whose cuotas are all paid; resending one is 409.
 - No schema change: everything above is derived from existing columns (no migration).
+
+### 19.17 Copilot home, chat sessions & feature flags (copilot pass, 2026-10-18)
+
+Branch `feat/copilot-home`. **No schema change, no migration** (`agent_thread` already had `title`,
+`is_archived`, `last_message_at`). Regressions: `tests/test_copilot_home_sessions.py`.
+
+**Product decisions.** (1) The broker's **home is the agent copilot chat**; its sessions are listed in
+a sub-sidebar and must be manageable (rename, archive, restore, search). (2) **Portal search is
+"pronto"**: insurer portals need each insurer's user + password to apply filters, so the feature is
+disabled by a flag and the code is kept.
+
+**Feature flags — `app/services/features.py`.** The single place that answers "is X on, and what do we
+tell the user". `GET /api/v1/meta/features` (any authenticated user, platform included; it carries no
+tenant data) returns:
+
+```json
+{"portal_search": {"enabled": false,
+  "reason": "Pronto: la búsqueda en portales necesita el usuario y la clave de cada compañía para aplicar filtros."}}
+```
+
+`reason` is Spanish and shown verbatim; `null` when enabled. With `PORTAL_SEARCH_ENABLED=false`
+(default): `POST /portal-searches` and `POST /portal-searches/{id}/retry` → **409**
+`{"code": "feature_disabled", "feature": "portal_search", "message": <reason>}` (the retry 404s a foreign
+run *first*); `GET /portal-searches/portals` → every item `status="coming_soon"`, `status_label="Pronto"`,
+`maintenance_code="coming_soon"`, `maintenance_reason=<reason>`, `coming_soon=true`; a queued run reads
+`will_not_run=true` with the reason; `can_retry=false`, the retry/other-portal alternatives are
+unavailable with the reason; job `rpa.run` returns `{"skipped": true, "reason": "PORTAL_SEARCH_ENABLED is
+off"}` and touches nothing; the agent hides the portal tools and skill (§19.10). Reads of runs and the
+credentials endpoints keep working.
+
+**Sessions — `app/services/agent_sessions.py`.** A session is an `agent_thread` the caller owns
+(`broker_id` + `user_id`). The **session endpoints 404 any thread that is not the caller's** (colleague
+or other tenant); the older `/threads/{id}/messages|stream|skills` paths keep their 403-for-a-colleague.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/ai/threads?archived=false&q=&limit=50&offset=0` | own threads **with ≥ 1 message**; `q` (≤ 120) = case-insensitive match on the title **or any visible message text** (LIKE wildcards escaped); order `last_message_at` desc NULLs last (portable — no `NULLS LAST` on MySQL), `created_at` desc, `id` desc → `{items, total, limit, offset}` |
+| GET | `/ai/threads/{id}` | one own thread, archived included |
+| PATCH | `/ai/threads/{id}` | `{title?: str 1..120 (trimmed), is_archived?: bool}`; blank/null title 422 |
+| DELETE | `/ai/threads/{id}` | soft delete = `is_archived=true`, **204**, idempotent; restore with PATCH |
+
+Every `ThreadRead` (list, detail, PATCH, `POST /ai/threads`, the `thread` of `POST /ai/agent/messages`)
+now carries: `title` **never null** (stored title, else `"Conversación del dd-mm"` — the Santiago day it
+was opened), `last_message_at`, `message_count` (user + assistant messages with text; tool rows and empty
+tool-call carriers excluded) and `preview` (latest visible message, markdown stripped, ≤ 120 chars
+with "…"). Counts and previews are two grouped queries per page, never one per thread.
+
+**Auto-title.** The first user message of an untitled thread sets `title` = the message, whitespace
+collapsed, ≤ 60 chars including "…", cut on a word boundary (`agent_sessions.auto_title`; no AI call),
+on all three message paths (`/threads/{id}/messages`, `/threads/{id}/stream`, `/ai/agent/messages`).
+An explicit title is never overwritten. **Bug fixed on the way:** the SSE path ran after FastAPI had
+closed the request session (yield-dependency exit precedes the streamed body), so `thread` was detached
+and `title` / `last_message_at` were silently dropped on every streamed turn; `_persist_exchange` now
+re-attaches the thread (`db.merge`) before writing.
+
+**Copilot home — `GET /api/v1/ai/copilot/home`** (`app/services/copilot.py`; Dashboard.View, broker
+users only — platform 403 like every `[B]` endpoint):
+
+```json
+{"first_name": "Ana", "role": "broker_executive", "scope": "mine",
+ "indicators": [
+   {"key": "overdue_installments", "value": 3, "secondary": 41.5, "unit": "count", "tone": "danger", "link": "/collections?tab=overdue&owner=me"},
+   {"key": "pending_evidence", "value": 1, "secondary": null, "unit": "count", "tone": "warn", "link": "/collections/evidence"},
+   {"key": "todo_notifications", "value": 2, "secondary": null, "unit": "count", "tone": "warn", "link": "/notifications?tray=todo"},
+   {"key": "expiring_policies_30", "value": 1, "secondary": null, "unit": "count", "tone": "warn", "link": "/policies?status=active&mine=1"},
+   {"key": "active_policies", "value": 12, "secondary": 1830.25, "unit": "count", "tone": "neutral", "link": "/policies?status=active&mine=1"}],
+ "suggestions": [{"key": "overdue_review", "skill": "collections_review"}, …]}
+```
+
+- **Scope**: `all` for `Settings.Manage` (admins), `mine` otherwise. `mine` uses each destination's own
+  "mine": the Cobranza board's `owner=me` (case owner of the plan/policy) and the Pólizas list's
+  `owner=me` (account owner or client account manager) — the links carry `owner=me` / `mine=1` so the
+  card and the list it opens agree.
+- **Every number comes from the owning service**: `board.summary_cards(..., owner_user_id=)` (overdue
+  count + UF, pending evidence), `policies._summary_cards` + `policies.count_expiring` +
+  `policies.owner_me_clause` (active count + premium UF, expiring in 30 days), and the
+  `GET /notifications?tray=todo` predicate (own, `new` + `seen`). `pending_evidence` is a **team inbox:
+  broker-wide in both scopes**, like its page. UF are rounded to 2 decimals (display only).
+- Indicators whose module the caller cannot view (`Collections.View`, `Policies.View`) are **omitted**.
+- **Suggestions** (fixed keys → skill): `overdue_review`→`collections_review` (when overdue > 0),
+  `pending_evidence_review`→`collections_review` (when evidence > 0), `renewals_upcoming`→`portfolio_analysis`
+  (boosted by expiring), `missing_files`→`file_check` (boosted by policies without PDF / plan),
+  `ask_insurer_status`→`collections_review` (boosted by overdue), `register_policy`→`policy_intake`
+  (first on an empty book), `portfolio_summary`→`portfolio_analysis`; ranked by the data, max 6,
+  never fewer than 4.
+- **Links deliberately use the SPA's real params**: the Cobranza page reads `?tab=` (not `?bucket=`),
+  Pólizas reads `?status=` / `?mine=1`, Notificaciones `?tray=`. Pólizas has no end-date filter, so
+  `expiring_policies_30` opens the active policies.
+
+**Frontend (copilot pass).** `/` → `HomeRedirect` → `/agent` for brokers (§9.2). `pages/agent/Welcome.tsx`
+renders the welcome: greeting from `first_name`, up to five indicator cards that float in with a staggered
+framer-motion entrance and a slow idle drift (off under `prefers-reduced-motion`), each a link to the list it
+counts; up to six server suggestions (the server's `skill` wins over the catalogue's), and "Ver más" opens the
+static catalogue in `pages/agent/catalog.ts` grouped Cobranza / Pólizas / Portafolio / Documentos. **Every key is
+an explicit map entry** (`INDICATORS`, `QUERY_CATALOG`); an unknown server key is skipped, never rendered raw.
+Clicking a query creates a thread, loads the skill and sends the prompt (the prompt text lives in the locale
+bundles, Spanish). `components/agent/AgentSidebar.tsx` replaces the rail while on `/agent` — the same pattern
+as the group sub-sidebar — with *Nueva conversación*, search (`q`), date buckets, inline rename, archive with a
+*Deshacer* toast and an *Archivadas* view. Portal search: `pages/portal-search/ComingSoon.tsx` renders when
+`GET /meta/features` says `portal_search.enabled=false`; the rail's *Cotizar en portales* entry is visibly
+disabled with a "Pronto" chip and the server's reason (no dead buttons); in Configuración → Integraciones the portal
+credentials button is a `SoonButton` with the same reason, plus a link to the coming-soon page. `api/meta.ts` (`useFeatures`), `api/copilot.ts` (home + sessions hooks).
 
 ### 19.15 Verified state & still open
 

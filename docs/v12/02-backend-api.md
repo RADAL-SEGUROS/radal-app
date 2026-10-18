@@ -216,6 +216,12 @@ maintenance_code, coming_soon, subtypes[{id,code,name}], credential{…}, input_
 With `RPA_ENABLED` off every portal is in maintenance (`rpa_disabled`). Retry creates a NEW run cloned from the failed one.
 `user_message_key` ∈ credentials_missing, login_failed, layout_changed, timeout, captcha, no_results, portal_unavailable, unexpected;
 alternatives `kind` ∈ retry, upload_quote_pdf, other_portal. Shapes: `app/schemas/portal_searches.py`.
+**Copilot-pass delta (2026-10-18, tech-ref §19.17):** behind the product flag `PORTAL_SEARCH_ENABLED`
+(default **off**). Off ⇒ `POST /portal-searches` and `POST /{run_id}/retry` → **409**
+`{code: "feature_disabled", feature: "portal_search", message: "Pronto: la búsqueda en portales necesita el usuario y la clave de cada compañía para aplicar filtros."}`
+(retry 404s a foreign run first); `GET /portals` items → `status: "coming_soon"`, `status_label: "Pronto"`,
+`maintenance_code: "coming_soon"`, `maintenance_reason: <reason>`, `coming_soon: true`; queued runs read
+`will_not_run` with the reason; `can_retry=false`; `rpa.run` skips. Reads and credentials unchanged.
 
 ## 9. Agent — lane B7 (`routers/ai.py`, existing thread endpoints)
 | method | path | gate | notes |
@@ -226,6 +232,36 @@ Existing message/confirm/discard endpoints unchanged in shape; the tool registry
 **As built (§9):** `GET /ai/skills` rows are `{key, title, description, tools[], triggers[]}`; `GET /ai/threads/{id}/skills` also
 exists. Write tools reuse the router functions (same transaction, activity rows and errors). `run_portal_search` confirmations are
 queued for the `rpa.run` job.
+
+**Copilot-pass delta (2026-10-18, tech-ref §19.17)** — no schema change:
+
+| method | path | gate | notes |
+|---|---|---|---|
+| GET | `/meta/features` | any authenticated user (platform too) | `{portal_search: {enabled: bool, reason: str\|null}}` (reason Spanish, verbatim) |
+| GET | `/ai/threads` | Dashboard.View [B], own | `?archived=false&q=&limit=50(1..200)&offset=0` → `{items: ThreadRead[], total, limit, offset}`; threads with zero messages are not listed; `q` matches title or any visible message text; order `last_message_at` desc NULLs last, `created_at` desc |
+| GET | `/ai/threads/{id}` | own (else **404**) | one `ThreadRead` (archived included) |
+| PATCH | `/ai/threads/{id}` | own (else 404) | `{title?: str 1..120, is_archived?: bool}` → `ThreadRead`; blank/null title 422 |
+| DELETE | `/ai/threads/{id}` | own (else 404) | soft delete (`is_archived=true`), 204 |
+| GET | `/ai/copilot/home` | Dashboard.View [B] (platform 403) | `{first_name, role, scope: "mine"\|"all", indicators[], suggestions[]}` |
+
+`ThreadRead` = `{id, broker_id, user_id, scope, entity_type, entity_id, title (never null: fallback
+"Conversación del dd-mm"), is_archived, last_message_at, created_at, message_count, preview}` — also on
+`POST /ai/threads` and on `AgentTurnResponse.thread`. Auto-title: an untitled thread's first user message
+(any of `/threads/{id}/messages`, `/threads/{id}/stream`, `/ai/agent/messages`) becomes its title, ≤ 60
+chars incl. "…", word boundary, no AI call.
+
+Copilot indicator = `{key, value: number, secondary: number|null, unit: "count"|"uf"|null, tone:
+"neutral"|"warn"|"danger"|"ok", link: str}`; keys (in this order, omitted when the module is not
+viewable): `overdue_installments` (secondary = overdue UF, link `/collections?tab=overdue[&owner=me]`),
+`pending_evidence` (broker-wide team inbox, `/collections/evidence`), `todo_notifications` (own open
+Por hacer, `/notifications?tray=todo`), `expiring_policies_30` (`/policies?status=active[&mine=1]`),
+`active_policies` (secondary = active premium UF, same link). Suggestion = `{key, skill}`, keys
+`overdue_review`·`pending_evidence_review`·`ask_insurer_status` (skill `collections_review`),
+`register_policy` (`policy_intake`), `portfolio_summary`·`renewals_upcoming` (`portfolio_analysis`),
+`missing_files` (`file_check`); ranked by the data, 4..6. Agent: tools `run_portal_search`,
+`list_portal_searches`, `get_portal_search` are not offered and skill `portal_quotes` is not listed /
+loadable while the flag is off (stray call or `load_skill` folds `feature_disabled` with the reason;
+`POST /ai/threads/{id}/skills` with it → 422 `skill_disabled`; confirming an old proposal → 409).
 
 ## 10. Jobs (lane B2 framework; bodies by owning lanes)
 Registry `app/jobs/__init__.py`: `JOBS: dict[str, Callable[[Session, datetime], dict]]`. Runner `run_job(db, name, now)` (as built; plus `trigger_job(db, name, now) -> JobOutcome(run, executed)`) writes
@@ -241,5 +277,5 @@ headers, so the token rides in the body) for EventBridge Scheduler → Lambda in
 | `mail.poll` | B4 | IMAP fetch for Radal system box + each receive-enabled broker account |
 | `payments.sync` | B3 | Forpay `GET /receivables` reconciliation for pending intents/charges |
 | `payments.payouts` | B3 | payouts (`hasPayout=true`) → `provider_payout`, evidence → settled |
-| `rpa.run` | B6 | execute queued portal searches |
+| `rpa.run` | B6 | execute queued portal searches (skips while `PORTAL_SEARCH_ENABLED` is off) |
 | `notifications.expire` | B2 | close `fyi` notifications seen/older than 7 days |

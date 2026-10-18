@@ -148,9 +148,10 @@ function deferredRoute(
  *      family, which renders its own contextual rail through `GroupShell` and
  *      must not remount on navigation.
  *
- * v12: the app STARTS AT POLICIES — `/` redirects to `/policies` (a platform
- * user, who has no broker workspace, goes to `/platform`); groups stay at
- * `/groups` and the dashboard at `/dashboard`. A route exists here only once a real endpoint is behind the
+ * Copilot pass: the app STARTS AT THE AGENT — `/` redirects a broker to
+ * `/agent`, the copilot home (a platform user, who has no broker workspace,
+ * goes to `/platform`; a broker role without the agent grant to `/policies`).
+ * Groups stay at `/groups` and the dashboard at `/dashboard`. A route exists here only once a real endpoint is behind the
  * page it renders; modules still to land are shown greyed with a "pronto" chip
  * in the sidebar rather than as links that resolve to an empty screen.
  */
@@ -186,8 +187,7 @@ export default function App() {
         <Route element={<AppShell />}>
           {/* ---- Standard pages: reading column + motion remount ---- */}
           <Route element={<StandardPage />}>
-            {/* The front door is the policy list (v12): policies are the main
-                view; journeys are partial and the group is a viewer. */}
+            {/* The front door is the copilot (`HomeRedirect`). */}
             <Route index element={<HomeRedirect />} />
             <Route path="dashboard" element={<DashboardPage />} />
             {/* The portfolio, split in two: Datos holds every consolidated
@@ -321,9 +321,6 @@ export default function App() {
               )}
             />
 
-            {/* The AI agent, with SSE streaming and a non-streaming fallback. */}
-            <Route path="agent" element={<AgentPage />} />
-
             {/* v12: portal-search RPA and the full notifications list. */}
             <Route
               path="portal-search"
@@ -372,6 +369,14 @@ export default function App() {
               />
             </Route>
           </Route>
+
+          {/* ---- The copilot: `/agent` (welcome) and `/agent/:threadId` (a
+                  stored session) are ONE route with an optional segment, so
+                  the page survives the welcome → new-thread hop without a
+                  remount. Outside StandardPage: it is a full-height chat
+                  (scrolling transcript + docked composer), not a reading
+                  column. The rail switches to agent mode on its own. ---- */}
+          <Route path="agent/:threadId?" element={<AgentPage />} />
 
           {/* ---- The group family: GroupShell owns the contextual rail and
                   the scroll pane, so it is deliberately NOT wrapped in

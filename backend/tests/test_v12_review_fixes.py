@@ -457,7 +457,9 @@ def test_a_failed_verify_drops_native_and_the_card_says_so(client, db, world, he
 # 16 — portal search: a queued run that cannot run says so; steps in Spanish
 # =============================================================================
 
-def test_queued_run_with_rpa_disabled_will_not_run_and_steps_have_labels(client, db, world, headers_a):
+def test_queued_run_with_rpa_disabled_will_not_run_and_steps_have_labels(
+    client, db, world, headers_a, portal_search_on
+):
     run = PortalSearchRun(
         broker_id=world.a.broker_id, portal="hdi", requested_by_user_id=world.a.admin.id,
         input={"plate": "ABCD12", "start_date": "2026-10-27", "insured_rut": "76345678-1"},

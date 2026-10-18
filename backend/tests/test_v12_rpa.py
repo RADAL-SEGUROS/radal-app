@@ -55,6 +55,11 @@ T0 = datetime(2026, 10, 16, 15, 0, tzinfo=timezone.utc)
 
 
 @pytest.fixture(autouse=True)
+def _portal_search_feature_on(portal_search_on):
+    """This suite covers the feature itself: the product flag is on here."""
+
+
+@pytest.fixture(autouse=True)
 def _media_tmp(tmp_path, monkeypatch):
     """Failure screenshots are real files: keep them out of backend/media."""
     monkeypatch.setattr(settings, "MEDIA_LOCAL_DIR", str(tmp_path))

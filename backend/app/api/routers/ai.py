@@ -6,9 +6,13 @@ Mounted at ``{API_V1_PREFIX}/ai``.
     GET    /ai/extractions/{id}               re-read a persisted suggestion
     POST   /ai/proposals/{extraction_id}/confirm   COMMIT the reviewed payload
     POST   /ai/threads                        open a chat thread
-    GET    /ai/threads                        list the caller's threads
+    GET    /ai/threads                        the caller's sessions (archived, q, paging)
+    GET    /ai/threads/{id}                   one own session (404 otherwise)
+    PATCH  /ai/threads/{id}                   rename / (un)archive an own session
+    DELETE /ai/threads/{id}                   archive an own session (soft delete, 204)
     GET    /ai/threads/{id}/messages          full transcript
     POST   /ai/threads/{id}/messages          one turn (persists user + assistant)
+    GET    /ai/copilot/home                   the copilot home (indicators + suggestions)
     GET    /ai/skills                         agent skill catalogue (v12)
     GET    /ai/threads/{id}/skills            the thread's active skills (v12)
     POST   /ai/threads/{id}/skills            replace the thread's active skills (v12)
@@ -27,7 +31,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -74,9 +78,12 @@ from app.schemas.ai import (
     ThreadCreate,
     ThreadList,
     ThreadRead,
+    ThreadUpdate,
 )
 from app.schemas.agent_skills import SkillRead, ThreadSkillsRead, ThreadSkillsUpdate
+from app.schemas.copilot import CopilotHome
 from app.schemas.extraction.registry import registry_as_json
+from app.services import agent_sessions
 from app.services import ai as ai_service
 from app.services import extraction_commit
 from app.services.ai import (
@@ -342,22 +349,132 @@ def create_thread(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc
-    return ThreadRead.model_validate(thread)
+    return _thread_read(db, thread)
+
+
+def _thread_reads(db: Session, threads: list[AgentThread]) -> list[ThreadRead]:
+    """Session projection: never-null title, visible message count, preview."""
+    stats = agent_sessions.session_stats(db, [t.id for t in threads])
+    out: list[ThreadRead] = []
+    for thread in threads:
+        row = ThreadRead.model_validate(thread)
+        info = stats.get(thread.id) or agent_sessions.SessionStats()
+        out.append(
+            row.model_copy(
+                update={
+                    "title": agent_sessions.display_title(thread),
+                    "message_count": info.message_count,
+                    "preview": info.preview,
+                }
+            )
+        )
+    return out
+
+
+def _thread_read(db: Session, thread: AgentThread) -> ThreadRead:
+    return _thread_reads(db, [thread])[0]
 
 
 @router.get(
     "/threads",
     response_model=ThreadList,
-    summary="List the caller's own threads in this workspace",
+    summary="The caller's own chat sessions in this workspace (copilot sub-sidebar)",
 )
 def list_threads(
+    archived: bool = Query(default=False),
+    q: str | None = Query(default=None, max_length=120),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     current_user: User = Depends(require_permission("Dashboard", "View")),
 ) -> ThreadList:
-    threads = ai_service.list_threads(db, broker_id=broker_id, user_id=current_user.id)
-    items = [ThreadRead.model_validate(thread) for thread in threads]
-    return ThreadList(items=items, total=len(items))
+    """Own threads only, broker-scoped; threads with no message are not listed.
+
+    ``q`` matches the title or any visible message text (case-insensitive).
+    Ordered by ``last_message_at`` desc (NULLs last), then ``created_at`` desc.
+    """
+    threads, total = agent_sessions.list_sessions(
+        db,
+        broker_id=broker_id,
+        user_id=current_user.id,
+        archived=archived,
+        q=q,
+        limit=limit,
+        offset=offset,
+    )
+    return ThreadList(items=_thread_reads(db, threads), total=total, limit=limit, offset=offset)
+
+
+def _own_session_or_404(db: Session, thread_id: int, broker_id: int, user: User) -> AgentThread:
+    """The session endpoints answer 404 for ANY thread that is not the caller's
+    (another tenant's or a colleague's) — a session is private."""
+    thread = agent_sessions.get_own_thread(db, thread_id, broker_id=broker_id, user_id=user.id)
+    if thread is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Conversación no encontrada"
+        )
+    return thread
+
+
+@router.get(
+    "/threads/{thread_id}",
+    response_model=ThreadRead,
+    summary="One own chat session (archived included)",
+)
+def get_thread(
+    thread_id: int,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("Dashboard", "View")),
+) -> ThreadRead:
+    return _thread_read(db, _own_session_or_404(db, thread_id, broker_id, current_user))
+
+
+@router.patch(
+    "/threads/{thread_id}",
+    response_model=ThreadRead,
+    summary="Rename and/or (un)archive an own chat session",
+)
+def update_thread(
+    thread_id: int,
+    payload: ThreadUpdate,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("Dashboard", "View")),
+) -> ThreadRead:
+    thread = _own_session_or_404(db, thread_id, broker_id, current_user)
+    fields = payload.model_fields_set
+    if "title" in fields:
+        if payload.title is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="El título no puede quedar vacío.",
+            )
+        thread.title = payload.title
+    if "is_archived" in fields and payload.is_archived is not None:
+        thread.is_archived = payload.is_archived
+    db.commit()
+    db.refresh(thread)
+    return _thread_read(db, thread)
+
+
+@router.delete(
+    "/threads/{thread_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Archive an own chat session (soft delete; restore with PATCH)",
+)
+def delete_thread(
+    thread_id: int,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("Dashboard", "View")),
+) -> Response:
+    thread = _own_session_or_404(db, thread_id, broker_id, current_user)
+    if not thread.is_archived:
+        thread.is_archived = True
+        db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _load_own_thread(db: Session, thread_id: int, broker_id: int, user: User):
@@ -935,7 +1052,7 @@ def post_agent_message(
         raise _ai_http_error(exc) from exc
 
     return AgentTurnResponse(
-        thread=ThreadRead.model_validate(result.thread),
+        thread=_thread_read(db, result.thread),
         messages=[MessageRead.model_validate(message) for message in result.messages],
         pending_actions=[
             _agent_action_read(action, current_user) for action in result.actions
@@ -994,6 +1111,29 @@ def _load_own_action(
             detail="This action belongs to another user's thread",
         )
     return action, thread
+
+
+# --- 7b. Copilot home (v12 copilot pass) --------------------------------------
+
+
+@router.get(
+    "/copilot/home",
+    response_model=CopilotHome,
+    summary="The copilot home: greeting, live indicators and ranked common queries",
+)
+def get_copilot_home(
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("Dashboard", "View")),
+) -> CopilotHome:
+    """Broker users only (a platform user is 403 like every workspace endpoint).
+
+    ``scope``: ``all`` for admins (``Settings.Manage``), ``mine`` otherwise.
+    Indicators whose module the caller cannot view are omitted.
+    """
+    from app.services.copilot import copilot_home
+
+    return CopilotHome(**copilot_home(db, broker_id=broker_id, user=current_user))
 
 
 # --- 8. Skills (v12, docs/v12/05-agent.md §3) ---------------------------------
@@ -1073,6 +1213,11 @@ def set_thread_skills(
     thread = _load_own_thread(db, thread_id, broker_id, current_user)
     try:
         keys = agent_skills.normalize_skill_keys(payload.skills)
+    except agent_skills.SkillDisabled as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "skill_disabled", "keys": exc.keys, "reason": exc.reason},
+        ) from exc
     except agent_skills.UnknownSkill as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

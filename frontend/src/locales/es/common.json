@@ -49,7 +49,8 @@
     "portalSearch": "Cotizar en portales",
     "platform": "Mantenedor",
     "notifications": "Notificaciones",
-    "overdueInstallments": "Cuotas vencidas: {{count}}"
+    "overdueInstallments": "Cuotas vencidas: {{count}}",
+    "portalSearchSoonReason": "Pronto: los portales piden el usuario y la contraseña de cada compañía para aplicar filtros."
   },
   "sidebar": {
     "collapse": "Contraer barra lateral",

@@ -404,6 +404,37 @@ def _collection_narrowing(state: str, today: date, late_before: date | None = No
     return base.exists()
 
 
+def owner_me_clause(broker_id: int, user_id: int):
+    """``owner=me`` on policies: the policy's account is theirs, or its client is
+    one they manage. Shared by the list filter and the copilot home."""
+    return or_(
+        Policy.case_file_id.in_(
+            select(CaseFile.id).where(
+                CaseFile.broker_id == broker_id,
+                CaseFile.owner_user_id == user_id,
+            )
+        ),
+        Policy.client_id.in_(
+            select(Client.id).where(
+                Client.broker_id == broker_id,
+                Client.account_manager_id == user_id,
+            )
+        ),
+    )
+
+
+def count_expiring(db: Session, scoped: list, today: date, days: int) -> int:
+    """Computed-active policies whose ``end_date`` falls within ``days`` (incl. today)."""
+    return _count(
+        db,
+        *scoped,
+        registry.computed_status_clause("active", today),
+        Policy.end_date.is_not(None),
+        Policy.end_date >= today,
+        Policy.end_date <= today + timedelta(days=days),
+    )
+
+
 def _summary_cards(db: Session, broker_id: int, scoped: list, today: date) -> dict[str, Any]:
     """The v12 main-view cards, computed SQL-side.
 
@@ -424,14 +455,7 @@ def _summary_cards(db: Session, broker_id: int, scoped: list, today: date) -> di
     cards: dict[str, Any] = {
         "active_count": _count(db, *scoped, active),
         "active_premium_uf": Decimal(str(premium or 0)),
-        "expiring_90": _count(
-            db,
-            *scoped,
-            active,
-            Policy.end_date.is_not(None),
-            Policy.end_date >= today,
-            Policy.end_date <= today + timedelta(days=90),
-        ),
+        "expiring_90": count_expiring(db, scoped, today, 90),
         "no_plan": _count(db, *scoped, live, ~_has_installments_clause()),
         "without_source_document": _count(
             db, *scoped, live, Policy.has_source_document.is_(False)
@@ -653,22 +677,7 @@ def list_policies(
     if origin:
         stmt = stmt.where(Policy.origin.in_(origin))
     if owner == "me":
-        stmt = stmt.where(
-            or_(
-                Policy.case_file_id.in_(
-                    select(CaseFile.id).where(
-                        CaseFile.broker_id == broker_id,
-                        CaseFile.owner_user_id == current_user.id,
-                    )
-                ),
-                Policy.client_id.in_(
-                    select(Client.id).where(
-                        Client.broker_id == broker_id,
-                        Client.account_manager_id == current_user.id,
-                    )
-                ),
-            )
-        )
+        stmt = stmt.where(owner_me_clause(broker_id, current_user.id))
     if q and q.strip():
         clauses = []
         for variant in _q_variants(q):

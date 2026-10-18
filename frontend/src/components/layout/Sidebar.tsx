@@ -1,11 +1,16 @@
 /**
  * The single context-switching sidebar (spec v4 §2, geometry v5).
  *
- * One rail with two context modes decided by the URL:
+ * One rail with three context modes decided by the URL:
  *
- *  - **GLOBAL** (any route outside a group): `SidebarGlobal` — Pólizas,
- *    Cobranza, the groups, Portafolio, Analítica, Agente, Cotizar en portales,
- *    Compañías, Configuración, Mantenedor (v12 order).
+ *  - **GLOBAL** (any other route): `SidebarGlobal` — Agente (the home), Pólizas,
+ *    Cobranza, the groups, Portafolio, Analítica, Cotizar en portales (pronto
+ *    while the server flag is off), Compañías, Configuración, Mantenedor.
+ *  - **AGENT** (`/agent`, `/agent/:threadId`): `AgentSidebar` — the copilot's
+ *    stored sessions. Its back row does not navigate (`/agent` is the home, so
+ *    nothing sits "behind" it): it flips the rail to GLOBAL for the current
+ *    path (`mainMenuFor`), and the global Agente row — or any navigation —
+ *    flips it back.
  *  - **GROUP** (`/groups/:id/**`): `GroupSidebar` — slim since v5: the back
  *    affordance, the group name, Resumen, one row per vigencia, pinned
  *    Analítica. The tree itself lives in the central view now.
@@ -45,11 +50,13 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   BarChart3,
+  Plus,
   Bot,
   Building2,
   Folder,
   FolderOpen,
   Globe,
+  MessagesSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -70,6 +77,8 @@ import {
 } from "@/lib/sidebarState";
 import { SidebarGlobal } from "./SidebarGlobal";
 import { GroupSidebar } from "@/components/groups/GroupSidebar";
+import { AgentSidebar } from "@/components/agent/AgentSidebar";
+import { useFeature } from "@/api/meta";
 import { cn } from "@/lib/utils";
 
 function initials(name?: string) {
@@ -95,11 +104,13 @@ function CollapsedRow({
   icon: Icon,
   label,
   end,
+  onClick,
 }: {
   to: string;
   icon: LucideIcon;
   label: string;
   end?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <li>
@@ -108,6 +119,7 @@ function CollapsedRow({
           <NavLink
             to={to}
             end={end}
+            onClick={onClick}
             aria-label={label}
             className={({ isActive }) =>
               cn(
@@ -127,13 +139,90 @@ function CollapsedRow({
   );
 }
 
+/** A tooltipped icon BUTTON of the collapsed rail (an action, not a route). */
+function CollapsedButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <li>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={label}
+            onClick={onClick}
+            className="grid h-9 w-9 place-items-center rounded-sm text-ink-2 transition-[background-color,color,transform] duration-150 ease-out hover:bg-paper-2 hover:text-ink active:scale-[0.98]"
+          >
+            <Icon className="h-[17px] w-[17px]" strokeWidth={1.5} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">{label}</TooltipContent>
+      </Tooltip>
+    </li>
+  );
+}
+
+/** A visibly disabled icon row: muted, not a link, the reason in its tooltip. */
+function CollapsedSoon({
+  icon: Icon,
+  label,
+  reason,
+}: {
+  icon: LucideIcon;
+  label: string;
+  reason: string;
+}) {
+  return (
+    <li>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            role="link"
+            aria-disabled="true"
+            tabIndex={0}
+            aria-label={`${label} · ${reason}`}
+            className="grid h-9 w-9 cursor-not-allowed place-items-center rounded-sm text-ink-3 opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
+          >
+            <Icon className="h-[17px] w-[17px]" strokeWidth={1.5} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-[240px]">
+          <span className="font-medium">{label}</span> · {reason}
+        </TooltipContent>
+      </Tooltip>
+    </li>
+  );
+}
+
 /**
  * The collapsed rail's nav — mode-aware like the expanded one, gated by the
  * same server matrix (never hardcoded roles). Global mode shows the anchors;
- * group mode shows the way back, the group overview and Analítica.
+ * group mode shows the way back, the group overview and Analítica; agent mode
+ * shows the main-menu switch, a new conversation and the way to the sessions
+ * (which expands the rail — a list of titles does not fit in 56px).
  */
-function CollapsedNav({ groupId }: { groupId: number | null }) {
+function CollapsedNav({
+  groupId,
+  agentMode,
+  onShowMainMenu,
+  onEnterAgent,
+  onExpand,
+}: {
+  groupId: number | null;
+  agentMode: boolean;
+  onShowMainMenu: () => void;
+  onEnterAgent: () => void;
+  onExpand: () => void;
+}) {
   const { t } = useTranslation("common");
+  const { t: td } = useTranslation("dashboard");
+  const portal = useFeature("portal_search");
   const { isAdmin } = useIsBrokerAdmin();
   const { data: perms, isLoading: permsLoading } = usePermissions();
 
@@ -144,6 +233,16 @@ function CollapsedNav({ groupId }: { groupId: number | null }) {
   // Same rule as `SidebarGlobal`: a platform user has no broker workspace, so
   // only the maintainer console is offered.
   const ws = (module: PermissionModule) => perms?.user_type !== "platform" && gate(module);
+
+  if (agentMode) {
+    return (
+      <ul className="flex flex-col items-center gap-1">
+        <CollapsedButton icon={ArrowLeft} label={td("agent.sessions.back")} onClick={onShowMainMenu} />
+        <CollapsedRow to="/agent" end icon={Plus} label={td("agent.sessions.new")} />
+        <CollapsedButton icon={MessagesSquare} label={td("agent.sessions.title")} onClick={onExpand} />
+      </ul>
+    );
+  }
 
   if (groupId !== null) {
     return (
@@ -164,6 +263,10 @@ function CollapsedNav({ groupId }: { groupId: number | null }) {
 
   return (
     <ul className="flex flex-col items-center gap-1">
+      {/* Agente leads: it is the broker's home. */}
+      {ws("Dashboard") ? (
+        <CollapsedRow to="/agent" icon={Bot} label={t("nav.agent")} onClick={onEnterAgent} />
+      ) : null}
       {ws("Policies") ? (
         <CollapsedRow to="/policies" icon={ShieldCheck} label={t("nav.policies")} />
       ) : null}
@@ -176,11 +279,16 @@ function CollapsedNav({ groupId }: { groupId: number | null }) {
       {ws("Dashboard") ? (
         <CollapsedRow to="/analytics" icon={BarChart3} label={t("nav.analytics")} />
       ) : null}
-      {ws("Dashboard") ? (
-        <CollapsedRow to="/agent" icon={Bot} label={t("nav.agent")} />
-      ) : null}
       {ws("Integrations") ? (
-        <CollapsedRow to="/portal-search" icon={Globe} label={t("nav.portalSearch")} />
+        portal.enabled ? (
+          <CollapsedRow to="/portal-search" icon={Globe} label={t("nav.portalSearch")} />
+        ) : (
+          <CollapsedSoon
+            icon={Globe}
+            label={t("nav.portalSearch")}
+            reason={portal.reason ?? t("nav.portalSearchSoonReason")}
+          />
+        )
       ) : null}
       {ws("Insurers") ? (
         <CollapsedRow to="/insurers" icon={Building2} label={t("nav.insurersAppetite")} />
@@ -226,7 +334,16 @@ export function Sidebar({ className, variant = "desktop" }: SidebarProps = {}) {
   // "/groups" and "/groups/new" stay GLOBAL; only a numeric id enters group mode.
   const match = pathname.match(/^\/groups\/(\d+)(\/|$)/);
   const groupId = match ? Number(match[1]) : null;
-  const modeKey = groupId === null ? "global" : `group-${groupId}`;
+  // `/agent` and `/agent/:threadId` enter agent mode — unless the user asked
+  // for the main menu on THIS path (any navigation clears the request).
+  const isAgentPath = /^\/agent(\/|$)/.test(pathname);
+  const threadMatch = pathname.match(/^\/agent\/(\d+)(\/|$)/);
+  const activeThreadId = threadMatch ? Number(threadMatch[1]) : null;
+  const [mainMenuFor, setMainMenuFor] = React.useState<string | null>(null);
+  const agentMode = groupId === null && isAgentPath && mainMenuFor !== pathname;
+  const showMainMenu = () => setMainMenuFor(pathname);
+  const enterAgent = () => setMainMenuFor(null);
+  const modeKey = groupId !== null ? `group-${groupId}` : agentMode ? "agent" : "global";
 
   const logo = theme === "dark" ? "radal-mark-white" : "radal-mark-teal";
   const tenant = organization?.trade_name ?? organization?.legal_name ?? t("app.name");
@@ -322,10 +439,18 @@ export function Sidebar({ className, variant = "desktop" }: SidebarProps = {}) {
           >
             {collapsed ? (
               <nav className="min-h-0 flex-1 overflow-y-auto px-2">
-                <CollapsedNav groupId={groupId} />
+                <CollapsedNav
+                  groupId={groupId}
+                  agentMode={agentMode}
+                  onShowMainMenu={showMainMenu}
+                  onEnterAgent={enterAgent}
+                  onExpand={() => rail.setCollapsed(false)}
+                />
               </nav>
+            ) : agentMode ? (
+              <AgentSidebar activeThreadId={activeThreadId} onShowMainMenu={showMainMenu} />
             ) : groupId === null ? (
-              <SidebarGlobal />
+              <SidebarGlobal onEnterAgent={enterAgent} />
             ) : (
               <GroupSidebar
                 key={groupId}

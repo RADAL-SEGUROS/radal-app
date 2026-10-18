@@ -61,6 +61,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SoonButton } from "@/components/common/kit";
+import { useFeature } from "@/api/meta";
 import {
   DisabledHint,
   EmptyState,
@@ -740,6 +742,10 @@ function ComparisonTab({ caseId }: { caseId: number }) {
   // Portal quotes (RPA) land in the same comparison: the run is filed under this
   // account through `?case=` and its "Subir cotización PDF" comes back here.
   const canPortals = useCan("Integrations", "View");
+  // The RPA is coming-soon while the server flag is off: visibly disabled with
+  // the server's reason, never a link to a page that cannot search.
+  const portal = useFeature("portal_search");
+  const { t: tc } = useTranslation("common");
   return (
     <Section
       title={t("account.comparison.title")}
@@ -752,7 +758,11 @@ function ComparisonTab({ caseId }: { caseId: number }) {
         <p className="min-w-0 flex-1 text-caption text-ink-3">
           {t("account.comparison.hint")}
         </p>
-        {canPortals.allowed ? (
+        {!portal.enabled ? (
+          <SoonButton reason={portal.reason ?? tc("nav.portalSearchSoonReason")}>
+            {t("account.comparison.portalSearch")}
+          </SoonButton>
+        ) : canPortals.allowed ? (
           <Button size="sm" variant="secondary" asChild>
             <Link to={`/portal-search?case=${caseId}`}>{t("account.comparison.portalSearch")}</Link>
           </Button>

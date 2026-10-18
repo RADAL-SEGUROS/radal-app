@@ -7,7 +7,7 @@
     "noThreads": "Sin conversaciones todavía.",
     "pickThread": "Elige o crea una conversación",
     "empty": "Haz la primera pregunta",
-    "emptyHint": "Menciona un asegurado o una colocación con @, usa / para comandos o activa una habilidad arriba.",
+    "emptyHint": "Menciona un asegurado o una colocación con @, usa / para comandos o activa una habilidad bajo el cuadro de texto.",
     "placeholder": "Escribe tu pregunta… (@ para mencionar, / para comandos)",
     "send": "Enviar",
     "fallback": "Respuesta entregada sin streaming (CloudFront entrega el cuerpo en un solo bloque).",
@@ -262,7 +262,135 @@
       "remove": "Quitar {{label}}",
       "limit": "Máximo {{max}} referencias por mensaje."
     },
-    "providerUnavailable": "El asistente de IA no está disponible en este momento. Inténtalo más tarde o contacta a soporte."
+    "providerUnavailable": "El asistente de IA no está disponible en este momento. Inténtalo más tarde o contacta a soporte.",
+    "home": {
+      "greeting": "Hola, {{name}}",
+      "greetingAnon": "Hola",
+      "intro": "Soy tu copiloto. Consulto tus pólizas, cobranza y cuentas, respondo con tus datos y preparo las acciones para que tú las confirmes.",
+      "indicatorsTitle": "Tu cartera hoy",
+      "scopeMine": "Mis números",
+      "scopeAll": "Toda la corredora",
+      "scopeMineHint": "Cifras de las cuentas y pólizas a tu cargo.",
+      "scopeAllHint": "Cifras de toda la corredora.",
+      "indicatorsError": "No pudimos cargar tus números. Puedes conversar igual.",
+      "indicatorsEmpty": "Todavía no hay números que mostrar.",
+      "retry": "Reintentar",
+      "openIndicator": "Ver el detalle",
+      "queriesTitle": "Consultas frecuentes",
+      "queriesHint": "Elige una y el copiloto empieza la conversación por ti.",
+      "showMore": "Ver más consultas",
+      "showLess": "Ver menos",
+      "placeholder": "Pregúntale a tu copiloto… (@ para mencionar, / para comandos)",
+      "starting": "Abriendo la conversación…",
+      "startError": "No pudimos abrir la conversación. Inténtalo de nuevo.",
+      "skillWarning": "La conversación empezó sin la habilidad sugerida."
+    },
+    "indicators": {
+      "overdue_installments": "Cuotas vencidas",
+      "pending_evidence": "Pagos por confirmar",
+      "todo_notifications": "Pendientes por revisar",
+      "expiring_policies_30": "Pólizas que vencen en 30 días",
+      "active_policies": "Pólizas vigentes"
+    },
+    "queryGroups": {
+      "collections": "Cobranza",
+      "policies": "Pólizas",
+      "portfolio": "Cartera",
+      "documents": "Documentos"
+    },
+    "queries": {
+      "overdue_review": {
+        "label": "Revisar cuotas vencidas",
+        "prompt": "Revisa mi cobranza: qué cuotas están vencidas, cuáles arriesgan el término de la póliza y qué debería consultar a cada compañía."
+      },
+      "pending_evidence_review": {
+        "label": "Confirmar pagos informados",
+        "prompt": "Muéstrame los pagos que los asegurados informaron y que siguen por confirmar, y dime cuáles puedo dar por pagados."
+      },
+      "ask_insurer_status": {
+        "label": "Consultar estado a las compañías",
+        "prompt": "¿A qué compañías debería consultar el estado de pago de cuotas vencidas? Prepárame las consultas."
+      },
+      "register_policy": {
+        "label": "Registrar una póliza",
+        "prompt": "Quiero registrar una póliza nueva. Guíame con los datos que necesitas."
+      },
+      "renewals_upcoming": {
+        "label": "Renovaciones próximas",
+        "prompt": "¿Qué pólizas vencen en los próximos 60 días y en qué estado está cada renovación?"
+      },
+      "portfolio_summary": {
+        "label": "Resumen de mi cartera",
+        "prompt": "Hazme un resumen de mi cartera: pólizas vigentes, prima total en UF y cómo se reparte por ramo y por compañía."
+      },
+      "missing_files": {
+        "label": "Archivos faltantes",
+        "prompt": "¿Qué cuentas y pólizas tienen archivos o datos faltantes? Ordénalas por urgencia."
+      },
+      "due_this_week": {
+        "label": "Cuotas que vencen esta semana",
+        "prompt": "¿Qué cuotas vencen esta semana y a quién debería recordarle el pago?"
+      },
+      "policies_incomplete": {
+        "label": "Pólizas con datos incompletos",
+        "prompt": "¿Qué pólizas tienen datos incompletos o provisorios que debería completar?"
+      },
+      "top_insured": {
+        "label": "Mis principales asegurados",
+        "prompt": "¿Cuáles son mis 5 asegurados con más prima vigente, en UF?"
+      },
+      "insurer_mix": {
+        "label": "Prima por compañía",
+        "prompt": "¿Cómo se reparte mi prima vigente por compañía? Muéstramelo en UF y en porcentaje."
+      },
+      "stalled_accounts": {
+        "label": "Cuentas detenidas",
+        "prompt": "¿Qué cuentas llevan más tiempo detenidas en la misma etapa y qué les falta para avanzar?"
+      },
+      "policy_documents": {
+        "label": "Pólizas sin documento",
+        "prompt": "¿Qué pólizas no tienen su PDF de póliza cargado?"
+      }
+    },
+    "sessions": {
+      "title": "Conversaciones",
+      "back": "Menú principal",
+      "new": "Nueva conversación",
+      "search": "Buscar conversaciones",
+      "clearSearch": "Borrar búsqueda",
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "week": "Últimos 7 días",
+      "older": "Anteriores",
+      "justNow": "ahora",
+      "empty": "Aún no tienes conversaciones.",
+      "emptyHint": "Cada pregunta que hagas queda guardada aquí.",
+      "noResults": "Ninguna conversación coincide con «{{q}}».",
+      "loadError": "No pudimos cargar tus conversaciones.",
+      "untitledNew": "Nueva conversación",
+      "menu": "Opciones de «{{title}}»",
+      "rename": "Renombrar",
+      "renameLabel": "Nuevo nombre de la conversación",
+      "renameError": "No pudimos renombrar la conversación.",
+      "archive": "Archivar",
+      "archivedToast": "Conversación archivada",
+      "archiveError": "No pudimos archivar la conversación.",
+      "undo": "Deshacer",
+      "archived": "Archivadas",
+      "showArchived": "Archivadas",
+      "hideArchived": "Volver a conversaciones",
+      "archivedEmpty": "No tienes conversaciones archivadas.",
+      "restore": "Restaurar",
+      "restoredToast": "Conversación restaurada",
+      "restoreError": "No pudimos restaurar la conversación.",
+      "partial": "Mostrando {{shown}} de {{total}}. Usa la búsqueda para encontrar el resto."
+    },
+    "session": {
+      "notFound": "No encontramos esta conversación.",
+      "notFoundHint": "Puede que ya no exista o que pertenezca a otro usuario.",
+      "backHome": "Volver al inicio",
+      "archivedBanner": "Esta conversación está archivada. Puedes seguir leyéndola o restaurarla."
+    }
   },
   "greeting": {
     "withName": "{{greeting}}, {{name}}"

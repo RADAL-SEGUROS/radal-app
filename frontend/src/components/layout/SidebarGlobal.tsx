@@ -4,14 +4,14 @@
  * Rendered by `Sidebar.tsx` whenever the route is outside a group. Order, top to
  * bottom (v12, `docs/v12/07-frontend.md` §1):
  *
- *   Pólizas · Cobranza (overdue-cuotas chip) · ASEGURADOS (<=8 groups with open
- *   counts) · Portafolio · Analítica · Agente · Cotizar en portales · Compañías ·
- *   Configuración · Mantenedor
+ *   Agente · Pólizas · Cobranza (overdue-cuotas chip) · ASEGURADOS (<=8 groups
+ *   with open counts) · Portafolio · Analítica · Cotizar en portales (pronto
+ *   while `GET /meta/features` says so) · Compañías · Configuración · Mantenedor
  *
- * **Policies lead since v12**: journeys are partial, a broker often starts from
- * a policy PDF, and the group/account works more as a viewer than a creator.
- * Cobranza sits right under it because the overdue count is the one number a
- * broker checks every morning. The user card and tenant chip belong to the
+ * **The copilot leads** (copilot pass): the broker's home is the agent chat
+ * (`/agent`), which can drive most tasks. Pólizas follows — journeys are
+ * partial and a broker often starts from a policy PDF — then Cobranza, because
+ * the overdue count is the one number a broker checks every morning. The user card and tenant chip belong to the
  * `Sidebar` shell, not to either mode.
  *
  * Rules that constrain every entry:
@@ -20,7 +20,9 @@
  *    and is filtered through `can(perms, module, "View")`. While the matrix is
  *    in flight only Dashboard-gated anchors render, so nothing pops away a
  *    moment later.
- * 2. **No dead buttons.** Every row resolves to a real route.
+ * 2. **No dead buttons.** Every row resolves to a real route — or, for a
+ *    feature the server flags as not ready (portal search), renders visibly
+ *    disabled with a "pronto" chip and the server's own reason.
  * 3. **A platform user has no broker workspace.** `user_type` comes from the
  *    same matrix response; for a platform user the broker rows — and the two
  *    broker-scoped fetches behind them (navigator, collections summary) — stay
@@ -51,6 +53,9 @@ import api from "@/lib/api";
 import { qk } from "@/api/keys";
 import { useNavigator } from "@/api/navigator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { DisabledHint } from "@/components/common/kit";
+import { useFeature } from "@/api/meta";
 import {
   can,
   useIsBrokerAdmin,
@@ -110,16 +115,23 @@ function NavRow({
   item,
   label,
   trailing,
+  onClick,
 }: {
   item: NavItem;
   label: string;
   /** Right-aligned extra, e.g. the Cobranza overdue chip. */
   trailing?: React.ReactNode;
+  onClick?: () => void;
 }) {
   const Icon = item.icon;
   return (
     <li>
-      <NavLink to={item.to} end={item.end} className={({ isActive }) => railRowClass(isActive)}>
+      <NavLink
+        to={item.to}
+        end={item.end}
+        onClick={onClick}
+        className={({ isActive }) => railRowClass(isActive)}
+      >
         <Icon className="h-[16px] w-[16px] shrink-0" strokeWidth={1.5} />
         <span className="truncate">{label}</span>
         {trailing}
@@ -166,6 +178,42 @@ function OverdueChip({ count, title }: { count: number; title: string }) {
   );
 }
 
+/**
+ * A row for a feature the server says is not ready: muted, not a link, a
+ * "pronto" chip, and the server's reason in the tooltip (focusable, so it is
+ * reachable by keyboard and by a tap on touch).
+ */
+function SoonRow({
+  icon: Icon,
+  label,
+  reason,
+  soon,
+}: {
+  icon: LucideIcon;
+  label: string;
+  reason: string;
+  soon: string;
+}) {
+  return (
+    <li>
+      <DisabledHint hint={reason} className="w-full">
+        <span
+          role="link"
+          aria-disabled="true"
+          aria-label={`${label} · ${reason}`}
+          className={cn(RAIL_ROW_BASE, "w-full cursor-not-allowed text-ink-3")}
+        >
+          <Icon className="h-[16px] w-[16px] shrink-0 opacity-60" strokeWidth={1.5} />
+          <span className="truncate opacity-70">{label}</span>
+          <Badge variant="muted" className="ml-auto shrink-0 px-1.5 py-0 text-[10.5px]">
+            {soon}
+          </Badge>
+        </span>
+      </DisabledHint>
+    </li>
+  );
+}
+
 /** The open-accounts count: Inter tabular, muted (spec §2.2 row anatomy). */
 function CountChip({ count, title }: { count: number; title?: string }) {
   return (
@@ -178,8 +226,15 @@ function CountChip({ count, title }: { count: number; title?: string }) {
   );
 }
 
-export function SidebarGlobal() {
+export function SidebarGlobal({
+  onEnterAgent,
+}: {
+  /** The Agente row: tells the shell to return to agent mode (the user may be
+      ON `/agent` already, having asked for the main menu). */
+  onEnterAgent?: () => void;
+} = {}) {
   const { t } = useTranslation(["common", "accounts"]);
+  const portal = useFeature("portal_search");
   const { isAdmin } = useIsBrokerAdmin();
   const { data: perms, isLoading: permsLoading } = usePermissions();
 
@@ -213,9 +268,16 @@ export function SidebarGlobal() {
 
   return (
     <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-      {/* Pólizas · Cobranza — the v12 front door. */}
-      {ws("Policies") || canSeeCollections ? (
+      {/* Agente (the home) · Pólizas · Cobranza. */}
+      {ws("Dashboard") || ws("Policies") || canSeeCollections ? (
         <ul className="flex flex-col gap-0.5 pt-1">
+          {ws("Dashboard") ? (
+            <NavRow
+              item={{ to: "/agent", labelKey: "nav.agent", icon: Bot, module: "Dashboard" }}
+              label={t("nav.agent")}
+              onClick={onEnterAgent}
+            />
+          ) : null}
           {ws("Policies") ? (
             <NavRow
               item={{ to: "/policies", labelKey: "nav.policies", icon: ShieldCheck, module: "Policies" }}
@@ -316,7 +378,7 @@ export function SidebarGlobal() {
         </>
       ) : null}
 
-      {/* Portafolio · Analítica · Agente · Cotizar en portales · Compañías ·
+      {/* Portafolio · Analítica · Cotizar en portales · Compañías ·
           Configuración · Mantenedor. Plain rows, no section headers: with MÁS
           gone there is no longer a "rest of the app" to fold away. */}
       <ul className="mt-5 flex flex-col gap-0.5">
@@ -332,17 +394,20 @@ export function SidebarGlobal() {
             label={t("nav.analytics")}
           />
         ) : null}
-        {ws("Dashboard") ? (
-          <NavRow
-            item={{ to: "/agent", labelKey: "nav.agent", icon: Bot, module: "Dashboard" }}
-            label={t("nav.agent")}
-          />
-        ) : null}
         {ws("Integrations") ? (
-          <NavRow
-            item={{ to: "/portal-search", labelKey: "nav.portalSearch", icon: Globe, module: "Integrations" }}
-            label={t("nav.portalSearch")}
-          />
+          portal.enabled ? (
+            <NavRow
+              item={{ to: "/portal-search", labelKey: "nav.portalSearch", icon: Globe, module: "Integrations" }}
+              label={t("nav.portalSearch")}
+            />
+          ) : (
+            <SoonRow
+              icon={Globe}
+              label={t("nav.portalSearch")}
+              reason={portal.reason ?? t("nav.portalSearchSoonReason")}
+              soon={t("nav.soon")}
+            />
+          )
         ) : null}
         {ws("Insurers") ? (
           <NavRow

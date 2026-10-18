@@ -68,7 +68,7 @@ class PortalRead(BaseModel):
     key: str
     name: str
     version: str | None = None
-    #: ``available`` | ``maintenance``
+    #: ``available`` | ``maintenance`` | ``coming_soon`` (product flag ``PORTAL_SEARCH_ENABLED`` off)
     status: str
     #: The ONE Spanish status to show (review v12 #16: the card said "En
     #: mantención" AND "no está habilitada en este ambiente"): ``Disponible`` ·

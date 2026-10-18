@@ -209,5 +209,24 @@
     "upcoming": "Próximos portales",
     "upcomingHint": "Aún no están conectados a Radal; podrás guardar sus credenciales cuando lo estén.",
     "empty": "No hay portales que pidan credenciales."
+  },
+  "comingSoon": {
+    "subtitle": "Cotizar directamente en los portales de las compañías, sin salir de Radal. Disponible pronto.",
+    "whatTitle": "Qué hará",
+    "what": "Radal entrará al portal de cada compañía con tus credenciales, completará la cotización con los datos de la cuenta y traerá los planes de vuelta a la Comparación.",
+    "will": {
+      "fill": "Completar el formulario de cotización del portal con los datos que ya tienes en la cuenta.",
+      "compare": "Traer cada plan cotizado normalizado, listo para comparar junto a las demás cotizaciones.",
+      "file": "Guardar el PDF y el detalle de la búsqueda en el expediente de la cuenta."
+    },
+    "whyTitle": "Por qué aún no está disponible",
+    "whyFallback": "Los portales de las compañías piden el usuario y la contraseña de cada compañía para aplicar filtros, y todavía no están configurados.",
+    "credentialsNote": "Cuando se habilite, cada corredora registrará sus propias credenciales; Radal nunca las muestra.",
+    "altTitle": "Mientras tanto",
+    "alt": "Pide la cotización a la compañía y sube el PDF en la Comparación de la cuenta: Radal la lee y la normaliza igual.",
+    "altCase": "Pide la cotización a la compañía y sube el PDF en la Comparación de esta cuenta: Radal la lee y la normaliza igual.",
+    "altCaseAction": "Subir cotización en la Comparación",
+    "altGroupsAction": "Ir a mis asegurados",
+    "askAgent": "Preguntarle al copiloto"
   }
 }

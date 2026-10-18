@@ -180,6 +180,11 @@ class Settings(BaseSettings):
     RPA_INLINE: bool = False
     RPA_HEADLESS: bool = True
     RPA_HDI_BASE_URL: str = ""
+    # Product flag (v12 copilot pass): portal search needs each insurer's own
+    # user + password to apply filters, so it ships as "pronto". Off => the
+    # API refuses runs (409), the portals read ``coming_soon``, ``rpa.run`` is a
+    # no-op and the agent is not offered the portal tools/skill. The code stays.
+    PORTAL_SEARCH_ENABLED: bool = False
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -238,6 +243,7 @@ class Settings(BaseSettings):
         "RPA_ENABLED",
         "RPA_INLINE",
         "RPA_HEADLESS",
+        "PORTAL_SEARCH_ENABLED",
         mode="before",
     )
     @classmethod

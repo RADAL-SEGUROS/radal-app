@@ -209,5 +209,24 @@
     "upcoming": "Upcoming portals",
     "upcomingHint": "They are not connected to Radal yet; you will be able to save their credentials once they are.",
     "empty": "No portal asks for credentials."
+  },
+  "comingSoon": {
+    "subtitle": "Quote directly on the insurers' portals without leaving Radal. Coming soon.",
+    "whatTitle": "What it will do",
+    "what": "Radal will sign in to each insurer's portal with your credentials, fill in the quote with the account's data and bring the plans back into the Comparison.",
+    "will": {
+      "fill": "Fill in the portal's quote form with the data you already have on the account.",
+      "compare": "Bring back each quoted plan normalised, ready to compare alongside the other quotes.",
+      "file": "Store the PDF and the search details in the account's file."
+    },
+    "whyTitle": "Why it isn't available yet",
+    "whyFallback": "The insurers' portals need each insurer's user and password to apply filters, and they are not configured yet.",
+    "credentialsNote": "Once enabled, each brokerage will register its own credentials; Radal never displays them.",
+    "altTitle": "In the meantime",
+    "alt": "Request the quote from the insurer and upload the PDF in the account's Comparison: Radal reads and normalises it just the same.",
+    "altCase": "Request the quote from the insurer and upload the PDF in this account's Comparison: Radal reads and normalises it just the same.",
+    "altCaseAction": "Upload quote in the Comparison",
+    "altGroupsAction": "Go to my insureds",
+    "askAgent": "Ask the copilot"
   }
 }

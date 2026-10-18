@@ -177,6 +177,10 @@ def create_app() -> FastAPI:
     app.include_router(public_share.router, prefix=prefix)
     app.include_router(portal_searches.router, prefix=prefix)
     app.include_router(internal_jobs.router, prefix=prefix)
+    # v12 copilot pass: product feature flags (any authenticated user).
+    from app.api.routers import meta
+
+    app.include_router(meta.router, prefix=prefix)
     # EventBridge Scheduler -> LWA -> POST /events. OUTSIDE the API prefix on
     # purpose: CloudFront only forwards /api/*, so the internet cannot reach it.
     app.include_router(internal_jobs.events_router)

@@ -15,6 +15,11 @@ case is hidden elsewhere.
 
 Execution: ``POST`` queues the run; job ``rpa.run`` executes it, or — with
 ``RPA_INLINE`` (dev) — a FastAPI ``BackgroundTasks`` right after the response.
+
+Product flag: with ``PORTAL_SEARCH_ENABLED`` off (the default — portals need
+each insurer's own user + password to apply filters) starting or retrying a
+run is a **409** ``feature_disabled`` carrying the Spanish "pronto" reason, and
+every portal lists as ``coming_soon``. Reads (runs, credentials) keep working.
 """
 from __future__ import annotations
 
@@ -51,6 +56,7 @@ from app.schemas.portal_searches import (
     StepRead,
     SubtypeRef,
 )
+from app.services.features import PORTAL_SEARCH, PORTAL_SEARCH_DISABLED_REASON, portal_search_enabled
 from app.services.notifications import close_for_origin
 from app.services.rpa import engine
 from app.services.rpa.base import InputInvalid, PortalConnector
@@ -79,6 +85,19 @@ MSG_UPLOAD_ALTERNATIVE = "Sube la cotización en PDF al comparador."
 
 _RETRYABLE = (PortalRunStatus.FAILED, PortalRunStatus.CANCELLED)
 _CANCELLABLE = (PortalRunStatus.QUEUED, PortalRunStatus.RUNNING)
+
+
+def _require_feature() -> None:
+    """409 while the product keeps portal search "pronto" (``PORTAL_SEARCH_ENABLED``)."""
+    if not portal_search_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "feature_disabled",
+                "feature": PORTAL_SEARCH,
+                "message": PORTAL_SEARCH_DISABLED_REASON,
+            },
+        )
 
 
 def _unprocessable(code: str, message: str, **extra: Any) -> HTTPException:
@@ -248,7 +267,9 @@ def _summary_fields(
         "created_at": run.created_at,
         "started_at": run.started_at,
         "finished_at": run.finished_at,
-        "can_retry": run.status in _RETRYABLE and not _retry_blocked(run, live_keys),
+        "can_retry": (
+            portal_search_enabled() and run.status in _RETRYABLE and not _retry_blocked(run, live_keys)
+        ),
         "can_cancel": run.status in _CANCELLABLE,
         **_will_not_run(db, run),
         "insurance_subtype_name": subtype_name,
@@ -265,6 +286,8 @@ _USE_ES = {"particular": "Particular", "commercial": "Comercial"}
 def _will_not_run(db: Session, run: PortalSearchRun) -> dict[str, Any]:
     if run.status != PortalRunStatus.QUEUED:
         return {"will_not_run": False, "will_not_run_reason": None}
+    if not portal_search_enabled():
+        return {"will_not_run": True, "will_not_run_reason": PORTAL_SEARCH_DISABLED_REASON}
     connector = get_connector(run.portal)
     if connector is None:
         return {"will_not_run": True, "will_not_run_reason": MSG_UNKNOWN_PORTAL}
@@ -316,10 +339,16 @@ def _alternatives(db: Session, run: PortalSearchRun, *, live_keys: set[tuple[Any
     connector = get_connector(run.portal)
     availability = engine.portal_availability(db, connector, broker_id=run.broker_id) if connector else None
     in_flight = _retry_blocked(run, live_keys)
-    retry_ok = run.status in _RETRYABLE and not in_flight and availability is not None and availability.available
+    enabled = portal_search_enabled()
+    retry_ok = (
+        enabled and run.status in _RETRYABLE and not in_flight
+        and availability is not None and availability.available
+    )
     retry_reason = None
     if not retry_ok:
-        if run.status not in _RETRYABLE:
+        if not enabled:
+            retry_reason = PORTAL_SEARCH_DISABLED_REASON
+        elif run.status not in _RETRYABLE:
             retry_reason = MSG_RETRY_STATE
         elif in_flight:
             retry_reason = MSG_RETRY_IN_FLIGHT
@@ -335,7 +364,8 @@ def _alternatives(db: Session, run: PortalSearchRun, *, live_keys: set[tuple[Any
         if key == run.portal:
             continue
         avail = engine.portal_availability(db, other, broker_id=run.broker_id)
-        out.append(Alternative(kind="other_portal", available=avail.available, reason=avail.reason,
+        out.append(Alternative(kind="other_portal", available=enabled and avail.available,
+                               reason=avail.reason if enabled else PORTAL_SEARCH_DISABLED_REASON,
                                portal=key, portal_name=other.name))
     for key, name in UPCOMING_PORTALS:
         out.append(Alternative(kind="other_portal", available=False, reason=UPCOMING_REASON,
@@ -413,21 +443,40 @@ def list_portals(
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Integrations", "View")),
 ) -> list[PortalRead]:
-    """Built connectors (available | maintenance) plus the "pronto" portals."""
+    """Built connectors (available | maintenance) plus the "pronto" portals.
+
+    With the product flag off every portal — built or not — reads
+    ``status="coming_soon"`` with the flag's Spanish reason.
+    """
+    enabled = portal_search_enabled()
     out: list[PortalRead] = []
     for key, connector in CONNECTORS.items():
         availability = engine.portal_availability(db, connector, broker_id=broker_id)
         cred = engine.get_credential(db, broker_id=broker_id, portal=key)
+        flag_fields: dict[str, Any] = (
+            {
+                "status": availability.status,
+                "status_label": portal_status_label(availability.status, availability.code),
+                "maintenance_reason": availability.reason,
+                "maintenance_code": availability.code,
+                "maintenance_scope": availability.scope,
+            }
+            if enabled
+            else {
+                "status": "coming_soon",
+                "status_label": portal_status_label("coming_soon", "coming_soon"),
+                "maintenance_reason": PORTAL_SEARCH_DISABLED_REASON,
+                "maintenance_code": "coming_soon",
+                "maintenance_scope": None,
+                "coming_soon": True,
+            }
+        )
         out.append(
             PortalRead(
                 key=key,
                 name=connector.name,
                 version=connector.version,
-                status=availability.status,
-                status_label=portal_status_label(availability.status, availability.code),
-                maintenance_reason=availability.reason,
-                maintenance_code=availability.code,
-                maintenance_scope=availability.scope,
+                **flag_fields,
                 supported_subtypes=list(connector.supported_subtypes),
                 subtypes=_subtype_refs(db, connector.supported_subtypes),
                 requires_credentials=connector.requires_credentials,
@@ -441,9 +490,9 @@ def list_portals(
             PortalRead(
                 key=key,
                 name=name,
-                status="maintenance",
+                status="maintenance" if enabled else "coming_soon",
                 status_label=portal_status_label("maintenance", "coming_soon"),
-                maintenance_reason=UPCOMING_REASON,
+                maintenance_reason=UPCOMING_REASON if enabled else PORTAL_SEARCH_DISABLED_REASON,
                 maintenance_code="coming_soon",
                 coming_soon=True,
             )
@@ -546,6 +595,7 @@ def create_run(
     current_user: User = Depends(require_permission("Integrations", "Submit")),
 ) -> RunRead:
     """Queue a portal search (validated; executed by ``rpa.run`` or inline)."""
+    _require_feature()
     key = payload.portal.strip().lower()
     connector = get_connector(key)
     if connector is None:
@@ -669,6 +719,7 @@ def retry_run(
     kill concurrent sessions, which would then read as a wrong password).
     """
     source = _get_run_or_404(db, run_id, broker_id=broker_id, user=current_user)
+    _require_feature()  # after the 404: a foreign run stays a 404 by every path
     # Serialise concurrent retries of the same source (row lock on Postgres;
     # SQLite serialises writers anyway).
     db.execute(

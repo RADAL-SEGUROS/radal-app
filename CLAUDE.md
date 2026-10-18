@@ -78,7 +78,9 @@ through `backend/scripts/migrate_case_files.py` before the branch is pushed.
 **an origin, a classifier and an owner** or it renders empty and reads as broken). **v12 is on `dev` and deployed**
 (`5447c7b` build · `826f78c` deploy fixes · `ba47ee6` SES mail): spec = tech-ref **§19**, as-built + error log =
 `docs/handoff-2026-10-17-v12.md`, build contract = `docs/v12/` (`00`–`10`, `api_lookup.py` over `openapi-v12.json`),
-review fixes = `docs/handoff-2026-10-17-v12-review-fixes.md`. What v12 is: **Pólizas is the home** (`/`→`/policies`);
+review fixes = `docs/handoff-2026-10-17-v12-review-fixes.md`. What v12 is: **Pólizas is the main list** (since the copilot pass, `feat/copilot-home` / tech-ref §19.17, the broker's
+**home is the agent copilot** `/`→`/agent`: a welcome with floating profile indicators + common queries, and stored
+chat sessions in a sub-sidebar like the group one; platform users → `/platform`);
 journeys are **partial** (PDF upload, manual entry, portal quotes or the full process; skipped stages are *omitida*;
 a colocación is created on demand — write `case_file.entry_origin`, never `origin`; no walking back once *Vigente*);
 a **closed ramo catalogue** (18 × 54, CMF-mapped); **cobranza in three levels per cuota** — registro · asistida ·
@@ -88,15 +90,16 @@ active **and verified** Forpay account (**Forpay is paused** by decision — no 
 the **Mantenedor** (`/platform`, platform users only) configures insurers/provider accounts; one generic HMAC webhook;
 **public share links** `/s/:token` (insured: cuotas, instructions, receipt upload; insurer: report status); the bell
 (Por hacer / Para saber; admins get Mías/Todas; to-dos go to the account **owner**); per-template approved
-reminders; status inquiries to insurers; an **RPA** framework (HDI showcase, `selectors/hdi.json`, off in dev);
+reminders; status inquiries to insurers; an **RPA** framework (HDI showcase, `selectors/hdi.json`) — **portal search is "pronto"** (`PORTAL_SEARCH_ENABLED=false`,
+`GET /meta/features`; portals need each insurer's user + password to filter), code kept;
 **agent skills** (`load_skill`) + 26 tools, confirm-before-write. **WhatsApp = open door only; Google/Microsoft OAuth
 deferred.** **Verified: 1 496 backend tests; `tsc -b`/`build`/`check:locales` clean (30 ns, 5 968 keys; zero
 dynamic i18n keys — explicit maps in `frontend/src/i18n/labels.ts`); live smoke of dev at 1440/375 px.** The
 **full QA walk has never been run** — the next one is `docs/v12/computer-use-dev-review-prompt.md` (computer use on
 dev); the local equivalent is `./review-v12.sh` + `docs/v12/chrome-review-prompt.md`.
 
-**The shell.** Rail: Pólizas · Cobranza (overdue count) · ASEGURADOS · Portafolio · Analítica · Agente · Cotizar en
-portales · Compañías · Configuración (+ Mantenedor). `/data` = Portafolio, `/analytics` = Analítica; both share the
+**The shell.** Rail: Agente (home; sessions sub-sidebar) · Pólizas · Cobranza (overdue count) · ASEGURADOS · Portafolio · Analítica · Cotizar en
+portales (Pronto) · Compañías · Configuración (+ Mantenedor). `/data` = Portafolio, `/analytics` = Analítica; both share the
 URL **scope** (grupo · grupo-cuenta · fechas) applied server-side. "Ver expediente completo" →
 `/groups/:groupId/accounts/:caseId/expediente`. Motion lives in `Tabs`. **Signal** is the design direction.
 

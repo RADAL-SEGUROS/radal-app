@@ -7,9 +7,10 @@
  * the URL from landing on a page full of 403s. Never a hardcoded role check:
  * the grant comes from the matrix, like every rail row.
  *
- * Also exports `HomeRedirect`: the front door is `/policies` (v12 — policies
- * are the main view), except for a platform user, who has no broker workspace
- * to list policies from and is sent to the console instead.
+ * Also exports `HomeRedirect`: the front door is the copilot, `/agent` — the
+ * broker's home since the copilot pass. A platform user, who has no broker
+ * workspace, is sent to the console; a broker role the matrix does not grant
+ * the agent (`Dashboard.View`) lands on `/policies`, the previous home.
  */
 import { Navigate, Outlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -55,5 +56,6 @@ export function HomeRedirect() {
   const { data: perms, isLoading } = usePermissions();
   if (isLoading) return <Skeleton className="h-64 w-full" />;
   const platformHome = perms?.user_type === "platform" && can(perms, "Platform", "View");
-  return <Navigate to={platformHome ? "/platform" : "/policies"} replace />;
+  if (platformHome) return <Navigate to="/platform" replace />;
+  return <Navigate to={can(perms, "Dashboard", "View") ? "/agent" : "/policies"} replace />;
 }

@@ -38,6 +38,11 @@ from tests.test_v12_rpa import (
 pytest.importorskip("playwright.sync_api")
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "rpa"
+
+
+@pytest.fixture(autouse=True)
+def _portal_search_feature_on(portal_search_on):
+    """This suite covers the feature itself: the product flag is on here."""
 PORTAL_USER = "corredor@alfa.cl"
 PORTAL_PASSWORD = "clave-hdi-123"
 

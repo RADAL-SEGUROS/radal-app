@@ -312,15 +312,30 @@ class ThreadRead(ApiModel):
     scope: AgentScopeLiteral
     entity_type: EnumStr | None = None
     entity_id: int | None = None
+    #: Never null in a response: the stored title (auto-set from the first
+    #: user message) or the fallback ``Conversación del dd-mm``.
     title: str | None = None
     is_archived: bool
     last_message_at: UtcDatetime | None = None
     created_at: UtcDatetime | None = None
+    #: Visible messages (user + assistant with text; tool plumbing excluded).
+    message_count: int = 0
+    #: The latest visible message as plain text, first ~120 chars.
+    preview: str | None = None
 
 
 class ThreadList(ApiModel):
     items: list[ThreadRead]
     total: int
+    limit: int = 50
+    offset: int = 0
+
+
+class ThreadUpdate(ApiModel):
+    """``PATCH /ai/threads/{id}`` — rename and/or (un)archive your own session."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    is_archived: bool | None = None
 
 
 class MessageCreate(ApiModel):

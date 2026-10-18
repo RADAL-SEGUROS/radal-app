@@ -146,7 +146,12 @@ def test_registry_gates_and_schemas_are_sane():
             assert spec.summarize is not None, spec.name
 
     tools = agent_tools.openai_tools()
-    assert {t["function"]["name"] for t in tools} == set(agent_tools.TOOL_REGISTRY)
+    # Every tool is offered except those behind a product flag that is off
+    # (portal search is "pronto" by default).
+    assert {t["function"]["name"] for t in tools} == {s.name for s in agent_tools.exposed_tools()}
+    assert {t["function"]["name"] for t in tools} | {
+        s.name for s in agent_tools.TOOL_REGISTRY.values() if s.feature
+    } == set(agent_tools.TOOL_REGISTRY)
     for tool in tools:
         assert tool["type"] == "function"
         params = tool["function"]["parameters"]

@@ -624,7 +624,8 @@
       "credentials": "Administrar credenciales",
       "credentialsReason": "Solo un administrador puede guardar credenciales de portales.",
       "open": "Ir a Cotizar en portales",
-      "noAccess": "Tu rol no tiene acceso a Cotizar en portales."
+      "noAccess": "Tu rol no tiene acceso a Cotizar en portales.",
+      "learnMore": "Ver qué viene"
     }
   },
   "tabsLocked": "Tu rol no tiene acceso a: {{tabs}}. Pide acceso a un administrador de la corredora.",

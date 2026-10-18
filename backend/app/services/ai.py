@@ -4259,6 +4259,14 @@ def _persist_exchange(
     tokens: int | None,
 ) -> tuple[AgentMessage, AgentMessage]:
     """Write BOTH messages. Only ever called once the provider actually answered."""
+    # The streaming path runs AFTER FastAPI has closed the request-scoped
+    # session (yield-dependency exit precedes the streamed body), which leaves
+    # ``thread`` detached: attribute writes on it would be silently dropped
+    # (title, last_message_at). Re-attach to the live session first.
+    from sqlalchemy import inspect as sa_inspect
+
+    if sa_inspect(thread).detached:
+        thread = db.merge(thread, load=True)
     user_message = AgentMessage(thread_id=thread.id, role=AgentRole.USER, content=content)
     assistant_message = AgentMessage(
         thread_id=thread.id,
@@ -4272,7 +4280,10 @@ def _persist_exchange(
 
     thread.last_message_at = datetime.now(timezone.utc)
     if not thread.title:
-        thread.title = content[:120]
+        # Auto-title from the first user message (60 chars, word boundary, no AI).
+        from app.services.agent_sessions import auto_title
+
+        thread.title = auto_title(content)
 
     db.commit()
     db.refresh(user_message)
@@ -5190,6 +5201,12 @@ def _fold_http_exception(exc: Any) -> dict[str, Any]:
     """An HTTPException from a reused router helper, folded for the model."""
     status_code = getattr(exc, "status_code", None)
     detail = getattr(exc, "detail", None)
+    if isinstance(detail, dict) and detail.get("code") == "feature_disabled":
+        return {
+            "error": "feature_disabled",
+            "feature": detail.get("feature"),
+            "detail": detail.get("message"),
+        }
     if status_code == 404:
         return {"error": "not_found", "detail": detail}
     if status_code == 403:
@@ -5222,6 +5239,9 @@ def _dispatch_tool_call(
     spec = agent_tools.TOOL_REGISTRY.get(name)
     if spec is None:
         return {"error": "unknown_tool", "tool": name}, "error"
+    if not agent_tools.is_tool_exposed(spec):
+        # Not offered while its product flag is off; a stray call folds "pronto".
+        return agent_tools.tool_disabled_payload(spec), "error"
 
     try:
         args = spec.args_schema.model_validate(call.get("args") or {})
@@ -5498,7 +5518,10 @@ def _persist_agent_turn(
 
     thread.last_message_at = datetime.now(timezone.utc)
     if not thread.title:
-        thread.title = content[:120]
+        # Auto-title from the first user message (60 chars, word boundary, no AI).
+        from app.services.agent_sessions import auto_title
+
+        thread.title = auto_title(content)
 
     db.commit()
     for message in persisted:
@@ -5590,6 +5613,18 @@ def confirm_agent_action(
         raise HTTPException(
             status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Tool '{action.tool}' is not a confirmable write tool",
+        )
+    if not agent_tools.is_tool_exposed(spec):
+        # An old proposal of a tool whose feature went "pronto": 409, the row
+        # stays proposed (it can still be discarded).
+        disabled = agent_tools.tool_disabled_payload(spec)
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail={
+                "code": "feature_disabled",
+                "feature": disabled["feature"],
+                "message": disabled["detail"],
+            },
         )
 
     try:

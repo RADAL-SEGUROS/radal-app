@@ -7,7 +7,7 @@
     "noThreads": "No conversations yet.",
     "pickThread": "Pick or create a conversation",
     "empty": "Ask the first question",
-    "emptyHint": "Mention an insured or a placement with @, use / for commands or turn on a skill above.",
+    "emptyHint": "Mention an insured or a placement with @, use / for commands or turn on a skill below the message box.",
     "placeholder": "Type your question… (@ to mention, / for commands)",
     "send": "Send",
     "fallback": "Answer delivered without streaming (CloudFront buffers the body into one chunk).",
@@ -262,7 +262,135 @@
       "remove": "Remove {{label}}",
       "limit": "At most {{max}} references per message."
     },
-    "providerUnavailable": "The AI assistant is unavailable right now. Try again later or contact support."
+    "providerUnavailable": "The AI assistant is unavailable right now. Try again later or contact support.",
+    "home": {
+      "greeting": "Hi, {{name}}",
+      "greetingAnon": "Hi",
+      "intro": "I'm your copilot. I look up your policies, collections and accounts, answer with your data and prepare actions for you to confirm.",
+      "indicatorsTitle": "Your book today",
+      "scopeMine": "My numbers",
+      "scopeAll": "Whole brokerage",
+      "scopeMineHint": "Figures for the accounts and policies you own.",
+      "scopeAllHint": "Figures for the whole brokerage.",
+      "indicatorsError": "We couldn't load your numbers. You can still chat.",
+      "indicatorsEmpty": "No numbers to show yet.",
+      "retry": "Retry",
+      "openIndicator": "See details",
+      "queriesTitle": "Common queries",
+      "queriesHint": "Pick one and the copilot starts the conversation for you.",
+      "showMore": "More queries",
+      "showLess": "Show less",
+      "placeholder": "Ask your copilot… (@ to mention, / for commands)",
+      "starting": "Opening the conversation…",
+      "startError": "We couldn't open the conversation. Please try again.",
+      "skillWarning": "The conversation started without the suggested skill."
+    },
+    "indicators": {
+      "overdue_installments": "Overdue installments",
+      "pending_evidence": "Payments to confirm",
+      "todo_notifications": "Items to review",
+      "expiring_policies_30": "Policies expiring in 30 days",
+      "active_policies": "Active policies"
+    },
+    "queryGroups": {
+      "collections": "Collections",
+      "policies": "Policies",
+      "portfolio": "Portfolio",
+      "documents": "Documents"
+    },
+    "queries": {
+      "overdue_review": {
+        "label": "Review overdue installments",
+        "prompt": "Review my collections: which installments are overdue, which put the policy at risk of termination and what I should ask each insurer."
+      },
+      "pending_evidence_review": {
+        "label": "Confirm reported payments",
+        "prompt": "Show me the payments the insureds reported that are still unconfirmed, and tell me which ones I can mark as paid."
+      },
+      "ask_insurer_status": {
+        "label": "Ask insurers for payment status",
+        "prompt": "Which insurers should I ask about the payment status of overdue installments? Draft the inquiries for me."
+      },
+      "register_policy": {
+        "label": "Register a policy",
+        "prompt": "I want to register a new policy. Walk me through the data you need."
+      },
+      "renewals_upcoming": {
+        "label": "Upcoming renewals",
+        "prompt": "Which policies expire in the next 60 days and what is the status of each renewal?"
+      },
+      "portfolio_summary": {
+        "label": "Portfolio summary",
+        "prompt": "Give me a summary of my portfolio: active policies, total premium in UF and how it splits by line and by insurer."
+      },
+      "missing_files": {
+        "label": "Missing files",
+        "prompt": "Which accounts and policies have missing files or data? Sort them by urgency."
+      },
+      "due_this_week": {
+        "label": "Installments due this week",
+        "prompt": "Which installments are due this week and whom should I remind to pay?"
+      },
+      "policies_incomplete": {
+        "label": "Policies with incomplete data",
+        "prompt": "Which policies have incomplete or provisional data I should fill in?"
+      },
+      "top_insured": {
+        "label": "My top insureds",
+        "prompt": "Who are my 5 insureds with the most active premium, in UF?"
+      },
+      "insurer_mix": {
+        "label": "Premium by insurer",
+        "prompt": "How does my active premium split by insurer? Show it in UF and as a percentage."
+      },
+      "stalled_accounts": {
+        "label": "Stalled accounts",
+        "prompt": "Which accounts have been stuck in the same stage the longest and what do they need to move forward?"
+      },
+      "policy_documents": {
+        "label": "Policies without a document",
+        "prompt": "Which policies do not have their policy PDF uploaded?"
+      }
+    },
+    "sessions": {
+      "title": "Conversations",
+      "back": "Main menu",
+      "new": "New conversation",
+      "search": "Search conversations",
+      "clearSearch": "Clear search",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "week": "Last 7 days",
+      "older": "Older",
+      "justNow": "now",
+      "empty": "No conversations yet.",
+      "emptyHint": "Every question you ask is saved here.",
+      "noResults": "No conversation matches “{{q}}”.",
+      "loadError": "We couldn't load your conversations.",
+      "untitledNew": "New conversation",
+      "menu": "Options for “{{title}}”",
+      "rename": "Rename",
+      "renameLabel": "New conversation name",
+      "renameError": "We couldn't rename the conversation.",
+      "archive": "Archive",
+      "archivedToast": "Conversation archived",
+      "archiveError": "We couldn't archive the conversation.",
+      "undo": "Undo",
+      "archived": "Archived",
+      "showArchived": "Archived",
+      "hideArchived": "Back to conversations",
+      "archivedEmpty": "You have no archived conversations.",
+      "restore": "Restore",
+      "restoredToast": "Conversation restored",
+      "restoreError": "We couldn't restore the conversation.",
+      "partial": "Showing {{shown}} of {{total}}. Use search to find the rest."
+    },
+    "session": {
+      "notFound": "We couldn't find this conversation.",
+      "notFoundHint": "It may no longer exist or belong to another user.",
+      "backHome": "Back to home",
+      "archivedBanner": "This conversation is archived. You can keep reading it or restore it."
+    }
   },
   "greeting": {
     "withName": "{{greeting}}, {{name}}"
