@@ -3,7 +3,9 @@
 ``mail.poll`` (:func:`run_mail_poll`) reads the Radal system mailbox (the
 NULL-broker ``mail_account`` row, created lazily, which only stores the IMAP
 cursor) and every broker mailbox with ``receive_enabled`` and
-``status=connected``.
+``status=connected``. The system mailbox comes from S3 (SES inbound,
+:mod:`app.services.mail.s3_inbound`), IMAP or nowhere, per
+``MAIL_INBOUND_SOURCE``; both feed :func:`process_message`.
 
 **Privacy first (Ley 21.719).** :func:`prefilter` runs BEFORE anything about a
 message is stored. A message is kept only when it is
@@ -583,12 +585,20 @@ def _handle_bounce(db: Session, message: MailMessage, match: Match, *, now: date
 
 
 def process_message(
-    db: Session, account: MailAccount, fetched: FetchedMail, *, now: datetime
+    db: Session,
+    account: MailAccount,
+    fetched: FetchedMail,
+    *,
+    now: datetime,
+    provider_uid: str | None = None,
 ) -> MailMessage:
-    """Prefilter + keep/ignore one fetched message. Flushes only."""
+    """Prefilter + keep/ignore one fetched message. Flushes only.
+
+    ``provider_uid`` overrides :func:`uid_key` (the S3 key of SES-inbound mail).
+    """
     msg = fetched.message()
     when = occurred_at(msg, now=now)
-    key = uid_key(fetched)
+    key = provider_uid or uid_key(fetched)
     match = prefilter(db, account, msg, fetched.raw)
     message_id = _header(msg, "Message-ID")[:255] or None
     duplicate = (
@@ -880,11 +890,29 @@ def poll_account(db: Session, account: MailAccount, *, now: datetime) -> dict[st
 
 
 def run_mail_poll(db: Session, now: datetime) -> dict[str, Any]:
-    """The ``mail.poll`` body."""
+    """The ``mail.poll`` body.
+
+    The Radal system mailbox is read per ``settings.mail_inbound_source``:
+    ``s3`` (SES inbound objects, :func:`app.services.mail.s3_inbound.poll_s3_inbound`),
+    ``imap`` (the Zoho login) or ``none``. Broker mailboxes are always IMAP.
+    """
     if not settings.MAIL_ENABLED:
         return {"skipped": True, "reason": "MAIL_ENABLED is off"}
-    totals: dict[str, Any] = {"accounts": 0, "fetched": 0, "kept": 0, "ignored": 0, "errors": 0}
-    accounts = [ensure_system_account(db)]
+    source = settings.mail_inbound_source
+    totals: dict[str, Any] = {
+        "system_source": source, "accounts": 0, "fetched": 0, "kept": 0, "ignored": 0, "errors": 0,
+    }
+    accounts: list[MailAccount] = []
+    if source == "s3":
+        from app.services.mail.s3_inbound import poll_s3_inbound  # noqa: PLC0415
+
+        system = ensure_system_account(db)
+        totals["accounts"] += 1
+        for key, value in poll_s3_inbound(db, system, now=now).items():
+            totals[key] = totals.get(key, 0) + value
+        db.commit()
+    elif source == "imap":
+        accounts.append(ensure_system_account(db))
     accounts.extend(
         db.scalars(
             select(MailAccount)
@@ -901,7 +929,7 @@ def run_mail_poll(db: Session, now: datetime) -> dict[str, Any]:
         totals["accounts"] += 1
         stats = poll_account(db, account, now=now)
         for key, value in stats.items():
-            totals[key] += value
+            totals[key] = totals.get(key, 0) + value
         db.commit()  # one mailbox's progress survives the next one's failure
     return totals
 

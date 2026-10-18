@@ -4758,10 +4758,17 @@ invented: refunds, link expiry, sub-merchant onboarding, webhook retry policy.
   (must be the broker's, `connected`, `send_enabled` — otherwise a `failed` row, never a silent
   re-route), `auto` (follows `collection_settings.default_sender`), or the **Radal system mailbox**:
   `From: "{broker} vía Radal" <contacto@radalseguros.cl>`, `Reply-To` = the broker's contact (ordinary
-  replies reach the broker) **except inquiries**, whose `Reply-To` is the Radal address so the reply lands
-  in a box Radal polls. Plain text + simple HTML, our own `Message-ID` (kept even when nothing is sent,
+  replies — payer reminders — reach the broker) **except inquiries (and their resends)**, whose
+  `Reply-To` is `radal_reply_address()` = `RADAL_MAIL_REPLY_TO` (dev: `respuestas@correo.radalseguros.cl`)
+  or, when blank, `RADAL_MAIL_ADDRESS`, so the reply lands where Radal reads; the `[RADAL-INQ-…]` token
+  stays in the subject. Plain text + simple HTML, our own `Message-ID` (kept even when nothing is sent,
   so `In-Reply-To` can match). Every send is one `mail_message(outbound)`: `skipped` while
   `MAIL_ENABLED=false` (no socket), else `sent`/`failed`. Never raises; the caller commits.
+- **Dev recipient allowlist** (`MAIL_RECIPIENT_ALLOWLIST`, comma-separated domains `radalseguros.cl` or full
+  addresses; blank = no restriction): in `send_mail`, for the system sender **and** broker mailboxes, To/Cc
+  outside it are dropped (logged); none left ⇒ `skipped` with "Destinatario fuera de la lista permitida de
+  este ambiente" (the row keeps the intended recipients). `MAIL_COPY_ADDRESS` always passes (Bcc copy,
+  forwards). The SES sandbox is a second, independent wall.
 - **Transport seam:** `services/mail/transport.py` — `SmtpImapTransport` (`smtplib` SSL/STARTTLS,
   `imaplib` SSL, `SELECT INBOX` read-only, `UID SEARCH`, cursor `{uidvalidity, last_uid}`; a UIDVALIDITY
   change re-reads 2 days, deduplicated by `Message-ID`) and `SesTransport` (below). Two doors:
@@ -4769,7 +4776,23 @@ invented: refunds, link expiry, sub-merchant onboarding, webhook retry policy.
   sender: `SesTransport` when `MAIL_TRANSPORT=ses`, the default; `SmtpImapTransport` with the Zoho SMTP
   login when `smtp`). Tests install `FakeTransport` via the `fake_transport` fixture (`_OVERRIDE`), which
   both doors honour.
-- **The Radal system sender = Amazon SES v2, replies read from Zoho.** `contacto@radalseguros.cl` is a
+- **The final architecture (2026-10-17).**
+
+  ```
+  OUT   send_mail ─► SesTransport ─► SES (From Radal <contacto@radalseguros.cl>, DKIM radalseguros.cl)
+                                      ├─► To/Cc (after the allowlist)
+                                      └─► Bcc contacto@ (MAIL_SENT_COPY=bcc; envelope only) ─► Google ─► Zoho
+  REPLY insurer ─► respuestas@correo.radalseguros.cl (Reply-To of inquiries)
+                ─► MX correo. → SES inbound (receipt rule) ─► s3://radal-dev-185011028331/inbound-mail/<SES id>
+        mail.poll (MAIL_INBOUND_SOURCE=s3) ─► same pipeline as IMAP (prefilter, .eml, AI, evidence, bell)
+                                           ─► Fwd: … to contacto@ (original as message/rfc822) ─► Zoho
+                                           ─► move to inbound-mail/processed/<SES id>
+  ```
+
+  Zoho Free has **no IMAP**, so neither the IMAP sent copy nor IMAP reply reading can work on
+  `contacto@`; both stay available as options (`MAIL_SENT_COPY=imap_append`, `MAIL_INBOUND_SOURCE=imap`)
+  for a mailbox that has IMAP.
+- **The Radal system sender = Amazon SES v2.** `contacto@radalseguros.cl` is a
   **Zoho Free** mailbox; the domain's other four mailboxes are Google Workspace and are never touched.
   Sending: `sesv2.send_email(FromEmailAddress=RADAL_MAIL_ADDRESS, Destination={To,Cc,Bcc},
   Content={"Raw": {"Data": <our MIME, CRLF>}}, ConfigurationSetName only when SES_CONFIGURATION_SET is
@@ -4784,30 +4807,56 @@ invented: refunds, link expiry, sub-merchant onboarding, webhook retry policy.
   (`ERR_SES_*`: IAM, unverified identity, **sandbox recipient**, throttled, paused, unreachable); the AWS
   text goes to the log only. Credentials: the Lambda role (`ses:SendEmail`/`SendRawEmail` on the identity,
   `ses:GetAccount`, `ses:GetEmailIdentity`) — no AWS key in env.
-- **Sent copy (the "visual" Zoho part).** After a successful SES send, when `MAIL_SENT_COPY=imap_append`
-  and the Zoho IMAP login exists (`RADAL_MAIL_USERNAME`/`RADAL_MAIL_PASSWORD`), the raw message — with the
-  SES `Message-ID` — is IMAP `APPEND`ed to `MAIL_SENT_FOLDER` (`"Sent"`) flagged `\Seen`, in a daemon
-  thread joined for at most `MAIL_TIMEOUT_SECONDS`. Best-effort: a failure or timeout is a log line
-  (`mail sent copy: …`, no password), never a failed send, no schema change. Not done for
-  `MAIL_TRANSPORT=smtp` (Zoho's own SMTP files its sent mail) nor for broker mailboxes.
+- **Visual copy (what a human sees in Zoho).** `MAIL_SENT_COPY=bcc` (default): every mail of the Radal
+  **system** sender Bcc's `MAIL_COPY_ADDRESS` (`contacto@radalseguros.cl`) unless it is already a To/Cc
+  recipient. The sender sets a `Bcc` header that `SesTransport` moves to `Destination.BccAddresses` and
+  deletes before serialising (smtplib does the same on the `smtp` fallback) — **never in the raw
+  headers**; the row's `to/cc` keep the visible recipients only. Broker mailboxes never get it.
+  `imap_append` (kept as an option): after a successful SES send, the raw message — with the SES
+  `Message-ID` — is IMAP `APPEND`ed to `MAIL_SENT_FOLDER` flagged `\Seen`, in a daemon thread joined for at
+  most `MAIL_TIMEOUT_SECONDS`; best-effort, needs the IMAP login. `none`: no copy.
 - **Readiness:** `SesTransport.check()` = `GetAccount` (sending enabled; sandbox vs production; quota) +
   `GetEmailIdentity` of the From domain (verified, DKIM, MAIL FROM) + the Zoho IMAP login; never raises.
-  `python -m scripts.mail_preflight [--send-test you@x] [--json]` prints the same (IMAP host/user only) and
-  exits `0` ready · `3` SES not ready / test send failed · `4` IMAP configured but refused.
+  `python -m scripts.mail_preflight [--send-test you@x] [--json]` prints the same plus `MAIL_SENT_COPY`,
+  `MAIL_COPY_ADDRESS`, `RADAL_MAIL_REPLY_TO`, `MAIL_INBOUND_SOURCE` (with `s3`: one
+  `list_objects_v2(Delimiter="/", MaxKeys=1000)` = objects waiting) and the allowlist; IMAP is checked only
+  when something uses it. Exits `0` ready · `3` SES not ready / test send failed · `4` IMAP needed but
+  refused · `5` the S3 inbound prefix cannot be listed. `--send-test` goes the real system path (Bcc copy,
+  `Reply-To` = `RADAL_MAIL_REPLY_TO`), so replying to it exercises the whole loop.
   `GET /mail/accounts`'s virtual Radal entry carries `transport: "ses"|"smtp"` and a Spanish
-  `transport_label` ("Amazon SES · respuestas a contacto@radalseguros.cl (Zoho)") shown on the Correo tab.
-- **OPEN — where do replies actually land?** The root MX of `radalseguros.cl` points to **Google**. A
-  reply to `contacto@` reaches the Zoho box only if Google routes that address to Zoho (split delivery /
-  unknown-recipient routing); otherwise Google bounces it or keeps it. The same applies to SES bounce
-  feedback (forwarded to the From address). **Verify with a real test reply before scheduling
-  `mail.poll`** (`deploy/v12/README.md` "Mail via SES"). Also verify that the Zoho Free plan allows IMAP
-  at all — Zoho has historically reserved IMAP for paid plans; preflight exit 4 is the symptom.
+  `transport_label` ("Amazon SES · respuestas a contacto@radalseguros.cl (Zoho)", or "… respuestas a
+  respuestas@correo.radalseguros.cl (procesadas por Radal)" when `RADAL_MAIL_REPLY_TO` is set).
+- **Replies via SES inbound → S3 (`services/mail/s3_inbound.py`).** Google routes `contacto@` to Zoho
+  (verified 2026-10-17), but Zoho Free has no IMAP, so mail Radal must read goes to
+  `respuestas@correo.radalseguros.cl`: SES receiving for `correo.radalseguros.cl` writes raw RFC 822 to
+  `s3://{MAIL_INBOUND_S3_BUCKET or S3_BUCKET}/{MAIL_INBOUND_S3_PREFIX}{SES message id}`. With
+  `MAIL_INBOUND_SOURCE=s3`, `mail.poll` (for the NULL-broker system `mail_account` only) lists the prefix
+  with `Delimiter="/"` (so `processed/` is never read), paginated, oldest first, at most
+  `MAIL_INBOUND_S3_MAX_PER_RUN` (50); per object: dedupe on `(system account, provider_uid = S3 key)`
+  (keys over 60 chars are hashed); **non-mail** (`AMAZON_SES_SETUP_NOTIFICATION`, or no From + Date/
+  Message-ID) or `X-SES-Virus-Verdict: FAIL` ⇒ an `ignored` row with `error` `not_an_email` /
+  `virus_verdict_fail`, archived, never forwarded; else **the same `process_message` as IMAP mail**
+  (prefilter, `.eml`, AI + `extraction`, token/In-Reply-To match, evidence, inquiry `replied`, bell,
+  bounces). Then the **forward**: `Fwd: <subject>` from `Radal <contacto@…>` to `MAIL_COPY_ADDRESS`,
+  Spanish note ("Recibido en respuestas@… y procesado por Radal", original From/Date/Subject, what Radal
+  did), `Reply-To` = the original sender, the original attached as `message/rfc822` (byte-for-byte when
+  7-bit), recorded as an outbound `mail_message` with `provider_uid = "fwd:" + key`; a `sent`/`skipped`
+  one makes it idempotent. Mail the prefilter ignored is still forwarded but its forward ROW keeps no
+  subject/body (Ley 21.719); mail carrying `X-Radal-Kind` (ours) is never forwarded (loop guard).
+  Finally **commit, then move** to `processed/<tail>` (copy + delete). Any failure (read, processing,
+  forward, move) is counted, logged, never raised, and the object stays for the next run — the dedupe row
+  makes a retry resume (no re-processing, no second forward). An unlistable prefix sets the system
+  account `error` + one ops alert. `MAIL_INBOUND_SOURCE=auto` (default) = `imap` with a Zoho password,
+  else `none` (no system box read at all). IAM: `s3:ListBucket` (prefix `inbound-mail/`),
+  `s3:GetObject`/`PutObject`/`DeleteObject` on `inbound-mail/*`. Known limits: SES bounce feedback still
+  goes to the MAIL FROM/From path, not S3; two overlapping `mail.poll` runs could forward one object
+  twice (the unique key stops double processing).
 - **Broker custom servers** (`POST /mail/accounts`): password Fernet-encrypted, write-only.
   **SSRF guard** (`check_mail_host`): ports limited to SMTP `{25, 465, 587, 2525}` / IMAP `{143, 993}`;
   hosts that are or resolve to loopback/private/link-local/reserved/shared/multicast are refused — on
   save without DNS (fast 422) and again right before connecting. Errors shown to brokers are a Spanish
   category, never the server banner. Known gap: resolve-then-connect leaves a DNS-rebinding window.
-- **Inbound (`mail.poll`) — prefilter BEFORE storing anything (Ley 21.719).** A message is kept only
+- **Inbound (`mail.poll`; S3 or IMAP for the system box, IMAP for broker boxes) — prefilter BEFORE storing anything (Ley 21.719).** A message is kept only
   when (a) it carries a `RADAL-INQ-XXXXXX` token or an `In-Reply-To`/`References` id of one of our
   outbound messages, (b) the sender's domain is in an insurer's `sender_domains` **and** the mailbox is a
   broker box (never the shared Radal box), or (c) it is a bounce of one of ours. Everything else is
@@ -4968,10 +5017,16 @@ its default instead of failing boot; mail security must be `ssl|starttls|none`.
 | `MAIL_TRANSPORT` | `ses` | how the **Radal system sender** sends: `ses` (Amazon SES v2) \| `smtp` (Zoho SMTP fallback); validated. Broker mailboxes always use their own SMTP |
 | `SES_REGION` | `us-east-1` | where the `radalseguros.cl` identity lives |
 | `SES_CONFIGURATION_SET` | blank | sent as `ConfigurationSetName` only when set (the role then also needs `ses:SendEmail` on the configuration-set ARN) |
-| `MAIL_SENT_COPY` | `imap_append` | `imap_append` \| `none`: copy each SES-sent message into the Zoho mailbox |
-| `MAIL_SENT_FOLDER` | `Sent` | the Zoho folder the copy is APPENDed to |
+| `MAIL_SENT_COPY` | `bcc` | `bcc` (Bcc `MAIL_COPY_ADDRESS` on every system mail; envelope only) \| `imap_append` (APPEND to the IMAP `Sent` folder) \| `none` |
+| `MAIL_SENT_FOLDER` | `Sent` | the IMAP folder for `imap_append` |
+| `MAIL_COPY_ADDRESS` | `contacto@radalseguros.cl` | the human mailbox: Bcc copy + forwards of SES-inbound mail; always passes the allowlist; blank = neither |
+| `RADAL_MAIL_REPLY_TO` | blank | Reply-To of inquiries (+ resends); blank ⇒ `RADAL_MAIL_ADDRESS`. Dev: `respuestas@correo.radalseguros.cl` |
+| `MAIL_INBOUND_SOURCE` | `auto` | system box read from `s3` \| `imap` \| `none`; `auto` = `imap` with `RADAL_MAIL_PASSWORD`, else `none` |
+| `MAIL_INBOUND_S3_PREFIX` / `MAIL_INBOUND_S3_BUCKET` | `inbound-mail/` / blank ⇒ `S3_BUCKET` | where SES inbound writes raw MIME; `processed/` under it is the archive |
+| `MAIL_INBOUND_S3_MAX_PER_RUN` | 50 | objects per `mail.poll` run |
+| `MAIL_RECIPIENT_ALLOWLIST` | blank | dev safety: comma-separated domains/addresses; To/Cc outside dropped, none left ⇒ `skipped` |
 | `RADAL_MAIL_ADDRESS` / `_DISPLAY_NAME` | `contacto@radalseguros.cl` / `Radal` | the system sender (SES `FromEmailAddress`; must be on a verified identity) |
-| `RADAL_MAIL_USERNAME` / `RADAL_MAIL_PASSWORD` | blank | Zoho login + **app password** (env / S3 only) — IMAP (replies + sent copy), and SMTP when `MAIL_TRANSPORT=smtp` |
+| `RADAL_MAIL_USERNAME` / `RADAL_MAIL_PASSWORD` | blank | IMAP login + **app password** (env / S3 only) — only for `imap_append` / `MAIL_INBOUND_SOURCE=imap` (not usable on Zoho Free), and SMTP when `MAIL_TRANSPORT=smtp` |
 | `RADAL_MAIL_SMTP_HOST`/`_PORT`/`_SECURITY` | `smtp.zoho.com` / 465 / `ssl` | only for `MAIL_TRANSPORT=smtp` |
 | `RADAL_MAIL_IMAP_HOST`/`_PORT`/`_SECURITY` | `imap.zoho.com` / 993 / `ssl` | |
 | `RADAL_OPS_EMAIL` | blank | where RPA/job failures go; blank = nowhere |

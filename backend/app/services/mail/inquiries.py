@@ -25,7 +25,6 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.models.base_class import utcnow
 from app.models.collection import CollectionInstallment, CollectionPlan
 from app.models.collection_settings import CollectionSettings
@@ -42,7 +41,7 @@ from app.models.mail import MailAccount, MailMessage, StatusInquiry
 from app.models.policy import Policy, PolicyStatus
 from app.models.share_link import ShareLink
 from app.services.collection.resolver import insurer_contact_email, lead_insurer_id
-from app.services.mail.sender import account_is_usable, send_mail
+from app.services.mail.sender import account_is_usable, radal_reply_address, send_mail
 from app.services.notices import (
     build_context,
     business_today,
@@ -292,7 +291,8 @@ def _deliver(
         message=message,
         today=business_today(now),
     )
-    # Through Radal the reply must come back to a mailbox Radal polls.
+    # Through Radal the reply must come back to a mailbox Radal polls:
+    # RADAL_MAIL_REPLY_TO (SES inbound -> S3) when set, else the Radal address.
     via_radal = not isinstance(account, MailAccount) and not (
         account == "auto" and _auto_is_account(db, inquiry.broker_id)
     )
@@ -305,7 +305,7 @@ def _deliver(
         text=rendered.text,
         html=rendered.html,
         account=account,
-        reply_to=settings.RADAL_MAIL_ADDRESS if via_radal else None,
+        reply_to=radal_reply_address() if via_radal else None,
         thread_token=inquiry.token,
         now=now,
     )

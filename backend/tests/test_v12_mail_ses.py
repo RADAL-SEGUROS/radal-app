@@ -246,7 +246,10 @@ def _msg(**over):  # noqa: ANN003
 
 def test_settings_defaults_and_validation():
     defaults = {name: f.default for name, f in Settings.model_fields.items()}
-    assert defaults["MAIL_TRANSPORT"] == "ses" and defaults["MAIL_SENT_COPY"] == "imap_append"
+    assert defaults["MAIL_TRANSPORT"] == "ses" and defaults["MAIL_SENT_COPY"] == "bcc"
+    assert defaults["MAIL_COPY_ADDRESS"] == "contacto@radalseguros.cl"
+    assert defaults["RADAL_MAIL_REPLY_TO"] == "" and defaults["MAIL_RECIPIENT_ALLOWLIST"] == ""
+    assert defaults["MAIL_INBOUND_SOURCE"] == "auto" and defaults["MAIL_INBOUND_S3_PREFIX"] == "inbound-mail/"
     assert defaults["SES_REGION"] == "us-east-1" and defaults["MAIL_SENT_FOLDER"] == "Sent"
     assert defaults["SES_CONFIGURATION_SET"] == ""
     assert defaults["RADAL_MAIL_ADDRESS"] == "contacto@radalseguros.cl"
@@ -254,13 +257,26 @@ def test_settings_defaults_and_validation():
     assert (defaults["RADAL_MAIL_IMAP_HOST"], defaults["RADAL_MAIL_IMAP_PORT"],
             defaults["RADAL_MAIL_IMAP_SECURITY"]) == ("imap.zoho.com", 993, "ssl")
     fresh = Settings(_env_file=None, MAIL_TRANSPORT="", MAIL_SENT_COPY="", SES_REGION="", MAIL_SENT_FOLDER="")
-    assert fresh.MAIL_TRANSPORT == "ses" and fresh.MAIL_SENT_COPY == "imap_append"
+    assert fresh.MAIL_TRANSPORT == "ses" and fresh.MAIL_SENT_COPY == "bcc"
     assert fresh.SES_REGION == "us-east-1" and fresh.MAIL_SENT_FOLDER == "Sent"
     assert Settings(_env_file=None, MAIL_TRANSPORT=" SMTP ").MAIL_TRANSPORT == "smtp"
     with pytest.raises(ValueError):
         Settings(_env_file=None, MAIL_TRANSPORT="sendgrid")
+    for mode in ("bcc", "imap_append", "none"):
+        assert Settings(_env_file=None, MAIL_SENT_COPY=mode.upper()).MAIL_SENT_COPY == mode
     with pytest.raises(ValueError):
-        Settings(_env_file=None, MAIL_SENT_COPY="bcc")
+        Settings(_env_file=None, MAIL_SENT_COPY="cc")
+    # Inbound source: blank = auto; auto = imap only with a Zoho password.
+    auto = Settings(_env_file=None, MAIL_INBOUND_SOURCE="", RADAL_MAIL_PASSWORD="")
+    assert auto.MAIL_INBOUND_SOURCE == "auto" and auto.mail_inbound_source == "none"
+    assert Settings(_env_file=None, MAIL_INBOUND_SOURCE="auto",
+                    RADAL_MAIL_PASSWORD="pw").mail_inbound_source == "imap"
+    s3 = Settings(_env_file=None, MAIL_INBOUND_SOURCE=" S3 ", MAIL_INBOUND_S3_PREFIX="/replies")
+    assert s3.mail_inbound_source == "s3" and s3.MAIL_INBOUND_S3_PREFIX == "replies/"
+    assert s3.mail_inbound_bucket == s3.S3_BUCKET
+    assert Settings(_env_file=None, MAIL_INBOUND_S3_BUCKET="b2").mail_inbound_bucket == "b2"
+    with pytest.raises(ValueError):
+        Settings(_env_file=None, MAIL_INBOUND_SOURCE="pop3")
 
 
 # =============================================================================
@@ -439,6 +455,7 @@ def test_a_broker_custom_account_stays_on_its_own_smtp(db, world, ses, fake_smtp
 
 def test_sent_copy_appends_the_exact_raw_message_seen(db, world, ses, fake_imap, zoho_imap_creds, monkeypatch):
     mail_on(monkeypatch)
+    monkeypatch.setattr(settings, "MAIL_SENT_COPY", "imap_append")
     row = send_mail(db, broker_id=world.a.broker_id, kind="test", to=["x@y.cl"], subject="Copia", text="t")
     assert row.status == MailMessageStatus.SENT and row.message_id_header == SES_HEADER
     (mailbox, flags, date_time, appended), = fake_imap.appends
@@ -453,6 +470,7 @@ def test_sent_copy_appends_the_exact_raw_message_seen(db, world, ses, fake_imap,
 
 def test_sent_copy_failure_never_fails_the_send(db, world, ses, fake_imap, zoho_imap_creds, monkeypatch, caplog):
     mail_on(monkeypatch)
+    monkeypatch.setattr(settings, "MAIL_SENT_COPY", "imap_append")
     fake_imap.fail_login = True
     with caplog.at_level("WARNING"):
         row = send_mail(db, broker_id=world.a.broker_id, kind="test", to=["x@y.cl"], subject="s", text="t")
@@ -559,7 +577,8 @@ def test_preflight_imap_failure_is_exit_4_and_hides_the_password(fake_imap, zoho
     assert "zoho-app-pw-123" not in "\n".join(lines)
 
 
-def test_preflight_send_test_goes_through_ses_and_the_sent_copy(fake_imap, zoho_imap_creds):
+def test_preflight_send_test_goes_through_ses_and_the_sent_copy(fake_imap, zoho_imap_creds, monkeypatch):
+    monkeypatch.setattr(settings, "MAIL_SENT_COPY", "imap_append")
     fake = FakeSes()
     transport = SesTransport(client=fake, configuration_set="",
                              sent_copy=transport_module.radal_imap_config())

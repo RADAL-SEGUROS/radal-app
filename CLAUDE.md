@@ -90,7 +90,7 @@ the **Mantenedor** (`/platform`, platform users only) configures insurers/provid
 (Por hacer / Para saber; admins get Mías/Todas; to-dos go to the account **owner**); per-template approved
 reminders; status inquiries to insurers; an **RPA** framework (HDI showcase, `selectors/hdi.json`, off in dev);
 **agent skills** (`load_skill`) + 26 tools, confirm-before-write. **WhatsApp = open door only; Google/Microsoft OAuth
-deferred.** **Verified: 1 476 backend tests; `tsc -b`/`build`/`check:locales` clean (30 ns, 5 968 keys; zero
+deferred.** **Verified: 1 496 backend tests; `tsc -b`/`build`/`check:locales` clean (30 ns, 5 968 keys; zero
 dynamic i18n keys — explicit maps in `frontend/src/i18n/labels.ts`); live smoke of dev at 1440/375 px.** The
 **full QA walk has never been run** — the next one is `docs/v12/computer-use-dev-review-prompt.md` (computer use on
 dev); the local equivalent is `./review-v12.sh` + `docs/v12/chrome-review-prompt.md`.
@@ -114,18 +114,20 @@ account's **Lambda concurrency limit is 10** (increase to 1000 requested). Every
 `deploy/v12/README.md` §0b; `docs/deployment.md` is partly stale. Demo data on dev: broker *Corredora Demo SpA*
 (`admin@demo.cl` / `ejecutivo@demo.cl` / platform `admin@radal.cl`, all `radal1234`).
 
-**Mail transition (2026-10-17).** `radalseguros.cl` has **four Google Workspace mailboxes (MX → Google)** and one
-**Zoho Free** mailbox, `contacto@`. Radal's system mail **sends through Amazon SES v2** (`MAIL_TRANSPORT=ses`, domain
-verified with Easy DKIM + MAIL FROM `mail.radalseguros.cl`; root MX/SPF/DMARC untouched); **Google Workspace routes
-`contacto@` to Zoho** (Gmail *Default routing*, non-recognized addresses → host `mx.zoho.com`, TLS) — verified: an
-SES test landed in Zoho. Broker custom mailboxes keep their own SMTP/IMAP. `python -m scripts.mail_preflight
-[--send-test]` checks readiness. **`MAIL_ENABLED=false` on dev** until the next steps below. Zoho Free has **no
-IMAP**, so the "Sent copy" (`MAIL_SENT_COPY=imap_append`) and IMAP reply reading cannot work on `contacto@`.
+**Mail (live on dev, 2026-10-17).** `radalseguros.cl` has **four Google Workspace mailboxes (MX → Google)** and one
+**Zoho Free** mailbox, `contacto@` (no IMAP), which **Google routes to Zoho** (Gmail *Default routing*, non-recognized
+addresses → host `mx.zoho.com`, TLS). Radal system mail **sends through Amazon SES v2** (production access granted,
+50 000/day; domain verified with Easy DKIM + MAIL FROM `mail.radalseguros.cl`; root MX/SPF/DMARC untouched) as
+`Radal <contacto@radalseguros.cl>`, with a **Bcc copy to `contacto@`** so the team sees it in Zoho. Replies Radal must
+process (insurer inquiries) carry **Reply-To `respuestas@correo.radalseguros.cl`** → SES inbound (rule set
+`radal-dev-inbound`, MX on `correo.` only) → S3 `inbound-mail/` → the `mail.poll` job (every 5 min) runs the normal
+pipeline (classification, evidence suggestions) and **forwards each message to `contacto@`**, then moves it to
+`inbound-mail/processed/`. Dev guard: `MAIL_RECIPIENT_ALLOWLIST=radalseguros.cl` (only our own addresses receive
+mail on dev — widen it deliberately). Broker custom mailboxes keep their own SMTP/IMAP. `python -m
+scripts.mail_preflight [--send-test]` checks everything.
 
-**Next session — open work, in order.** (1) Mail: BCC `contacto@` on every system mail (visual copy) instead of the
-IMAP append; receive replies on an SES-inbound subdomain (e.g. `respuestas@correo.radalseguros.cl` → S3 → processed
-by Radal, a copy forwarded to `contacto@`); request **SES production access** (sandbox: 200/day, verified recipients
-only); then set `MAIL_ENABLED=true`. (2) Run the computer-use review on dev and fix what it finds. (3) Watch the
+**Next session — open work, in order.** (1) Mail is done — before real brokers use it, widen
+`MAIL_RECIPIENT_ALLOWLIST` (blank = everyone) and watch SES bounces/complaints. (2) Run the computer-use review on dev and fix what it finds. (3) Watch the
 Lambda concurrency request. (4) Owed, unchanged: Forpay (after the team's meeting), HDI real credentials/selectors,
 the **R33** per-broker insured (canonical insured still leaks), money-core extraction reliability, the vision
 fallback, `fx.daily` (mindicador.cl unreliable), long comparisons vs the 60 s edge timeout. Locally: run the backend

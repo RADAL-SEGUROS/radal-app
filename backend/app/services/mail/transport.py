@@ -14,9 +14,12 @@ the fake, however the caller imported it.
 :func:`get_system_transport` picks it. SES rewrites ``Message-ID`` to
 ``<{MessageId}@email.amazonses.com>``, so that is what ``send`` returns and what
 the sender stores (``In-Reply-To`` of a reply must match it). After a
-successful SES send a copy of the exact raw message is APPENDed to the Zoho
-``Sent`` folder (:func:`append_sent_copy`, best-effort). Replies are still READ
-from the Zoho mailbox over IMAP (``fetch_since``). Broker custom mailboxes
+the visual copy for humans is, by default, a **Bcc** to ``MAIL_COPY_ADDRESS``
+(added by the sender; SES envelope only). ``MAIL_SENT_COPY=imap_append``
+instead APPENDs the exact raw message to the Zoho ``Sent`` folder
+(:func:`append_sent_copy`, best-effort — needs IMAP, which Zoho Free lacks).
+Replies are read either from S3 (SES inbound, :mod:`.s3_inbound`) or over
+IMAP (``fetch_since``), per ``MAIL_INBOUND_SOURCE``. Broker custom mailboxes
 always use :func:`get_transport` (their own SMTP/IMAP), never SES.
 
 Passwords travel only inside :class:`SmtpConfig` / :class:`ImapConfig` (their
@@ -924,6 +927,9 @@ def system_transport_label() -> str:
     """The Spanish one-liner shown on the Radal sender card."""
     address = settings.RADAL_MAIL_ADDRESS
     if system_transport_kind() == "ses":
+        reply_to = (settings.RADAL_MAIL_REPLY_TO or "").strip()
+        if reply_to and reply_to.lower() != address.lower():
+            return f"Amazon SES · respuestas a {reply_to} (procesadas por Radal)"
         return f"Amazon SES · respuestas a {address} (Zoho)"
     return f"SMTP de Zoho · {address}"
 

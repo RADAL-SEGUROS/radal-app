@@ -27,6 +27,23 @@ notices, status inquiries, account tests, ops alerts). It:
    ``MAIL_ENABLED`` is off (no socket, no boto3 client), ``sent`` / ``failed``
    otherwise.
 
+**The visual copy.** With ``MAIL_SENT_COPY=bcc`` (the default) every mail of
+the Radal SYSTEM sender Bcc's ``MAIL_COPY_ADDRESS`` (the Zoho ``contacto@``
+mailbox) unless it is already a To/Cc recipient. The Bcc rides only in the
+SES envelope (``Destination.BccAddresses``; smtplib strips it the same way) —
+never in the raw headers. Broker custom mailboxes never get it.
+
+**Dev allowlist.** ``MAIL_RECIPIENT_ALLOWLIST`` (domains or full addresses,
+comma-separated; blank = no restriction) drops To/Cc outside it, for the
+system sender AND broker mailboxes. Nothing left => ``skipped`` with
+:data:`REASON_NOT_ALLOWLISTED`. ``MAIL_COPY_ADDRESS`` always passes (the Bcc
+copy and the inbound forward).
+
+**Reply-To of mail Radal must read the answer of** (status inquiries): the
+caller passes :func:`radal_reply_address` — ``RADAL_MAIL_REPLY_TO`` when set
+(``respuestas@correo.radalseguros.cl``: SES inbound -> S3 -> ``mail.poll``),
+else ``RADAL_MAIL_ADDRESS``.
+
 It NEVER raises: a failed send is a ``failed`` row with ``error``. The row is
 added and flushed; the CALLER commits.
 """
@@ -65,6 +82,7 @@ AccountChoice = MailAccount | Literal["auto"] | None
 REASON_ACCOUNT_UNUSABLE = "La casilla elegida no está conectada o no tiene el envío habilitado"
 REASON_ACCOUNT_FOREIGN = "La casilla elegida no pertenece a esta corredora"
 REASON_NO_RECIPIENT = "Sin destinatario"
+REASON_NOT_ALLOWLISTED = "Destinatario fuera de la lista permitida de este ambiente"
 
 
 def _val(value: Any) -> str | None:
@@ -76,6 +94,61 @@ def _val(value: Any) -> str | None:
 def _domain_of(address: str | None) -> str:
     domain = (address or "").rpartition("@")[2].strip()
     return domain or "radalseguros.cl"
+
+
+def radal_reply_address() -> str:
+    """Reply-To of system mail whose answer Radal must process (inquiries)."""
+    return (settings.RADAL_MAIL_REPLY_TO or "").strip() or settings.RADAL_MAIL_ADDRESS
+
+
+def copy_address() -> str:
+    """The human mailbox that gets the Bcc copy and the inbound forwards ('' = none)."""
+    return (settings.MAIL_COPY_ADDRESS or "").strip()
+
+
+def allowlist_entries() -> list[str]:
+    """``MAIL_RECIPIENT_ALLOWLIST`` normalised (lower-case, ``@`` stripped from domains)."""
+    raw = settings.MAIL_RECIPIENT_ALLOWLIST or ""
+    entries: list[str] = []
+    for item in raw.replace(";", ",").split(","):
+        token = item.strip().lower()
+        if not token:
+            continue
+        if token.startswith("@"):
+            token = token[1:]
+        if token and token not in entries:
+            entries.append(token)
+    return entries
+
+
+def recipient_allowed(address: str, entries: list[str] | None = None) -> bool:
+    """May this environment send to ``address``? (blank allowlist = yes)."""
+    entries = allowlist_entries() if entries is None else entries
+    if not entries:
+        return True
+    addr = (address or "").strip().lower()
+    if not addr:
+        return False
+    if copy_address() and addr == copy_address().lower():
+        return True
+    domain = addr.rpartition("@")[2]
+    for entry in entries:
+        if "@" in entry:
+            if addr == entry:
+                return True
+        elif domain == entry:
+            return True
+    return False
+
+
+def apply_allowlist(addresses: list[str]) -> tuple[list[str], list[str]]:
+    """``(kept, dropped)`` under ``MAIL_RECIPIENT_ALLOWLIST``."""
+    entries = allowlist_entries()
+    if not entries:
+        return list(addresses), []
+    kept = [a for a in addresses if recipient_allowed(a, entries)]
+    dropped = [a for a in addresses if a not in kept]
+    return kept, dropped
 
 
 def account_password(account: MailAccount) -> str:
@@ -176,12 +249,20 @@ def build_email(
     message_id: str,
     kind: str | None = None,
     thread_token: str | None = None,
+    bcc: list[str] | None = None,
+    attach_rfc822: bytes | None = None,
+    attachment_name: str = "mensaje-original.eml",
 ) -> email.message.EmailMessage:
+    """``bcc`` becomes a ``Bcc`` header the transports turn into envelope-only
+    recipients (SES ``BccAddresses`` / smtplib) and strip from the raw.
+    ``attach_rfc822`` is attached verbatim as a ``message/rfc822`` part."""
     msg = email.message.EmailMessage()
     msg["From"] = formataddr((from_name, from_address))
     msg["To"] = ", ".join(to)
     if cc:
         msg["Cc"] = ", ".join(cc)
+    if bcc:
+        msg["Bcc"] = ", ".join(bcc)
     if reply_to:
         msg["Reply-To"] = reply_to
     msg["Subject"] = subject
@@ -192,7 +273,40 @@ def build_email(
         msg["X-Radal-Token"] = thread_token
     msg.set_content(text or "")
     msg.add_alternative(html if html is not None else text_to_html(text or ""), subtype="html")
+    if attach_rfc822 is not None:
+        attach_original(msg, attach_rfc822, filename=attachment_name)
     return msg
+
+
+def attach_original(msg: email.message.EmailMessage, raw: bytes, *, filename: str) -> None:
+    """Attach ``raw`` (an RFC 822 message) as a ``message/rfc822`` part.
+
+    A 7-bit original (nearly all real mail: QP/base64 bodies) is attached
+    byte-for-byte — ``add_attachment`` would re-parse and re-fold it — with
+    line endings normalised to CRLF. An 8-bit original cannot travel as a raw
+    string through the bytes generator, so it is attached as a parsed
+    sub-message (same content, headers possibly re-folded, part ``8bit``;
+    RFC 2046 forbids base64 on ``message/rfc822``).
+    """
+    from email import message_from_bytes  # noqa: PLC0415
+    from email import policy as email_policy  # noqa: PLC0415
+    from email.mime.message import MIMEMessage  # noqa: PLC0415
+
+    data = (raw or b"").replace(b"\r\n", b"\n").replace(b"\r", b"\n").replace(b"\n", b"\r\n")
+    if not data.endswith(b"\r\n"):
+        data += b"\r\n"
+    if msg.get_content_maintype() != "multipart" or msg.get_content_subtype() != "mixed":
+        msg.make_mixed()
+    if data.isascii():
+        part = email.message.Message()
+        part["Content-Type"] = "message/rfc822"
+        part["Content-Transfer-Encoding"] = "7bit"
+        part.set_payload(data.decode("ascii"))
+    else:
+        part = MIMEMessage(message_from_bytes(data, policy=email_policy.compat32))
+        part["Content-Transfer-Encoding"] = "8bit"
+    part.add_header("Content-Disposition", "attachment", filename=filename)
+    msg.attach(part)
 
 
 def _clean(addresses: list[str] | str | None) -> list[str]:
@@ -218,15 +332,35 @@ def send_mail(
     thread_token: str | None = None,
     now: datetime | None = None,
     skip_reason: str | None = None,
+    attach_rfc822: bytes | None = None,
+    attachment_name: str = "mensaje-original.eml",
+    provider_uid: str | None = None,
+    record_subject: str | None = None,
+    record_text: str | None = None,
 ) -> MailMessage:
     """Record (and, when mail is on, send) one outbound mail. Never raises.
 
     ``skip_reason`` lets a caller record a deliberate non-send (e.g. the ops
     alert without a recipient) through the same row shape.
+    ``attach_rfc822`` attaches an original message (the inbound forward).
+    ``provider_uid`` tags the row (the forward's idempotency key).
+    ``record_subject`` / ``record_text`` replace what the ROW keeps when the
+    sent content must not be stored (a forward of unrelated mail, privacy).
     """
     moment = now or utcnow()
-    recipients = _clean(to)
-    cc_list = _clean(cc)
+    requested_to = _clean(to)
+    requested_cc = _clean(cc)
+    recipients, dropped_to = apply_allowlist(requested_to)
+    cc_list, dropped_cc = apply_allowlist(requested_cc)
+    not_allowlisted = bool(dropped_to or dropped_cc) and not (recipients or cc_list)
+    if dropped_to or dropped_cc:
+        logger.info(
+            "mail kind=%s: %d recipient(s) outside MAIL_RECIPIENT_ALLOWLIST dropped",
+            kind, len(dropped_to) + len(dropped_cc),
+        )
+    if not_allowlisted:
+        # Keep who it WOULD have gone to on the row, so the log explains itself.
+        recipients, cc_list = requested_to, requested_cc
 
     chosen: MailAccount | None = None
     account_error: str | None = None
@@ -251,7 +385,19 @@ def send_mail(
             broker = db.get(Broker, broker_id)
             effective_reply_to = (broker.email if broker is not None else None) or None
 
+    via_system = chosen is None or account_error is not None
+    bcc_list: list[str] = []
+    copy_to = copy_address()
+    if (
+        via_system
+        and (settings.MAIL_SENT_COPY or "").lower() == "bcc"
+        and copy_to
+        and copy_to.lower() not in {a.lower() for a in recipients + cc_list}
+    ):
+        bcc_list = [copy_to]
+
     message_id = make_msgid(domain=_domain_of(from_address))
+    full_subject = (subject or "")[:500]
     row = MailMessage(
         broker_id=broker_id,
         mail_account_id=chosen.id if (chosen is not None and account_error is None) else None,
@@ -261,9 +407,10 @@ def send_mail(
         from_address=from_address,
         to_addresses=recipients,
         cc_addresses=cc_list or None,
-        subject=(subject or "")[:500],
-        body_text=text or "",
+        subject=(record_subject if record_subject is not None else full_subject)[:500],
+        body_text=record_text if record_text is not None else (text or ""),
         occurred_at=moment,
+        provider_uid=(provider_uid or None) and provider_uid[:64],
         status=MailMessageStatus.QUEUED,
     )
 
@@ -275,6 +422,9 @@ def send_mail(
         row.error = account_error
     elif not settings.MAIL_ENABLED:
         row.status = MailMessageStatus.SKIPPED
+    elif not_allowlisted:
+        row.status = MailMessageStatus.SKIPPED
+        row.error = REASON_NOT_ALLOWLISTED
     elif not recipients:
         row.status = MailMessageStatus.FAILED
         row.error = REASON_NO_RECIPIENT
@@ -285,13 +435,16 @@ def send_mail(
                 from_address=from_address,
                 to=recipients,
                 cc=cc_list,
-                subject=row.subject or "",
+                subject=full_subject,
                 text=text or "",
                 html=html,
                 reply_to=effective_reply_to,
                 message_id=message_id,
                 kind=kind,
                 thread_token=thread_token,
+                bcc=bcc_list or None,
+                attach_rfc822=attach_rfc822,
+                attachment_name=attachment_name,
             )
             if chosen is not None:
                 # A broker's own mailbox: always its own SMTP, never SES.
@@ -316,14 +469,21 @@ def send_mail(
 
 
 __all__ = [
+    "REASON_NOT_ALLOWLISTED",
     "account_imap_config",
     "account_is_usable",
     "account_password",
     "account_smtp_config",
+    "allowlist_entries",
+    "apply_allowlist",
+    "attach_original",
     "auto_account",
     "broker_label",
     "build_email",
+    "copy_address",
     "radal_display_name",
+    "radal_reply_address",
+    "recipient_allowed",
     "send_mail",
     "text_to_html",
 ]

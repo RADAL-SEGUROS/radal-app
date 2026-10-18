@@ -53,8 +53,17 @@ os.environ["RADAL_MAIL_IMAP_PORT"] = "9"
 os.environ["MAIL_TRANSPORT"] = "ses"
 os.environ["SES_REGION"] = "us-east-1"
 os.environ["SES_CONFIGURATION_SET"] = ""
-os.environ["MAIL_SENT_COPY"] = "imap_append"
+os.environ["MAIL_SENT_COPY"] = "bcc"
 os.environ["MAIL_SENT_FOLDER"] = "Sent"
+os.environ["MAIL_COPY_ADDRESS"] = "contacto@radalseguros.cl"
+os.environ["RADAL_MAIL_REPLY_TO"] = ""
+os.environ["MAIL_RECIPIENT_ALLOWLIST"] = ""
+# The suite's system-mailbox tests read through FakeTransport (IMAP); the S3
+# (SES inbound) source is exercised with an injected fake s3 client only, and
+# the autouse ``_no_real_ses`` fixture refuses to build a real one.
+os.environ["MAIL_INBOUND_SOURCE"] = "imap"
+os.environ["MAIL_INBOUND_S3_PREFIX"] = "inbound-mail/"
+os.environ["MAIL_INBOUND_S3_BUCKET"] = ""
 os.environ["AWS_ENDPOINT_URL_SESV2"] = "http://127.0.0.1:9/no-ses-in-tests"
 os.environ["FX_SOURCE_URL"] = "http://127.0.0.1:9/no-fx-in-tests"
 os.environ["FORPAY_DEFAULT_BASE_URL"] = "http://127.0.0.1:9/no-forpay-in-tests"
@@ -109,6 +118,14 @@ def _no_real_ses(monkeypatch):
         raise ConnectionError("Amazon SES is not reachable from the test suite")
 
     monkeypatch.setattr(transport_module, "_ses_client", _refuse)
+
+    from app.services.mail import s3_inbound as s3_inbound_module
+
+    def _refuse_s3(region, timeout):  # noqa: ANN001, ANN202
+        raise ConnectionError("Amazon S3 (mail inbound) is not reachable from the test suite")
+
+    monkeypatch.setattr(s3_inbound_module, "_s3_client", _refuse_s3)
+    monkeypatch.setattr(s3_inbound_module, "_OVERRIDE", None)
 
 
 @pytest.fixture()

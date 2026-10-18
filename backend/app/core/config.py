@@ -106,11 +106,35 @@ class Settings(BaseSettings):
     MAIL_TRANSPORT: str = "ses"
     SES_REGION: str = "us-east-1"
     SES_CONFIGURATION_SET: str = ""  # blank => no ConfigurationSetName
-    # After a successful SES send, keep a copy in the Zoho mailbox so a human
-    # sees what Radal sent: "imap_append" (APPEND to MAIL_SENT_FOLDER, \Seen,
-    # best-effort) or "none".
-    MAIL_SENT_COPY: str = "imap_append"
+    # How a human sees what the Radal SYSTEM sender sent: "bcc" (the default:
+    # every system mail Bcc's MAIL_COPY_ADDRESS — SES envelope only, never a
+    # header), "imap_append" (APPEND to MAIL_SENT_FOLDER over IMAP, \Seen,
+    # best-effort; needs the Zoho IMAP login, which Zoho Free does not have)
+    # or "none". Broker custom mailboxes never get a copy.
+    MAIL_SENT_COPY: str = "bcc"
     MAIL_SENT_FOLDER: str = "Sent"
+    # The human mailbox (Zoho contacto@): the BCC copy and the forward of every
+    # reply received through SES inbound go here. Always allowed by
+    # MAIL_RECIPIENT_ALLOWLIST. Blank => no copy, no forward.
+    MAIL_COPY_ADDRESS: str = "contacto@radalseguros.cl"
+    # Reply-To of system mail Radal must READ the answer of (insurer status
+    # inquiries and their resends). Blank => RADAL_MAIL_ADDRESS (as before).
+    # Dev: respuestas@correo.radalseguros.cl (SES inbound -> S3 -> mail.poll).
+    # Payer reminders keep replying to the broker's own contact.
+    RADAL_MAIL_REPLY_TO: str = ""
+    # Where mail.poll reads the RADAL system mailbox from: "s3" (SES inbound
+    # writes raw MIME under MAIL_INBOUND_S3_PREFIX of the bucket), "imap" (the
+    # Zoho login), "none", or "auto" (the default: "imap" when
+    # RADAL_MAIL_PASSWORD is set, else "none"). Broker mailboxes always IMAP.
+    MAIL_INBOUND_SOURCE: str = "auto"
+    MAIL_INBOUND_S3_PREFIX: str = "inbound-mail/"
+    MAIL_INBOUND_S3_BUCKET: str = ""  # blank => S3_BUCKET
+    # Objects read per mail.poll run (the rest wait for the next minute).
+    MAIL_INBOUND_S3_MAX_PER_RUN: int = 50
+    # Dev safety: comma-separated domains ("radalseguros.cl") or full
+    # addresses. To/Cc outside it are dropped; nothing left => "skipped".
+    # Blank => no restriction (production). MAIL_COPY_ADDRESS always passes.
+    MAIL_RECIPIENT_ALLOWLIST: str = ""
     RADAL_MAIL_ADDRESS: str = "contacto@radalseguros.cl"
     RADAL_MAIL_DISPLAY_NAME: str = "Radal"
     RADAL_MAIL_USERNAME: str = ""  # Zoho login (usually the address)
@@ -199,6 +223,7 @@ class Settings(BaseSettings):
         "RADAL_MAIL_SMTP_PORT",
         "RADAL_MAIL_IMAP_PORT",
         "MAIL_TIMEOUT_SECONDS",
+        "MAIL_INBOUND_S3_MAX_PER_RUN",
         mode="before",
     )
     @classmethod
@@ -245,9 +270,48 @@ class Settings(BaseSettings):
         token = (v or "").strip().lower() if isinstance(v, str) else v
         if token == "":
             return cls.model_fields["MAIL_SENT_COPY"].default
-        if token not in ("imap_append", "none"):
-            raise ValueError("MAIL_SENT_COPY must be one of: imap_append, none")
+        if token not in ("bcc", "imap_append", "none"):
+            raise ValueError("MAIL_SENT_COPY must be one of: bcc, imap_append, none")
         return token
+
+    @field_validator("MAIL_INBOUND_SOURCE", mode="before")
+    @classmethod
+    def _check_mail_inbound_source(cls, v):  # noqa: ANN001
+        token = (v or "").strip().lower() if isinstance(v, str) else v
+        if token == "":
+            return cls.model_fields["MAIL_INBOUND_SOURCE"].default
+        if token not in ("auto", "s3", "imap", "none"):
+            raise ValueError("MAIL_INBOUND_SOURCE must be one of: auto, s3, imap, none")
+        return token
+
+    @field_validator("MAIL_INBOUND_S3_PREFIX", mode="before")
+    @classmethod
+    def _normalise_inbound_prefix(cls, v):  # noqa: ANN001
+        if isinstance(v, str):
+            v = v.strip().lstrip("/")
+            if v == "":
+                return cls.model_fields["MAIL_INBOUND_S3_PREFIX"].default
+            if not v.endswith("/"):
+                v += "/"
+        return v
+
+    @field_validator("MAIL_COPY_ADDRESS", "RADAL_MAIL_REPLY_TO", "MAIL_RECIPIENT_ALLOWLIST",
+                     "MAIL_INBOUND_S3_BUCKET", mode="before")
+    @classmethod
+    def _strip_text(cls, v):  # noqa: ANN001
+        return v.strip() if isinstance(v, str) else v
+
+    @property
+    def mail_inbound_source(self) -> str:
+        """Effective source of the Radal system mailbox: ``s3`` | ``imap`` | ``none``."""
+        token = (self.MAIL_INBOUND_SOURCE or "auto").lower()
+        if token == "auto":
+            return "imap" if self.RADAL_MAIL_PASSWORD else "none"
+        return token
+
+    @property
+    def mail_inbound_bucket(self) -> str:
+        return self.MAIL_INBOUND_S3_BUCKET or self.S3_BUCKET
 
     @field_validator("SES_REGION", "MAIL_SENT_FOLDER", mode="before")
     @classmethod
