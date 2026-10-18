@@ -296,6 +296,14 @@ the same pass: **Zoho Free has historically not included IMAP access** — if th
 "Autenticación rechazada" even with a fresh app password, that is the likely cause, and both the sent copy
 and inbound reading depend on it.
 
+**Verified 2026-10-17 — Google → Zoho routing for `contacto@`.** A first SES test to `contacto@radalseguros.cl`
+hard-bounced at Google (no such Workspace user) and SES suppressed the address (removed again with
+`sesv2 delete-suppressed-destination`). Fix applied in Google Admin: *Gmail → Hosts* → route `zoho` = `mx.zoho.com:25`
+(TLS + CA-signed + hostname validation; Zoho presents a valid DigiCert `*.zoho.com` certificate), and *Gmail →
+Default routing* → single recipient `contacto@radalseguros.cl`, *Change route* → `zoho`, only for non-recognized
+addresses. The second SES test was delivered and is visible in Zoho (TLS). The four Google users are untouched.
+Zoho Free has no IMAP → next: BCC copies to `contacto@` + SES-inbound reply subdomain (see CLAUDE.md "Next session").
+
 ## 5. Order of operations for the v12 dev deploy
 
 1. Settle §0 (read-only). If egress is missing: `fck-nat.sh` (steps 1–7), then step 8.

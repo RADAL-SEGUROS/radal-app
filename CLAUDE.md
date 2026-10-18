@@ -73,54 +73,63 @@ unroutable port **before** any `app.*` import — delete those two lines and the
 calls and hangs. (10) There is **no Alembic**: `create_all` never ALTERs, so any new column must go
 through `backend/scripts/migrate_case_files.py` before the branch is pushed.
 
-**Where the work stands (v12, 2026-10-17).** v2→v11 are committed and **pushed to `dev`** (CI →
-`https://dev.radalseguros.cl`): v9 the broker journey (`docs/handoff-2026-09-09-v9.md`), v10 the
-analysis destinations + expediente completo (`docs/handoff-2026-09-10-v10.md`, tech-ref §17), v11
-Portafolio/Asegurados (§18 — its rule still applies to every request: a list needs **an origin, a
-classifier and an owner**, or it renders permanently empty and reads as a broken app). **v12 is committed (`5447c7b`), pushed to `dev`, deployed and the
-dev RDS is migrated (2026-10-17)** — read
-`docs/handoff-2026-10-17-v12.md` (as-built, candid error log, what is owed) and
-`docs/technical-reference.md` **§19** (the spec); the build contract is `docs/v12/`. v12 makes
-**Pólizas the home** (`/` → `/policies`; journeys are **partial** — a PDF, a manual entry, portal quotes
-or the full process — and the account becomes a viewer of the stages that happened; write
-`case_file.entry_origin`, never `origin`); a **closed ramo catalogue**; **cobranza in three levels per
-cuota** (registro · asistida · nativa) where `collection_installment.status` is a cache and money moves
-only through the ledger; a **Forpay framework** configured per insurer by Radal in the **Mantenedor**
-(`/platform`, platform users only) behind one generic HMAC webhook; **Zoho mail**
-(`contacto@radalseguros.cl`, smtplib/imaplib) + broker SMTP/IMAP, status inquiries to insurers and
-suggestion-only evidence; **public share links** `/s/:token` for insureds and insurers; an **RPA**
-framework with an **HDI showcase** (fake portal only); and **agent skills** + 26 new tools. Antecedentes
-(PDF/Word only, warn-not-block), Comparación (tool calls `extract_budget_proposal` → `submit_comparison`)
-and Propuesta (`broker_proposal`) behave as before; extraction runs on **GLM-5.3 tool-calling**;
-stage-guard reasons are **Spanish**. **Verified at v12: 1 428 backend tests; `tsc -b`/`build`/
-`check:locales` clean (30 namespaces, 5 842 keys/locale; zero dynamic i18n keys); live smoke at 1440/375 px — not the full QA walk.**
+**Where the work stands (v12, 2026-10-17) — read before working.** v2→v11 shipped earlier (handoffs
+`docs/handoff-2026-09-0{8,9}*.md`, `-09-10-v10.md`; tech-ref §17–§18 — the v11 rule still applies: a list needs
+**an origin, a classifier and an owner** or it renders empty and reads as broken). **v12 is on `dev` and deployed**
+(`5447c7b` build · `826f78c` deploy fixes · `ba47ee6` SES mail): spec = tech-ref **§19**, as-built + error log =
+`docs/handoff-2026-10-17-v12.md`, build contract = `docs/v12/` (`00`–`10`, `api_lookup.py` over `openapi-v12.json`),
+review fixes = `docs/handoff-2026-10-17-v12-review-fixes.md`. What v12 is: **Pólizas is the home** (`/`→`/policies`);
+journeys are **partial** (PDF upload, manual entry, portal quotes or the full process; skipped stages are *omitida*;
+a colocación is created on demand — write `case_file.entry_origin`, never `origin`; no walking back once *Vigente*);
+a **closed ramo catalogue** (18 × 54, CMF-mapped); **cobranza in three levels per cuota** — registro · asistida ·
+en línea — where `collection_installment.status` is a cache, money moves only through `services/collection/ledger.py`
+(never above the balance), evidence from insurers is a **suggestion a human confirms**, and *En línea* needs an
+active **and verified** Forpay account (**Forpay is paused** by decision — no sandbox until the team meets Forpay);
+the **Mantenedor** (`/platform`, platform users only) configures insurers/provider accounts; one generic HMAC webhook;
+**public share links** `/s/:token` (insured: cuotas, instructions, receipt upload; insurer: report status); the bell
+(Por hacer / Para saber; admins get Mías/Todas; to-dos go to the account **owner**); per-template approved
+reminders; status inquiries to insurers; an **RPA** framework (HDI showcase, `selectors/hdi.json`, off in dev);
+**agent skills** (`load_skill`) + 26 tools, confirm-before-write. **WhatsApp = open door only; Google/Microsoft OAuth
+deferred.** **Verified: 1 476 backend tests; `tsc -b`/`build`/`check:locales` clean (30 ns, 5 968 keys; zero
+dynamic i18n keys — explicit maps in `frontend/src/i18n/labels.ts`); live smoke of dev at 1440/375 px.** The
+**full QA walk has never been run** — the next one is `docs/v12/computer-use-dev-review-prompt.md` (computer use on
+dev); the local equivalent is `./review-v12.sh` + `docs/v12/chrome-review-prompt.md`.
 
-**The shell since v10–v12.** The rail is Pólizas · Cobranza · ASEGURADOS · Portafolio · Analítica ·
-Agente · Cotizar en portales · Compañías · Configuración (+ Mantenedor for platform users only). `/data`
-is **Portafolio** (nine table tabs) and `/analytics` is **Analítica** (visuals, `?by=` from the server
-catalog); both share one **scope — grupo · grupo-cuenta · fechas — in the URL**, applied server-side to
-lists, summaries and exports (`POST /exports/{entity}`, XLSX + PDF). **"Ver expediente completo"** opens
-`/groups/:groupId/accounts/:caseId/expediente`, rendered on demand; absent blocks print a Spanish reason
-**derived from the journey**. **Motion lives in the `Tabs` primitive.** Read `README.md` to orient, the
-handoffs for the arc, plus `docs/deployment.md` (stale on NAT/CI — see `deploy/v12/README.md` §6) and
-`docs/usuarios-de-prueba.md`; delegate to `.claude/agents/`.
+**The shell.** Rail: Pólizas · Cobranza (overdue count) · ASEGURADOS · Portafolio · Analítica · Agente · Cotizar en
+portales · Compañías · Configuración (+ Mantenedor). `/data` = Portafolio, `/analytics` = Analítica; both share the
+URL **scope** (grupo · grupo-cuenta · fechas) applied server-side. "Ver expediente completo" →
+`/groups/:groupId/accounts/:caseId/expediente`. Motion lives in `Tabs`. **Signal** is the design direction.
 
-**Deploy state / traps.** Dev runs **v12** (`5447c7b`); its RDS was migrated **inside the VPC** via the one-off
-job `db.migrate` (RDS stays private — never make it public; snapshot `radal-dev-db-pre-v12-20261017`), seeded with the
-catalogue and the demo broker *Corredora Demo SpA*. The backend Lambda now egresses through **fck-nat** (EIP
-3.230.124.80, private subnets 172.31.96–97.0/24, S3 gateway endpoint), timeout 120 s, CloudFront origin 60 s.
-EventBridge schedules (`radal-dev` group) run `fx.daily`, `collection.clock`, `collection.notices`,
-`collection.inquiries`, `notifications.expire` — **LWA 0.7.0 only accepts HTTP-shaped events**, so schedules send an
-HTTP v2 envelope to `POST /events`. **Forpay is paused**; Zoho lives on `radal.ai` and mail is OFF until its
-credentials exist. The account's **Lambda concurrency limit is 10** (raise to 1000 requested) — full details in
-`deploy/v12/README.md` §0b. CI (`.github/workflows/deploy-backend-dev.yml` / `deploy-frontend-dev.yml`, OIDC) fires
-on push to `dev`. **Still owed / watch:** the **full QA walk has never been run**; the backend image builds Chromium;
-**money-core extraction is unreliable** under tool-calling; the **vision fallback is stubbed**;
-comparison align can run **minutes** (do NOT change the buffered invoke mode, OAC constraint 4); real
-HDI / Zoho never exercised. Locally, run the backend with `MEDIA_BACKEND=local` (else
-every document 404s) and, for smokes, `AI_API_KEY=` (`backend/.env` holds a live key). **Signal is the
-design direction** (Aqua Spectrum + Porcelana deprecated). Traps that fail *silently*: the
-**`paramsSerializer` in `src/lib/api.ts`** (repeatable filters stop applying and return plausible wrong
-data); **`expose_headers` on CORS in `main.py`** (exports lose filename and row count); group-by
-dimensions are **server-driven and not uniform** per entity; the **`{plan_id:int}`** converter on
-legacy `/collections` routes. `git remote` still points at the old repo location (GitHub redirect).
+**Deploy & infra (dev, verified with `aws --profile radal`).** CI (`deploy-backend-dev.yml` /
+`deploy-frontend-dev.yml`, OIDC) fires on push to `dev` and syncs the Lambda env from S3 `deploy/backend.env`
+(backups `backend.env.bak-2026-10-17-pre-v12` and `backend.env.v12-keys-backup-2026-10-17` — **never lose
+`CREDENTIALS_KEY`**). **RDS stays private — never open it**; migrations/seeds run **inside the VPC** through the
+token-gated jobs `db.migrate` / `db.seed_catalog` / `db.seed_demo` (`app/jobs/maintenance.py`, also needs
+`ALLOW_DB_MAINTENANCE=true` in the env for the window only); pre-v12 snapshot `radal-dev-db-pre-v12-20261017`. The
+backend Lambda egresses via **fck-nat** (EIP 3.230.124.80, private subnets 172.31.96–97.0/24, S3 gateway endpoint);
+timeout 120 s, CloudFront origin 60 s; hashed `/assets/*` are cached a year at the edge. EventBridge (`radal-dev`)
+runs `fx.daily`, `collection.clock`, `collection.notices`, `collection.inquiries`, `notifications.expire` — **Lambda Web
+Adapter 0.7.0 only accepts HTTP-shaped events**, so schedules send an HTTP v2 envelope to `POST /events`. The
+account's **Lambda concurrency limit is 10** (increase to 1000 requested). Everything applied is logged in
+`deploy/v12/README.md` §0b; `docs/deployment.md` is partly stale. Demo data on dev: broker *Corredora Demo SpA*
+(`admin@demo.cl` / `ejecutivo@demo.cl` / platform `admin@radal.cl`, all `radal1234`).
+
+**Mail transition (2026-10-17).** `radalseguros.cl` has **four Google Workspace mailboxes (MX → Google)** and one
+**Zoho Free** mailbox, `contacto@`. Radal's system mail **sends through Amazon SES v2** (`MAIL_TRANSPORT=ses`, domain
+verified with Easy DKIM + MAIL FROM `mail.radalseguros.cl`; root MX/SPF/DMARC untouched); **Google Workspace routes
+`contacto@` to Zoho** (Gmail *Default routing*, non-recognized addresses → host `mx.zoho.com`, TLS) — verified: an
+SES test landed in Zoho. Broker custom mailboxes keep their own SMTP/IMAP. `python -m scripts.mail_preflight
+[--send-test]` checks readiness. **`MAIL_ENABLED=false` on dev** until the next steps below. Zoho Free has **no
+IMAP**, so the "Sent copy" (`MAIL_SENT_COPY=imap_append`) and IMAP reply reading cannot work on `contacto@`.
+
+**Next session — open work, in order.** (1) Mail: BCC `contacto@` on every system mail (visual copy) instead of the
+IMAP append; receive replies on an SES-inbound subdomain (e.g. `respuestas@correo.radalseguros.cl` → S3 → processed
+by Radal, a copy forwarded to `contacto@`); request **SES production access** (sandbox: 200/day, verified recipients
+only); then set `MAIL_ENABLED=true`. (2) Run the computer-use review on dev and fix what it finds. (3) Watch the
+Lambda concurrency request. (4) Owed, unchanged: Forpay (after the team's meeting), HDI real credentials/selectors,
+the **R33** per-broker insured (canonical insured still leaks), money-core extraction reliability, the vision
+fallback, `fx.daily` (mindicador.cl unreliable), long comparisons vs the 60 s edge timeout. Locally: run the backend
+with `MEDIA_BACKEND=local` and, for smokes, `AI_API_KEY=` (`backend/.env` holds a live key). Silent traps: the
+`paramsSerializer` in `src/lib/api.ts`, `expose_headers` on CORS in `main.py`, server-driven group-by dimensions, the
+`{plan_id:int}` converter on legacy `/collections` routes. `git remote` points at the old repo URL (GitHub redirect to
+`RADAL-SEGUROS/radal-app`).
