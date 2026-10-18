@@ -2,10 +2,9 @@
  * Documents — the ONLY table that holds an S3 key. Domain entities reference a
  * file by `document.id`, never by a raw key string.
  *
- * Upload is `multipart/form-data`, whose exact bytes the browser assembles with
- * a boundary we cannot see. `lib/api.ts` detects that and sends the SigV4
- * `UNSIGNED-PAYLOAD` sentinel instead of a body hash, so the CloudFront OAC path
- * keeps working for uploads.
+ * Upload is `multipart/form-data`. `lib/api.ts` serialises it itself (lib/oacBody.ts),
+ * hashes those exact bytes and sends them with the matching boundary, because the
+ * CloudFront OAC path rejects the `UNSIGNED-PAYLOAD` shortcut (403 on dev, 2026-10-17).
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";

@@ -3,6 +3,7 @@ import axios, {
   type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
 } from "axios";
+import { prepareOacBody } from "@/lib/oacBody";
 
 export const API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
@@ -68,13 +69,6 @@ export const api = axios.create({
 
 // Attach JWT bearer to every request.
 // SHA-256 (hex) of a string via Web Crypto (available on HTTPS + localhost).
-async function sha256Hex(input: string): Promise<string> {
-  const bytes = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 // Attach JWT bearer + the x-amz-content-sha256 body hash to every request.
 // CloudFront OAC does NOT sign POST/PUT bodies to a Lambda function URL, so the
@@ -88,27 +82,12 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     config.headers.set("Authorization", `Bearer ${token}`);
     config.headers.set("X-Radal-Token", token);
   }
-  // Binary/multipart bodies (file uploads) are serialised by the browser with a
-  // boundary we do not control, so their exact bytes cannot be hashed here.
-  // SigV4's documented escape hatch is the literal "UNSIGNED-PAYLOAD".
-  const data = config.data;
-  const isOpaqueBody =
-    typeof FormData !== "undefined" && data instanceof FormData
-      ? true
-      : (typeof Blob !== "undefined" && data instanceof Blob) ||
-        data instanceof ArrayBuffer ||
-        ArrayBuffer.isView(data as ArrayBufferView);
-
-  if (isOpaqueBody) {
-    config.headers.set("x-amz-content-sha256", "UNSIGNED-PAYLOAD");
-  } else if (crypto?.subtle) {
-    let body = "";
-    if (data !== undefined && data !== null) {
-      body = typeof data === "string" ? data : JSON.stringify(data);
-      // ensure the bytes we hash are exactly what gets sent
-      config.data = body;
-    }
-    config.headers.set("x-amz-content-sha256", await sha256Hex(body));
+  if (crypto?.subtle) {
+    // OAC rejects UNSIGNED-PAYLOAD: hash the exact bytes, multipart included (lib/oacBody.ts).
+    const prepared = await prepareOacBody(config.data);
+    config.data = prepared.data;
+    if (prepared.contentType) config.headers.set("Content-Type", prepared.contentType);
+    config.headers.set("x-amz-content-sha256", prepared.hash);
   }
   return config;
 });

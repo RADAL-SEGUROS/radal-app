@@ -11,7 +11,7 @@
  * axios instance that replicates ONLY the OAC body-hash mechanism of
  * `lib/api.ts` (same precedent as `api/public.ts` and `api/ai.ts`): JSON bodies
  * are hashed and `config.data` is reassigned to the exact string hashed;
- * multipart bodies (the comprobante upload) send `UNSIGNED-PAYLOAD`. Breaking
+ * multipart bodies (the comprobante upload) are serialised and hashed (lib/oacBody.ts). Breaking
  * either produces `InvalidSignatureException` in production only.
  */
 import axios, { type InternalAxiosRequestConfig } from "axios";
@@ -20,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, API_URL } from "@/lib/api";
 import { qk } from "@/api/keys";
 import type { DecimalString, IsoDate, IsoDateTime } from "@/api/types";
+import { prepareOacBody } from "@/lib/oacBody";
 
 // =============================================================================
 // Types (mirror backend/app/schemas/share.py)
@@ -245,13 +246,6 @@ export function useRevokeShareLink() {
 // Public side — no auth, OAC body hash only
 // =============================================================================
 
-async function sha256Hex(input: string): Promise<string> {
-  const bytes = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 /** No-auth axios: OAC body-hash only, never an Authorization / X-Radal-Token. */
 export const publicShareApi = axios.create({
@@ -260,26 +254,12 @@ export const publicShareApi = axios.create({
 });
 
 publicShareApi.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  const data = config.data;
-  // Multipart bodies are assembled by the browser with a boundary we do not
-  // control, so their bytes cannot be hashed here: SigV4's escape hatch.
-  const isOpaqueBody =
-    typeof FormData !== "undefined" && data instanceof FormData
-      ? true
-      : (typeof Blob !== "undefined" && data instanceof Blob) ||
-        data instanceof ArrayBuffer ||
-        ArrayBuffer.isView(data as ArrayBufferView);
-
-  if (isOpaqueBody) {
-    config.headers.set("x-amz-content-sha256", "UNSIGNED-PAYLOAD");
-  } else if (crypto?.subtle) {
-    let body = "";
-    if (data !== undefined && data !== null) {
-      body = typeof data === "string" ? data : JSON.stringify(data);
-      // Hash exactly the bytes that get sent.
-      config.data = body;
-    }
-    config.headers.set("x-amz-content-sha256", await sha256Hex(body));
+  if (crypto?.subtle) {
+    // OAC rejects UNSIGNED-PAYLOAD: hash the exact bytes, multipart included (lib/oacBody.ts).
+    const prepared = await prepareOacBody(config.data);
+    config.data = prepared.data;
+    if (prepared.contentType) config.headers.set("Content-Type", prepared.contentType);
+    config.headers.set("x-amz-content-sha256", prepared.hash);
   }
   return config;
 });
