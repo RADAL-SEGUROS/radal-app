@@ -27,3 +27,6 @@ deploy/backend.env
 .vscode/
 *.log
 *.tsbuildinfo
+
+# local review uploads (PDFs for the QA sessions)
+.review-tmp/

@@ -11,11 +11,16 @@ portal is not connected.
 
 ## For the human, before starting
 
-1. Make sure the deploy of `dev` is green (GitHub Actions "Deploy Backend (dev)" and "Deploy Frontend (dev)").
-2. Have at hand two small real-looking PDFs: an insurance **policy** (póliza) and a **cotización**. Any
-   Chilean policy PDF works; an anonymised one is best.
-3. Start a computer-use session (Claude with the computer tool). Give it a browser window (Chrome) and paste
-   everything between the `=====` lines. Put the PDFs on the Desktop so it can upload them.
+1. The `dev` deploys are green and the PDFs are already in place: `radal-app/.review-tmp/` (git-ignored) holds real
+   documents from the demo corpus (`~/Downloads/EXPEDIENTES DEMO`). There are two pólizas (Viña Indómita TRBF ·
+   Southbridge, and the Coccolino vehicle fleet · Consorcio) and three cotizaciones for the same risk (Viña Indómita:
+   Southbridge, HDI, Mapfre).
+2. Start the browser session (Claude in Chrome or computer use) and paste everything between the `=====` lines.
+3. **The reviewer will not type passwords on the deployed site.** When it asks, log in yourself in its tab (password
+   `radal1234`), and later switch users when it asks.
+4. When it reaches the mail step, approve it and reply from the Zoho mailbox `contacto@radalseguros.cl`.
+
+=====` lines. Put the PDFs on the Desktop so it can upload them.
 
 =====
 
@@ -37,7 +42,7 @@ have access to the code and you do not fix anything. Write your report in **Span
 - If something takes longer than 60 s, note it, take a screenshot and move on. The cloud cuts requests at
   60 s; a long AI comparison may hit that limit, and that is a finding.
 
-### Logins (password `radal1234`)
+### Logins (password `radal1234`) — the human signs in for you; ask them to switch users when needed
 
 | user | role |
 |---|---|
@@ -51,6 +56,11 @@ https://dev.radalseguros.cl/s/HC1KFTUmVwzZYXHxuUuSkSiemayTeVC_   (insurer · con
 https://dev.radalseguros.cl/s/HsWb9LqBbq8dlKkD7GTvH2GqR8KvOYKq   (insured · Transportes del Sur · cuotas HDI)
 https://dev.radalseguros.cl/s/qZJgVZhu_w_OHYBU5ovHELwVF5H7be22   (insurer · Sura · póliza 5520-0001)
 ```
+
+### Already known (do not re-report, but confirm if you see it)
+
+- The insured public link for HDI still says "Pago en línea con Webpay a través de Radal" under *Cómo pagar*. That
+  text comes from HDI's demo profile while Forpay is paused. It is known demo data and gets fixed after this walk.
 
 ### What v12 is (the features to judge)
 
@@ -80,7 +90,8 @@ https://dev.radalseguros.cl/s/qZJgVZhu_w_OHYBU5ovHELwVF5H7be22   (insurer · Sur
 
 1. **Pólizas (admin@demo.cl):** the KPI cards (each card replaces the previous filter), the filters, and
    each demo policy's blocks.
-   - Upload the policy PDF with **Subir póliza**. Watch the progress bar, then review the AI reading on
+   - Upload `radal-app/.review-tmp/08 Poliza N 0020119904 TRBF - Southbridge - Vina Indomita.pdf` with **Subir
+     póliza**, then also `08 Poliza N V-FL-0091447 - Consorcio - Coccolino Vehiculos.pdf` (a fleet, a different shape). Watch the progress bar, then review the AI reading on
      *Confirmar datos*: are the fields right, and are the low-confidence ones flagged? Confirm it.
    - Check that it landed in the right group/account, that its *Viaje* says it entered with the policy, and
      that the payment plan was read. Load the plan if it wasn't.
@@ -109,7 +120,8 @@ https://dev.radalseguros.cl/s/qZJgVZhu_w_OHYBU5ovHELwVF5H7be22   (insurer · Sur
    **Bitácora** (Spanish labels, Chile time, one collapsed "N etapas omitidas" line).
 7. **The full journey with AI**, on a new "QA" account:
    - Upload an antecedente.
-   - Upload two cotizaciones → *Comparar* (timing; does it finish within 60 s, and if not, what does the
+   - Upload the three cotizaciones from `radal-app/.review-tmp/` (`03 Cotizacion Southbridge`, `04 Cotizacion HDI`,
+     `05 Cotizacion Mapfre` — Viña Indómita) → *Comparar* (timing; does it finish within 60 s, and if not, what does the
      user see?).
    - Generate the propuesta.
    - Judge the comparison's quality: does the table read correctly, and does the recommendation make sense?
