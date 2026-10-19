@@ -833,6 +833,7 @@ def collection_summary(
         "level_reason": None,
         "installments_count": len(installments),
         "paid_count": 0,
+        "past_installments_pending": None,
     }
     if not installments:
         return out
@@ -844,13 +845,24 @@ def collection_summary(
         if params_cache is not None:
             params_cache[policy.broker_id] = (cadence, tolerance)
 
+    from app.services.collection.past_review import review_cutoffs
+
+    cutoffs = review_cutoffs(db, policy.broker_id, [plan.id for plan in plans])
     late: list[tuple[CollectionInstallment, Any]] = []
     upcoming: list[tuple[CollectionInstallment, Any]] = []
+    review: list[tuple[CollectionInstallment, Any]] = []
     for inst in installments:
         state = compute_installment_state(
-            inst, list(inst.payments or []), today=today, cadence_days=cadence, tolerance_uf=tolerance
+            inst,
+            list(inst.payments or []),
+            today=today,
+            cadence_days=cadence,
+            tolerance_uf=tolerance,
+            review_cutoff=cutoffs.get(inst.collection_plan_id),
         )
-        if state.state == "paid":
+        if state.state == "pending_review":
+            review.append((inst, state))
+        elif state.state == "paid":
             out["paid_count"] += 1
         elif state.state in _LATE:
             late.append((inst, state))
@@ -859,6 +871,15 @@ def collection_summary(
 
     out["overdue_count"] = len(late)
     out["overdue_uf"] = _q4(sum((s.balance_uf for _, s in late), Decimal("0")))
+    if review:
+        dues = [inst.due_date for inst, _ in review]
+        out["past_installments_pending"] = {
+            "plan_id": review[0][0].collection_plan_id,
+            "count": len(review),
+            "total_uf": _q4(sum((s.balance_uf for _, s in review), Decimal("0"))),
+            "first_due": min(dues),
+            "last_due": max(dues),
+        }
     upcoming.sort(key=lambda pair: (pair[0].due_date or date.max, pair[0].number))
     if upcoming:
         inst, state = upcoming[0]

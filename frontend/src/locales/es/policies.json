@@ -69,7 +69,10 @@
     "allMissing": "Con o sin faltantes",
     "missingOption": "Falta: {{label}}",
     "mine": "Mías",
-    "clear": "Quitar filtros"
+    "clear": "Quitar filtros",
+    "expiringWithin_one": "Vencen en {{count}} día",
+    "expiringWithin_other": "Vencen en los próximos {{count}} días",
+    "removeExpiring": "Quitar el filtro de vencimiento"
   },
   "pager": {
     "previous": "Página anterior",
@@ -311,6 +314,12 @@
       "pickFirst": "Elige primero la compañía",
       "use": "Usar esta compañía y seguir",
       "notFound": "La compañía elegida ya no está disponible. Elige otra."
+    },
+    "duplicate": {
+      "message": "Esta póliza ya existe: N° {{number}} de {{insurer}}.",
+      "messageNoInsurer": "Esta póliza ya existe: N° {{number}}.",
+      "hint": "No registramos nada nuevo: ni otra póliza, ni cuotas, ni alertas, ni una nueva lectura técnica.",
+      "open": "Ver póliza"
     }
   },
   "form": {
@@ -470,5 +479,23 @@
       "generic": "No se pudo completar la lectura técnica."
     },
     "empty": "No encontramos datos técnicos en el PDF (ítems, coberturas, deducibles, garantías, exclusiones ni cláusulas). Puedes descartar esta lectura."
+  },
+  "pastInstallments": {
+    "title_one": "Esta póliza tiene {{count}} cuota con vencimiento pasado ({{amount}}). ¿Ya está pagada?",
+    "title_other": "Esta póliza tiene {{count}} cuotas con vencimiento pasado ({{amount}}). ¿Ya están pagadas?",
+    "titleNoAmount_one": "Esta póliza tiene {{count}} cuota con vencimiento pasado. ¿Ya está pagada?",
+    "titleNoAmount_other": "Esta póliza tiene {{count}} cuotas con vencimiento pasado. ¿Ya están pagadas?",
+    "titleUnknown": "Esta póliza tiene cuotas con vencimiento pasado. ¿Ya están pagadas?",
+    "dueOn": "Vencimiento: {{date}}",
+    "dueRange": "Vencimientos del {{first}} al {{last}}",
+    "hint": "Mientras no decidas, esas cuotas no generan alertas de término ni cuentan como vencidas en Cobranza.",
+    "paid": "Sí, marcar pagadas",
+    "unpaid": "No, quedan vencidas",
+    "later": "Decidir después",
+    "donePaid": "Cuotas pasadas marcadas como pagadas",
+    "doneUnpaid": "Las cuotas quedan vencidas; las alertas siguen su curso",
+    "noPermission": "Tu rol no permite registrar pagos de cobranza",
+    "noPlan": "No encontramos el plan de pago de esta póliza",
+    "error": "No se pudo guardar tu respuesta"
   }
 }

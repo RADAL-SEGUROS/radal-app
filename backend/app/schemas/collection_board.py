@@ -30,7 +30,9 @@ from app.models.enums import (
 from app.schemas.analytics import EntitySummary
 from app.schemas.utc import UtcDatetime
 
-Bucket = Literal["upcoming", "overdue", "current", "settled"]
+#: ``review`` (review r2 D1): past cuotas of a policy loaded late, awaiting the
+#: broker's paid/unpaid decision (state ``pending_review``).
+Bucket = Literal["upcoming", "overdue", "current", "settled", "review"]
 Level = Literal["record", "assisted", "native"]
 
 
@@ -117,6 +119,13 @@ class CollectionsSummary(EntitySummary):
     unconfirmed_payments: int
     pending_evidence: int
     plans_missing: int
+    #: Review r2 (D1): cuotas pending review (never in ``overdue``).
+    past_installments_pending: MoneyCount = Field(
+        default_factory=lambda: MoneyCount(count=0, uf=Decimal("0"))
+    )
+    #: Review r2 (B5): ``mine`` when the cuota cards were narrowed with
+    #: ``owner=me`` / ``mine=1`` (the team inboxes stay broker-wide).
+    owner_scope: Literal["all", "mine"] = "all"
 
 
 # --- payments ------------------------------------------------------------------

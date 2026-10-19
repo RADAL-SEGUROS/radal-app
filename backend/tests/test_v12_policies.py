@@ -699,7 +699,7 @@ def test_upload_with_unbalanced_cuotas_keeps_the_warning(
     assert response.status_code == 201, response.text
     warnings = response.json()["warnings"]
     assert any("no cuadran" in w for w in warnings)
-    assert any("payment schedule was not committed" in w for w in warnings)
+    assert any("plan de pago de la póliza no se registró" in w for w in warnings)
     assert db.scalars(select(CollectionPlan)).all() == []
 
 
@@ -867,7 +867,8 @@ def test_upload_of_another_number_into_the_same_folder_keeps_both_policies(
     assert kept.source_document_id is None
     assert len(db.scalars(select(Policy).where(Policy.broker_id == world.a.broker_id)).all()) == 2
 
-    # Re-uploading the SAME number updates that policy (no third row).
+    # Re-uploading the SAME number is a duplicate (review r2, D2): 409, no
+    # third row and the existing policy untouched.
     again = _doc(db, world.a, tmp_path, name="again.txt")
     _fake(monkeypatch, _policy_payload("UP-VEH-2"))
     redo = client.post(
@@ -875,8 +876,9 @@ def test_upload_of_another_number_into_the_same_folder_keeps_both_policies(
         json={"document_id": again.id, "insurance_subtype_id": sub.id, "client_id": world.a.client.id},
         headers=headers_a,
     )
-    assert redo.status_code == 201, redo.text
-    assert redo.json()["policy"]["id"] == second["id"]
+    assert redo.status_code == 409, redo.text
+    assert redo.json()["detail"]["code"] == "policy_duplicate"
+    assert redo.json()["detail"]["policy_id"] == second["id"]
     assert len(db.scalars(select(Policy).where(Policy.broker_id == world.a.broker_id)).all()) == 2
 
 
@@ -1220,8 +1222,10 @@ def test_reupload_keeps_reader_cuotas_that_already_carry_work(
     second = client.post(
         f"{API}/policies/upload", json={"document_id": again.id}, headers=headers_a
     )
-    assert second.status_code == 201, second.text
-    assert any("ya tiene un plan de pago" in w for w in second.json()["warnings"])
+    # Review r2 (D2): the same policy uploaded again is a 409 with no side
+    # effect — the cuotas carrying work are untouched a fortiori.
+    assert second.status_code == 409, second.text
+    assert second.json()["detail"]["code"] == "policy_duplicate"
     db.expire_all()
     plan = db.get(CollectionPlan, plan.id)
     assert [inst.id for inst in plan.installments] == original

@@ -69,7 +69,10 @@
     "allMissing": "With or without gaps",
     "missingOption": "Missing: {{label}}",
     "mine": "Mine",
-    "clear": "Clear filters"
+    "clear": "Clear filters",
+    "expiringWithin_one": "Expiring within {{count}} day",
+    "expiringWithin_other": "Expiring within {{count}} days",
+    "removeExpiring": "Remove the expiry filter"
   },
   "pager": {
     "previous": "Previous page",
@@ -311,6 +314,12 @@
       "pickFirst": "Pick the insurer first",
       "use": "Use this insurer and continue",
       "notFound": "The selected insurer is no longer available. Pick another one."
+    },
+    "duplicate": {
+      "message": "This policy already exists: No. {{number}} from {{insurer}}.",
+      "messageNoInsurer": "This policy already exists: No. {{number}}.",
+      "hint": "Nothing new was recorded: no other policy, cuotas, alerts or technical read.",
+      "open": "View policy"
     }
   },
   "form": {
@@ -470,5 +479,23 @@
       "generic": "The technical read could not be completed."
     },
     "empty": "We found no technical data in the PDF (items, coverages, deductibles, warranties, exclusions or clauses). You can discard this reading."
+  },
+  "pastInstallments": {
+    "title_one": "This policy has {{count}} cuota already past due ({{amount}}). Has it been paid?",
+    "title_other": "This policy has {{count}} cuotas already past due ({{amount}}). Have they been paid?",
+    "titleNoAmount_one": "This policy has {{count}} cuota already past due. Has it been paid?",
+    "titleNoAmount_other": "This policy has {{count}} cuotas already past due. Have they been paid?",
+    "titleUnknown": "This policy has cuotas already past due. Have they been paid?",
+    "dueOn": "Due: {{date}}",
+    "dueRange": "Due from {{first}} to {{last}}",
+    "hint": "Until you decide, those cuotas raise no termination alerts and do not count as overdue in Collections.",
+    "paid": "Yes, mark as paid",
+    "unpaid": "No, keep them overdue",
+    "later": "Decide later",
+    "donePaid": "Past cuotas marked as paid",
+    "doneUnpaid": "The cuotas stay overdue; alerts resume",
+    "noPermission": "Your role cannot register collection payments",
+    "noPlan": "We could not find this policy's payment plan",
+    "error": "Your answer could not be saved"
   }
 }

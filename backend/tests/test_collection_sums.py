@@ -132,7 +132,7 @@ def test_duplicate_instalment_numbers_are_422(client, headers_a, insurer_policy)
         },
     )
     assert response.status_code == 422
-    assert "Duplicate instalment number" in response.json()["detail"]
+    assert "Número de cuota repetido" in response.json()["detail"]
 
 
 def test_marking_a_cuota_paid_derives_days_late(client, headers_a, insurer_policy):

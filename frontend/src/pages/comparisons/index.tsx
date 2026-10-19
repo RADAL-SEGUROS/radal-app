@@ -62,7 +62,9 @@ import type {
   ComparisonDimension,
   ComparisonDimensionCell,
   ComparisonEntry,
+  ComparisonEntryResult,
   ComparisonPremiumCore,
+  DecimalString,
   ComparisonRecommendation,
 } from "@/api/types";
 import { useUploadDocument } from "@/api/documents";
@@ -73,22 +75,28 @@ import {
   useAddEntry,
   useAlign,
   useComparison,
-  useCreateComparison,
+  useEnsureComparison,
   useDeleteEntry,
   usePatchEntry,
   usePromoteEntry,
+  useRetryEntry,
 } from "@/api/comparisons";
+import { qk } from "@/api/keys";
+import {
+  InsurerCatalogSelect,
+  useInsurerCatalog,
+} from "@/components/insurers/InsurerCatalogSelect";
+import { formatNumber } from "@/lib/format";
 import {
   DisabledHint,
   EmptyState,
   ErrorBanner,
   StatusBadge,
   apiError,
-  permille,
-  pct,
-  uf,
 } from "@/components/common/kit";
 import {
+  COMPARISON_MISSING_CORE_LABEL,
+  keyFor,
   COMPARISON_AI_ERROR_LABEL,
   COMPARISON_STATUS_LABEL,
   FACET_GROUP_LABEL,
@@ -154,19 +162,11 @@ export default function ComparisonPage() {
   const { t } = useTranslation("comparison");
 
   const canView = useCan("Proposals", "View");
-  const create = useCreateComparison();
-  const [comparisonId, setComparisonId] = React.useState<number | null>(null);
-  const startedRef = React.useRef(false);
-
-  React.useEffect(() => {
-    if (!Number.isFinite(id) || startedRef.current) return;
-    startedRef.current = true;
-    create.mutate(
-      { case_file_id: id },
-      { onSuccess: (c) => setComparisonId(c.id) },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  // "Open or create" the account's comparison as a QUERY (POST /comparisons is
+  // idempotent per account): unlike a mutation's state, a query survives React
+  // StrictMode's simulated unmount, which left this page on its skeleton in dev.
+  const ensured = useEnsureComparison(Number.isFinite(id) ? id : undefined);
+  const comparisonId = ensured.data?.id ?? null;
 
   const comparison = useComparison(comparisonId ?? undefined);
   const data = comparison.data;
@@ -208,11 +208,11 @@ export default function ComparisonPage() {
     );
   }
 
-  if (create.isError) {
+  if (ensured.isError) {
     return (
       <>
         {header}
-        <ErrorBanner error={create.error} />
+        <ErrorBanner error={ensured.error} />
       </>
     );
   }
@@ -249,6 +249,7 @@ function ComparisonBoard({
   const qc = useQueryClient();
   const upload = useUploadDocument();
   const addEntry = useAddEntry(comparison.id);
+  const retryEntry = useRetryEntry(comparison.id);
   const align = useAlign(comparison.id);
   const errorMessage = useComparisonErrorMessage();
 
@@ -267,20 +268,58 @@ function ComparisonBoard({
     };
   }, []);
 
-  const busy = upload.isPending || addEntry.isPending || progress !== null;
+  const busy = upload.isPending || addEntry.isPending || retryEntry.isPending || progress !== null;
+  const aligning = align.isPending || alignRecovering;
 
-  // Debounced auto-align: a fresh column supersedes the last alignment, so we
-  // re-run it shortly after an upload settles (Edit permission required).
+  /**
+   * A lost align answer (504 at the edge / network) is not a failed align: the
+   * server may still finish (the Lambda runs up to 120 s, the edge gives up at
+   * 60 s). Re-read the comparison for ~2 min; if it comes back aligned, clear
+   * the error instead of showing the blocked banner.
+   */
+  const onAlignError = React.useCallback(
+    async (error: unknown) => {
+      if (!isLostResponse(error)) {
+        toast.error(errorMessage(error));
+        return;
+      }
+      setAlignRecovering(true);
+      const aligned = await pollComparison(
+        qc,
+        comparison.id,
+        (c) => c.status === "aligned",
+        { attempts: 26, signal: alive.current },
+      );
+      setAlignRecovering(false);
+      if (aligned) {
+        align.reset();
+        toast.success(t("align.recovered"));
+      } else {
+        toast.error(errorMessage(error));
+      }
+    },
+    [align, comparison.id, errorMessage, qc, t],
+  );
+
+  const runAlign = React.useCallback(
+    () =>
+      align.mutate(undefined, {
+        onSuccess: (res) => {
+          if (res.warnings.length) toast.message(res.warnings[0]);
+        },
+        onError: (error) => void onAlignError(error),
+      }),
+    [align, onAlignError],
+  );
+
+  // Auto-align once a batch of reads settles: a fresh column supersedes the
+  // last alignment (Edit permission required). It runs the same visible path
+  // as the button — progress shown, Realinear disabled WITH the reason.
   const scheduleAutoAlign = React.useCallback(() => {
     if (!canEdit.allowed) return;
     if (alignTimer.current) window.clearTimeout(alignTimer.current);
-    alignTimer.current = window.setTimeout(() => {
-      align.mutate(undefined, {
-        onError: (error) => void onAlignError(error),
-      });
-    }, 900);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canEdit.allowed, align]);
+    alignTimer.current = window.setTimeout(runAlign, 600);
+  }, [canEdit.allowed, runAlign]);
 
   React.useEffect(
     () => () => {
@@ -289,56 +328,64 @@ function ComparisonBoard({
     [],
   );
 
-  /**
-   * A lost align answer (504 at the edge / network) is not a failed align: the
-   * server may still finish. Re-read the comparison; if it comes back aligned,
-   * clear the error instead of showing the blocked banner.
-   */
-  async function onAlignError(error: unknown) {
-    if (!isLostResponse(error)) {
-      toast.error(errorMessage(error));
-      return;
-    }
-    setAlignRecovering(true);
-    const aligned = await pollComparison(
-      qc,
-      comparison.id,
-      (c) => c.status === "aligned",
-      { attempts: 10, signal: alive.current },
-    );
-    setAlignRecovering(false);
-    if (aligned) {
-      align.reset();
-      toast.success(t("align.recovered"));
-    } else {
-      toast.error(errorMessage(error));
-    }
-  }
-
-  const runAlign = () =>
-    align.mutate(undefined, {
-      onSuccess: (res) => {
-        if (res.warnings.length) toast.message(res.warnings[0]);
-      },
-      onError: (error) => void onAlignError(error),
-    });
-
-  const announce = (name: string, wrongFile: boolean) => {
+  /** Toast the outcome of one read; true when it produced a usable column. */
+  const announce = (name: string, entry: ComparisonEntry | undefined, wrongFile: boolean): boolean => {
     if (wrongFile) {
       toast.warning(t("upload.rejected", { name }));
-    } else {
-      toast.success(t("upload.added", { name }));
-      scheduleAutoAlign();
+      return false;
+    }
+    if (entry && isFailedEntry(entry)) {
+      toast.error(t("failed.toast", { name }));
+      return false;
+    }
+    toast.success(t("upload.added", { name }));
+    return true;
+  };
+
+  /**
+   * Read one already-filed document into a column. A lost answer (504 / a
+   * dropped connection) is not a failed read: look for this document's column
+   * before calling it lost. Either way the comparison is re-read, so the new
+   * column shows at once — never only after a reload.
+   */
+  const readDocument = async (
+    documentId: number,
+    base: { name: string; index: number; total: number },
+    read: () => Promise<ComparisonEntryResult>,
+    /** Which column proves the read landed (default: any column of this document). */
+    landed: (c: Comparison) => ComparisonEntry | undefined = (c) =>
+      c.entries.find((e) => e.document_id === documentId),
+  ): Promise<boolean> => {
+    setProgress({ ...base, step: 1, recovering: false });
+    try {
+      const result = await read();
+      return announce(base.name, result.entry, result.is_wrong_file);
+    } catch (error) {
+      if (!isLostResponse(error)) {
+        toast.error(errorMessage(error));
+        return false;
+      }
+      setProgress({ ...base, step: 1, recovering: true });
+      const found = await pollComparison(qc, comparison.id, (c) => !!landed(c), {
+        signal: alive.current,
+      });
+      const entry = found ? landed(found) : undefined;
+      if (entry) return announce(base.name, entry, entry.is_wrong_file);
+      toast.error(errorMessage(error));
+      return false;
+    } finally {
+      void qc.invalidateQueries({ queryKey: qk.comparisons.detail(comparison.id) });
     }
   };
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const list = Array.from(files);
+    let added = 0;
     for (const [index, file] of list.entries()) {
       const base = { name: file.name, index: index + 1, total: list.length };
       setProgress({ ...base, step: 0, recovering: false });
-      let documentId: number | null = null;
+      let documentId: number;
       try {
         const doc = await upload.mutateAsync({
           file,
@@ -347,39 +394,54 @@ function ComparisonBoard({
           category: "insurer_quotation",
         });
         documentId = doc.id;
-        setProgress({ ...base, step: 1, recovering: false });
-        const result = await addEntry.mutateAsync({ document_id: doc.id });
-        announce(file.name, result.is_wrong_file);
       } catch (error) {
-        // The read may have finished server-side after the edge gave up:
-        // look for this document's column before calling it lost.
-        if (documentId !== null && isLostResponse(error)) {
-          setProgress({ ...base, step: 1, recovering: true });
-          const id = documentId;
-          const found = await pollComparison(
-            qc,
-            comparison.id,
-            (c) => c.entries.some((e) => e.document_id === id),
-            { signal: alive.current },
-          );
-          const entry = found?.entries.find((e) => e.document_id === id);
-          if (entry) announce(file.name, entry.is_wrong_file);
-          else toast.error(errorMessage(error));
-        } else {
-          toast.error(errorMessage(error));
-        }
+        toast.error(errorMessage(error));
+        continue;
       }
+      const ok = await readDocument(documentId, base, () =>
+        addEntry.mutateAsync({ document_id: documentId }),
+      );
+      if (ok) added += 1;
     }
     setProgress(null);
     if (inputRef.current) inputRef.current.value = "";
+    if (added > 0) scheduleAutoAlign();
+  };
+
+  /** *Reintentar* on a failed column: its document, read again into it. */
+  const retry = async (entry: ComparisonEntry, label: string) => {
+    if (entry.document_id == null || busy) return;
+    const before = entry.source_extraction_id;
+    const ok = await readDocument(
+      entry.document_id,
+      { name: label, index: 1, total: 1 },
+      () => retryEntry.mutateAsync(entry.id),
+      // The same column, pointing at a NEW read attempt.
+      (c) => c.entries.find((e) => e.id === entry.id && e.source_extraction_id !== before),
+    );
+    setProgress(null);
+    if (ok) scheduleAutoAlign();
   };
 
   const uploadHint = !canCreate.allowed ? t("upload.noPermission") : null;
 
   const entries = comparison.entries;
-  const liveEntries = entries.filter((e) => !e.is_wrong_file);
   const rejectedEntries = entries.filter((e) => e.is_wrong_file);
+  const failedEntries = entries.filter((e) => !e.is_wrong_file && isFailedEntry(e));
+  const liveEntries = entries.filter((e) => !e.is_wrong_file && !isFailedEntry(e));
   const matrix = comparison.aligned_matrix;
+  const hasDimensions = !!matrix && (matrix.dimensions ?? []).length > 0;
+  // Columns the last alignment has not seen yet (read after it ran).
+  const alignedIds = new Set(
+    (matrix?.columns ?? []).map((c) => c.comparison_source_id).filter((id) => id != null),
+  );
+  const pendingColumns = hasDimensions
+    ? liveEntries.filter((e) =>
+        typeof e.aligned === "boolean"
+          ? !e.aligned
+          : e.comparison_source_id != null && !alignedIds.has(e.comparison_source_id),
+      ).length
+    : 0;
 
   // BLOCK-ON-PROVIDER-DOWN: a 502/503/504 on align means the comparison was NOT
   // aligned — surface a persistent, retryable banner instead of an empty grid.
@@ -389,6 +451,17 @@ function ComparisonBoard({
   const batched = matrix?.batched ?? false;
   // The AI's recommended offer (first-class field, mirrored inside the matrix).
   const recommendation = comparison.recommendation ?? matrix?.recommendation ?? null;
+
+  /** Why Realinear cannot run right now — always said, never a silent grey button. */
+  const alignBlocked = !canEdit.allowed
+    ? t("align.noPermission")
+    : aligning
+      ? t("align.running")
+      : busy
+        ? t("align.waitReading")
+        : liveEntries.length === 0
+          ? t("align.needColumns")
+          : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -444,42 +517,36 @@ function ComparisonBoard({
               </button>
             </DisabledHint>
 
-            <div className="flex items-center gap-2">
-              {batched ? (
-                <Badge variant="outline" className="gap-1 text-ink-3">
-                  <Layers className="h-3 w-3" />
-                  {t("align.batched")}
-                </Badge>
-              ) : null}
-              <DisabledHint
-                hint={
-                  !canEdit.allowed
-                    ? t("align.noPermission")
-                    : liveEntries.length === 0
-                      ? t("align.needColumns")
-                      : null
-                }
-              >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={
-                    !canEdit.allowed ||
-                    liveEntries.length === 0 ||
-                    align.isPending ||
-                    alignRecovering
-                  }
-                  onClick={runAlign}
-                >
-                  <Sparkles
-                    className={cn(
-                      "h-4 w-4",
-                      (align.isPending || alignRecovering) && "animate-pulse",
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-2">
+                {batched ? (
+                  <Badge variant="outline" className="gap-1 text-ink-3">
+                    <Layers className="h-3 w-3" />
+                    {t("align.batched")}
+                  </Badge>
+                ) : null}
+                <DisabledHint hint={alignBlocked}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={!!alignBlocked}
+                    onClick={runAlign}
+                  >
+                    {aligning ? (
+                      <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
                     )}
-                  />
-                  {t("align.action")}
-                </Button>
-              </DisabledHint>
+                    {aligning ? t("align.runningShort") : t("align.action")}
+                  </Button>
+                </DisabledHint>
+              </div>
+              {/* Visible, not only a tooltip: on a phone the reason must show. */}
+              {alignBlocked && !aligning && canEdit.allowed ? (
+                <span className="max-w-[260px] text-right text-caption text-ink-3">
+                  {alignBlocked}
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -505,15 +572,23 @@ function ComparisonBoard({
                   label: progress.recovering
                     ? t("upload.steps.checking")
                     : t("upload.steps.reading"),
-                  expectedSeconds: progress.recovering ? 30 : 25,
+                  expectedSeconds: progress.recovering ? 30 : 60,
                 },
                 { label: t("upload.steps.added") },
               ]}
             />
-          ) : alignRecovering ? (
-            <p role="status" className="mt-3 text-caption text-ink-3">
-              {t("align.recovering")}
-            </p>
+          ) : aligning ? (
+            <ReadingProgress
+              className="mt-3"
+              title={alignRecovering ? t("align.recovering") : t("align.running")}
+              hint={t("align.runningHint", { count: liveEntries.length })}
+              active={alignRecovering ? 1 : 0}
+              steps={[
+                { label: t("align.steps.standardizing"), expectedSeconds: 50 },
+                { label: t("align.steps.checking"), expectedSeconds: 60 },
+                { label: t("align.steps.done") },
+              ]}
+            />
           ) : null}
         </Card>
       </FadeUp>
@@ -528,11 +603,26 @@ function ComparisonBoard({
       ) : null}
 
       {/* ── AI recommendation ── */}
-      {recommendation ? (
+      {recommendation && liveEntries.length > 0 ? (
         <RecommendationCard
           recommendation={recommendation}
           liveEntries={liveEntries}
         />
+      ) : null}
+
+      {/* ── Failed reads (A2): visibly failed, with Reintentar ── */}
+      {failedEntries.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {failedEntries.map((entry) => (
+            <FailedEntryCard
+              key={entry.id}
+              entry={entry}
+              comparisonId={comparison.id}
+              busy={busy}
+              onRetry={retry}
+            />
+          ))}
+        </div>
       ) : null}
 
       {/* ── Rejected uploads ── */}
@@ -544,7 +634,7 @@ function ComparisonBoard({
         </div>
       ) : null}
 
-      {/* ── The grid ── */}
+      {/* ── The grid: every read column shows at once, aligned or not ── */}
       {liveEntries.length === 0 ? (
         <Card>
           <EmptyState
@@ -553,35 +643,163 @@ function ComparisonBoard({
             hint={t("empty.hint")}
           />
         </Card>
-      ) : !matrix || matrix.columns.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={<Sparkles />}
-            title={t("needAlign.title")}
-            hint={t("needAlign.hint")}
-            action={
-              <DisabledHint hint={!canEdit.allowed ? t("align.noPermission") : null}>
-                <Button
-                  size="sm"
-                  disabled={!canEdit.allowed || align.isPending}
-                  onClick={runAlign}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {t("align.action")}
-                </Button>
-              </DisabledHint>
-            }
-          />
-        </Card>
       ) : (
         <ComparisonGrid
           comparison={comparison}
           liveEntries={liveEntries}
-          matrix={matrix}
+          matrix={hasDimensions ? matrix : null}
           recommendation={recommendation}
+          alignNotice={
+            !hasDimensions || pendingColumns > 0 ? (
+              <AlignNotice
+                pendingColumns={pendingColumns}
+                aligning={aligning}
+                blocked={alignBlocked}
+                onAlign={runAlign}
+              />
+            ) : null
+          }
         />
       )}
     </div>
+  );
+}
+
+/** A read that failed or came back empty (A2) — never a normal-looking column. */
+function isFailedEntry(entry: ComparisonEntry): boolean {
+  return entry.status === "failed" || entry.status === "empty";
+}
+
+/**
+ * The columns are visible but not compared yet (no alignment, or columns read
+ * after the last one): say so inside the grid, with the action and its state.
+ */
+function AlignNotice({
+  pendingColumns,
+  aligning,
+  blocked,
+  onAlign,
+}: {
+  pendingColumns: number;
+  aligning: boolean;
+  blocked: string | null;
+  onAlign: () => void;
+}) {
+  const { t } = useTranslation("comparison");
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <div className="flex min-w-0 items-start gap-2">
+        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+        <div className="min-w-0">
+          <div className="text-body font-medium text-ink">
+            {aligning
+              ? t("align.running")
+              : pendingColumns > 0
+                ? t("needAlign.pendingTitle", { count: pendingColumns })
+                : t("needAlign.title")}
+          </div>
+          <p className="text-caption text-ink-3">
+            {aligning ? t("align.runningInline") : t("needAlign.hint")}
+          </p>
+        </div>
+      </div>
+      <DisabledHint hint={blocked}>
+        <Button size="sm" variant="secondary" disabled={!!blocked} onClick={onAlign}>
+          {aligning ? (
+            <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {aligning ? t("align.runningShort") : t("align.action")}
+        </Button>
+      </DisabledHint>
+    </div>
+  );
+}
+
+/** A failed column (A2): the honest reason, the source PDF, Reintentar and Quitar. */
+function FailedEntryCard({
+  entry,
+  comparisonId,
+  busy,
+  onRetry,
+}: {
+  entry: ComparisonEntry;
+  comparisonId: number;
+  busy: boolean;
+  onRetry: (entry: ComparisonEntry, label: string) => void;
+}) {
+  const { t } = useTranslation("comparison");
+  const { t: tc } = useTranslation("common");
+  const canCreate = useCan("Proposals", "Create");
+  const canEdit = useCan("Proposals", "Edit");
+  const remove = useDeleteEntry(comparisonId);
+
+  const code = entry.error_code ?? null;
+  const reason =
+    entry.error_message ||
+    (code && Object.prototype.hasOwnProperty.call(COMPARISON_AI_ERROR_LABEL, code)
+      ? enumLabel(t, COMPARISON_AI_ERROR_LABEL, code)
+      : entry.status === "empty"
+        ? t("failed.emptyReason")
+        : t("failed.reasonFallback"));
+  const label = entry.insurer_name || t("failed.unnamed");
+
+  const retryBlocked =
+    !canCreate.allowed
+      ? t("failed.noPermission")
+      : entry.document_id == null
+        ? t("failed.noDocument")
+        : busy
+          ? t("align.waitReading")
+          : null;
+
+  return (
+    <Card className="border-neg-line bg-neg-soft/30 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neg-soft text-neg-text">
+            <TriangleAlert className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-body font-medium text-ink">
+              {t("failed.title", { name: label })}
+            </div>
+            <p className="mt-0.5 text-caption text-ink-2">{reason}</p>
+            <SourceDocLink documentId={entry.document_id} />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <DisabledHint hint={retryBlocked}>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!!retryBlocked}
+              onClick={() => onRetry(entry, label)}
+            >
+              <RefreshCw className="h-4 w-4" />
+              {t("failed.retry")}
+            </Button>
+          </DisabledHint>
+          <DisabledHint hint={!canEdit.allowed ? t("remove.noPermission") : null}>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!canEdit.allowed || remove.isPending || busy}
+              onClick={() =>
+                remove.mutate(entry.id, {
+                  onSuccess: () => toast.success(t("remove.done")),
+                  onError: (error) => toast.error(apiError(error, tc("state.error"))),
+                })
+              }
+            >
+              <Trash2 className="h-4 w-4" />
+              {t("remove.action")}
+            </Button>
+          </DisabledHint>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -590,14 +808,17 @@ function ComparisonBoard({
 // =============================================================================
 
 /** The label the grid header shows for an entry — reused so the recommendation
- *  card names the exact same column. */
+ *  card names the exact same column: the insurer read from the cotización,
+ *  else "Propuesta" / "Cotización N". */
 function useColumnLabel() {
   const { t } = useTranslation("comparison");
   return React.useCallback(
     (entry: ComparisonEntry | undefined, index: number) =>
-      entry?.proposal_id != null
-        ? t("column.proposal")
-        : t("column.quotation", { n: index + 1 }),
+      entry?.insurer_name?.trim()
+        ? entry.insurer_name.trim()
+        : entry?.proposal_id != null
+          ? t("column.proposal")
+          : t("column.quotation", { n: index + 1 }),
     [t],
   );
 }
@@ -719,16 +940,78 @@ function AlignBlockedBanner({
 // Grid
 // =============================================================================
 
+// The sticky label column is OPAQUE on every row (review r2: at ~546 px the
+// tinted premium rows let the scrolled values show through the labels).
 const LABEL_CELL =
-  "sticky left-0 z-20 w-[220px] min-w-[220px] border-r border-line bg-bg-surface px-4 py-2.5 text-left text-caption font-medium text-ink-3";
-const COL_WIDTH = "min-w-[248px]";
+  "sticky left-0 z-20 w-[150px] min-w-[150px] border-r border-line bg-bg-surface px-3 py-2.5 text-left text-caption font-medium text-ink-3 sm:w-[220px] sm:min-w-[220px] sm:px-4";
+const COL_WIDTH = "min-w-[220px] sm:min-w-[248px]";
 
-/** Render a standardized dimension cell value for display. */
-function formatDimValue(value: string | number | null | undefined): string | null {
+/** Chilean number with only the decimals it needs: 15000 → "15.000", 57.03 → "57,03". */
+function chileanNumber(value: number): string {
+  return formatNumber(value, Number.isInteger(value) ? 0 : 2);
+}
+
+/** A money/rate cell of the premium rows: "UF 1.181,28", "—" when absent (never "UF —"). */
+function ufCell(value: DecimalString | number | null | undefined): string {
+  const n = num(value);
+  return n === null ? "—" : `UF ${formatNumber(n, 2)}`;
+}
+
+function pctCell(value: DecimalString | number | null | undefined): string {
+  const n = num(value);
+  return n === null ? "—" : `${chileanNumber(n)} %`;
+}
+
+function permilleCell(value: DecimalString | number | null | undefined): string {
+  const n = num(value);
+  return n === null ? "—" : `${formatNumber(n, Number.isInteger(n) ? 0 : 3)} ‰`;
+}
+
+/**
+ * Render a standardized dimension value: numbers in Chilean style with their
+ * unit ("UF 15.000", "25 %"); a bare-number string the same way; "UF 20000"
+ * inside a phrase gets its thousands separator. Free prose stays verbatim.
+ */
+function formatDimValue(
+  value: string | number | null | undefined,
+  unit: string | null | undefined,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string | null {
   if (value === null || value === undefined) return null;
-  if (typeof value === "number") return num(value) != null ? String(value) : null;
+  const withUnit = (n: number): string => {
+    switch ((unit ?? "").toLowerCase()) {
+      case "uf":
+        return `UF ${chileanNumber(n)}`;
+      case "pct":
+      case "%":
+        return `${chileanNumber(n)} %`;
+      case "permille":
+      case "‰":
+        return `${chileanNumber(n)} ‰`;
+      case "days":
+        return t("grid.units.days", { count: n });
+      case "hours":
+        return t("grid.units.hours", { count: n });
+      case "clp":
+        return `$ ${formatNumber(n, 0)}`;
+      case "usd":
+        return `US$ ${chileanNumber(n)}`;
+      default:
+        return chileanNumber(n);
+    }
+  };
+  if (typeof value === "number") return num(value) != null ? withUnit(value) : null;
   const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  if (!trimmed) return null;
+  // A bare number sent as text ("15000", "57.03").
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return withUnit(Number(trimmed));
+  // "25%" / "25 %".
+  const pctMatch = /^(-?\d+(?:[.,]\d+)?)\s*%$/.exec(trimmed);
+  if (pctMatch) return `${chileanNumber(Number(pctMatch[1].replace(",", ".")))} %`;
+  // "UF 20000" / "UF20000.5" anywhere in a phrase → "UF 20.000".
+  return trimmed.replace(/\bUF\s?(\d{4,})(\.\d{1,2})?\b/gi, (_m, int: string, dec?: string) =>
+    `UF ${chileanNumber(Number(`${int}${dec ?? ""}`))}`,
+  );
 }
 
 function ComparisonGrid({
@@ -736,11 +1019,15 @@ function ComparisonGrid({
   liveEntries,
   matrix,
   recommendation,
+  alignNotice,
 }: {
   comparison: Comparison;
   liveEntries: ComparisonEntry[];
-  matrix: NonNullable<Comparison["aligned_matrix"]>;
+  /** Null until an alignment produced dimensions — the columns still show. */
+  matrix: Comparison["aligned_matrix"];
   recommendation: ComparisonRecommendation | null;
+  /** "Listo para alinear" / "N columnas sin alinear" — shown inside the grid card. */
+  alignNotice?: React.ReactNode;
 }) {
   const { t } = useTranslation("comparison");
 
@@ -755,7 +1042,7 @@ function ComparisonGrid({
 
   // The standardized table: dimensions split into COMMON (every offer carries it)
   // and EXTRAS (scope=extra, or unclassified) sections.
-  const dimensions = matrix.dimensions ?? [];
+  const dimensions = matrix?.dimensions ?? [];
   const commonDims = dimensions.filter((d) => d.scope === "common");
   const extraDims = dimensions.filter((d) => d.scope !== "common");
 
@@ -782,6 +1069,7 @@ function ComparisonGrid({
   return (
     <FadeUp delay={0.05}>
       <Card className="overflow-hidden">
+        {alignNotice ? <div className="border-b border-line">{alignNotice}</div> : null}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-body">
             <thead>
@@ -819,51 +1107,53 @@ function ComparisonGrid({
                   <PremiumRow
                     label={t("grid.premium.total")}
                     columns={columns}
-                    render={(p) => uf(p.total_premium_uf)}
+                    render={(p) => ufCell(p.total_premium_uf)}
                     lowestIndex={lowestTotalIndex}
                     lowestLabel={t("grid.lowest")}
                   />
                   <PremiumRow
                     label={t("grid.premium.net")}
                     columns={columns}
-                    render={(p) => uf(p.net_premium_uf)}
+                    render={(p) => ufCell(p.net_premium_uf)}
                   />
                   <PremiumRow
                     label={t("grid.premium.comprehensiveRate")}
                     columns={columns}
-                    render={(p) => permille(p.comprehensive_rate_permille)}
+                    render={(p) => permilleCell(p.comprehensive_rate_permille)}
                   />
                   <PremiumRow
                     label={t("grid.premium.commission")}
                     columns={columns}
-                    render={(p) => pct(p.commission_pct)}
+                    render={(p) => pctCell(p.commission_pct)}
                   />
                 </tbody>
               </>
             ) : null}
 
-            {/* ── Common dimensions ── */}
-            <SectionRow
-              label={t("grid.sections.common")}
-              span={columns.length + 1}
-            />
-            <DimensionBlock
-              dimensions={commonDims}
-              columns={columns}
-              emptyLabel={t("grid.noCommon")}
-            />
-
-            {/* ── Extra dimensions ── */}
-            <SectionRow
-              label={t("grid.sections.extras")}
-              span={columns.length + 1}
-              hint={extraDims.length > 0 ? t("grid.extrasHint") : undefined}
-            />
-            <DimensionBlock
-              dimensions={extraDims}
-              columns={columns}
-              emptyLabel={t("grid.noExtras")}
-            />
+            {/* ── The standardized dimensions, once an alignment produced them ── */}
+            {matrix ? (
+              <>
+                <SectionRow
+                  label={t("grid.sections.common")}
+                  span={columns.length + 1}
+                />
+                <DimensionBlock
+                  dimensions={commonDims}
+                  columns={columns}
+                  emptyLabel={t("grid.noCommon")}
+                />
+                <SectionRow
+                  label={t("grid.sections.extras")}
+                  span={columns.length + 1}
+                  hint={extraDims.length > 0 ? t("grid.extrasHint") : undefined}
+                />
+                <DimensionBlock
+                  dimensions={extraDims}
+                  columns={columns}
+                  emptyLabel={t("grid.noExtras")}
+                />
+              </>
+            ) : null}
           </table>
         </div>
       </Card>
@@ -893,7 +1183,7 @@ function PremiumRow({
 }) {
   return (
     <tr className="border-t border-line bg-brand-soft/25">
-      <td className={cn(LABEL_CELL, "bg-brand-soft/25 font-medium text-ink")}>
+      <td className={cn(LABEL_CELL, "font-medium text-ink")}>
         {label}
       </td>
       {columns.map((c, i) => {
@@ -975,7 +1265,7 @@ function DimensionBlock({
                     key={c.entry.id}
                     className="border-l border-line px-4 py-2.5 align-top text-caption"
                   >
-                    <DimensionCell cell={cell} />
+                    <DimensionCell cell={cell} exclusion={dim.group === "exclusion"} />
                   </td>
                 );
               })}
@@ -987,7 +1277,17 @@ function DimensionBlock({
   );
 }
 
-function DimensionCell({ cell }: { cell: ComparisonDimensionCell | undefined }) {
+function DimensionCell({
+  cell,
+  exclusion,
+}: {
+  cell: ComparisonDimensionCell | undefined;
+  /**
+   * An EXCLUSION row (A4): `present=true` means the offer INCLUDES the
+   * exclusion — it applies. Read the same way in every column.
+   */
+  exclusion: boolean;
+}) {
   const { t } = useTranslation("comparison");
 
   if (!cell) {
@@ -999,38 +1299,64 @@ function DimensionCell({ cell }: { cell: ComparisonDimensionCell | undefined }) 
     );
   }
 
-  const value = formatDimValue(cell.value);
+  const value = formatDimValue(cell.value, cell.unit, t);
+  const verbatim = cell.verbatim && cell.verbatim !== value ? cell.verbatim : null;
+  const verbatimLink = verbatim ? (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-help truncate text-ink-3 underline decoration-dotted underline-offset-2">
+            {t("grid.verbatim")}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[320px] text-left">
+          {verbatim}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : null;
+
+  if (exclusion) {
+    if (cell.present === false) {
+      return (
+        <span className="flex items-start gap-1.5 text-pos-text">
+          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-ink">{t("grid.exclusionNotApplied")}</span>
+            {verbatimLink}
+          </span>
+        </span>
+      );
+    }
+    return (
+      <span className="flex items-start gap-1.5 text-warn-text">
+        <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-ink">{value ?? t("grid.exclusionApplies")}</span>
+          {verbatimLink}
+        </span>
+      </span>
+    );
+  }
 
   if (cell.present === false) {
     return (
       <span className="flex items-start gap-1.5 text-neg-text">
         <Minus className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <span>{value ?? t("grid.excluded")}</span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span>{value ?? t("grid.notIncluded")}</span>
+          {verbatimLink}
+        </span>
       </span>
     );
   }
-
-  const verbatim = cell.verbatim && cell.verbatim !== value ? cell.verbatim : null;
 
   return (
     <span className="flex items-start gap-1.5 text-pos-text">
       <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-ink">{value ?? t("grid.included")}</span>
-        {verbatim ? (
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help truncate text-ink-3 underline decoration-dotted underline-offset-2">
-                  {t("grid.verbatim")}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[320px] text-left">
-                {verbatim}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
+        {verbatimLink}
       </span>
     </span>
   );
@@ -1087,8 +1413,15 @@ function ColumnHeader({
   const remove = useDeleteEntry(comparison.id);
 
   const [promoteOpen, setPromoteOpen] = React.useState(false);
+  const columnLabel = useColumnLabel();
 
   const promoted = entry.proposal_id != null;
+  const hasInsurerName = !!entry.insurer_name?.trim();
+  // A hint, not a block: what the read did not find (only labelled keys).
+  const missingCore = (entry.missing_core ?? [])
+    .map((key) => keyFor(COMPARISON_MISSING_CORE_LABEL, key))
+    .filter((key): key is NonNullable<typeof key> => !!key)
+    .map((key) => t(key));
 
   const toggleRecommend = () =>
     patch.mutate(
@@ -1112,9 +1445,20 @@ function ColumnHeader({
     <div className="flex flex-col gap-2.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-h3 text-ink">
-            {promoted ? t("column.proposal") : t("column.quotation", { n: index + 1 })}
+          <div className="truncate text-h3 text-ink" title={columnLabel(entry, index)}>
+            {columnLabel(entry, index)}
           </div>
+          {hasInsurerName ? (
+            <div className="text-caption text-ink-3">
+              {t("column.quotation", { n: index + 1 })}
+            </div>
+          ) : null}
+          {missingCore.length > 0 ? (
+            <div className="mt-0.5 flex items-start gap-1 text-caption text-warn-text">
+              <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>{t("missingCore.hint", { fields: missingCore.join(", ") })}</span>
+            </div>
+          ) : null}
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {recommendedByAi ? (
               <Badge variant="brand" dot className="gap-1">
@@ -1196,17 +1540,30 @@ function ColumnHeader({
 }
 
 // =============================================================================
-// Promote dialog — supply the insurer's identity
+// Promote dialog — pick the insurer (review r2 C3 / D3)
 // =============================================================================
 
+/** The server's own Spanish explanation of a structured 4xx (`reason`, else `message`). */
+function serverReason(error: unknown): string | null {
+  const detail = (
+    error as { response?: { data?: { detail?: unknown } } } | undefined
+  )?.response?.data?.detail;
+  if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+    const { reason, message } = detail as { reason?: unknown; message?: unknown };
+    if (typeof reason === "string" && reason.trim()) return reason;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return null;
+}
+
 /**
- * A cotización PDF carries only the INSURED's RUT, so the extractor usually
- * cannot fill the insurer's RUT/CMF and `promote` 422s. This confirm dialog lets
- * the reviewer supply the insurer's identity (RUT and/or CMF code) before minting
- * the proposal. Both fields are optional here — the server decides whether the
- * parsed extraction already resolved an insurer — but when it did not, the 422 is
- * surfaced inline and the dialog stays open so the reviewer can supply it (no
- * dead-end). A `money_inconsistent` refusal is surfaced the same way.
+ * Promote a column into a proposal. The insurer is CHOSEN, like in Subir
+ * póliza: the server's `insurer_suggestions` for the name read come first
+ * (the resolved `insurer_id`, else the best match, preselected), then the
+ * catalogue. Typing the RUT / CMF code is only the "¿No está en la lista?"
+ * fallback. The account's colocación is created on demand server-side (A5),
+ * and every refusal shows the server's own Spanish reason inline — the dialog
+ * stays open, never a dead end.
  */
 function PromoteDialog({
   comparisonId,
@@ -1220,10 +1577,21 @@ function PromoteDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation("comparison");
+  const { t: tp } = useTranslation("policies");
   const { t: tc } = useTranslation("common");
 
   const promote = usePromoteEntry(comparisonId);
 
+  const suggestions = React.useMemo(
+    () => (entry.insurer_suggestions ?? []).map((s) => ({ id: s.id, name: s.name })),
+    [entry.insurer_suggestions],
+  );
+  const catalog = useInsurerCatalog(suggestions);
+  const preselected =
+    entry.insurer_id != null ? String(entry.insurer_id) : suggestions[0] ? String(suggestions[0].id) : "";
+
+  const [selected, setSelected] = React.useState(preselected);
+  const [manual, setManual] = React.useState(false);
   const [rut, setRut] = React.useState("");
   const [cmf, setCmf] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -1231,35 +1599,50 @@ function PromoteDialog({
   // Reset the form each time the dialog opens for a fresh attempt.
   React.useEffect(() => {
     if (open) {
+      setSelected(preselected);
+      setManual(false);
       setRut("");
       setCmf("");
       setError(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // No catalogue to pick from (no permission, empty): typing is the only path.
+  const typing = manual || !!catalog.blocked;
+  const submitBlocked = typing
+    ? rut.trim() || cmf.trim()
+      ? null
+      : t("promote.dialog.typeFirst")
+    : selected
+      ? null
+      : tp("upload.insurer.pickFirst");
+
   const submit = () => {
+    if (submitBlocked) return;
     setError(null);
-    const insurer_rut = rut.trim() || null;
-    const insurer_cmf_code = cmf.trim() || null;
+    const payload = typing
+      ? { insurer_rut: rut.trim() || null, insurer_cmf_code: cmf.trim() || null }
+      : { insurer_id: Number(selected) };
     promote.mutate(
-      { entryId: entry.id, insurer_rut, insurer_cmf_code },
+      { entryId: entry.id, ...payload },
       {
-        onSuccess: () => {
-          toast.success(t("promote.done"));
+        onSuccess: (result) => {
+          toast.success(
+            result.placement_created ? t("promote.doneWithPlacement") : t("promote.done"),
+          );
+          result.warnings?.forEach((warning) => toast.message(warning));
           onOpenChange(false);
         },
         onError: (err) => {
+          const reason = serverReason(err);
           const code = errorCode(err);
-          if (
-            code === "insurer_unresolved" ||
-            code === "insurer_identity_incomplete"
-          ) {
+          if (reason) setError(reason);
+          else if (code === "insurer_unresolved" || code === "insurer_identity_incomplete")
             setError(t("promote.dialog.errors.insurerUnresolved"));
-          } else if (code === "money_inconsistent") {
-            setError(t("promote.dialog.errors.moneyInconsistent"));
-          } else {
-            setError(apiError(err, tc("state.error")));
-          }
+          else if (code === "insurer_not_found") setError(tp("upload.insurer.notFound"));
+          else if (code === "money_inconsistent") setError(t("promote.dialog.errors.moneyInconsistent"));
+          else setError(apiError(err, tc("state.error")));
         },
       },
     );
@@ -1280,37 +1663,71 @@ function PromoteDialog({
             if (!promote.isPending) submit();
           }}
         >
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="promote-insurer-rut">
-              {t("promote.dialog.rutLabel")}
-            </Label>
-            <Input
-              id="promote-insurer-rut"
-              value={rut}
-              onChange={(e) => setRut(e.target.value)}
-              placeholder={t("promote.dialog.rutPlaceholder")}
-              autoComplete="off"
-            />
-          </div>
+          {(entry.insurer_read_name ?? entry.insurer_name)?.trim() ? (
+            <div className="flex flex-col gap-1 rounded-lg border border-line bg-bone p-3">
+              <div className="text-caption text-ink-3">{t("promote.dialog.readName")}</div>
+              <div className="text-body font-medium text-ink">
+                {entry.insurer_read_name ?? entry.insurer_name}
+              </div>
+            </div>
+          ) : null}
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="promote-insurer-cmf">
-              {t("promote.dialog.cmfLabel")}
-            </Label>
-            <Input
-              id="promote-insurer-cmf"
-              value={cmf}
-              onChange={(e) => setCmf(e.target.value)}
-              placeholder={t("promote.dialog.cmfPlaceholder")}
-              autoComplete="off"
-            />
-            <span className="text-caption text-ink-3">
-              {t("promote.dialog.helper")}
-            </span>
-          </div>
+          {!catalog.blocked ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="promote-insurer">{t("promote.dialog.insurerLabel")}</Label>
+              <InsurerCatalogSelect
+                id="promote-insurer"
+                catalog={catalog}
+                value={manual ? "" : selected}
+                onChange={(value) => {
+                  setSelected(value);
+                  setManual(false);
+                }}
+              />
+              <button
+                type="button"
+                className="self-start text-caption font-medium text-brand underline-offset-4 hover:text-brand-deep hover:underline"
+                aria-expanded={manual}
+                onClick={() => setManual((v) => !v)}
+              >
+                {manual ? t("promote.dialog.backToList") : t("promote.dialog.notInList")}
+              </button>
+            </div>
+          ) : (
+            <p className="text-caption text-ink-3">{catalog.blocked}</p>
+          )}
+
+          {typing ? (
+            <div className="flex flex-col gap-3 rounded-lg border border-line p-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="promote-insurer-rut">{t("promote.dialog.rutLabel")}</Label>
+                <Input
+                  id="promote-insurer-rut"
+                  value={rut}
+                  onChange={(e) => setRut(e.target.value)}
+                  placeholder={t("promote.dialog.rutPlaceholder")}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="promote-insurer-cmf">{t("promote.dialog.cmfLabel")}</Label>
+                <Input
+                  id="promote-insurer-cmf"
+                  value={cmf}
+                  onChange={(e) => setCmf(e.target.value)}
+                  placeholder={t("promote.dialog.cmfPlaceholder")}
+                  autoComplete="off"
+                />
+                <span className="text-caption text-ink-3">{t("promote.dialog.helper")}</span>
+              </div>
+            </div>
+          ) : null}
 
           {error ? (
-            <div className="flex items-start gap-2 rounded-sm border border-neg-line bg-neg-soft/50 px-3 py-2 text-caption text-neg-text">
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-sm border border-neg-line bg-neg-soft/50 px-3 py-2 text-caption text-neg-text"
+            >
               <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>{error}</span>
             </div>
@@ -1322,12 +1739,14 @@ function PromoteDialog({
                 {tc("actions.cancel")}
               </Button>
             </DialogClose>
-            <Button type="submit" size="sm" disabled={promote.isPending}>
-              <Sparkles
-                className={cn("h-4 w-4", promote.isPending && "animate-pulse")}
-              />
-              {t("promote.dialog.confirm")}
-            </Button>
+            <DisabledHint hint={submitBlocked}>
+              <Button type="submit" size="sm" disabled={promote.isPending || !!submitBlocked}>
+                <Sparkles
+                  className={cn("h-4 w-4", promote.isPending && "animate-pulse")}
+                />
+                {t("promote.dialog.confirm")}
+              </Button>
+            </DisabledHint>
           </DialogFooter>
         </form>
       </DialogContent>

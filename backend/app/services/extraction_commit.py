@@ -1957,8 +1957,19 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
                 )
             except ValueError as exc:
                 raise CommitError(
-                    f"The issuing insurer could not be identified: {exc} — identity "
-                    "is matched by rut/cmf_code, never by name"
+                    {
+                        "code": "insurer_invalid",
+                        "reason": (
+                            "No pudimos identificar la compañía por el RUT o el código CMF "
+                            "que trae la póliza. Elige la compañía que la emitió."
+                        ),
+                        "field": "insurer",
+                        "read_name": _read_insurer_name(insurer_ref),
+                        "suggestions": insurer_name_suggestions(
+                            db, ctx.broker_id, _read_insurer_name(insurer_ref)
+                        ),
+                        "extraction_id": ctx.extraction.id,
+                    }
                 ) from exc
             if ctx.policy_insurer_id is not None and ctx.policy_insurer_id != insurer.id:
                 ctx.warnings.append(
@@ -2012,12 +2023,21 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
                     }
                 )
             ctx.warnings.append(
-                "Insurer resolved from the account's accepted proposal "
-                "(the policy states it only by name)."
+                "Compañía tomada de la cotización aceptada de la cuenta (la póliza "
+                "la nombra solo por su nombre)."
             )
         number = (payload.policy_number or "").strip()
         if not number:
-            raise CommitError("The payload has no policy_number — a policy cannot be created without one")
+            raise CommitError(
+                {
+                    "code": "policy_number_missing",
+                    "reason": (
+                        "No encontramos el número de póliza en el documento: sin él no se "
+                        "puede registrar la póliza."
+                    ),
+                    "field": "policy_number",
+                }
+            )
         from app.models.enums import PolicyOrigin
 
         policy = Policy(
@@ -2112,7 +2132,14 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
         if isinstance(exc, IntegrityError):
             db.rollback()
             raise CommitError(
-                f"Policy number '{payload.policy_number}' already exists for this broker"
+                {
+                    "code": "policy_number_taken",
+                    "reason": (
+                        f"Ya existe una póliza con el n° {payload.policy_number} en esta "
+                        "corredora."
+                    ),
+                    "field": "policy_number",
+                }
             ) from exc
         raise
 
@@ -2187,8 +2214,8 @@ def _commit_policy(ctx: _Ctx) -> CommitResult:
         plan_committed = _commit_policy_installments(ctx, policy, case)
         if not plan_committed:
             ctx.warnings.append(
-                "The policy's payment schedule was not committed — confirm the "
-                "payment plan document (09) to create the collection ledger"
+                "El plan de pago de la póliza no se registró: cárgalo desde la póliza "
+                "(Cargar plan de pago) o sube el documento del plan de pago."
             )
 
     if case.policy_id is None:
@@ -2384,10 +2411,14 @@ def _commit_policy_installments(ctx: _Ctx, policy: Policy, case: CaseFile) -> bo
         )
     policy.payment_method = plan.payment_mode
     db.flush()
-    # Cuotas already past due raise their alerts now (review v12 #5d).
+    # Cuotas already past due raise their alerts now (review v12 #5d) — unless
+    # the policy was loaded late: those cuotas are PENDING REVIEW until the
+    # broker says whether they were paid (review r2, D1; no alert, no KPI).
     from app.services.collection import ledger as _ledger  # noqa: PLC0415 - heavy import
+    from app.services.collection import past_review as _past  # noqa: PLC0415
     from app.services.collection.clock import business_today as _today  # noqa: PLC0415
 
+    _past.mark_if_past(db, plan, today=_today(), user=getattr(ctx, "user", None))
     _ledger.sync_plan_installments(db, plan, today=_today())
     ctx.warnings.append(
         f"Plan de pago registrado desde la póliza ({len(rows)} cuota(s))."

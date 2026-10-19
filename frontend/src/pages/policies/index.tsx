@@ -31,6 +31,7 @@ import {
   Upload,
   User,
   Wallet,
+  X,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
@@ -244,6 +245,8 @@ export default function PoliciesListPage() {
   const [collectionParam] = useUrlParam("collection");
   const [missingParam] = useUrlParam("missing");
   const [mineParam] = useUrlParam("mine");
+  // Review r2 B4/C7: the copilot's "Pólizas que vencen en 30 días" links here.
+  const [expiringParam] = useUrlParam("expiring");
   const [pageParam] = useUrlParam("page");
   const setParams = useSetUrlParams();
 
@@ -253,6 +256,7 @@ export default function PoliciesListPage() {
   const subtypeId = positiveInt(subtypeParam);
   const insurerId = positiveInt(insurerParam);
   const mine = mineParam === "1";
+  const expiring = positiveInt(expiringParam);
   const page = Math.max(0, Number(pageParam) || 0);
 
   const setFilter = (updates: Record<string, string | null>) =>
@@ -286,7 +290,8 @@ export default function PoliciesListPage() {
   );
   const selectedLine = lines.find((line) => line.code === lineParam) ?? null;
   const insurers = useInsurers({ limit: 200 }, canInsurers.allowed);
-  const summary = usePoliciesSummary(canView.allowed);
+  // B5: with "Mías" on, the cards count the caller's policies — like the list.
+  const summary = usePoliciesSummary(canView.allowed, mine ? { owner: "me" } : {});
 
   const list = usePolicies(
     {
@@ -298,6 +303,7 @@ export default function PoliciesListPage() {
     collection: collection ? [collection] : undefined,
     missing: missing ? [missing] : undefined,
     owner: mine ? "me" : undefined,
+    expiring_within_days: expiring,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
     },
@@ -309,7 +315,7 @@ export default function PoliciesListPage() {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const activeFilters =
-    [selectedLine, subtypeId, insurerId, status, collection, missing].filter(Boolean).length +
+    [selectedLine, subtypeId, insurerId, status, collection, missing, expiring].filter(Boolean).length +
     (mine ? 1 : 0);
   const anyFilter = activeFilters > 0 || !!qParam;
 
@@ -324,6 +330,7 @@ export default function PoliciesListPage() {
       collection: null,
       missing: null,
       mine: null,
+      expiring: null,
       page: null,
     });
   };
@@ -400,11 +407,16 @@ export default function PoliciesListPage() {
   // (they used to stack — `?collection=no_plan&missing=source_document` → 0
   // rows under cards that said 2, review v12 #10). Clicking the active card
   // clears it. The dropdowns below still combine freely.
-  const toggle = (key: "status" | "collection" | "missing", value: string, current: string | null) =>
+  const toggle = (
+    key: "status" | "collection" | "missing" | "expiring",
+    value: string,
+    current: string | null,
+  ) =>
     setFilter({
       status: null,
       collection: null,
       missing: null,
+      expiring: null,
       [key]: current === value ? null : value,
     });
 
@@ -517,12 +529,14 @@ export default function PoliciesListPage() {
             active={missing === "source_document"}
             onClick={() => toggle("missing", "source_document", missing)}
           />
-          {/* No list filter matches "vence en 90 días" — an honest, inert tile. */}
+          {/* B4: the list filters by expiry (`expiring_within_days`). */}
           <KpiTile
             label={t("kpi.expiring")}
             value={kpi(s?.expiring_90)}
             hint={t("kpi.expiringHint")}
             icon={<CalendarClock />}
+            active={expiring === 90}
+            onClick={() => toggle("expiring", "90", expiring ? String(expiring) : null)}
           />
         </Stagger>
       ) : null}
@@ -557,6 +571,22 @@ export default function PoliciesListPage() {
               {t("list.resultCount", { count: total })}
             </span>
           </div>
+
+          {/* B4/C7: an expiry window (from the copilot or the 90-day card). */}
+          {expiring ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="accent-soft"
+                size="sm"
+                aria-pressed
+                onClick={() => setFilter({ expiring: null })}
+              >
+                <CalendarClock className="h-4 w-4" />
+                {t("filters.expiringWithin", { count: expiring })}
+                <X className="h-3.5 w-3.5" aria-label={t("filters.removeExpiring")} />
+              </Button>
+            </div>
+          ) : null}
 
           <div
             className={cn(

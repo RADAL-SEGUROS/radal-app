@@ -170,6 +170,8 @@ export function AgentSidebar({
       onSuccess: () => {
         if (session.id === activeThreadId) navigate("/agent");
         toast(t("agent.sessions.archivedToast"), {
+          // Review r2 C7: long enough to reach Deshacer (the default ~4 s was missed).
+          duration: 8000,
           action: {
             label: t("agent.sessions.undo"),
             onClick: () => restore(session, null),

@@ -114,6 +114,8 @@ export interface PolicyCollectionSummary {
   level_reason: string | null;
   installments_count: number;
   paid_count: number;
+  /** Review r2 D1: past cuotas awaiting the paid / unpaid answer. */
+  past_installments_pending?: PastInstallmentsSummary | null;
 }
 
 export interface PolicyOperability {
@@ -167,6 +169,24 @@ export interface PolicyRow extends Policy {
   missing: string[];
 }
 
+/**
+ * Review r2 B2 / D1: cuotas that were ALREADY past due (Chile date) when the
+ * plan was created from an uploaded / manual policy. They raise no alerts and
+ * count in no overdue KPI until the broker says whether they were paid.
+ */
+export interface PastInstallmentsSummary {
+  plan_id: number;
+  count: number;
+  total_uf: DecimalLike | null;
+  first_due: string | null;
+  last_due: string | null;
+}
+
+type DecimalLike = string | number;
+
+/** `POST /collections/plans/{plan_id}/past-installments` body. */
+export type PastInstallmentsDecision = "paid" | "unpaid";
+
 /** `GET /policies/{id}` — the ficha: row + parties, operability, journey. */
 export interface PolicyDetail extends PolicyRow {
   parties: PolicyParty[];
@@ -174,6 +194,38 @@ export interface PolicyDetail extends PolicyRow {
   journey: PolicyJourney | null;
   /** Non-blocking advice from the last write (e.g. possible duplicate). */
   warnings: string[];
+  /**
+   * B2: the past cuotas still waiting for the broker's decision. Typed
+   * leniently (the summary, a bare count or a flag) — `pastInstallmentsPending`
+   * normalises it.
+   */
+  past_installments_pending?: PastInstallmentsSummary | number | boolean | null;
+}
+
+/** The pending past cuotas of a policy, normalised; null when nothing waits. */
+export function pastInstallmentsPending(policy: PolicyDetail): {
+  planId: number | null;
+  count: number | null;
+  totalUf: DecimalLike | null;
+  firstDue: string | null;
+  lastDue: string | null;
+} | null {
+  const raw =
+    policy.past_installments_pending ?? policy.collection_summary?.past_installments_pending ?? null;
+  if (raw == null || raw === false || raw === 0) return null;
+  const fallbackPlan = policy.collection_summary?.plan_id ?? null;
+  if (typeof raw === "object") {
+    if (!raw.count) return null;
+    return {
+      planId: raw.plan_id ?? fallbackPlan,
+      count: raw.count,
+      totalUf: raw.total_uf ?? null,
+      firstDue: raw.first_due ?? null,
+      lastDue: raw.last_due ?? null,
+    };
+  }
+  const count = typeof raw === "number" ? raw : null;
+  return { planId: fallbackPlan, count, totalUf: null, firstDue: null, lastDue: null };
 }
 
 /** `GET /policies/summary` with the v12 cards. */
@@ -245,6 +297,21 @@ export interface PolicyUploadRequestV12 extends PolicyUploadRequest {
  */
 export interface PolicyUploadResponseV12 extends PolicyUploadResponse {
   technical_read?: { status: "pending" | TechnicalReadStatus } | null;
+  /** B2: the plan was created with cuotas already past due — ask the broker. */
+  past_installments?: PastInstallmentsSummary | null;
+}
+
+/**
+ * B1 / D2: the 409 body when the uploaded policy already exists (same broker,
+ * number and insurer). Nothing was written: no plan, no notifications, no
+ * technical read, and this request's orphan document was removed.
+ */
+export interface PolicyDuplicate {
+  code: "policy_duplicate";
+  reason?: string;
+  policy_id: number;
+  policy_number?: string | null;
+  insurer_name?: string | null;
 }
 
 /** The 422 body when the insured RUT read from the PDF is not in the portfolio. */
@@ -312,8 +379,15 @@ export interface PolicyListParams extends ScopeParams {
   missing?: PolicyMissingKey[];
   /** "Mías": policies whose account folder the caller owns. */
   owner?: "me";
+  /** Review r2 B4: active policies whose end date falls within N days. */
+  expiring_within_days?: number;
   limit?: number;
   offset?: number;
+}
+
+/** `GET /policies/summary` params: the scope, plus B5's "Mías" so cards match the list. */
+export interface PolicySummaryParams extends SummaryParams {
+  owner?: "me";
 }
 
 export function usePolicies(params: PolicyListParams = {}, enabled = true) {
@@ -338,7 +412,7 @@ export function usePoliciesSummary(
    * `group_by` for the bucket shape the charts consume. The params are part of
    * the cache key, so two scopes never share a cached answer.
    */
-  params: SummaryParams = {},
+  params: PolicySummaryParams = {},
 ) {
   return useQuery({
     queryKey: qk.policies.summary(params),
@@ -491,6 +565,49 @@ export function useUploadPolicy() {
       void qc.invalidateQueries({ queryKey: qk.accountGroups.all });
       void qc.invalidateQueries({ queryKey: qk.navigator.all });
       void qc.invalidateQueries({ queryKey: qk.documents.all });
+    },
+  });
+}
+
+/** The answer of `POST /collections/plans/{id}/past-installments` (updated counts). */
+export interface PastInstallmentsDecisionResult {
+  plan_id: number;
+  decision: PastInstallmentsDecision;
+  /** The same answer was already recorded: nothing was written (idempotent). */
+  already_decided?: boolean;
+  payments_registered?: number;
+  past_installments_pending?: PastInstallmentsSummary | null;
+  /** Live state -> number of cuotas of the plan after the decision. */
+  counts?: Record<string, number>;
+}
+
+/**
+ * B2: the broker's answer about the cuotas already past due when the plan was
+ * created — `paid` registers a full payment per cuota through the ledger
+ * (`paid_on = due_date`), `unpaid` lets the alerts resume. Idempotent.
+ */
+export function useDecidePastInstallments(policyId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      planId,
+      decision,
+    }: {
+      planId: number;
+      decision: PastInstallmentsDecision;
+    }) => {
+      const { data } = await api.post<PastInstallmentsDecisionResult>(
+        `/collections/plans/${planId}/past-installments`,
+        { decision },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.policies.detail(policyId) });
+      void qc.invalidateQueries({ queryKey: qk.policies.lists() });
+      void qc.invalidateQueries({ queryKey: qk.policies.summary() });
+      void qc.invalidateQueries({ queryKey: qk.collections.all });
+      void qc.invalidateQueries({ queryKey: qk.notifications.all });
     },
   });
 }

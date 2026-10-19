@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -189,6 +189,34 @@ class CollectionPlanUpdate(BaseModel):
     notices_pause_reason: str | None = Field(default=None, max_length=2000)
 
 
+class PastInstallmentsRead(BaseModel):
+    """Review r2 (D1): the plan's past cuotas awaiting the broker's paid/unpaid
+    decision (``POST /collections/plans/{plan_id}/past-installments``)."""
+
+    plan_id: int
+    count: int
+    total_uf: Decimal
+    first_due: date
+    last_due: date
+
+
+class PastInstallmentsDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Literal["paid", "unpaid"]
+
+
+class PastInstallmentsDecisionRead(BaseModel):
+    plan_id: int
+    decision: Literal["paid", "unpaid"]
+    #: The same decision was already recorded: nothing was written.
+    already_decided: bool = False
+    payments_registered: int = 0
+    past_installments_pending: PastInstallmentsRead | None = None
+    #: Live state -> number of cuotas of the plan after the decision.
+    counts: dict[str, int] = Field(default_factory=dict)
+
+
 class CollectionPlanRead(CollectionPlanBase):
     model_config = ConfigDict(from_attributes=True)
 
@@ -214,6 +242,8 @@ class CollectionPlanRead(CollectionPlanBase):
     #: Spanish heads-ups from the write that produced this read (e.g. cuotas
     #: born overdue because their due date is already past). Empty on reads.
     warnings: list[str] = Field(default_factory=list)
+    #: Review r2 (D1): past cuotas awaiting the paid/unpaid decision, or null.
+    past_installments_pending: PastInstallmentsRead | None = None
 
 
 class CollectionPlanPage(BaseModel):

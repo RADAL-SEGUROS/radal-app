@@ -34,7 +34,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, object_session, selectinload
 
 from app.api.deps import get_current_broker_id, get_db, require_permission
 from app.api.routers.clients import record_activity
@@ -50,6 +50,7 @@ from app.models.enums import (
     NotificationKind,
     PaymentMode,
     PaymentStatus,
+    PolicyOrigin,
 )
 from app.models.mail import MailAccount
 from app.models.payment import Payment
@@ -65,6 +66,9 @@ from app.schemas.collection import (
     InstallmentRead,
     InstallmentReplace,
     InstallmentUpdate,
+    PastInstallmentsDecision,
+    PastInstallmentsDecisionRead,
+    PastInstallmentsRead,
     check_installment_total,
 )
 from app.schemas.collection_board import (
@@ -102,6 +106,7 @@ from app.services.analytics import (
 from app.services.collection import board
 from app.services.collection import clock as collection_clock
 from app.services.collection import ledger
+from app.services.collection import past_review
 from app.services.collection import templates as notice_templates
 from app.services.collection.alerts import close_installment_alerts
 from app.services.collection.resolver import resolve_collection_mode
@@ -158,7 +163,7 @@ def get_plan_or_404(db: Session, plan_id: int, broker_id: int) -> CollectionPlan
     ).first()
     if plan is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Collection plan not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Plan de pago no encontrado"
         )
     return plan
 
@@ -221,6 +226,12 @@ def _read(plan: CollectionPlan) -> CollectionPlanRead:
         InstallmentRead.model_validate(row)
         for row in sorted(plan.installments, key=lambda r: r.number)
     ]
+    session = object_session(plan)
+    if session is not None and plan.id is not None:
+        pending = past_review.pending_summary(session, plan, today=_today())
+        payload.past_installments_pending = (
+            PastInstallmentsRead(**pending) if pending is not None else None
+        )
     return payload
 
 
@@ -231,7 +242,7 @@ def _rows_from(payload: list[InstallmentCreate], broker_id: int) -> list[Collect
         if item.number in seen:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Duplicate instalment number {item.number}",
+                detail=f"Número de cuota repetido: {item.number}",
             )
         seen.add(item.number)
         rows.append(
@@ -280,6 +291,8 @@ def get_collections_summary(
     _user: User = Depends(require_permission("Collections", "View")),
     scope: ScopeFilters = Depends(scope_filters),
     group_by: str | None = group_by_query(),
+    owner: str | None = Query(default=None, pattern="^me$"),
+    mine: bool = Query(default=False),
 ) -> CollectionsSummary:
     """The cobranza board: the v12 cards + the legacy status split of the plans.
 
@@ -299,8 +312,18 @@ def get_collections_summary(
     base = build_entity_summary(
         db, "collections", broker_id=broker_id, scoped=scoped, group_by=group_by
     )
-    cards = board.summary_cards(db, broker_id, today=_today())
-    return CollectionsSummary(**base.model_dump(), **cards)
+    # Review r2 (B5): ``owner=me`` / ``mine=1`` narrow the CUOTA cards exactly
+    # like the board's ``owner=me``, so the cards and the list agree.
+    narrowed = owner == "me" or mine
+    cards = board.summary_cards(
+        db,
+        broker_id,
+        today=_today(),
+        owner_user_id=_user.id if narrowed else None,
+    )
+    return CollectionsSummary(
+        **base.model_dump(), **cards, owner_scope="mine" if narrowed else "all"
+    )
 
 
 @router.get("/installments", response_model=InstallmentRowPage)
@@ -314,6 +337,7 @@ def list_board_installments(
     method: PaymentMode | None = Query(default=None),
     level: Level | None = Query(default=None),
     owner: str | None = Query(default=None, pattern="^me$"),
+    mine: bool = Query(default=False),
     q: str | None = Query(default=None, max_length=120),
     policy_id: int | None = Query(default=None, gt=0),
     plan_id: int | None = Query(default=None, gt=0),
@@ -335,7 +359,7 @@ def list_board_installments(
         insurer_id=insurer_id,
         line_code=line_code,
         method=method.value if method else None,
-        owner_user_id=current_user.id if owner == "me" else None,
+        owner_user_id=current_user.id if (owner == "me" or mine) else None,
         q=q,
         policy_id=policy_id,
         plan_id=plan_id,
@@ -944,6 +968,41 @@ def patch_collection_plan(
     return _update_plan(db, plan_id, payload, broker_id, current_user)
 
 
+@router.post(
+    "/plans/{plan_id}/past-installments", response_model=PastInstallmentsDecisionRead
+)
+def decide_past_installments(
+    plan_id: int,
+    payload: PastInstallmentsDecision,
+    db: Session = Depends(get_db),
+    broker_id: int = Depends(get_current_broker_id),
+    current_user: User = Depends(require_permission("Collections", "Edit")),
+) -> PastInstallmentsDecisionRead:
+    """Review r2 (D1): the broker's answer about the past cuotas of a policy
+    loaded late. ``paid`` books one full *declared* payment per pending cuota
+    through the ledger (``paid_on`` = its due date, the plan's method, note
+    "Declarado pagado al cargar la póliza"); ``unpaid`` lets them follow the
+    cadence (alerts raise now). Both write the bitácora event. Repeating the
+    same decision is a 200 no-op (``already_decided``); the other one is 409.
+    """
+    plan = get_plan_or_404(db, plan_id, broker_id)
+    try:
+        result = past_review.decide(
+            db, plan, decision=payload.decision, user=current_user, today=_today()
+        )
+    except past_review.PastReviewError as exc:
+        db.rollback()
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except ledger.LedgerError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": "ledger_refused", "reason": str(exc.detail)},
+        ) from exc
+    db.commit()
+    return PastInstallmentsDecisionRead(**result)
+
+
 @router.post("/plans/{plan_id}/start", response_model=CollectionPlanRead)
 def start_collection(
     plan_id: int,
@@ -1071,6 +1130,11 @@ def create_collection_plan(
         plan.notices_pause_reason = None
     today = _today()
     warnings = _past_due_warnings(rows, today=today)
+    if policy.origin in (PolicyOrigin.MANUAL, PolicyOrigin.READER):
+        # Review r2 (D1): the plan of a policy loaded late (vía Manual / Subir
+        # póliza) — its past cuotas are PENDING REVIEW until the broker says
+        # whether they were paid; no alert, not overdue.
+        past_review.mark_if_past(db, plan, today=today, user=current_user)
     # A cuota born overdue raises its bell alert NOW, not at the next clock run
     # (review v12 #5d); the status cache is derived the same way.
     _sync_plan_cuotas(db, plan, today=today)
@@ -1294,7 +1358,7 @@ def update_installment(
     row = next((item for item in plan.installments if item.number == number), None)
     if row is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Instalment {number} not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Cuota {number} no encontrada"
         )
 
     changes = payload.model_dump(exclude_unset=True)
@@ -1406,7 +1470,7 @@ def get_collection_status(
     overdue_rows = [
         row
         for row in rows
-        if states[row.id].state not in ("paid", "voided")
+        if states[row.id].state not in ("paid", "voided", "pending_review")
         and row.due_date is not None
         and row.due_date < today
     ]

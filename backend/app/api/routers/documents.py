@@ -26,6 +26,7 @@ import os
 import posixpath
 import re
 from dataclasses import dataclass
+from typing import Literal
 
 from fastapi import (
     APIRouter,
@@ -388,17 +389,48 @@ def _normalize_media_key(media_key: str) -> str:
     return full_key
 
 
-def _download_url(doc: Document) -> tuple[str, int | None]:
-    """Return ``(url, ttl_seconds)`` for the stored bytes."""
+#: ``GET /documents/{id}/download?mode=`` (review r2, B7).
+DOWNLOAD_MODES = ("preview", "download")
+
+
+def content_disposition(doc: Document, mode: str) -> str:
+    """``inline`` (preview: the browser opens a PDF) or ``attachment`` (download),
+    with the ORIGINAL name — ``filename*=UTF-8''…`` (RFC 6266/5987) plus an ASCII
+    fallback, so "00C Cuadro de valores asegurados.pdf" never downloads as the
+    S3 key ("insured_values_schedule-1.pdf")."""
+    import unicodedata  # noqa: PLC0415
+    from urllib.parse import quote  # noqa: PLC0415
+
+    name = (doc.original_name or f"documento-{doc.id}").replace("\r", " ").replace("\n", " ")
+    ascii_name = (
+        unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+        or f"documento-{doc.id}"
+    ).replace('"', "").replace("\\", "")
+    kind = "inline" if mode == "preview" else "attachment"
+    return f"{kind}; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name, safe='')}"
+
+
+def _download_url(doc: Document, mode: str | None = None) -> tuple[str, int | None]:
+    """Return ``(url, ttl_seconds)`` for the stored bytes.
+
+    ``mode`` (``preview`` | ``download``): the presigned URL makes S3 answer with
+    the document's own ``Content-Type`` and the matching ``Content-Disposition``;
+    ``None`` (links for ``<img>`` and the like) signs the plain object.
+    """
     backend = (settings.MEDIA_BACKEND or "local").lower()
     if backend == "s3":
         try:
             import boto3  # noqa: PLC0415
 
             client = boto3.client("s3", region_name=settings.S3_REGION)
+            params: dict[str, str] = {"Bucket": doc.bucket, "Key": doc.s3_key}
+            if mode is not None:
+                if doc.mime_type:
+                    params["ResponseContentType"] = doc.mime_type
+                params["ResponseContentDisposition"] = content_disposition(doc, mode)
             url = client.generate_presigned_url(
                 "get_object",
-                Params={"Bucket": doc.bucket, "Key": doc.s3_key},
+                Params=params,
                 ExpiresIn=DOWNLOAD_URL_TTL_SECONDS,
             )
         except Exception as exc:  # noqa: BLE001
@@ -409,7 +441,8 @@ def _download_url(doc: Document) -> tuple[str, int | None]:
         return url, DOWNLOAD_URL_TTL_SECONDS
     # Local dev: nothing serves MEDIA_LOCAL_DIR statically, so point at the
     # broker-scoped content route, which streams the same bytes back.
-    return f"{settings.API_V1_PREFIX}/documents/{doc.id}/content", None
+    suffix = f"?mode={mode}" if mode is not None else ""
+    return f"{settings.API_V1_PREFIX}/documents/{doc.id}/content{suffix}", None
 
 
 def store_generated_document(
@@ -479,9 +512,12 @@ def get_document_url(doc: Document) -> str:
     return url
 
 
-def build_download_payload(doc: Document) -> DocumentDownload:
-    """The shared ``DocumentDownload`` shape, so every router links files alike."""
-    url, ttl = _download_url(doc)
+def build_download_payload(doc: Document, mode: str = "download") -> DocumentDownload:
+    """The shared ``DocumentDownload`` shape, so every router links files alike.
+
+    ``mode="download"`` (default) saves the file under its original name;
+    ``"preview"`` opens it inline (a PDF in a browser tab)."""
+    url, ttl = _download_url(doc, mode if mode in DOWNLOAD_MODES else "download")
     return DocumentDownload(
         id=doc.id,
         original_name=doc.original_name,
@@ -847,19 +883,26 @@ def get_document(
 @router.get("/{document_id}/download", response_model=DocumentDownload)
 def download_document(
     document_id: int,
+    mode: Literal["preview", "download"] = Query(default="download"),
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Documents", "View")),
 ) -> DocumentDownload:
-    """Return a short-lived signed URL (S3) or the local content route (dev)."""
+    """Return a short-lived signed URL (S3) or the local content route (dev).
+
+    ``mode=preview`` -> ``Content-Disposition: inline`` (the PDF opens in the
+    tab); ``mode=download`` (default) -> ``attachment``. Both carry the original
+    file name and the document's mime type.
+    """
     return build_download_payload(
-        _get_visible_document(db, document_id, broker_id, _user)
+        _get_visible_document(db, document_id, broker_id, _user), mode=mode
     )
 
 
 @router.get("/{document_id}/content")
 def document_content(
     document_id: int,
+    mode: Literal["preview", "download"] = Query(default="download"),
     db: Session = Depends(get_db),
     broker_id: int = Depends(get_current_broker_id),
     _user: User = Depends(require_permission("Documents", "View")),
@@ -886,11 +929,10 @@ def document_content(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Stored file for document {doc.id} is missing",
         ) from exc
-    filename = (doc.original_name or f"document-{doc.id}").replace('"', "")
     return Response(
         content=data,
         media_type=doc.mime_type or "application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": content_disposition(doc, mode)},
     )
 
 

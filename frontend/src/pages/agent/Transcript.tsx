@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Bot, User as UserIcon } from "lucide-react";
 
 import type { AgentAction, AgentToolCallMeta, AgentTurnMessage, ContextRef } from "@/api/ai";
+import { Markdown } from "@/components/agent/Markdown";
 import { PendingActionCard } from "@/components/agent/PendingActionCard";
 import { ToolTraceRow } from "@/components/agent/ToolTraceRow";
 import { RefIcon, type AgentChip } from "@/components/agent/refs";
@@ -201,7 +202,7 @@ export function Bubble({
       </span>
       <div
         className={cn(
-          "max-w-[92%] rounded-[12px] px-3.5 py-2.5 sm:max-w-[80%]",
+          "min-w-0 max-w-[92%] rounded-[12px] px-3.5 py-2.5 sm:max-w-[80%]",
           isUser ? "bg-paper-2" : "border border-line bg-bone",
         )}
       >
@@ -218,7 +219,13 @@ export function Bubble({
             ))}
           </div>
         ) : null}
-        <p className="whitespace-pre-wrap break-words text-body text-ink-2">{content}</p>
+        {isUser ? (
+          <p className="whitespace-pre-wrap break-words text-body text-ink-2">{content}</p>
+        ) : (
+          // C1: assistant answers are Markdown (old sessions included) —
+          // rendered safely, no raw HTML.
+          <Markdown content={content} />
+        )}
       </div>
     </li>
   );

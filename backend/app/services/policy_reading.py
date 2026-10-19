@@ -410,15 +410,42 @@ def merge_core(identity: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]
     return merged
 
 
+def _fold(value: Any) -> str:
+    import re
+    import unicodedata
+
+    folded = "".join(
+        ch for ch in unicodedata.normalize("NFKD", str(value or "")) if not unicodedata.combining(ch)
+    ).lower()
+    return " ".join(re.split(r"[^a-z0-9]+", folded)).strip()
+
+
+def _row_key(row: Any) -> str:
+    """A coverage row's identity: name + limit + condition, folded (accents,
+    case, punctuation). A sublimit that only shares the NAME of a coverage row
+    carries other information (the sublimit) and is kept."""
+    if not isinstance(row, dict) or not _fold(row.get("name")):
+        return ""
+    return "|".join(
+        (_fold(row.get("name")), _fold(row.get("limit_uf")), _fold(row.get("sublimit_text")))
+    )
+
+
 def technical_sections(datas: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """The TechnicalRead ``sections`` from the technical groups' data (pure)."""
     risk = _prune(datas.get("tech_risk") or {})
     sublimits = _prune(datas.get("tech_sublimits") or {})
     deductibles = _prune(datas.get("tech_deductibles") or {})
     clauses = _prune(datas.get("tech_clauses") or {})
+    coverages = list(risk.get("coverages") or [])
+    seen = {_row_key(row) for row in coverages} - {""}
+    extra = [row for row in (sublimits.get("sublimits") or []) if _row_key(row) not in seen]
     return {
         "items": list(risk.get("items") or []),
-        "coverages": list(risk.get("coverages") or []) + list(sublimits.get("sublimits") or []),
+        # Review r2 (B3): the coverage table is complete in ``tech_risk``; a
+        # sublimit row that REPEATS one of its rows (same name, limit and
+        # condition) is dropped.
+        "coverages": coverages + extra,
         "deductibles": list(deductibles.get("deductibles") or []),
         "warranties": list(deductibles.get("warranties") or []),
         "exclusions": list(clauses.get("exclusions") or []),

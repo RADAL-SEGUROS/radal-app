@@ -16,7 +16,6 @@
  *
  * Copy: the `propuesta` namespace (`es` authoritative, `en` mirrors).
  */
-import * as React from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -40,7 +39,7 @@ import {
   useMintBrokerProposal,
   useRatifyBrokerProposal,
 } from "@/api/brokerProposals";
-import { useComparison, useCreateComparison } from "@/api/comparisons";
+import { useComparison, useEnsureComparison } from "@/api/comparisons";
 import { useProposal } from "@/api/proposals";
 import {
   CopyButton,
@@ -407,16 +406,8 @@ function MintPanel({
 
   // Create-or-get the account's live comparison (idempotent), then read it to
   // find the winning column. This mirrors the comparison page's own bootstrap.
-  const create = useCreateComparison();
-  const [comparisonId, setComparisonId] = React.useState<number | null>(null);
-  const started = React.useRef(false);
-
-  React.useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    create.mutate({ case_file_id: caseId }, { onSuccess: (c) => setComparisonId(c.id) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caseId]);
+  const ensured = useEnsureComparison(caseId);
+  const comparisonId = ensured.data?.id ?? null;
 
   const comparison = useComparison(comparisonId ?? undefined);
   const mint = useMintBrokerProposal();
@@ -452,17 +443,17 @@ function MintPanel({
     );
   };
 
-  if (create.isError) {
+  if (ensured.isError) {
     return (
       <Card>
         <div className="p-5">
-          <ErrorBanner error={create.error} />
+          <ErrorBanner error={ensured.error} />
         </div>
       </Card>
     );
   }
 
-  if (!data || comparison.isLoading || create.isPending) {
+  if (!data || comparison.isLoading || ensured.isLoading) {
     return <Skeleton className="h-52 w-full" />;
   }
 

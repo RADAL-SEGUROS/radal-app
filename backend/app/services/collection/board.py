@@ -13,6 +13,9 @@ Buckets (the four F2 subtabs):
   riesgo de término, en acuerdo);
 * ``current``  — open and not late, in a plan with nothing overdue (al día);
 * ``settled``  — ``paid`` or ``voided``.
+* ``review``   — ``pending_review`` (review r2 D1): past cuotas of a policy
+  loaded late, awaiting the broker's paid/unpaid decision. Never ``overdue``,
+  never counted in the overdue card; a plan with only these is not "late".
 
 Tenant scope: installment, plan AND policy are filtered by ``broker_id``.
 """
@@ -47,10 +50,11 @@ from app.services.collection.status import (
     compute_installment_state,
 )
 
-BUCKETS = ("upcoming", "overdue", "current", "settled")
+BUCKETS = ("upcoming", "overdue", "current", "settled", "review")
 OPEN_STATES = frozenset({"upcoming", "due_today"})
 LATE_STATES = frozenset({"overdue", "termination_risk", "promised"})
 SETTLED_STATES = frozenset({"paid", "voided"})
+REVIEW_STATES = frozenset({"pending_review"})
 UPCOMING_WINDOW_DAYS = 30
 
 
@@ -151,6 +155,9 @@ def load_rows(
     insts = db.scalars(stmt).unique().all()
 
     cadence, tolerance = broker_collection_params(db, broker_id)
+    from app.services.collection.past_review import review_cutoffs  # noqa: PLC0415
+
+    cutoffs = review_cutoffs(db, broker_id)
     rows: list[BoardRow] = []
     for inst in insts:
         plan = inst.collection_plan
@@ -162,7 +169,12 @@ def load_rows(
             if line is None or (getattr(line, "code", None) or "").upper() != line_code.upper():
                 continue
         state = compute_installment_state(
-            inst, list(inst.payments), today=today, cadence_days=cadence, tolerance_uf=tolerance
+            inst,
+            list(inst.payments),
+            today=today,
+            cadence_days=cadence,
+            tolerance_uf=tolerance,
+            review_cutoff=cutoffs.get(plan.id),
         )
         row = BoardRow(inst=inst, plan=plan, policy=policy, state=state)
         if owner_user_id is not None and owner_user_id not in owner_ids(row):
@@ -183,6 +195,8 @@ def buckets_for(rows: Iterable[BoardRow], *, today: date) -> dict[int, set[str]]
         due = row.inst.due_date
         if state in SETTLED_STATES:
             tags.add("settled")
+        elif state in REVIEW_STATES:
+            tags.add("review")
         elif state in LATE_STATES:
             tags.add("overdue")
         else:
@@ -314,6 +328,7 @@ def summary_cards(
         and today <= r.inst.due_date <= today + timedelta(days=UPCOMING_WINDOW_DAYS)
     ]
     late = [r for r in rows if r.state.state in LATE_STATES]
+    review = [r for r in rows if r.state.state in REVIEW_STATES]
 
     month_start = today.replace(day=1)
     collected = sum(
@@ -349,6 +364,8 @@ def summary_cards(
         "due_30d": _money(due_30),
         "overdue": _money(late),
         "termination_risk": _money(r for r in late if r.state.state == "termination_risk"),
+        # Review r2 (D1): past cuotas awaiting the broker's paid/unpaid answer.
+        "past_installments_pending": _money(review),
         "collected_month_uf": Decimal(str(collected or 0)),
         "unconfirmed_payments": int(unconfirmed or 0),
         "pending_evidence": int(pending_evidence or 0),
@@ -362,6 +379,7 @@ __all__ = [
     "LATE_STATES",
     "ModeCache",
     "OPEN_STATES",
+    "REVIEW_STATES",
     "SETTLED_STATES",
     "buckets_for",
     "capped_payment_amounts",

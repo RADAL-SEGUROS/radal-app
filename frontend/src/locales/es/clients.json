@@ -1,14 +1,14 @@
 {
-  "title": "Clientes",
+  "title": "Asegurados",
   "subtitle": "Tu cartera: el asegurado canónico más tu ficha comercial privada.",
-  "empty": "No hay clientes que coincidan con el filtro.",
-  "notFound": "No encontramos este cliente.",
+  "empty": "No hay asegurados que coincidan con el filtro.",
+  "notFound": "No encontramos este asegurado.",
   "actions": {
-    "new": "Nuevo cliente",
+    "new": "Nuevo asegurado",
     "viewPlacements": "Ver colocaciones"
   },
   "kpi": {
-    "total": "Clientes totales",
+    "total": "Asegurados totales",
     "active": "Activos",
     "withPlacements": "Con colocación activa",
     "unassigned": "Sin ejecutivo",
@@ -68,7 +68,7 @@
     "internalNotes": "Notas internas"
   },
   "form": {
-    "createTitle": "Nuevo cliente",
+    "createTitle": "Nuevo asegurado",
     "createSubtitle": "Se identifica por RUT: si el asegurado ya existe en la plataforma, se vincula; si no, se crea.",
     "editTitle": "Editar cliente",
     "editSubtitle": "Solo se edita tu ficha comercial privada. El asegurado canónico es compartido entre corredoras.",

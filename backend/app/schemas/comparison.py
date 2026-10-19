@@ -63,6 +63,21 @@ class ComparisonPromote(BaseModel):
     insurer_cmf_code: str | None = None
     insurer_rut: str | None = None
 
+    # Review round 2, A5 [D3]: the CATALOGUE choice, like Subir póliza — normally one
+    # of the entry's ``insurer_suggestions``. Must be an insurer the broker can see
+    # (``GET /insurers`` rule; another tenant's private insurer is a 404). When set it
+    # wins over the typed RUT / CMF, which stay as the "¿No está en la lista?" fallback.
+    insurer_id: int | None = None
+
+
+class ComparisonInsurerSuggestion(BaseModel):
+    """A catalogue insurer whose name matches the one read from the cotización."""
+
+    id: int
+    name: str | None = None
+    rut: str | None = None
+    cmf_code: str | None = None
+
 
 # --- Read --------------------------------------------------------------------
 
@@ -118,6 +133,27 @@ class ComparisonEntryRead(BaseModel):
     # so the premium/rate highlight is visible before promotion. Null for a
     # wrong-file column or one with no parse. Display only.
     premium: ComparisonPremiumCore | None = None
+
+    # Review round 2 (A2): where the read behind the column stands.
+    #   ``ok``         read succeeded and carries an offer;
+    #   ``failed``     the AI read failed / timed out — show it failed, offer Reintentar;
+    #   ``empty``      the read "succeeded" with nothing usable (no premium, no facets);
+    #   ``wrong_file`` the file is not a cotización (``is_wrong_file``).
+    # Only ``ok`` columns are standardized by ``align``.
+    status: str = "ok"
+    error_code: str | None = None  # ai_timeout | ai_unavailable | ai_parse | read_empty
+    error_message: str | None = None  # Spanish, shown as-is
+    # True when the current ``aligned_matrix`` has this column (False = realign needed).
+    aligned: bool = False
+    # A1/A5: the insurer behind the column. ``insurer_name`` is the SHORT display name
+    # (catalogue name when resolved, else the distinctive part of the name read —
+    # "Southbridge", "HDI", "Mapfre"); ``insurer_read_name`` the name as printed.
+    insurer_name: str | None = None
+    insurer_read_name: str | None = None
+    insurer_id: int | None = None
+    insurer_suggestions: list[ComparisonInsurerSuggestion] = Field(default_factory=list)
+    # Core figures the read did not find (e.g. ``total_premium_uf``) — a hint, not a block.
+    missing_core: list[str] = Field(default_factory=list)
 
     created_at: UtcDatetime | None = None
     updated_at: UtcDatetime | None = None
@@ -195,6 +231,9 @@ class ComparisonPromoteResult(BaseModel):
     proposal_id: int
     insurer_id: int
     quote_request_id: int
+    # A5: the placement the proposal hangs off, and whether it was created on demand.
+    placement_id: int | None = None
+    placement_created: bool = False
     warnings: list[str] = Field(default_factory=list)
 
 

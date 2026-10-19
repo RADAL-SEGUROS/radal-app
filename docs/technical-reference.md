@@ -5272,7 +5272,7 @@ signatures, own the DB and the `extraction` rows.
   8 s is retried once, a **429** (the provider caps simultaneous requests per account — seen with 15 calls in flight)
   up to twice more with 1.5 s / 3 s + jitter backoff; a timeout never; a provider 504/408 counts as a timeout.
   Standardization: 70 s per call, the recommend call gets what is left of a 110 s step budget (clamped 15–45 s).
-- **Standardization by facet group.** Above `GROUP_SPLIT_MIN_FACETS` (30, all readings together) the table is
+- **Standardization by facet group** (*superseded 2026-10-19 by the pre-match + references pipeline, §19.19 A*). Above `GROUP_SPLIT_MIN_FACETS` (30, all readings together) the table is
   standardized as **one parallel call per `FACET_GROUP_SPLIT` bucket** (`comparison_standardize.group_slices`): each
   call sees EVERY reading (money core included) but only that bucket's facets and the prior dictionary entries of
   those groups, and returns only its rows (no recommendation); slices merge in bucket order with `_merge_dimensions`
@@ -5448,6 +5448,290 @@ adjuster reports, inspection report/evidence, pack and group-archive downloads v
 cached presigned URL into an `href` any more (they expire in 15 min). Still on `<img src>` with a presigned URL: the
 broker logo and inspection evidence thumbnails (fine on S3; an `<img>` cannot carry auth on the local backend).
 Public share pages use their own unauthenticated URLs and were left as they are.
+
+### 19.19 Review round 2 fixes
+
+#### Frontend
+
+Contract §C of `docs/v12/12-review-r2-fixes.md`. **C1** assistant bubbles render Markdown via
+`components/agent/Markdown.tsx` (`react-markdown` + `remark-gfm`; no rehype-raw, `skipHtml`; `urlTransform` keeps
+http(s)/mailto/in-app links, opened in a new tab with `noopener`; tables scroll horizontally). **C2**
+`pages/comparisons`: every read column shows at once (no wait for an alignment; an in-card notice counts the
+columns not yet aligned from `entry.aligned`); the comparison is re-read after each add/retry; auto-align runs once
+per upload batch with a visible `ReadingProgress`; Realinear is disabled only with a shown reason. `status`
+`failed`/`empty` entries are a `FailedEntryCard` with **Reintentar** (`POST …/entries/{id}/retry`) and Quitar, never a
+column. Headers use `insurer_name` (+ a `missing_core` hint); values are Chilean ("UF 15.000", "25 %", "UF —" → "—");
+exclusion rows read `present=true` as "Excluida"; the sticky label column is opaque. **C3** `PromoteDialog` picks the
+insurer with `insurer_suggestions` first via the shared `components/insurers/InsurerCatalogSelect.tsx` (also the
+upload's company step), sends `insurer_id`, RUT/CMF only behind "¿No está en la lista?", server `reason` shown.
+**C4** `PolicyUploadDialog`: 409 `policy_duplicate` → "Esta póliza ya existe…" + **Ver póliza**; a 201 with
+`past_installments.count > 0` → `PastInstallmentsPrompt` (Sí, marcar pagadas / No, quedan vencidas / Decidir
+después), `onUploaded` waits for it; the same prompt is the policy-page banner while `past_installments_pending`
+(needs `Collections.Edit`). Cobranza shows the `review` tab ("Por revisar") only while it has rows, plus the
+`pending_review` state label. **C5** technical card times via `formatTimelineMoment` (Chile), "—" for empty UF, the
+"Código" column only when used; `components/policies/DeductiblesList.tsx` ("Peril: texto") on policy/endorsement
+pages; `PolicyPayloadPanel` labels keys through the explicit `POLICY_PAYLOAD_FIELD_LABEL` map and **hides unknown
+keys**, values formatted by key suffix (`*_uf`, `pct`, `*_permille`, `*_at`, dates, booleans). **C6**
+`PendingActionCard` renders `display`; pre-B6 actions fall back to arguments without `*_id(s)` and with humanised
+enums/dates/decimals. **C7** Pólizas reads `?expiring=N` → `expiring_within_days` (chip; the 90-day card filters
+too) and sends `owner=me` to both summaries with Mías (B5); archive toast 8 s; "Compañías"; Portafolio "Asegurado(s)".
+B7 client side: `lib/download.ts` sends `mode=preview|download`. New deps `react-markdown`, `remark-gfm`.
+
+#### A · Comparisons → Propuesta (backend)
+
+Contract §A of `docs/v12/12-review-r2-fixes.md` (source: the round-2 computer-use review of dev, 2026-10-19).
+
+- **A1 root cause — the money core was never read, not lost on the way.** Dev `/comparisons/3` (the SPA's
+  `/comparisons/26` is the *case* id): `extraction.parsed` of all three columns carried only `exempt_premium_uf`,
+  `exempt_rate_permille`, `commission_pct` — no insurer, no total. The same `record_budget_core` call reproduced it
+  locally on the three corpus PDFs: GLM-5.3-Flash *reasoned* every figure correctly and then emitted only 3–5 keys in
+  the tool arguments (the keys were all optional and the instruction said "omite las claves sin valor"). Fix
+  (`budget_read.money_core_tool_schema`): **every core key is `required` and nullable** (`["number","null"]`), the
+  instruction says "the value, or null"; live: insurer + afecta/exenta/neta/IVA/total for all three in 5–13 s. Safety
+  net: `core_is_incomplete` (no `insurer_name`, or neither total nor net) → **one re-ask** with a repair instruction
+  inside the core's own thread (parallel with the facet calls, so free in wall time); the more complete answer wins,
+  tokens summed, `raw_output.groups.money_core.repaired = true`.
+- **A1, second cause — a stale alignment marked `aligned`.** On dev the HDI-triggered auto-align (started 16:12,
+  committed 16:14:09) finished 2 s after Mapfre's column was committed, set `status=aligned` over a 2-column matrix,
+  and Mapfre read "No indicada" in every row; no 3-column alignment ever committed (no `comparison-submit-v2` row
+  after it). `submit_comparison(still_current=…)`: the router passes a check over a fresh
+  `SELECT (source_id, source_extraction_id)` of the columns; when it changed during the provider wait, the table is
+  stored but the comparison stays **`draft`** with the warning "Llegó una cotización mientras se alineaba…
+  Realinea.". The entry read says which columns the stored matrix covers (`aligned`). Also fixed: every column got
+  `sort_order = 0` (`max(...) or -1` on a first column of 0).
+- **A2 — a failed read is a visible failed column.** `extract_budget_proposal` stamps `exc.extraction_id` on the
+  error it raises; `POST /comparisons/{id}/entries` then stores a column pointing at the FAILED extraction (no
+  facets), commits, and answers the same structured AI error as before (504 `ai_timeout`, 502/503
+  `ai_unavailable`, 422 `ai_parse`) — so the SPA's lost-answer poll finds the column. `ComparisonEntryRead.status` ∈
+  `ok | failed | empty | wrong_file` (derived, **no schema change**: `failed` = the extraction row is not
+  `succeeded`; `empty` = succeeded with no premium, no facets and no insurer), `error_code`
+  (`ai_timeout|ai_unavailable|ai_parse|document_unavailable|read_empty`), `error_message` (Spanish). **Reintentar**:
+  `POST /comparisons/{id}/entries/{entry_id}/retry` (`Proposals.Create`) re-reads the column's document into the
+  SAME column (409 `already_promoted`, 422 `no_document`; a failed re-read of a column that was `ok` keeps the good
+  read); re-posting the same `document_id` to `/entries` retries a failed/empty column in place too. `align` standardizes only `ok` (+ `wrong_file`, still shown rejected) columns;
+  none → 422 `no_columns`. A failed column is not promotable (422 `read_failed`).
+- **A3 — the recommendation speaks insurer names and prima total.** Each reading carries `insurer` (catalogue
+  trade name of a promoted column, else `comparison_standardize.insurer_short_name` of the read name:
+  "Southbridge", "HDI", "Mapfre"); the recommend input gives `insurer` + `total_premium_uf` per column and the
+  prompt lists `id = name`, forbids "columna"/ids and orders comparing **prima total**; the submit prompt carries the
+  same rules. Deterministic net: `humanize_recommendation` rewrites any "la columna N" / "comparison_source_id N" of
+  a real column id into the insurer name (other numbers — a folio — untouched).
+- **A4 — table quality, deterministic after the model** (`comparison_standardize.finalize_dimensions`, every
+  path, before the recommend call): an `exclusion` facet/cell that resolves to a facet is `present=true` = "the
+  offer contains this exclusion" (also forced at read time, `budget_read.normalize_exclusion_presence`, and in the
+  facet tool's `present` description); a cell whose facet is a deductible (or exclusion) inside a cover row moves to a
+  sibling row `{key}-deducible` / "Sismo (deducible)"; rows of one concept split across slices fold into one when
+  their columns are disjoint and the class matches (equal concept tokens, or one ⊇ the other with ≥ 2 tokens — never a
+  deductible/exclusion into a cover row; `scope` recomputed); plain values become numbers with `unit`
+  (`uf|pct|permille|days|hours|clp|usd`): `"475256"`→`475256`+`uf` (sublimit ≥ 100), `"UF 15.000"`→`15000`+`uf`,
+  `"25%"`→`25`+`pct`; a composite text ("10% máx UF 20.000") stays text. The submit tool's cell schema gained
+  `unit`. `fill_cells` keeps a private `_facet_group` marker that `finalize_dimensions` strips.
+- **A5 — Promover a propuesta [D3].** `ComparisonPromote.insurer_id` (catalogue choice; visibility = `GET
+  /insurers`; invisible → 404 `insurer_not_found`) wins over typed `insurer_rut`/`insurer_cmf_code` (fallback), which
+  win over the read ones; none → 422 `insurer_identity_incomplete` carrying `insurer_name` + `insurer_suggestions`.
+  The entry read exposes `insurer_id` (promoted proposal's, or an existing visible insurer matching the read
+  rut/cmf — never by name), `insurer_name` (short display), `insurer_read_name`, `insurer_suggestions [{id, name,
+  rut, cmf_code}]` (`extraction_commit.insurer_name_suggestions` on the read name; the resolved insurer alone when
+  resolved) and `missing_core`. **Placement on demand** (`comparisons._ensure_placement`): no placement on the
+  comparison / account / `placement.case_file_id` → one is created for the account's client + ramo + vigencia, the
+  client's latest asset (or a new `asset_type="general"` one), status `STAGE_TO_PLACEMENT_STATUS[case.stage]`, linked
+  `case.placement_id` ↔ `placement.case_file_id` and `comparison.placement_id`, one `placement.created` activity
+  (`meta.on_demand`, `via=comparison_promote`); `case_file.entry_origin` is left as the account's door. Errors are
+  structured `{"code","reason","message",…}` in Spanish (`no_account`, `account_without_line`,
+  `account_without_client`, `insurer_unresolved`, `money_inconsistent`, `wrong_file`, `already_promoted`, …). The
+  result adds `placement_id` + `placement_created`.
+- **A6 — the journey follows the comparator.** `case_files.advance_for_comparison`: a column read `ok` moves an open
+  account forward to **Cotizaciones recibidas**, a committed alignment to **Comparación** (never back, never a
+  closed/post-sale folder; never-entered stages written *omitida* through `skip_forward`, placements walk their
+  machine, one bitácora row `case_file.skipped_to` with `meta.via=comparison`; a refusal is a warning, never a
+  failure). `_guard_comparison` also accepts `comparison_read_count` (read, non-wrong-file columns of the folder's
+  live comparison), so "Se necesita al menos una cotización confirmada…" no longer shows with three cotizaciones.
+- **Alignment speed — pre-match + compact references** (`comparison_standardize.standardize_readings`, follow-up
+  of the same day). *Before:* every facet of every reading went to four group-slice calls answering one cell object
+  per column per row (~75 tokens a row); live, provider at ~20 tok/s, two slices hit the 70 s call timeout (no
+  table; the same reason no 3-column table ever committed on dev); 2026-10-18 at ~45 tok/s it was 78.7 s.
+  *Now:*
+  1. **`prematch`** — facets whose label slug (`coverage_key`, `text:` prefix stripped) is identical in ≥ 2
+     readings, one per reading, same group class, become rows in code (key through the prior dictionary's slug:
+     carry-forward). Live corpus: 99 rows / 269 of 318 facets (every exclusion, 41/41-ish sublimits); two facets of
+     one reading with the same label (two items) are left to the model.
+  2. **One call per group class with something left** (`MODEL_BUCKETS`: cover = sublimit · coverage · clause ·
+     warranty · other — concepts cross these; deductible; exclusion), in parallel, seeing only the unmatched facets
+     (numbered `n` as in the full reading, wording ≤ 220 chars) and the pre-matched rows that miss a column
+     (`fixed_rows: [{id: "F1", label, has}]`). The model answers **only the matches**:
+     `{"rows": [{"fixed"?: "F3", "refs": [[source_id, n], …]}]}` — no wording, labels, keys, group or scope.
+     `apply_rows` validates every reference (unmatched facet of that call, once, never two of one column);
+     a one-facet row without `fixed` is ignored. Legacy `cells`/`facet_n` answers are still read.
+  3. **Every facet not matched is a row of its own** (`place_leftovers`) — an empty answer loses nothing (the old
+     "no dimensions → block" guard is gone with the reason for it).
+  4. Cells / group / `scope` rebuilt in code (`fill_cells` + `finalize_dimensions`); `dedupe_dimensions` now also
+     folds rows of DIFFERENT groups that share a column when the concept tokens are equal or a ≥ 3-token superset
+     (Southbridge's read listed "Rehabilitación automática de montos" as a coverage AND a clause); same-group rows
+     sharing a column stay apart.
+  5. **The recommend call runs in parallel** over the provisional table (pre-matched rows + every unmatched facet as
+     its own row — the same content, not yet folded), compacted by `recommend_dimensions` (label, group, per-insurer
+     `v`/`u`/`no`; wording only without a value, ≤ 80 chars). No pick → the dedicated call over the final table.
+  6. Split-path calls time out at **`ALIGN_CALL_TIMEOUT_SECONDS = 55`**. **`SOFT_ALIGN_TIMEOUT`**: a TIMED-OUT
+     alignment call no longer blocks — the table is already complete, only the folding of that class is missing,
+     said in a warning ("…quedaron en filas propias. Realinea…"); any other error still blocks, and so does a step
+     whose recommendation fails too (narrow, deliberate exception to BLOCK-ON-PROVIDER-DOWN; flip the constant to
+     restore the old rule).
+  7. `ai.tool_call(extra_body=…)` passthrough; `STANDARDIZE_EXTRA_BODY = {"thinking": {"type": "disabled"}}` for
+     the alignment calls (DeepInfra accepted it; `reasoning_effort: "none"` timed out; `chat_template_kwargs.
+     enable_thinking=false` made GLM think MORE). Its effect is **unproven**: the cover call still returned 2.3 k
+     reasoning chars. A 4xx on the option is retried once without it. The recommend call keeps thinking.
+  `raw_output.calls` = `{prematch: {rows, matched_facets, residual_facets, own_rows, matched_rows}, cover,
+  deductible, exclusion, recommend, recommend_final?}`. *After* (live 2026-10-19, same three corpus readings, provider
+  ~20 tok/s): **wall 56.6 s** — deductible 4.7 s (45 tokens), cover **56.5 s** (1 126 tokens: 606 chars of answer +
+  2.3 k reasoning chars, 11.7 k chars of input), recommend 43.2 s in parallel (789 tokens, 30.6 k chars of input);
+  122 rows → 116 after the cross-group fold, 93 with all three insurers; the recommendation names Southbridge / HDI
+  / Mapfre and compares prima total. The cover call is the critical path; at ~45 tok/s it should be ~25 s.
+- Tests: `tests/test_review_r2_comparisons.py` (hermetic); `test_v8_ai_core` / `test_fast_reading_comparison`
+  rewritten for the pre-match + references pipeline (per-class parallel calls with the recommend call, no call for a
+  class matched in code, prior-key carry-forward, two-items-same-label left to the model, soft timeout, rejected
+  option retried without it, empty answer loses nothing); `"5%"` → `5` + `pct`.
+
+#### A · API examples (comparisons)
+
+Entry read (in `GET /comparisons/{id}` → `entries[]`, and in every entry result):
+
+```json
+{"id": 6, "comparison_id": 3, "proposal_id": null, "comparison_source_id": 6, "sort_order": 2,
+ "is_wrong_file": false, "document_id": 105, "source_extraction_id": 39,
+ "premium": {"total_premium_uf": "1077.68", "net_premium_uf": "998.04", "...": "..."},
+ "status": "ok", "error_code": null, "error_message": null, "aligned": false,
+ "insurer_name": "Mapfre", "insurer_read_name": "MAPFRE COMPAÑÍA DE SEGUROS GENERALES DE CHILE S.A.",
+ "insurer_id": null,
+ "insurer_suggestions": [{"id": 12, "name": "MAPFRE Compañía de Seguros Generales de Chile S.A.",
+                          "rut": "96508210-7", "cmf_code": "..."}],
+ "missing_core": []}
+```
+
+A failed column: `"status": "failed", "error_code": "ai_timeout", "error_message": "La lectura tardó más de lo
+esperado. Reintenta; si persiste, avísanos.", "premium": null`.
+
+`POST /comparisons/{id}/entries/{entry_id}/promote` body `{"insurer_id": 12}` (or `{"insurer_rut": "…"}` /
+`{"insurer_cmf_code": "…"}`) → 201 `{entry, proposal_id, insurer_id, quote_request_id, placement_id,
+placement_created, warnings}`. Errors:
+
+```json
+{"detail": {"code": "insurer_identity_incomplete",
+  "reason": "Elige la compañía de la cotización en el catálogo. Si no está en la lista, escribe su RUT o código CMF (una compañía nunca se identifica solo por el nombre).",
+  "message": "(same text)", "field": "insurer", "insurer_name": "HDI Seguros S.A.",
+  "insurer_suggestions": [{"id": 1, "name": "HDI Seguros S.A.", "rut": "99301000-6", "cmf_code": "CMF-HDI-001"}]}}
+{"detail": {"code": "insurer_not_found", "reason": "La compañía elegida no está en tu catálogo.", "field": "insurer_id", "...": "..."}}   (404)
+{"detail": {"code": "read_failed", "reason": "La lectura de esta cotización falló: reintenta la lectura antes de promoverla.", "error_code": "ai_timeout"}}
+{"detail": {"code": "account_without_line", "reason": "La cuenta no tiene ramo: elige el ramo de la cuenta antes de promover la cotización."}}
+```
+
+#### B · Policies, cobranza, copilot, agent, documents (backend)
+
+Contract §B of `docs/v12/12-review-r2-fixes.md`. **No schema change, no migration** — every new state is derived
+from existing columns or bitácora (`activity`) rows. Regressions: `tests/test_review_r2_backend.py`.
+
+- **B1 — duplicate upload [D2]** (`services/policy_duplicates.py`). `POST /policies/upload` refuses a policy the
+  broker already has with **409 `policy_duplicate`** and no side effect (no client, plan, notification, technical
+  re-read; confirmed Datos técnicos untouched). Two checks: (1) **before any read**, the document's SHA-256 equals
+  the `checksum` of the source document of a registered policy of the broker → no AI call at all; (2) **right after
+  the core read**, before any commit work: same `policy_number` and the same insurer when resolvable — read
+  RUT/CMF resolved by normalised identity (lookup only; a different or unknown identity is *not* a duplicate); the
+  request's `insurer_id` when given; a name-only read matches when `insurer_name_suggestions(read name)` contains
+  the existing policy's insurer (used only to *recognise* the row, rule 7 holds); nothing about the insurer read →
+  the folio decides. A stand-in is **not** a duplicate (draft, provisional certificate, or a policy without its
+  PDF — the vía Manual row the PDF completes keeps working). The request's document is **deleted** (row, its own
+  extraction rows, stored bytes) only when the same user uploaded it ≤ 60 min ago and no FK in the schema points at
+  it (checked generically over `Base.metadata`); otherwise it stays and a `case_file_id` this request set is undone.
+  Existing tests that re-uploaded the same number now expect the 409.
+- **B2 — past cuotas at upload are *pending review* [D1]** (`services/collection/past_review.py`). When a plan is
+  created from a policy loaded late — the reader plan of `POST /policies/upload` (`_commit_policy_installments`) or
+  *Cargar plan de pago* (`POST /collections/plans`) on a policy with `origin ∈ {manual, reader}` — and a cuota is due
+  before today (Chile), an activity `collection_plan.past_installments_pending` (`meta.as_of` = that day = the
+  **cutoff**) is written. Until a `collection_plan.past_installments_decided` follows it, every open cuota due before
+  the cutoff reads the new state **`pending_review`** (`compute_installment_state(review_cutoff=)`; cached as
+  `pending`; `days_late = 0`): no alert (`alerts.py` closes any), no payer notice (`notices` stat `pending_review`),
+  never in `overdue` / `termination_risk` (board bucket **`review`**, Cobranza card `past_installments_pending`,
+  Pólizas `overdue_installments`, `collection_summary`, case pending-actions, the copilot's overdue card, the plan
+  status page). `review_cutoffs(db, broker_id)` is ONE query per broker (clock, board, cards).
+  `POST /collections/plans/{plan_id}/past-installments` (`Collections.Edit`; another tenant's plan 404):
+  `paid` → one full **declared** payment per pending cuota **through the ledger** (`paid_on` = due date, method =
+  the plan's, note "Declarado pagado al cargar la póliza"); `unpaid` → the cuotas follow the cadence again and
+  their alerts raise at once. Both write the decided event. The same decision again is a 200 no-op
+  (`already_decided: true`); the other one is 409 `past_installments_decided`; nothing pending is 409
+  `no_past_installments`; a bad value 422. The public share pages keep showing the true due state (not narrowed).
+  Plans created before this change carry no marker (dev's existing data is unchanged). `scripts/seed_v12_demo.py`
+  declares its demo late cuotas `unpaid` right after creating each plan, so the overdue / riesgo-de-término examples
+  stay on the board.
+- **B3 — technical read coverages.** `tech_risk.coverages` = **every row of the coverage table** (asistencias,
+  vehículo de reemplazo, daños en el extranjero, RC, huelga/terrorismo… are coverages); `tech_sublimits` = only an
+  explicit, separate extensions/sublimits table (`[]` when there is none). On merge a sublimit row that repeats a
+  coverage row exactly (name + limit + condition, folded) is dropped; a sublimit that only shares the name is kept.
+  `prompt_version` stays `policy-technical-v1` (same shape). **Live 2026-10-19** (GLM-5.3-Flash, `ai_timing_probe
+  --tier technical`): TRBF 0020119904 **29.3 s** — 2 items · **1 coverage + 41 sublimits** · 15 deductibles · 8
+  warranties · 20 exclusions · 8 clauses; Coccolino V-FL-0091447 **19.5 s** — 3 items · **26 coverages** + 8
+  sublimits (the PDF's own "5 · Sublímites y límites internos" table) · 12 deductibles · 7 warranties · 15
+  exclusions · 9 clauses. Every call `finish_reason=stop`.
+- **B4 — copilot.** `GET /policies?expiring_within_days=N` (0–3650): computed-active policies whose end date falls
+  within N days, today included (`policies.expiring_clauses`, the same clause `count_expiring` counts); `mine=1` is
+  an alias of `owner=me` on the list. `expiring_policies_30` links `/policies?expiring=30` (+ `&mine=1`).
+  `todo_notifications` for an admin (`scope=all`) = the team view's open to-dos one per origin — the total of
+  `GET /notifications?tray=todo&scope=all` — and links there.
+- **B5 — KPI cards honour "Mías".** `GET /policies/summary` and `GET /collections/summary` accept `owner=me` or
+  `mine=1` and answer `owner_scope: "all" | "mine"`. Pólizas: every card (and `group_by`) is narrowed with the list's
+  `owner_me_clause`; Cobranza: the cuota cards are narrowed like the board's `owner=me` (team inboxes —
+  `unconfirmed_payments`, `pending_evidence`, `plans_missing` — stay broker-wide). The board list also takes `mine=1`.
+- **B6 — agent output hygiene.** The system prompt gains *LENGUAJE DE LA RESPUESTA*: no tool names, no internal
+  enum values, no ids; business terms and Chilean formats. `AgentActionRead.display: [{label, value}]`
+  (`services/agent_display.py`, built at read time from the action's session — no column): Spanish labels, `UF
+  1.181,28` / `$ 45.300`, dd-mm-aaaa, the cuota NUMBER + policy number, names for every id (broker-scoped; an id
+  that does not resolve is omitted, never printed), enums through explicit maps, unknown keys hidden. Result lines
+  are Spanish ("Pago registrado: pago declarado, cuota pagada"; mail/notice/run statuses and stage names mapped);
+  summaries no longer print `#id` / entity types.
+- **B7 — downloads.** `GET /documents/{id}/download?mode=preview|download` (default `download`; else 422). S3: the
+  presigned GET sets `ResponseContentType` = the document's mime and `ResponseContentDisposition` = `inline` (preview)
+  / `attachment` (download) with `filename="<ascii>"; filename*=UTF-8''<original name>`. Local: the URL is
+  `/documents/{id}/content?mode=…` and `/content` answers the same header. `build_download_payload(doc, mode=)`
+  keeps `download` as default for every other router.
+- **B8 — server copy.** `insured_unresolved`: "El RUT del asegurado leído no está en tu cartera: créalo o elige el
+  asegurado." (no field names); a folder-less upload without subtype is 422 `{code: "subtype_required", reason,
+  field}`; upload/commit errors are Spanish and structured (`insurer_invalid`, `policy_number_missing`,
+  `policy_number_taken`) and the warnings Spanish; 404s on these routes read "Póliza / Documento / Cuenta /
+  Asegurado / Plan de pago no encontrado(a)", "Número de cuota repetido: N", "Cuota N no encontrada".
+
+#### B · API examples
+
+```json
+POST /policies/upload  ->  409
+{"detail": {"code": "policy_duplicate", "reason": "Esta póliza ya existe: N° V-FL-0091447 de Consorcio.",
+  "policy_id": 15, "policy_number": "V-FL-0091447", "insurer_name": "Consorcio", "case_file_id": 27,
+  "document_removed": true}}
+
+POST /policies/upload  ->  201 (excerpt)
+{"policy": {"id": 14, "...": "...", "past_installments_pending": {"plan_id": 9, "count": 10,
+   "total_uf": "1181.2800", "first_due": "2025-10-15", "last_due": "2026-07-15"}},
+ "technical_read": {"status": "pending"},
+ "past_installments": {"plan_id": 9, "count": 10, "total_uf": "1181.2800",
+   "first_due": "2025-10-15", "last_due": "2026-07-15"}}
+
+POST /collections/plans/9/past-installments  {"decision": "paid"}  ->  200
+{"plan_id": 9, "decision": "paid", "already_decided": false, "payments_registered": 10,
+ "past_installments_pending": null, "counts": {"paid": 10}}
+   same call again -> 200 {"already_decided": true, "payments_registered": 0, ...}
+   {"decision": "unpaid"} after "paid" -> 409 {"detail": {"code": "past_installments_decided", "reason": "Ya decidiste…", "decision": "paid"}}
+
+GET /policies?expiring_within_days=30&mine=1           -> PolicyPage (active, end date within 30 days)
+GET /policies/summary?owner=me                          -> {..., "owner_scope": "mine"}
+GET /collections/summary?mine=1                         -> {..., "overdue": {...}, "past_installments_pending": {"count": 0, "uf": "0"}, "owner_scope": "mine"}
+
+GET /ai/agent/actions?thread_id=…  (items[].display)
+[{"label": "Monto", "value": "UF 118,13"}, {"label": "Cuota", "value": "1 de 10 · póliza N° 0020119904"},
+ {"label": "Fecha de pago", "value": "19-10-2026"}, {"label": "Medio de pago", "value": "Transferencia"},
+ {"label": "Evidencia", "value": "Pago declarado (sin confirmación de la compañía)"}]
+
+GET /documents/102/download?mode=preview
+{"id": 102, "original_name": "00C Cuadro de valores asegurados.pdf", "mime_type": "application/pdf",
+ "url": "https://…s3…?response-content-disposition=inline%3B%20filename%3D…&response-content-type=application%2Fpdf&X-Amz-…",
+ "expires_in_seconds": 900, "...": "..."}
+```
 
 ### 19.15 Verified state & still open
 

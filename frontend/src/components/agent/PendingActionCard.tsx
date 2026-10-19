@@ -10,9 +10,11 @@
  *
  * Generic by construction: the header label comes from the explicit
  * `TOOL_LABEL_KEY` map (unknown tools fall back to a generic label + the tool
- * id), the sentence is the server's Spanish `summary`, and the body is the raw
- * argument table — so a write tool added server-side renders with no change
- * here.
+ * id), the sentence is the server's Spanish `summary`, and the body is the
+ * server-built `display` rows (review r2 B6/C6: Spanish labels, Chilean
+ * money and dates, the cuota NUMBER — never an internal id or an enum). An
+ * action stored before `display` existed falls back to its arguments, with
+ * internal ids hidden and known enums, numbers and dates humanised.
  *
  * Confirmed results: an ABSOLUTE `result.url` (a public share link, a Forpay
  * checkout) opens in a new tab; an in-app path routes inside the SPA. A share
@@ -44,6 +46,8 @@ import {
   toolLabelKey,
 } from "@/components/agent/labels";
 import { cn } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
+import { PAYMENT_MODE_LABEL, enumLabel } from "@/i18n/labels";
 
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
@@ -52,17 +56,53 @@ function argLabel(t: TFn, key: string): string {
   return labelKey ? t(labelKey) : humanize(key);
 }
 
-function formatArg(t: TFn, value: unknown): string {
-  if (value === true) return "✓";
-  if (value === false) return "—";
-  if (Array.isArray(value)) return value.map((v) => formatArg(t, v)).join(", ");
+/** Internal ids are never shown to the broker (C6): `installment_id: 68` is not "cuota 68". */
+function isInternalId(key: string): boolean {
+  return key === "id" || key.endsWith("_id") || key.endsWith("_ids");
+}
+
+/** Argument keys whose value is a payment-method enum. */
+const PAYMENT_METHOD_ARGS = new Set(["method", "payment_method"]);
+
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/;
+
+function formatArg(t: TFn, value: unknown, key?: string): string {
+  if (value === true) return t("common:units.si");
+  if (value === false) return t("common:units.no");
+  if (typeof value === "number") {
+    return formatNumber(value, Number.isInteger(value) ? 0 : 2);
+  }
+  if (typeof value === "string") {
+    if (key && PAYMENT_METHOD_ARGS.has(key)) return enumLabel(t, PAYMENT_MODE_LABEL, value);
+    const date = ISO_DATE.exec(value);
+    if (date) return `${date[3]}-${date[2]}-${date[1]}`;
+    if (/^-?\d+\.\d+$/.test(value)) return formatNumber(Number(value), 2);
+    return value;
+  }
+  if (Array.isArray(value)) return value.map((v) => formatArg(t, v, key)).join(", ");
   if (value !== null && typeof value === "object") {
     return Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v !== null && v !== undefined && v !== "")
-      .map(([k, v]) => `${argLabel(t, k)}: ${formatArg(t, v)}`)
+      .filter(([k, v]) => v !== null && v !== undefined && v !== "" && !isInternalId(k))
+      .map(([k, v]) => `${argLabel(t, k)}: ${formatArg(t, v, k)}`)
       .join(" · ");
   }
   return String(value);
+}
+
+/** The rows the card shows: the server's `display`, else the humanised arguments. */
+function cardRows(t: TFn, action: AgentAction): { key: string; label: string; value: string }[] {
+  if (action.display && action.display.length > 0) {
+    return action.display
+      .filter((row) => row && row.label && row.value !== null && row.value !== undefined && row.value !== "")
+      .map((row, index) => ({
+        key: `${index}-${row.label}`,
+        label: row.label,
+        value: typeof row.value === "number" ? formatNumber(row.value, Number.isInteger(row.value) ? 0 : 2) : String(row.value),
+      }));
+  }
+  return Object.entries(action.arguments ?? {})
+    .filter(([key, value]) => value !== null && value !== undefined && value !== "" && !isInternalId(key))
+    .map(([key, value]) => ({ key, label: argLabel(t, key), value: formatArg(t, value, key) }));
 }
 
 export function isAbsoluteUrl(url: string | null | undefined): boolean {
@@ -90,9 +130,7 @@ export function PendingActionCard({
 }) {
   const { t } = useTranslation("dashboard");
 
-  const args = Object.entries(action.arguments ?? {}).filter(
-    ([, value]) => value !== null && value !== undefined && value !== "",
-  );
+  const rows = cardRows(t, action);
 
   const moduleKey = lookup(MODULE_LABEL_KEY, action.module);
   const actionKey = lookup(RBAC_ACTION_LABEL_KEY, action.action);
@@ -129,17 +167,13 @@ export function PendingActionCard({
         <p className="mt-2 text-body text-ink-2 [text-wrap:pretty]">{action.summary}</p>
       ) : null}
 
-      {/* Two-column argument table: label per known key, monospace values. */}
-      {args.length > 0 ? (
+      {/* Two-column table: the server's Spanish `display` (or the humanised args). */}
+      {rows.length > 0 ? (
         <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-lg bg-bg-recessed px-3 py-2.5">
-          {args.map(([key, value]) => (
-            <div key={key} className="contents">
-              <dt className="whitespace-nowrap text-caption leading-6 text-ink-3">
-                {argLabel(t, key)}
-              </dt>
-              <dd className="break-words font-mono text-mono leading-6 text-ink">
-                {formatArg(t, value)}
-              </dd>
+          {rows.map((row) => (
+            <div key={row.key} className="contents">
+              <dt className="whitespace-nowrap text-caption leading-6 text-ink-3">{row.label}</dt>
+              <dd className="break-words text-body leading-6 tabular-nums text-ink">{row.value}</dd>
             </div>
           ))}
         </dl>

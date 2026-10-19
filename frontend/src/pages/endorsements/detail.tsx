@@ -46,7 +46,8 @@ import {
   apiError,
   uf,
 } from "@/pages/proposals/shared";
-import { DateTimeValue, PostsaleBadge, renderValue } from "@/pages/policies/shared";
+import { DateTimeValue, PostsaleBadge } from "@/pages/policies/shared";
+import { DeductiblesList } from "@/components/policies/DeductiblesList";
 import { PremiumDeltaCard } from "@/pages/endorsements/PremiumDeltaCard";
 import { EffectDiffTable } from "@/pages/endorsements/EffectDiffTable";
 import { ENDORSEMENT_KIND_LABEL, ENDORSEMENT_STATUS_LABEL, enumLabel } from "@/i18n/labels";
@@ -331,7 +332,7 @@ export default function EndorsementDetailPage() {
       {e.deductibles ? (
         <FadeUp delay={0.16}>
           <Section title={t("policy.fields.deductibles")}>
-            <p className="text-body text-text-secondary">{renderValue(e.deductibles)}</p>
+            <DeductiblesList value={e.deductibles} />
           </Section>
         </FadeUp>
       ) : null}

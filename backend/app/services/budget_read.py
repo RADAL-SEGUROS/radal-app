@@ -149,22 +149,60 @@ def _full_tool_schema() -> dict[str, Any]:
 
 
 def money_core_tool_schema() -> dict[str, Any]:
-    """The ``money_core`` tool: verdict + fixed core, NO facets."""
+    """The ``money_core`` tool: verdict + fixed core, NO facets.
+
+    EVERY key is ``required`` and nullable (review round 2, A1): with optional keys
+    GLM-5.3-Flash reasoned every premium correctly and then emitted only 3-5 of them in
+    the arguments (live 2026-10-19, all three corpus offers: exempt premium + commission,
+    no insurer, no total). Forced to write each key — the value or ``null`` — it returns
+    the full core (insurer, afecta/exenta/neta/IVA/total, rates) in ~8 s. ``null`` is
+    dropped by the schema coercion exactly like an omitted key.
+    """
     props = _full_tool_schema()["parameters"]["properties"]
+    properties: dict[str, Any] = {}
+    for key in MONEY_CORE_KEYS:
+        if key not in props:
+            continue
+        prop = dict(props[key])
+        kind = prop.get("type")
+        if key != "document_type" and isinstance(kind, str):
+            prop["type"] = [kind, "null"]
+        properties[key] = prop
     return {
         "name": "record_budget_core",
         "description": (
             "Registra el veredicto de archivo y el núcleo fijo de prima y vigencia de UNA "
-            "oferta/cotización de seguro chilena. No inventes valores; omite lo que el "
-            "documento no declare. RELLENA TODOS los campos de prima que el documento "
-            "declare (afecta, exenta, neta, IVA, total): no informes solo uno."
+            "oferta/cotización de seguro chilena. No inventes valores. Escribe TODAS las "
+            "claves: el valor que el documento declara, o null si no lo declara. RELLENA "
+            "TODOS los campos de prima que el documento declare (afecta, exenta, neta, IVA, "
+            "total) y el nombre de la compañía: no informes solo uno."
         ),
         "parameters": {
             "type": "object",
-            "properties": {key: props[key] for key in MONEY_CORE_KEYS if key in props},
-            "required": ["document_type"],
+            "properties": properties,
+            "required": list(properties),
         },
     }
+
+
+#: The core is INCOMPLETE when none of these came back: no insurer name and no
+#: premium total/net. One quick re-ask (inside the core's own thread, in parallel with
+#: the slower facet calls, so it costs no wall time) before the read is accepted.
+CORE_COMPLETENESS_KEYS: tuple[str, ...] = ("insurer_name", "total_premium_uf", "net_premium_uf")
+
+
+def core_is_incomplete(parsed: dict[str, Any] | None) -> bool:
+    """True for a NON-wrong-file core that lacks the insurer name or both premium totals."""
+    if not isinstance(parsed, dict):
+        return True
+    if parsed.get("document_type") == "not_a_proposal":
+        return False
+
+    def _has(key: str) -> bool:
+        value = parsed.get(key)
+        return value is not None and str(value).strip() != ""
+
+    return not _has("insurer_name") or not (_has("total_premium_uf") or _has("net_premium_uf"))
 
 
 def facets_tool_schema(groups: tuple[str, ...] | None = None) -> dict[str, Any]:
@@ -176,6 +214,12 @@ def facets_tool_schema(groups: tuple[str, ...] | None = None) -> dict[str, Any]:
         group_prop["enum"] = list(groups)
         group_prop["description"] = " | ".join(groups)
         facets["items"]["properties"]["group"] = group_prop
+    present = dict(facets["items"]["properties"].get("present") or {"type": "boolean"})
+    present["description"] = (
+        "true si la oferta incluye esta dimensión; en una EXCLUSIÓN, true = la oferta "
+        "CONTIENE esa exclusión. false solo si el documento dice expresamente que NO la otorga."
+    )
+    facets["items"]["properties"]["present"] = present
     verbatim = dict(facets["items"]["properties"].get("verbatim") or {"type": "string"})
     verbatim["description"] = "Redacción EXACTA de la frase decisiva del documento." + _VERBATIM_RULE
     facets["items"]["properties"]["verbatim"] = verbatim
@@ -219,8 +263,18 @@ def _messages(spec: "CategorySpec", document: "Document", text: str, instruction
 
 _CORE_INSTRUCTION = (
     "EN ESTA LLAMADA registra SOLO las partes 1) DISCRIMINADOR DE ARCHIVO y 2) NÚCLEO FIJO de "
-    "prima y vigencia. NO incluyas facets: otra llamada paralela las extrae. Omite las claves "
-    "sin valor (no escribas null). Llama a la función record_budget_core."
+    "prima y vigencia. NO incluyas facets: otra llamada paralela las extrae. Escribe TODAS las "
+    "claves de la función: el valor que el documento declara, o null si no lo declara. Llama a "
+    "la función record_budget_core."
+)
+
+#: The re-ask when the first core came back without the insurer or the premium totals.
+_CORE_REPAIR_INSTRUCTION = (
+    _CORE_INSTRUCTION
+    + " ATENCIÓN: una lectura anterior omitió el nombre de la compañía y/o las primas. Busca "
+    "en el cuadro de tarificación la PRIMA NETA AFECTA, la PRIMA NETA EXENTA, la PRIMA NETA "
+    "TOTAL, el IVA y la PRIMA BRUTA TOTAL (total a pagar), y el nombre de la compañía en el "
+    "encabezado, y regístralos todos."
 )
 
 
@@ -386,6 +440,57 @@ def merge_facets(lists: list[list[Any]]) -> list[dict[str, Any]]:
     return merged
 
 
+def normalize_exclusion_presence(facets: list[Any]) -> list[Any]:
+    """An ``exclusion`` facet is an item of the offer's exclusion list, so ``present``
+    means "the offer CONTAINS this exclusion" — always ``True`` (review round 2, A4).
+
+    The model mixed both readings ("false = it excludes it" in one offer, "true = the
+    exclusion is there" in another), so the same exclusion read as opposite across
+    columns. The decisive wording stays in ``verbatim``.
+    """
+    out: list[Any] = []
+    for facet in facets or []:
+        if isinstance(facet, dict) and str(facet.get("group") or "") == "exclusion":
+            facet = {**facet, "present": True}
+        out.append(facet)
+    return out
+
+
+def _missing_core(parsed: dict[str, Any] | None) -> int:
+    if not isinstance(parsed, dict):
+        return len(MONEY_CORE_KEYS)
+    return sum(1 for key in MONEY_CORE_KEYS if parsed.get(key) in (None, ""))
+
+
+def _core_with_repair(run: Callable[[str], Any]) -> Any:
+    """The ``money_core`` call, re-asked ONCE when it came back incomplete.
+
+    Runs in the core's own worker thread, while the (slower) facet calls are still
+    streaming, so the repair costs no wall time in the usual case. The more complete
+    answer wins; tokens of both attempts are summed on the returned result. A failing
+    repair keeps the first answer (it is still a valid, if thin, read).
+    """
+    from dataclasses import replace
+
+    from app.services import ai
+
+    first = run(_CORE_INSTRUCTION)
+    if not core_is_incomplete(first.parsed):
+        return first
+    try:
+        second = run(_CORE_REPAIR_INSTRUCTION)
+    except ai.AIError as exc:
+        logger.info("money_core repair failed (%s); keeping the first answer", exc)
+        return first
+    better = second if _missing_core(second.parsed) < _missing_core(first.parsed) else first
+    usage: dict[str, Any] = {}
+    for name in ("prompt_tokens", "completion_tokens"):
+        usage[name] = ((first.usage or {}).get(name) or 0) + ((second.usage or {}).get(name) or 0)
+    raw = {**(better.raw or {}), "repaired": True}
+    return replace(better, usage=usage, raw=raw)
+
+
+# --- Runner ------------------------------------------------------------------------
 # --- Runner ------------------------------------------------------------------------
 
 
@@ -417,9 +522,9 @@ def read_budget_proposal(
     plans = plan_groups(text)
     timeout = min(int(settings.AI_TIMEOUT_SECONDS), FAST_READ_TIMEOUT_SECONDS)
 
-    def _call(plan: GroupPlan) -> Callable[[], Any]:
-        messages = _messages(spec, document, text, plan.instruction)
-        return lambda: call_with_quick_retry(
+    def _once(plan: GroupPlan, instruction: str) -> Any:
+        messages = _messages(spec, document, text, instruction)
+        return call_with_quick_retry(
             lambda: ai.tool_call(
                 messages=messages,
                 tool_schema=plan.tool_schema,
@@ -430,6 +535,11 @@ def read_budget_proposal(
                 schema=spec.schema,
             )
         )
+
+    def _call(plan: GroupPlan) -> Callable[[], Any]:
+        if plan.name != "money_core":
+            return lambda: _once(plan, plan.instruction)
+        return lambda: _core_with_repair(lambda instruction: _once(plan, instruction))
 
     started = time.monotonic()
     outcomes = run_groups({plan.name: _call(plan) for plan in plans})
@@ -454,6 +564,8 @@ def read_budget_proposal(
             )
             if "facets" in plan.keys:
                 entry["facet_count"] = len((result.parsed or {}).get("facets") or [])
+            elif (result.raw or {}).get("repaired"):
+                entry["repaired"] = True
             prompt_tokens += usage.get("prompt_tokens") or 0
             completion_tokens += usage.get("completion_tokens") or 0
             model_name = model_name or result.model
@@ -494,7 +606,7 @@ def read_budget_proposal(
                     f for f in facets
                     if isinstance(f, dict) and str(f.get("group") or "other") in plan.facet_groups
                 ]
-            facet_lists.append(facets)
+            facet_lists.append(normalize_exclusion_presence(facets))
         else:
             merged.update({key: parsed[key] for key in plan.keys if key in parsed})
     merged["facets"] = merge_facets(facet_lists)
@@ -507,6 +619,9 @@ def read_budget_proposal(
 
 __all__ = [
     "BudgetRead",
+    "CORE_COMPLETENESS_KEYS",
+    "core_is_incomplete",
+    "normalize_exclusion_presence",
     "FACET_GROUP_SPLIT",
     "FACET_SPLIT_MIN_CHARS",
     "FAST_READ_TIMEOUT_SECONDS",

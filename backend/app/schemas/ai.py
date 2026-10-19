@@ -407,6 +407,11 @@ class AgentTurnRequest(ApiModel):
     context_refs: list[ContextRef] = Field(default_factory=list, max_length=MAX_CONTEXT_REFS)
 
 
+class AgentActionDisplayRow(ApiModel):
+    label: str
+    value: str
+
+
 class AgentActionRead(ApiModel):
     """One proposed/resolved write. ``allowed`` is computed per response for
     the CALLER, so the card can render Confirmar disabled-with-reason without a
@@ -426,6 +431,10 @@ class AgentActionRead(ApiModel):
     confirmed_at: UtcDatetime | None = None
     created_at: UtcDatetime | None = None
     allowed: bool = False
+    #: Review r2 (B6): server-built rows for the confirm card — Spanish labels,
+    #: Chilean money/dates, the cuota NUMBER and the policy number, never an id
+    #: or an enum. Render these instead of ``arguments``.
+    display: list[AgentActionDisplayRow] = Field(default_factory=list)
 
 
 class AgentActionList(ApiModel):
@@ -603,6 +612,7 @@ __all__ = [
     "MAX_CONTEXT_REFS",
     "ContextRef",
     "AgentTurnRequest",
+    "AgentActionDisplayRow",
     "AgentActionRead",
     "AgentActionList",
     "AgentTurnResponse",

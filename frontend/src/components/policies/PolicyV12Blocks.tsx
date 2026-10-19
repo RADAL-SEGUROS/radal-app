@@ -7,6 +7,8 @@
  *  - Partes    — who is who (`parties`), editable via `PUT /parties`.
  *  - Cobranza  — the collection line (`collection_summary`) + link to the plan,
  *                or "Cargar plan de pago" when there is none.
+ *  - Cuotas pasadas — review r2 D1: the banner asking whether the cuotas
+ *                already past due at creation were paid (while pending).
  *  - Viaje     — entered vs skipped stages of the colocación (`journey`), with
  *                a link to the group account, opened as a viewer.
  *
@@ -35,7 +37,8 @@ import { useCan } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { formatRut } from "@/pages/clients/rut";
-import type { PartyRole, PolicyDetail } from "@/api/policies";
+import { pastInstallmentsPending, type PartyRole, type PolicyDetail } from "@/api/policies";
+import { PastInstallmentsPrompt } from "@/components/policies/PastInstallmentsPrompt";
 import {
   ACCOUNT_STAGES,
   COLLECTION_FILTER_LABEL,
@@ -504,8 +507,22 @@ export function PolicyV12Blocks({ policy }: { policy: PolicyDetail }) {
   const [planOpen, setPlanOpen] = React.useState(false);
   const [uploadOpen, setUploadOpen] = React.useState(false);
 
+  const past = pastInstallmentsPending(policy);
+
   return (
     <>
+      {/* D1: past-due cuotas at creation wait for the broker's answer. */}
+      {past ? (
+        <PastInstallmentsPrompt
+          variant="banner"
+          policyId={policy.id}
+          planId={past.planId}
+          count={past.count}
+          totalUf={past.totalUf}
+          firstDue={past.firstDue}
+          lastDue={past.lastDue}
+        />
+      ) : null}
       <PolicyMissingBlock
         policy={policy}
         onEditParties={() => setPartiesOpen(true)}

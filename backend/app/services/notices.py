@@ -502,6 +502,8 @@ def _check_kind(kind: NoticeKind | str) -> str:
 
 
 def installment_state(db: Session, installment: CollectionInstallment, *, today: date):
+    from app.services.collection.status import installment_review_cutoff  # noqa: PLC0415
+
     cadence, tolerance = broker_collection_params(db, installment.broker_id)
     return compute_installment_state(
         installment,
@@ -509,6 +511,9 @@ def installment_state(db: Session, installment: CollectionInstallment, *, today:
         today=today,
         cadence_days=cadence,
         tolerance_uf=tolerance,
+        # Review r2 (D1): a past cuota awaiting the broker's decision is never
+        # chased with an overdue notice.
+        review_cutoff=installment_review_cutoff(db, installment),
     )
 
 
@@ -772,6 +777,8 @@ def _notice_step(
     state = installment_state(db, inst, today=today)
     if state.state in ("paid", "voided", "promised"):
         return "settled"
+    if state.state == "pending_review":
+        return "pending_review"
     level = cadence_step((today - inst.due_date).days, cadence)
     if level is None:
         return "not_due"
@@ -845,6 +852,7 @@ def run_collection_notices(db: Session, now: datetime) -> dict[str, Any]:
         "record_level": 0,
         "not_due": 0,
         "settled": 0,
+        "pending_review": 0,
         "paused": 0,
         "errors": 0,
     }

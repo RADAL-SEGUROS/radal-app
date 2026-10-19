@@ -32,7 +32,7 @@
   "align": {
     "action": "Re-align",
     "noPermission": "Your role does not allow re-aligning the comparison",
-    "needColumns": "Add at least one quotation before aligning",
+    "needColumns": "Add at least one read quote before aligning.",
     "batched": "Compared in batches",
     "blocked": {
       "title": "The AI provider is unavailable",
@@ -42,7 +42,17 @@
       "timeoutHint": "The comparison was not aligned. Retry; if it persists, let us know."
     },
     "recovered": "The comparison finished aligning on the server.",
-    "recovering": "The answer took long; checking whether the comparison is already aligned…"
+    "recovering": "The answer took long; checking whether the comparison is already aligned…",
+    "running": "Aligning the quotes…",
+    "runningShort": "Aligning…",
+    "runningHint": "The AI standardizes {{count}} quotes row by row; it usually takes under a minute.",
+    "runningInline": "The columns are already visible; the row-by-row comparison appears when it finishes.",
+    "waitReading": "Wait for the current read to finish.",
+    "steps": {
+      "standardizing": "Standardizing",
+      "checking": "Checking with the server",
+      "done": "Aligned"
+    }
   },
   "recommendation": {
     "eyebrow": "AI recommendation",
@@ -55,7 +65,9 @@
   },
   "needAlign": {
     "title": "Ready to align",
-    "hint": "You have loaded quotations; re-align them to see them compared."
+    "hint": "The columns already show insurer and premium; realign them to compare row by row.",
+    "pendingTitle_one": "{{count}} quote not aligned yet",
+    "pendingTitle_other": "{{count}} quotes not aligned yet"
   },
   "grid": {
     "columnsHeader": "{{count}} quotations",
@@ -78,7 +90,16 @@
     "absent": "Not stated",
     "excluded": "Excluded",
     "included": "Included",
-    "verbatim": "Original text"
+    "verbatim": "Original text",
+    "notIncluded": "Not included",
+    "exclusionApplies": "Excluded",
+    "exclusionNotApplied": "Not excluded",
+    "units": {
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours"
+    }
   },
   "facetGroups": {
     "coverage": "Coverage",
@@ -109,18 +130,24 @@
     "already": "This column is already a proposal",
     "dialog": {
       "title": "Promote to proposal",
-      "description": "Confirm the insurer's identity to mint the proposal from this column.",
-      "helper": "Quotations usually carry only the insured's RUT, so the reader may not have identified the insurer. Enter its RUT or CMF code if it is missing.",
+      "description": "Pick the insurer that issued this quote. The proposal is created from this column.",
+      "helper": "Use the insurer's RUT or CMF code, not the insured's.",
       "rutLabel": "Insurer RUT",
       "rutPlaceholder": "e.g. 99.301.000-6",
       "cmfLabel": "Insurer CMF code",
       "cmfPlaceholder": "e.g. 315",
       "confirm": "Promote",
       "errors": {
-        "insurerUnresolved": "Enter the insurer's RUT or CMF code to promote.",
+        "insurerUnresolved": "Pick the insurer from the list or enter its RUT or CMF code to promote.",
         "moneyInconsistent": "The premium figures do not add up (net = taxable + exempt, VAT = 19% of taxable). Review the quotation before promoting."
-      }
-    }
+      },
+      "readName": "Insurer read from the quote",
+      "insurerLabel": "Insurer",
+      "notInList": "Not in the list? Enter its RUT or CMF code",
+      "backToList": "Pick from the list",
+      "typeFirst": "Enter the insurer's RUT or CMF code."
+    },
+    "doneWithPlacement": "Quote promoted to a proposal; the account's placement was created"
   },
   "remove": {
     "action": "Remove",
@@ -135,5 +162,21 @@
     "ai_timeout": "The read took longer than expected. Retry; if it persists, let us know.",
     "ai_unavailable": "The AI provider is unavailable. Retry in a moment.",
     "ai_parse": "The AI answered something we could not interpret. Retry."
+  },
+  "failed": {
+    "toast": "We could not read {{name}}",
+    "title": "{{name}}: the read failed",
+    "unnamed": "Quote",
+    "reasonFallback": "The read failed or was cut off before finishing. Retry; if it persists, let us know.",
+    "emptyReason": "The read came back empty: no insurer, premium or coverages were found. Retry.",
+    "retry": "Retry",
+    "noPermission": "Your role cannot re-read quotes",
+    "noDocument": "This column has no PDF: remove it and upload it again."
+  },
+  "missingCore": {
+    "hint": "Not read: {{fields}}",
+    "insurer_name": "insurer",
+    "total_premium_uf": "total premium",
+    "net_premium_uf": "net premium"
   }
 }

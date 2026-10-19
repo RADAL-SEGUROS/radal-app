@@ -357,51 +357,6 @@ def _reading(source_id: int, labels: list[str]) -> dict:
     )
 
 
-def test_standardization_batches_run_in_parallel_and_merge_in_batch_order(monkeypatch):
-    readings = [_reading(1, ["Incendio", "Sismo"]), _reading(2, ["Sismo", "Robo"]), _reading(3, ["Robo"])]
-    monkeypatch.setattr(settings, "AI_COMPARE_MAX_INPUT_CHARS", 10)  # one reading per batch
-    batches = ai_service._batch_readings(readings, 10, {"dictionary": []})
-    assert len(batches) == 3
-
-    barrier = threading.Barrier(3, timeout=5)
-    seen_tools: list[str] = []
-
-    def _call(*, tool_schema=None, messages=None, **kwargs):
-        name = tool_schema["name"]
-        seen_tools.append(name)
-        if name == "recommend_comparison":
-            return _result({"recommendation": {"recommended_comparison_source_id": 2, "rationale": "r", "caveats": []}})
-        barrier.wait()  # every batch is in flight at the same time
-        blob = json.loads(messages[1]["content"])
-        reading = blob["readings"][0]
-        sid = reading["comparison_source_id"]
-        # The model sees numbered facets and answers BY REFERENCE (no verbatim).
-        assert all("n" in f for f in reading["facets"])
-        cell_props = tool_schema["parameters"]["properties"]["dimensions"]["items"]["properties"]["cells"]["items"]["properties"]
-        assert "verbatim" not in cell_props and "facet_n" in cell_props
-        # The FIRST batch answers LAST: completion order must not leak into the merge.
-        time.sleep({1: 0.3, 2: 0.1, 3: 0.0}[sid])
-        dims = [
-            {"key": f["label"].lower(), "group": "coverage", "label": f["label"],
-             "cells": [{"comparison_source_id": sid, "facet_n": f["n"]}]}
-            for f in reading["facets"]
-        ]
-        return _result({"dimensions": dims})
-
-    monkeypatch.setattr(ai_service, "tool_call", _call)
-    result = standardize.standardize_readings(readings, {"dictionary": []})
-
-    assert result.batched is True and result.batch_count == 3
-    assert [d["key"] for d in result.dimensions] == ["incendio", "sismo", "robo"]
-    sismo = next(d for d in result.dimensions if d["key"] == "sismo")
-    assert [c["comparison_source_id"] for c in sismo["cells"]] == [1, 2]
-    # The verbatim / value were copied from the reading, the reference removed.
-    assert sismo["cells"][0] == {"comparison_source_id": 1, "verbatim": "Sismo literal 1", "value": 1}
-    assert seen_tools.count("recommend_comparison") == 1
-    assert result.recommendation["recommended_comparison_source_id"] == 2
-    assert list(result.call_stats) == ["batch_1", "batch_2", "batch_3", "recommend"]
-
-
 def test_standardization_first_failing_batch_in_order_blocks(monkeypatch):
     readings = [_reading(1, ["A"]), _reading(2, ["B"])]
     monkeypatch.setattr(settings, "AI_COMPARE_MAX_INPUT_CHARS", 10)
@@ -424,34 +379,6 @@ def test_fill_cells_falls_back_to_the_dimension_slug_without_a_reference():
              "cells": [{"comparison_source_id": 7}]}]
     filled = standardize.fill_cells(dims, readings)
     assert filled[0]["cells"][0]["verbatim"] == "Remoción de escombros literal 7"
-
-
-def test_submit_comparison_records_parallel_call_stats(world, db, monkeypatch):
-    """The audit row of a batched alignment keeps per-call seconds/tokens."""
-    monkeypatch.setattr(settings, "AI_API_KEY", "test-key")
-    monkeypatch.setattr(settings, "AI_COMPARE_MAX_INPUT_CHARS", 200)
-    from tests.test_v8_ai_core import _comparison_with_sources
-
-    comparison, sources = _comparison_with_sources(db, world)
-
-    def _call(*, tool_schema=None, **kwargs):
-        if tool_schema["name"] == "submit_comparison":
-            return _result({"dimensions": [{"key": "k", "group": "coverage", "cells": []}]})
-        return _result({"recommendation": {"recommended_comparison_source_id": sources[0].id,
-                                           "rationale": "r", "caveats": []}})
-
-    monkeypatch.setattr(ai_service, "tool_call", _call)
-    result = ai_service.submit_comparison(
-        db, comparison=comparison, sources=sources, broker_id=world.a.broker_id
-    )
-    assert result.batched is True
-    raw = result.extraction.raw_output
-    assert raw["batched"] is True and raw["parallel"] is True
-    assert {"batch_1", "batch_2", "recommend"} <= set(raw["calls"])
-    assert result.extraction.prompt_version == "comparison-submit-v2"
-    from app.models.comparison import ComparisonStatus
-
-    assert db.get(Comparison, comparison.id).status is ComparisonStatus.ALIGNED
 
 
 # --- 5. Orchestrator follow-ups (live probe 2026-10-18) ------------------------------
@@ -529,40 +456,169 @@ def _grouped_reading(source_id: int) -> dict:
     )
 
 
-def test_many_facets_standardize_by_group_slice_in_parallel(monkeypatch):
-    readings = [_grouped_reading(1), _grouped_reading(2)]  # 40 facets > GROUP_SPLIT_MIN_FACETS
-    prior = {"dictionary": [{"key": "sublimit 0", "group": "sublimit", "label": "sublimit 0"},
-                            {"key": "exclusion 0", "group": "exclusion", "label": "exclusion 0"}]}
-    barrier = threading.Barrier(4, timeout=5)
-    seen: list[tuple[set, list]] = []
+# --- Review round 2 follow-up: pre-match + compact rows of references ---------------
+
+
+def _class_reading(source_id: int, extra: list[dict]) -> dict:
+    """11 shared facets (matched in code) + this reading's own, differently worded ones."""
+    shared = [
+        {"group": "sublimit", "label": f"Sublímite {i}", "verbatim": f"S{i} lit {source_id}", "value": 1000 * i}
+        for i in range(1, 6)
+    ] + [
+        {"group": "exclusion", "label": f"Exclusión {i}", "verbatim": f"E{i} lit {source_id}"}
+        for i in range(1, 7)
+    ]
+    return ai_service.build_reading(
+        comparison_source_id=source_id, proposal_id=None, is_wrong_file=False,
+        wrong_file_reason=None, money_core={"total_premium_uf": 100 + source_id},
+        facets=shared + extra, insurer_label=f"Cía {source_id}",
+    )
+
+
+def test_alignment_calls_run_per_class_in_parallel_with_the_recommend_call(monkeypatch):
+    readings = [
+        _class_reading(1, [{"group": "coverage", "label": "Rehabilitación automática", "verbatim": "Rehab 1"},
+                           {"group": "deductible", "label": "Deducible incendio", "verbatim": "10 %"}]),
+        _class_reading(2, [{"group": "clause", "label": "Cláusula de reposición de suma", "verbatim": "Rehab 2"},
+                           {"group": "deductible", "label": "Incendio y adicionales", "verbatim": "UF 25"}]),
+        _class_reading(3, [{"group": "other", "label": "Forma de pago", "verbatim": "10 cuotas"}]),
+    ]  # 36 facets > GROUP_SPLIT_MIN_FACETS
+    barrier = threading.Barrier(3, timeout=5)  # cover + deductible + recommend together
+    seen: dict[str, dict] = {}
 
     def _call(*, tool_schema=None, messages=None, **kwargs):
-        if tool_schema["name"] == "recommend_comparison":
-            return _result({"recommendation": {"recommended_comparison_source_id": 1, "rationale": "r", "caveats": []}})
-        barrier.wait()  # the four slices are in flight together
+        name = tool_schema["name"]
+        barrier.wait()
         blob = json.loads(messages[1]["content"])
+        if name == "recommend_comparison":
+            # The provisional table: every facet already a row (shared + own).
+            assert len(blob["dimensions"]) == 5 + 6 + 5
+            assert {m["insurer"] for m in blob["money"]} == {"Cía 1", "Cía 2", "Cía 3"}
+            return _result({"recommendation": {"recommended_comparison_source_id": 2,
+                                               "rationale": "La columna 2 es la mejor.", "caveats": []}})
         groups = {f["group"] for r in blob["readings"] for f in r["facets"]}
-        assert len(blob["readings"]) == 2  # every slice sees every reading
-        assert "NO entregues `recommendation`" in messages[0]["content"]
-        seen.append((groups, [e["key"] for e in blob["prior_structure"]["dictionary"]]))
-        dims = []
-        for f in blob["readings"][0]["facets"]:
-            dims.append({"key": f["label"], "group": f["group"], "label": f["label"],
-                         "cells": [{"comparison_source_id": r["comparison_source_id"], "facet_n": f["n"]}
-                                   for r in blob["readings"]]})
-        time.sleep(0.05 if "sublimit" in groups else 0.0)  # the first slice answers last
-        return _result({"dimensions": dims})
+        bucket = "deductible" if groups == {"deductible"} else "cover"
+        seen[bucket] = blob
+        # Only the unmatched facets travel, numbered as in the full reading.
+        labels = [f["label"] for r in blob["readings"] for f in r["facets"]]
+        assert not any(label.startswith(("Sublímite", "Exclusión")) for label in labels)
+        props = tool_schema["parameters"]["properties"]["rows"]["items"]["properties"]
+        assert set(props) == {"fixed", "refs"}  # no wording, no labels, no keys
+        time.sleep(0.2 if bucket == "cover" else 0.0)  # the first bucket answers last
+        if bucket == "cover":
+            return _result({"rows": [{"refs": [[1, 12], [2, 12]]}]})  # rehab 1 == rehab 2
+        return _result({"rows": [{"refs": [[1, 13], [2, 13]]}]})
 
     monkeypatch.setattr(ai_service, "tool_call", _call)
-    result = standardize.standardize_readings(readings, prior)
+    result = standardize.standardize_readings(readings, {"dictionary": []})
 
-    assert result.batched is True and result.batch_count == 4
-    assert sorted(len(g) for g, _ in seen) == [1, 1, 1, 1]  # one facet group per slice here
-    by_groups = {frozenset(g): keys for g, keys in seen}
-    assert by_groups[frozenset({"sublimit"})] == ["sublimit 0"]
-    assert by_groups[frozenset({"exclusion"})] == ["exclusion 0"]
-    # Bucket order, not completion order; verbatim copied from each slice's own numbering.
-    assert [d["group"] for d in result.dimensions][:5] == ["sublimit"] * 5
-    first = result.dimensions[0]
-    assert first["cells"][1]["verbatim"] == "sublimit 0 lit 2"
-    assert list(result.call_stats)[:4] == list(budget_read.FACET_GROUP_SPLIT)
+    assert set(seen) == {"cover", "deductible"}  # every exclusion matched in code: no call
+    assert result.batched is True and result.batch_count == 2
+    assert list(result.call_stats) == ["prematch", "cover", "deductible", "recommend"]
+    assert result.call_stats["prematch"]["matched_facets"] == 33
+    groups = [d["group"] for d in result.dimensions]
+    # Class order: cover rows first (sublimits matched in code), deductibles, exclusions.
+    assert groups[:5] == ["sublimit"] * 5 and groups[-6:] == ["exclusion"] * 6
+    rehab = next(d for d in result.dimensions if d["label"] == "Rehabilitación automática")
+    assert [(c["comparison_source_id"], c["verbatim"]) for c in rehab["cells"]] == [(1, "Rehab 1"), (2, "Rehab 2")]
+    assert rehab["scope"] == "extra"
+    pago = next(d for d in result.dimensions if d["label"] == "Forma de pago")
+    assert [c["comparison_source_id"] for c in pago["cells"]] == [3]  # unmatched -> its own row
+    sub1 = result.dimensions[0]
+    assert sub1["scope"] == "common" and [c["value"] for c in sub1["cells"]] == [1000, 1000, 1000]
+    assert result.recommendation["rationale"] == "Cía 2 es la mejor."
+
+
+def test_submit_comparison_records_parallel_call_stats(world, db, monkeypatch):
+    """The audit row of a split alignment keeps per-call seconds/tokens + the pre-match."""
+    monkeypatch.setattr(settings, "AI_API_KEY", "test-key")
+    monkeypatch.setattr(standardize, "GROUP_SPLIT_MIN_FACETS", 1)
+    from tests.test_v8_ai_core import _comparison_with_sources
+
+    comparison, sources = _comparison_with_sources(db, world)
+
+    def _call(*, tool_schema=None, **kwargs):
+        if tool_schema["name"] == "submit_comparison":
+            return _result({"rows": []})
+        return _result({"recommendation": {"recommended_comparison_source_id": sources[0].id,
+                                           "rationale": "r", "caveats": []}})
+
+    monkeypatch.setattr(ai_service, "tool_call", _call)
+    result = ai_service.submit_comparison(
+        db, comparison=comparison, sources=sources, broker_id=world.a.broker_id
+    )
+    raw = result.extraction.raw_output
+    assert {"prematch", "cover", "recommend"} <= set(raw["calls"])
+    assert raw["calls"]["prematch"]["rows"] == 1  # "Sismo" in both readings
+    assert result.extraction.prompt_version == "comparison-submit-v2"
+    from app.models.comparison import ComparisonStatus
+
+    assert db.get(Comparison, comparison.id).status is ComparisonStatus.ALIGNED
+
+
+def test_prematch_folds_identical_labels_and_keeps_prior_keys():
+    readings = standardize._indexed([_grouped_reading(1), _grouped_reading(2)])
+    prior = {"dictionary": [{"key": "sub-cero", "group": "sublimit", "label": "sublimit 0"}]}
+    pre = standardize.prematch(readings, prior)
+    assert len(pre.rows) == 20 and not any(pre.residual.values())
+    first = pre.rows[0]
+    assert first["key"] == "sub-cero"  # carry-forward through the prior dictionary's slug
+    assert first["cells"] == [{"comparison_source_id": 1, "facet_n": 1}, {"comparison_source_id": 2, "facet_n": 1}]
+    # Two facets of ONE reading with the same label (two items) are left to the model.
+    twice = standardize._indexed([
+        ai_service.build_reading(comparison_source_id=1, proposal_id=None, is_wrong_file=False,
+                                 wrong_file_reason=None, money_core={},
+                                 facets=[{"group": "deductible", "label": "Sismo"}, {"group": "deductible", "label": "Sismo"}]),
+        ai_service.build_reading(comparison_source_id=2, proposal_id=None, is_wrong_file=False,
+                                 wrong_file_reason=None, money_core={},
+                                 facets=[{"group": "deductible", "label": "Sismo"}]),
+    ])
+    pre = standardize.prematch(twice, {"dictionary": []})
+    assert pre.rows == [] and sum(len(v) for v in pre.residual["deductible"].values()) == 3
+
+
+def test_a_timed_out_alignment_call_keeps_a_complete_table(monkeypatch):
+    readings = [
+        _class_reading(1, [{"group": "coverage", "label": "Rehabilitación automática", "verbatim": "Rehab 1"}]),
+        _class_reading(2, [{"group": "clause", "label": "Cláusula de reposición de suma", "verbatim": "Rehab 2"}]),
+        _class_reading(3, []),
+    ]
+
+    def _call(*, tool_schema=None, timeout=None, **kwargs):
+        assert timeout <= standardize.ALIGN_CALL_TIMEOUT_SECONDS
+        if tool_schema["name"] == "submit_comparison":
+            raise ai_service.AITimeout("slow")
+        return _result({"recommendation": {"recommended_comparison_source_id": 1, "rationale": "r", "caveats": []}})
+
+    monkeypatch.setattr(ai_service, "tool_call", _call)
+    result = standardize.standardize_readings(readings, {"dictionary": []})
+    labels = [d["label"] for d in result.dimensions]
+    assert "Rehabilitación automática" in labels and "Cláusula de reposición de suma" in labels
+    assert any("Realinea" in w for w in result.warnings)
+    assert result.call_stats["cover"]["error"] == "timeout"
+
+
+def test_a_timed_out_alignment_still_blocks_when_nothing_answers(monkeypatch):
+    readings = [_class_reading(1, [{"group": "coverage", "label": "A"}]),
+                _class_reading(2, [{"group": "coverage", "label": "B"}])]
+
+    def _down(**kwargs):
+        raise ai_service.AITimeout("down")
+
+    monkeypatch.setattr(ai_service, "tool_call", _down)
+    with pytest.raises(ai_service.AITimeout):
+        standardize.standardize_readings(readings, {"dictionary": []})
+
+
+def test_a_rejected_provider_option_is_retried_without_it(monkeypatch):
+    seen: list = []
+
+    def _call(*, tool_schema=None, extra_body=None, **kwargs):
+        seen.append(extra_body)
+        if extra_body:
+            raise ai_service.AIProviderError("The AI provider returned 400")
+        return _result({"rows": []})
+
+    monkeypatch.setattr(ai_service, "tool_call", _call)
+    standardize._call({"fixed_rows": [], "readings": []}, "fake/model")
+    assert seen[0] == standardize.STANDARDIZE_EXTRA_BODY and seen[-1] is None

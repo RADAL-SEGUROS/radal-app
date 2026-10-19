@@ -82,6 +82,7 @@ const STATE_LABEL: Record<string, string> = {
   promised: "share:public.state.promised",
   paid: "share:public.state.paid",
   voided: "share:public.state.voided",
+  pending_review: "share:public.state.pending_review",
 };
 
 const STATE_VARIANT: Record<string, BadgeVariant> = {
@@ -92,6 +93,7 @@ const STATE_VARIANT: Record<string, BadgeVariant> = {
   promised: "brand",
   paid: "success",
   voided: "muted",
+  pending_review: "neutral",
 };
 
 const REPORT_LABEL: Record<PublicReportStatus, string> = {

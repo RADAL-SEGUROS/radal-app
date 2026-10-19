@@ -11,8 +11,10 @@ matches the list its link opens.
   ``scope=mine`` exactly like the board's ``owner=me``.
 * ``pending_evidence`` — the same cards' ``pending_evidence`` (the evidence
   inbox is a TEAM inbox: broker-wide in either scope, like its page).
-* ``todo_notifications`` — the caller's own open *Por hacer* rows, the same
-  predicate ``GET /notifications`` uses (``new`` + ``seen``).
+* ``todo_notifications`` — ``scope=mine``: the caller's own open *Por hacer*
+  rows, the predicate of ``GET /notifications?tray=todo``; ``scope=all``
+  (admins): the broker's open to-dos one per origin, the predicate of
+  ``GET /notifications?tray=todo&scope=all`` (Notificaciones → *Todas*).
 * ``expiring_policies_30`` / ``active_policies`` — the Pólizas cards' helpers
   (:func:`api.routers.policies.count_expiring` and ``_summary_cards``), with
   the policies list's ``owner=me`` clause for ``scope=mine``.
@@ -129,8 +131,15 @@ def _policies_numbers(db: Session, broker_id: int, user: User, scope: Scope, out
     out.expiring_30 = count_expiring(db, scoped, today, EXPIRING_WINDOW_DAYS)
 
 
-def _todo_count(db: Session, broker_id: int, user: User) -> int:
-    """The caller's open Por hacer rows — ``GET /notifications?tray=todo``'s total."""
+def _todo_count(db: Session, broker_id: int, user: User, scope: Scope = "mine") -> int:
+    """``mine``: the caller's open Por hacer rows (``GET /notifications?tray=todo``'s
+    total). ``all``: the team view's open to-dos, one per origin — the total of
+    ``GET /notifications?tray=todo&scope=all`` (review r2: the card said "Toda
+    la corredora" but counted "Mías")."""
+    if scope == "all":
+        from app.api.routers.notifications import _team_rows  # noqa: PLC0415 - one predicate
+
+        return len(_team_rows(db, broker_id=broker_id, tray=NotificationTray.TODO))
     return int(
         db.scalar(
             select(func.count(Notification.id)).where(
@@ -191,7 +200,7 @@ def _indicators(n: _Numbers, scope: Scope) -> list[dict[str, Any]]:
             "todo_notifications",
             n.todo,
             tone="warn" if n.todo else "ok",
-            link="/notifications?tray=todo",
+            link="/notifications?tray=todo" + ("" if mine else "&scope=all"),
         )
     )
     if n.expiring_30 is not None:
@@ -200,8 +209,9 @@ def _indicators(n: _Numbers, scope: Scope) -> list[dict[str, Any]]:
                 "expiring_policies_30",
                 n.expiring_30,
                 tone="warn" if n.expiring_30 else "neutral",
-                # No end-date filter on the Pólizas list: it opens the active ones.
-                link="/policies?status=active" + ("&mine=1" if mine else ""),
+                # Review r2 (B4): the Pólizas list filters by expiry
+                # (``expiring`` -> ``GET /policies?expiring_within_days=``).
+                link=f"/policies?expiring={EXPIRING_WINDOW_DAYS}" + ("&mine=1" if mine else ""),
             )
         )
     if n.active is not None:
@@ -246,7 +256,7 @@ def _suggestions(n: _Numbers) -> list[dict[str, Any]]:
 
 def copilot_home(db: Session, *, broker_id: int, user: User) -> dict[str, Any]:
     scope = home_scope(user)
-    numbers = _Numbers(todo=_todo_count(db, broker_id, user))
+    numbers = _Numbers(todo=_todo_count(db, broker_id, user, scope))
     if user_has_permission(user, "Collections", "View"):
         _collections_numbers(db, broker_id, user, scope, numbers)
     if user_has_permission(user, "Policies", "View"):

@@ -32,7 +32,7 @@
   "align": {
     "action": "Realinear",
     "noPermission": "Tu rol no permite realinear la comparación",
-    "needColumns": "Agrega al menos una cotización antes de alinear",
+    "needColumns": "Agrega al menos una cotización leída antes de alinear.",
     "batched": "Comparado por lotes",
     "blocked": {
       "title": "El proveedor de IA no está disponible",
@@ -42,7 +42,17 @@
       "timeoutHint": "La comparación no se alineó. Reintenta; si persiste, avísanos."
     },
     "recovered": "La comparación terminó de alinearse en el servidor.",
-    "recovering": "La respuesta tardó; revisando si la comparación ya quedó alineada…"
+    "recovering": "La respuesta tardó; revisando si la comparación ya quedó alineada…",
+    "running": "Alineando las cotizaciones…",
+    "runningShort": "Alineando…",
+    "runningHint": "La IA estandariza {{count}} cotizaciones fila a fila; suele tardar menos de un minuto.",
+    "runningInline": "Las columnas ya están a la vista; la comparación fila a fila aparece al terminar.",
+    "waitReading": "Espera a que termine la lectura en curso.",
+    "steps": {
+      "standardizing": "Estandarizando",
+      "checking": "Confirmando con el servidor",
+      "done": "Alineada"
+    }
   },
   "recommendation": {
     "eyebrow": "Recomendación de la IA",
@@ -55,7 +65,9 @@
   },
   "needAlign": {
     "title": "Listo para alinear",
-    "hint": "Ya cargaste cotizaciones; realínealas para verlas comparadas."
+    "hint": "Las columnas ya muestran compañía y prima; realínealas para compararlas fila a fila.",
+    "pendingTitle_one": "{{count}} cotización todavía sin alinear",
+    "pendingTitle_other": "{{count}} cotizaciones todavía sin alinear"
   },
   "grid": {
     "columnsHeader": "{{count}} cotizaciones",
@@ -78,7 +90,16 @@
     "absent": "No indicada",
     "excluded": "Excluida",
     "included": "Incluida",
-    "verbatim": "Texto original"
+    "verbatim": "Texto original",
+    "notIncluded": "No incluida",
+    "exclusionApplies": "Excluida",
+    "exclusionNotApplied": "No excluida",
+    "units": {
+      "days_one": "{{count}} día",
+      "days_other": "{{count}} días",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas"
+    }
   },
   "facetGroups": {
     "coverage": "Cobertura",
@@ -109,18 +130,24 @@
     "already": "Esta columna ya es una propuesta",
     "dialog": {
       "title": "Promover a propuesta",
-      "description": "Confirma la identidad de la aseguradora para crear la propuesta a partir de esta columna.",
-      "helper": "Las cotizaciones suelen traer solo el RUT del asegurado, así que puede que el lector no haya identificado a la aseguradora. Ingresa su RUT o código CMF si falta.",
-      "rutLabel": "RUT de la aseguradora",
+      "description": "Elige la compañía que emitió esta cotización. La propuesta se crea a partir de esta columna.",
+      "helper": "Usa el RUT o el código CMF de la compañía, no el del asegurado.",
+      "rutLabel": "RUT de la compañía",
       "rutPlaceholder": "Ej: 99.301.000-6",
-      "cmfLabel": "Código CMF de la aseguradora",
+      "cmfLabel": "Código CMF de la compañía",
       "cmfPlaceholder": "Ej: 315",
       "confirm": "Promover",
       "errors": {
-        "insurerUnresolved": "Ingresa el RUT o código CMF de la aseguradora para poder promover.",
+        "insurerUnresolved": "Elige la compañía de la lista o ingresa su RUT o código CMF para poder promover.",
         "moneyInconsistent": "Las cifras de prima no cuadran (neto = afecto + exento, IVA = 19% del afecto). Revisa la cotización antes de promover."
-      }
-    }
+      },
+      "readName": "Compañía leída en la cotización",
+      "insurerLabel": "Compañía",
+      "notInList": "¿No está en la lista? Ingresa su RUT o código CMF",
+      "backToList": "Elegir de la lista",
+      "typeFirst": "Ingresa el RUT o el código CMF de la compañía."
+    },
+    "doneWithPlacement": "Cotización promovida a propuesta; se creó la colocación de la cuenta"
   },
   "remove": {
     "action": "Quitar",
@@ -135,5 +162,21 @@
     "ai_timeout": "La lectura tardó más de lo esperado. Reintenta; si persiste, avísanos.",
     "ai_unavailable": "El proveedor de IA no está disponible. Reintenta en unos momentos.",
     "ai_parse": "La IA respondió algo que no pudimos interpretar. Reintenta."
+  },
+  "failed": {
+    "toast": "No pudimos leer {{name}}",
+    "title": "{{name}}: la lectura falló",
+    "unnamed": "Cotización",
+    "reasonFallback": "La lectura falló o se cortó antes de terminar. Reintenta; si persiste, avísanos.",
+    "emptyReason": "La lectura terminó vacía: no encontramos compañía, prima ni coberturas. Reintenta.",
+    "retry": "Reintentar",
+    "noPermission": "Tu rol no permite volver a leer cotizaciones",
+    "noDocument": "Esta columna no conserva su PDF: quítala y vuelve a subirlo."
+  },
+  "missingCore": {
+    "hint": "No se leyó: {{fields}}",
+    "insurer_name": "compañía",
+    "total_premium_uf": "prima total",
+    "net_premium_uf": "prima neta"
   }
 }

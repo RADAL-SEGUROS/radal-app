@@ -21,6 +21,7 @@ export const STATE_LABEL = {
   promised: "collections:state.promised",
   paid: "collections:state.paid",
   voided: "collections:state.voided",
+  pending_review: "collections:state.pending_review",
 } as const;
 
 export const STATE_TONE: Record<keyof typeof STATE_LABEL, Variant> = {
@@ -31,6 +32,7 @@ export const STATE_TONE: Record<keyof typeof STATE_LABEL, Variant> = {
   promised: "brand",
   paid: "success",
   voided: "muted",
+  pending_review: "warn",
 };
 
 export const FLAG_LABEL = {
@@ -75,6 +77,7 @@ export const BUCKET_LABEL = {
   overdue: "collections:bucket.overdue",
   current: "collections:bucket.current",
   settled: "collections:bucket.settled",
+  review: "collections:bucket.review",
 } as const;
 
 export const BUCKET_EMPTY = {
@@ -82,6 +85,7 @@ export const BUCKET_EMPTY = {
   overdue: "collections:board.empty.overdue",
   current: "collections:board.empty.current",
   settled: "collections:board.empty.settled",
+  review: "collections:board.empty.review",
 } as const;
 
 export const METHOD_LABEL = {

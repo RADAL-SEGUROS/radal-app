@@ -118,7 +118,8 @@
       "promised": "En acuerdo",
       "paid": "Pagada",
       "voided": "Anulada",
-      "unknown": "Sin estado"
+      "unknown": "Sin estado",
+      "pending_review": "En revisión"
     },
     "installment": {
       "number": "Cuota {{number}}",

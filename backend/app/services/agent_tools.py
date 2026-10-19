@@ -40,6 +40,8 @@ from app.core.permissions import user_has_permission
 from app.core.roles_config import ACTIONS, MODULES
 from app.models.enums import EntityType, PaymentCurrency, PaymentMode, PolicyCurrency
 from app.models.user import User
+from app.services.agent_display import payment_result_line
+from app.services.stage_labels import stage_label
 
 __all__ = [
     "ToolSpec",
@@ -548,14 +550,14 @@ def _summarize_attach_client(
     from app.models.insured import Insured
 
     group = db.get(AccountGroup, args.group_id)
-    group_name = group.name if group is not None and group.broker_id == broker_id else f"#{args.group_id}"
-    client_name = f"#{args.client_id}"
+    group_name = group.name if group is not None and group.broker_id == broker_id else "—"
+    client_name = "la empresa indicada"
     client = db.get(Client, args.client_id)
     if client is not None and client.broker_id == broker_id:
         insured = db.get(Insured, client.insured_id)
         if insured is not None:
             client_name = insured.legal_name
-    return f"Adjuntar el cliente {client_name} al grupo «{group_name}»"
+    return f"Adjuntar la empresa {client_name} al asegurado «{group_name}»"
 
 
 def _validate_create_case_file(
@@ -610,7 +612,8 @@ def _exec_create_case_file(
 def _summarize_create_case_file(
     db: Session, *, broker_id: int, args: CreateCaseFileArgs
 ) -> str:
-    return f"Abrir el expediente «{args.title}» para el cliente #{args.client_id}"
+    client = _client_label(db, broker_id, args.client_id) or "la empresa indicada"
+    return f"Abrir la cuenta «{args.title}» para {client}"
 
 
 def _validate_renew_case(db: Session, *, broker_id: int, user: User, args: RenewCaseArgs) -> None:
@@ -712,14 +715,25 @@ def _exec_add_note(db: Session, *, broker_id: int, user: User, args: AddNoteArgs
         "entity_type": args.entity_type,
         "entity_id": args.entity_id,
         "url": (f"/cases/{args.entity_id}" if args.entity_type == "case_file" else None),
-        "detail": f"Nota agregada (nota #{note.id})",
+        "detail": "Nota agregada",
         "note_id": note.id,
     }
 
 
 def _summarize_add_note(db: Session, *, broker_id: int, args: AddNoteArgs) -> str:
     body = args.body if len(args.body) <= 80 else args.body[:77] + "…"
-    return f"Agregar una nota a {args.entity_type} #{args.entity_id}: «{body}»"
+    from app.services.agent_display import action_display  # noqa: PLC0415
+
+    target = next(
+        (
+            f"{row['label'].lower()} {row['value']}"
+            for row in action_display(
+                db, broker_id=broker_id, tool="add_note", arguments=args.model_dump(mode="json")
+            )[:1]
+        ),
+        "el registro indicado",
+    )
+    return f"Agregar una nota a {target}: «{body}»"
 
 
 # =============================================================================
@@ -770,6 +784,22 @@ _PCT = Annotated[
 ]
 
 _AUDIENCE_ES = {"insured": "el asegurado", "insurer": "la compañía"}
+#: Review r2 (B6): result lines never show an enum.
+_MAIL_STATUS_ES = {
+    "queued": "en cola de envío",
+    "sent": "enviado",
+    "failed": "falló el envío",
+    "bounced": "rebotado",
+    "skipped": "registrado; el envío de correo está desactivado",
+}
+_LEVEL_ES = {"native": "en línea", "assisted": "asistida", "record": "registro"}
+_RUN_STATUS_ES = {
+    "queued": "en cola",
+    "running": "en curso",
+    "succeeded": "terminada",
+    "failed": "con error",
+    "cancelled": "cancelada",
+}
 _SHARE_ENTITY_ES = {
     "policy": "la póliza",
     "collection_plan": "el plan de pago",
@@ -1127,6 +1157,8 @@ def _exec_list_policies(db: Session, *, broker_id: int, user: User, args: ListPo
         origin=None,
         missing=list(args.missing) if args.missing else None,
         owner="me" if args.owner_me else None,
+        mine=False,
+        expiring_within_days=None,
         limit=min(args.limit, _POLICY_LIMIT),
         offset=0,
     )
@@ -1182,8 +1214,8 @@ def _board_page(db: Session, *, broker_id: int, user: User, **filters: Any):
 
     params = {
         "bucket": None, "insurer_id": None, "line_code": None, "method": None,
-        "level": None, "owner": None, "q": None, "policy_id": None, "plan_id": None,
-        "limit": _INSTALLMENT_LIMIT, "offset": 0,
+        "level": None, "owner": None, "mine": False, "q": None, "policy_id": None,
+        "plan_id": None, "limit": _INSTALLMENT_LIMIT, "offset": 0,
     }
     params.update(filters)
     return list_board_installments(db=db, broker_id=broker_id, current_user=user, **params)
@@ -1216,7 +1248,8 @@ def _exec_get_collection_overview(
     from app.services.analytics import ScopeFilters
 
     summary = get_collections_summary(
-        db=db, broker_id=broker_id, _user=user, scope=ScopeFilters(), group_by=None
+        db=db, broker_id=broker_id, _user=user, scope=ScopeFilters(), group_by=None,
+        owner=None, mine=False,
     )
     data = _dump(summary)
     cards = _pick(
@@ -1224,7 +1257,7 @@ def _exec_get_collection_overview(
         (
             "as_of", "due_7d", "due_30d", "overdue", "termination_risk",
             "collected_month_uf", "unconfirmed_payments", "pending_evidence",
-            "plans_missing", "total", "by_status",
+            "plans_missing", "past_installments_pending", "total", "by_status",
         ),
     )
     top = _board_page(db, broker_id=broker_id, user=user, bucket="overdue", limit=5)
@@ -1762,7 +1795,7 @@ def _exec_register_payment(
     )
     return _installment_result(
         db, broker_id, args.installment_id,
-        f"Pago registrado ({result.payment.evidence_level.value}); cuota {result.state.state}",
+        payment_result_line(result.payment.evidence_level.value, result.state.state),
         payment_id=result.payment.id,
         state=result.state.state,
         evidence=result.payment.evidence_level.value,
@@ -1946,7 +1979,10 @@ def _exec_send_status_inquiry(
         "entity_type": EntityType.STATUS_INQUIRY.value,
         "entity_id": inquiry.id,
         "url": "/collections/inquiries",
-        "detail": f"Consulta {inquiry.token} a {inquiry.to_address} ({mail_status})",
+        "detail": (
+            f"Consulta {inquiry.token} a {inquiry.to_address} "
+            f"({_MAIL_STATUS_ES.get(str(mail_status), 'registrada')})"
+        ),
         "mail_status": mail_status,
         "reference": inquiry.token,
     }
@@ -2013,7 +2049,8 @@ def _exec_send_payment_reminder(
     notice_status = getattr(notice.status, "value", notice.status)
     return _installment_result(
         db, broker_id, args.installment_id,
-        f"Aviso al pagador enviado a {notice.to_address} ({notice_status})",
+        f"Aviso al pagador a {notice.to_address} "
+        f"({_MAIL_STATUS_ES.get(str(notice_status), 'registrado')})",
         notice_id=notice.id,
         notice_status=notice_status,
     )
@@ -2112,8 +2149,8 @@ def _validate_create_payment_link(
         mode = resolve_collection_mode(db, inst, broker_id=broker_id)
         if mode.level != "native":
             raise _unprocessable(
-                f"La cuota {inst.number} no se cobra con link de pago (nivel {mode.level}): "
-                f"{mode.reason}"
+                f"La cuota {inst.number} no se cobra con link de pago "
+                f"(nivel {_LEVEL_ES.get(mode.level, 'registro')}): {mode.reason}"
             )
 
 
@@ -2156,10 +2193,10 @@ def _validate_skip_case(
     targets = [stage.value for stage in case_detail(db, case).skip_targets]
     if args.target_stage not in targets:
         raise _unprocessable(
-            f"La carpeta {case.reference or case.id} (etapa {case.stage.value}) no puede saltar a "
-            f"{args.target_stage}. "
+            f"La cuenta {case.reference or case.id} (etapa {stage_label(case.stage)}) no puede "
+            f"saltar a {stage_label(args.target_stage)}. "
             + (
-                "Destinos posibles: " + ", ".join(targets) + "."
+                "Destinos posibles: " + ", ".join(stage_label(t) for t in targets) + "."
                 if targets
                 else "Solo una cuenta abierta salta etapas, y solo hacia adelante."
             )
@@ -2182,7 +2219,9 @@ def _exec_skip_case(db: Session, *, broker_id: int, user: User, args: SkipCaseTo
         "entity_type": EntityType.CASE_FILE.value,
         "entity_id": detail.id,
         "url": f"/cases/{detail.id}",
-        "detail": f"Cuenta {detail.reference or detail.id} saltó a {args.target_stage}",
+        "detail": (
+            f"Cuenta {detail.reference or detail.id} pasó a {stage_label(args.target_stage)}"
+        ),
     }
 
 
@@ -2198,7 +2237,7 @@ def _case_label(db: Session, broker_id: int, case_file_id: int) -> str:
 def _summarize_skip_case(db: Session, *, broker_id: int, args: SkipCaseToStageArgs) -> str:
     return (
         f"Saltar la cuenta {_case_label(db, broker_id, args.case_file_id)} a la etapa "
-        f"{args.target_stage}, marcando como omitidas las etapas intermedias"
+        f"{stage_label(args.target_stage)}, marcando como omitidas las etapas intermedias"
     )
 
 
@@ -2218,8 +2257,12 @@ def _validate_activate_stage(
     skipped = [row.stage.value for row in detail.stages if row.state == "skipped"]
     if args.stage not in skipped:
         raise _unprocessable(
-            f"La etapa '{args.stage}' no está omitida en {case.reference or case.id}. "
-            + ("Omitidas: " + ", ".join(skipped) + "." if skipped else "No hay etapas omitidas.")
+            f"La etapa {stage_label(args.stage)} no está omitida en {case.reference or case.id}. "
+            + (
+                "Omitidas: " + ", ".join(stage_label(x) for x in skipped) + "."
+                if skipped
+                else "No hay etapas omitidas."
+            )
         )
 
 
@@ -2233,7 +2276,7 @@ def _exec_activate_stage(
     try:
         stage = CaseStage(args.stage)
     except ValueError as exc:
-        raise _unprocessable(f"Etapa desconocida: {args.stage}") from exc
+        raise _unprocessable("Etapa desconocida.") from exc
     detail = activate_case_file_stage(
         args.case_file_id,
         payload=CaseActivateStage(stage=stage, note=args.note),
@@ -2245,13 +2288,13 @@ def _exec_activate_stage(
         "entity_type": EntityType.CASE_FILE.value,
         "entity_id": detail.id,
         "url": f"/cases/{detail.id}",
-        "detail": f"Etapa {args.stage} activada en {detail.reference or detail.id}",
+        "detail": f"Etapa {stage_label(args.stage)} activada en {detail.reference or detail.id}",
     }
 
 
 def _summarize_activate_stage(db: Session, *, broker_id: int, args: ActivateCaseStageArgs) -> str:
     return (
-        f"Activar la etapa omitida {args.stage} en la cuenta "
+        f"Activar la etapa omitida {stage_label(args.stage)} en la cuenta "
         f"{_case_label(db, broker_id, args.case_file_id)}"
     )
 
@@ -2317,7 +2360,10 @@ def _exec_run_portal_search(
         "entity_type": EntityType.PORTAL_SEARCH.value,
         "entity_id": run.id,
         "url": "/portal-search",
-        "detail": f"Búsqueda en {run.portal} en cola ({run_status})",
+        "detail": (
+            f"Búsqueda en {str(run.portal).upper()} "
+            f"({_RUN_STATUS_ES.get(str(run_status), 'registrada')})"
+        ),
         "status": run_status,
     }
 

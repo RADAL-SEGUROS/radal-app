@@ -1281,10 +1281,20 @@ export interface ComparisonCell {
  */
 export interface ComparisonDimensionCell {
   comparison_source_id: number | null;
+  /**
+   * Coverage-like rows: the offer covers it. EXCLUSION rows (review r2 A4):
+   * `true` = the offer INCLUDES this exclusion (it applies), consistently
+   * across columns.
+   */
   present?: boolean | null;
   value?: string | number | null;
+  /** A4: the unit of a numeric `value` when the standardizer knows it. */
+  unit?: ComparisonValueUnit | string | null;
   verbatim?: string | null;
 }
+
+/** Units a standardized numeric cell may carry (A4). */
+export type ComparisonValueUnit = "uf" | "pct" | "permille" | "days" | "hours" | "clp" | "usd";
 
 /**
  * One standardized dimension row of `aligned_matrix.dimensions`: a canonical
@@ -1381,8 +1391,43 @@ export interface ComparisonEntry {
   facets: unknown[] | Record<string, unknown> | null;
   /** The money/period core, surfaced pre-promotion. Null for a wrong-file column. */
   premium: ComparisonPremiumCore | null;
+  /**
+   * Review r2 A2: the read behind this column. `failed` = the AI read failed
+   * or timed out — the column is shown as failed with *Reintentar*, never as
+   * a normal-looking column. Absent on servers before A2 (= ok).
+   */
+  status?: ComparisonEntryStatus | string | null;
+  /** A2: why the read failed (`ai_timeout` / `ai_unavailable` / `ai_parse` / …). */
+  error_code?: string | null;
+  /** A2: the server's Spanish explanation of the failure, when it sent one. */
+  error_message?: string | null;
+  /** A2: true when the current aligned matrix includes this column. */
+  aligned?: boolean;
+  /**
+   * A1/A5: the SHORT insurer display name ("Southbridge", "HDI") — the
+   * catalogue name when resolved, else the distinctive part of the name read.
+   */
+  insurer_name?: string | null;
+  /** The insurer name exactly as printed in the cotización. */
+  insurer_read_name?: string | null;
+  /** Core figures the read did not find (`total_premium_uf`, …) — a hint, not a block. */
+  missing_core?: string[] | null;
+  /** A5: the catalogue insurer, when the read resolved it. */
+  insurer_id?: number | null;
+  /** A5: catalogue matches for `insurer_name`, best first. */
+  insurer_suggestions?: ComparisonInsurerSuggestion[] | null;
   created_at: IsoDateTime | null;
   updated_at: IsoDateTime | null;
+}
+
+export type ComparisonEntryStatus = "ok" | "failed" | "empty" | "wrong_file";
+
+/** A5: one catalogue insurer matching the name read from a cotización. */
+export interface ComparisonInsurerSuggestion {
+  id: number;
+  name: string;
+  rut?: string | null;
+  cmf_code?: string | null;
 }
 
 /** The comparison header + columns + aligned grid + snapshotted dictionary. */
@@ -1447,6 +1492,9 @@ export interface ComparisonAlignmentResult {
  * neither source resolves an insurer.
  */
 export interface ComparisonPromotePayload {
+  /** A5: the catalogue choice (suggestions first, as in Subir póliza). */
+  insurer_id?: number | null;
+  /** Fallback: "¿No está en la lista?" — typed RUT / CMF code. */
   insurer_rut?: string | null;
   insurer_cmf_code?: string | null;
 }
@@ -1456,6 +1504,10 @@ export interface ComparisonPromoteResult {
   proposal_id: number;
   insurer_id: number;
   quote_request_id: number;
+  /** A5: the colocación the proposal hangs off, and whether it was created now. */
+  placement_id?: number | null;
+  placement_created?: boolean;
+  warnings?: string[];
 }
 
 // --- Broker propuesta (v8 outbound artifact) ---------------------------------

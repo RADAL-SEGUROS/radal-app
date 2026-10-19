@@ -43,6 +43,15 @@
  * with the reason. Every choice travels in the stage (`Choices`), so a second
  * 422 (insured after insurer, or the reverse) never drops the first answer.
  * Any other structured 422 shows the server's own `reason` / `message`.
+ *
+ * Review round 2 (docs/v12/12 C4):
+ *  - 409 `policy_duplicate` → "Esta póliza ya existe: N° … de …" with **Ver
+ *    póliza**; nothing was written and no technical read is fired;
+ *  - a 201 whose plan already has past-due cuotas (`past_installments.count`)
+ *    asks "¿Ya están pagadas?" before the done card — Sí, marcar pagadas / No,
+ *    quedan vencidas / Decidir después (the policy page keeps asking with a
+ *    banner while it is pending). `onUploaded` fires once that is answered, so
+ *    a caller that navigates away does not skip the question.
  */
 import * as React from "react";
 import { Link } from "react-router-dom";
@@ -71,9 +80,9 @@ import {
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { useUploadDocument } from "@/api/documents";
-import { useInsurers } from "@/api/insurers";
 import {
   useUploadPolicy,
+  type PolicyDuplicate,
   type PolicyInsuredUnresolved,
   type PolicyInsurerUnresolved,
   type PolicyUploadResponseV12,
@@ -84,19 +93,10 @@ import {
   useTechnicalReadInFlight,
 } from "@/api/technicalRead";
 import type { PolicyNotAPolicyDetail } from "@/api/types";
-import { ErrorBanner, apiError } from "@/components/common/kit";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ErrorBanner } from "@/components/common/kit";
 import { TouchHint } from "@/components/policies/TouchHint";
-import { useCan } from "@/lib/permissions";
+import { PastInstallmentsPrompt } from "@/components/policies/PastInstallmentsPrompt";
+import { InsurerCatalogSelect, useInsurerCatalog } from "@/components/insurers/InsurerCatalogSelect";
 import { ReadingProgress } from "@/components/common/ReadingProgress";
 import { isLostResponse } from "@/lib/aiErrors";
 import { useAuth } from "@/providers/AuthProvider";
@@ -115,6 +115,22 @@ function notAPolicy(error: unknown): PolicyNotAPolicyDetail | null {
     (detail as { code?: string }).code === "not_a_policy"
   ) {
     return detail as PolicyNotAPolicyDetail;
+  }
+  return null;
+}
+
+/** The structured 409 `policy_duplicate` body (D2), if that is what it is. */
+function policyDuplicate(error: unknown): PolicyDuplicate | null {
+  const response = (error as { response?: { status?: number; data?: { detail?: unknown } } })
+    ?.response;
+  const detail = response?.data?.detail;
+  if (
+    detail &&
+    typeof detail === "object" &&
+    (detail as { code?: string }).code === "policy_duplicate" &&
+    typeof (detail as { policy_id?: unknown }).policy_id === "number"
+  ) {
+    return detail as PolicyDuplicate;
   }
   return null;
 }
@@ -195,6 +211,8 @@ type Stage =
       /** Why the broker is asked again (e.g. `insurer_not_found`). */
       notice?: string;
     }
+  | { kind: "past"; result: PolicyUploadResponseV12; technical: boolean }
+  | { kind: "duplicate"; duplicate: PolicyDuplicate; fileName: string }
   | { kind: "done"; result: PolicyUploadResponseV12; technical: boolean };
 
 export function PolicyUploadDialog({
@@ -282,10 +300,22 @@ export function PolicyUploadDialog({
             // on the ficha even once this dialog is gone.
             const technical = result.technical_read?.status === "pending";
             if (technical) startTechnical.mutate({ policyId: result.policy.id });
+            // D1: cuotas already past due → ask first; `onUploaded` (which may
+            // navigate away) waits for the answer.
+            if ((result.past_installments?.count ?? 0) > 0) {
+              setStage({ kind: "past", result, technical });
+              return;
+            }
             setStage({ kind: "done", result, technical });
             onUploaded?.(result);
           },
           onError: (err) => {
+            const duplicate = policyDuplicate(err);
+            if (duplicate) {
+              // D2: the policy already exists — nothing was written.
+              setStage({ kind: "duplicate", duplicate, fileName });
+              return;
+            }
             const reject = notAPolicy(err);
             const unresolved = insuredUnresolved(err);
             const insurerAsked = insurerUnresolved(err);
@@ -369,6 +399,12 @@ export function PolicyUploadDialog({
     },
     [caseId, client, commit, onDemand, tp, uploadDoc, user?.broker_id],
   );
+
+  /** The past-cuotas question was answered (or left for later): show done. */
+  const finishPast = (result: PolicyUploadResponseV12, technical: boolean) => {
+    setStage({ kind: "done", result, technical });
+    onUploaded?.(result);
+  };
 
   const busy = stage.kind === "working";
   /** The no-folder path needs the subtipo before a file can be read. */
@@ -528,6 +564,31 @@ export function PolicyUploadDialog({
           />
         ) : null}
 
+        {/* ── D2: this policy already exists ── */}
+        {stage.kind === "duplicate" ? (
+          <DuplicatePanel
+            duplicate={stage.duplicate}
+            fileName={stage.fileName}
+            onOpen={() => onOpenChange(false)}
+            onRetry={reset}
+          />
+        ) : null}
+
+        {/* ── D1: cuotas already past due — ask before alerting ── */}
+        {stage.kind === "past" && stage.result.past_installments ? (
+          <PastInstallmentsPrompt
+            variant="step"
+            policyId={stage.result.policy.id}
+            planId={stage.result.past_installments.plan_id ?? null}
+            count={stage.result.past_installments.count}
+            totalUf={stage.result.past_installments.total_uf}
+            firstDue={stage.result.past_installments.first_due}
+            lastDue={stage.result.past_installments.last_due}
+            onDecided={() => finishPast(stage.result, stage.technical)}
+            onLater={() => finishPast(stage.result, stage.technical)}
+          />
+        ) : null}
+
         {/* ── Success ── */}
         {stage.kind === "done" ? (
           <DonePanel result={stage.result} technical={stage.technical} />
@@ -671,6 +732,60 @@ function DonePanel({
   );
 }
 
+/** D2: the PDF is a policy the broker already has — say which, link to it. */
+function DuplicatePanel({
+  duplicate,
+  fileName,
+  onOpen,
+  onRetry,
+}: {
+  duplicate: PolicyDuplicate;
+  fileName: string;
+  onOpen: () => void;
+  onRetry: () => void;
+}) {
+  const { t } = useTranslation("policies");
+  const message =
+    duplicate.reason ||
+    (duplicate.insurer_name
+      ? t("upload.duplicate.message", {
+          number: duplicate.policy_number ?? "—",
+          insurer: duplicate.insurer_name,
+        })
+      : t("upload.duplicate.messageNoInsurer", { number: duplicate.policy_number ?? "—" }));
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-warn-line bg-warn-soft/40 p-4">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-warn-soft text-warn-text">
+          <AlertTriangle className="h-4 w-4" />
+        </span>
+        <div className="min-w-0">
+          <div role="alert" className="text-body font-medium text-ink [text-wrap:pretty]">
+            {message}
+          </div>
+          <p className="mt-0.5 flex items-center gap-1.5 text-caption text-ink-3">
+            <FileText className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{fileName}</span>
+          </p>
+        </div>
+      </div>
+      <p className="text-caption text-ink-2">{t("upload.duplicate.hint")}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="secondary" asChild>
+          <Link to={`/policies/${duplicate.policy_id}`} onClick={onOpen}>
+            <ShieldCheck className="h-4 w-4" />
+            {t("upload.duplicate.open")}
+          </Link>
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onRetry}>
+          {t("upload.tryAnother")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function UnresolvedPanel({
   unresolved,
   fileName,
@@ -741,12 +856,6 @@ function UnresolvedPanel({
   );
 }
 
-interface InsurerOption {
-  id: number;
-  name: string;
-  suggested: boolean;
-}
-
 function InsurerPanel({
   unresolved,
   fileName,
@@ -764,41 +873,12 @@ function InsurerPanel({
   // Same gate as the manual form (`pages/policies/new.tsx`): the list is
   // `GET /insurers`, so it needs Insurers:View. The server's suggestions come
   // inside the 422 itself and stay pickable without it.
-  const canInsurers = useCan("Insurers", "View");
-  const insurers = useInsurers({ limit: 200 }, canInsurers.allowed);
-
   const suggestions = React.useMemo(() => unresolved.suggestions ?? [], [unresolved.suggestions]);
+  const catalog = useInsurerCatalog(suggestions);
   const [selected, setSelected] = React.useState<string>(
     suggestions[0] ? String(suggestions[0].id) : "",
   );
-
-  const options = React.useMemo<{ suggested: InsurerOption[]; rest: InsurerOption[] }>(() => {
-    const ids = new Set(suggestions.map((s) => s.id));
-    return {
-      suggested: suggestions.map((s) => ({ id: s.id, name: s.name, suggested: true })),
-      rest: (insurers.data?.items ?? [])
-        .filter((ins) => !ids.has(ins.id))
-        .map((ins) => ({
-          id: ins.id,
-          name: ins.trade_name ?? ins.legal_name,
-          suggested: false,
-        })),
-    };
-  }, [insurers.data?.items, suggestions]);
-
-  const hasOptions = options.suggested.length + options.rest.length > 0;
-  const listing = canInsurers.allowed && insurers.isLoading;
-  /** Why the select cannot be used at all — shown, never a silent dead control. */
-  const selectBlocked = hasOptions
-    ? null
-    : !canInsurers.allowed
-      ? t("noPermission.insurers")
-      : listing
-        ? t("upload.insurer.loading")
-        : insurers.isError
-          ? apiError(insurers.error)
-          : t("upload.insurer.empty");
-  const useBlocked = selectBlocked ?? (selected ? null : t("upload.insurer.pickFirst"));
+  const useBlocked = catalog.blocked ?? (selected ? null : t("upload.insurer.pickFirst"));
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-warn-line bg-warn-soft/40 p-4">
@@ -834,59 +914,12 @@ function InsurerPanel({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="upload-insurer">{t("upload.insurer.label")}</Label>
-        <TouchHint hint={selectBlocked} className="w-full">
-          <Select
-            value={selected || undefined}
-            onValueChange={setSelected}
-            disabled={!!selectBlocked}
-          >
-            <SelectTrigger
-              id="upload-insurer"
-              className="h-10 w-full"
-              aria-label={t("upload.insurer.label")}
-            >
-              <SelectValue placeholder={t("upload.insurer.placeholder")} />
-            </SelectTrigger>
-            <SelectContent>
-              {options.suggested.length > 0 ? (
-                <SelectGroup>
-                  <SelectLabel>{t("upload.insurer.suggestedGroup")}</SelectLabel>
-                  {options.suggested.map((o) => (
-                    <SelectItem key={o.id} value={String(o.id)}>
-                      {o.name}
-                      <span className="ml-1.5 text-caption font-medium text-brand-deep">
-                        · {t("upload.insurer.suggested")}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ) : null}
-              {options.suggested.length > 0 && options.rest.length > 0 ? (
-                <SelectSeparator />
-              ) : null}
-              {options.rest.length > 0 ? (
-                <SelectGroup>
-                  <SelectLabel>{t("upload.insurer.allGroup")}</SelectLabel>
-                  {options.rest.map((o) => (
-                    <SelectItem key={o.id} value={String(o.id)}>
-                      {o.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ) : null}
-            </SelectContent>
-          </Select>
-        </TouchHint>
-        {/* Visible, not only a tooltip: on a phone the reason must show. */}
-        {selectBlocked ? (
-          <span className="text-caption text-ink-3">{selectBlocked}</span>
-        ) : !canInsurers.allowed ? (
-          <span className="text-caption text-ink-3">{t("upload.insurer.onlySuggestions")}</span>
-        ) : listing ? (
-          <span className="text-caption text-ink-3">{t("upload.insurer.loading")}</span>
-        ) : insurers.isError ? (
-          <span className="text-caption text-ink-3">{apiError(insurers.error)}</span>
-        ) : null}
+        <InsurerCatalogSelect
+          id="upload-insurer"
+          catalog={catalog}
+          value={selected}
+          onChange={setSelected}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

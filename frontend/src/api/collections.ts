@@ -190,12 +190,17 @@ export function useCollectionStatus(planId: number | undefined) {
 // scopes, because a payment also closes the cuota's bell alerts and changes
 // the policy's cobranza block.
 
-export type CollectionBucket = "upcoming" | "overdue" | "current" | "settled";
+/**
+ * `review` (review r2 D1): past cuotas of a policy loaded late, waiting for
+ * the broker's paid / unpaid answer — never counted as overdue.
+ */
+export type CollectionBucket = "upcoming" | "overdue" | "current" | "settled" | "review";
 export const COLLECTION_BUCKETS: readonly CollectionBucket[] = [
   "upcoming",
   "overdue",
   "current",
   "settled",
+  "review",
 ] as const;
 
 export type CobranzaLevel = "record" | "assisted" | "native";
@@ -209,6 +214,7 @@ export const COLLECTION_LEVELS: readonly CobranzaLevel[] = [
 export type InstallmentStateName =
   | "voided"
   | "paid"
+  | "pending_review"
   | "promised"
   | "termination_risk"
   | "overdue"
@@ -336,6 +342,10 @@ export interface CollectionsBoardSummary {
   unconfirmed_payments: number;
   pending_evidence: number;
   plans_missing: number;
+  /** Review r2 D1: past cuotas awaiting the paid / unpaid answer (never overdue). */
+  past_installments_pending?: CollectionMoneyCount;
+  /** Review r2 B5: `mine` when the cards were narrowed with `owner=me`. */
+  owner_scope?: "all" | "mine";
 }
 
 export interface InstallmentModeRead {
@@ -598,15 +608,18 @@ const paymentsKey = installmentPaymentsKey;
 export const SCOPED_ROWS_LIMIT = 200;
 
 /**
- * The cards. Deliberately keyed `qk.collections.summary()` WITHOUT params so
- * it shares one cache entry with the rail's overdue chip.
+ * The cards. Without an owner it is keyed `qk.collections.summary()` WITHOUT
+ * params so it shares one cache entry with the rail's overdue chip; with
+ * "Mías" on (review r2 B5) it sends `owner=me`, so cards and list agree.
  */
-export function useCollectionsBoardSummary(enabled = true) {
+export function useCollectionsBoardSummary(enabled = true, owner?: "me") {
   return useQuery({
-    queryKey: qk.collections.summary(),
+    queryKey: owner ? qk.collections.summary({ owner }) : qk.collections.summary(),
     enabled,
     queryFn: async () => {
-      const { data } = await api.get<CollectionsBoardSummary>("/collections/summary");
+      const { data } = await api.get<CollectionsBoardSummary>("/collections/summary", {
+        params: owner ? { owner } : undefined,
+      });
       return data;
     },
   });

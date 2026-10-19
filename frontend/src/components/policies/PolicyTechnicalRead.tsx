@@ -55,7 +55,9 @@ import {
   uf,
 } from "@/components/common/kit";
 import { useCan } from "@/lib/permissions";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatNumber } from "@/lib/format";
+import { formatTimelineMoment } from "@/components/groups/timelineCopy";
+import { num, type DecimalString } from "@/api/types";
 import { aiErrorCode, aiServerMessage, isLostResponse } from "@/lib/aiErrors";
 import { cn } from "@/lib/utils";
 import type { PolicyDetail } from "@/api/policies";
@@ -82,6 +84,22 @@ import {
 function text(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   return String(value);
+}
+
+/** A UF cell: "UF 1.500" — an empty cell is "—", never "UF —" (review r2 C5). */
+function ufCell(value: DecimalString | number | null | undefined, decimals = 2): string {
+  return num(value) === null ? "—" : uf(value, decimals);
+}
+
+/** A percentage cell: 10 → "10 %", 2.5 → "2,5 %". */
+function pctCell(value: DecimalString | number | null | undefined): string {
+  const n = num(value);
+  return n === null ? "—" : `${formatNumber(n, Number.isInteger(n) ? 0 : 2)} %`;
+}
+
+/** True when at least one row carries a non-empty `code`. */
+function anyCode(rows: { code?: unknown }[]): boolean {
+  return rows.some((row) => row.code !== null && row.code !== undefined && String(row.code).trim() !== "");
 }
 
 export function PolicyTechnicalRead({ policy }: { policy: PolicyDetail }) {
@@ -124,7 +142,7 @@ export function PolicyTechnicalRead({ policy }: { policy: PolicyDetail }) {
             {t("technical.confirmedLine")}
             {data.finished_at ? (
               <span className="text-ink-3">
-                · {formatDate(data.finished_at)}
+                · {formatTimelineMoment(data.finished_at)}
               </span>
             ) : null}
           </p>
@@ -356,7 +374,7 @@ function ReadyCard({
         description={
           read.finished_at
             ? t("technical.readyHintAt", {
-                when: formatDateTime(read.finished_at),
+                when: formatTimelineMoment(read.finished_at),
               })
             : t("technical.readyHint")
         }
@@ -407,7 +425,7 @@ function ReadyCard({
               />
               <KeyValue
                 label={t("technical.limits.aggregate")}
-                value={uf(limits.aggregate_limit_uf, 0)}
+                value={ufCell(limits.aggregate_limit_uf, 0)}
               />
               <KeyValue
                 label={t("technical.limits.valuation")}
@@ -575,7 +593,7 @@ function SectionTable({
               <TableCell>{text(row.description)}</TableCell>
               <TableCell>{text(row.address_or_plate)}</TableCell>
               <TableCell className="text-right tabular-nums">
-                {uf(row.insured_amount_uf, 0)}
+                {ufCell(row.insured_amount_uf, 0)}
               </TableCell>
             </TableRow>
           ))}
@@ -585,11 +603,14 @@ function SectionTable({
   }
 
   if (section === "coverages") {
+    // "Código" only when some row has one (it was always empty and ate the
+    // phone's width — review r2 C5).
+    const showCode = anyCode(s.coverages ?? []);
     return (
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>{t("technical.columns.code")}</TableHead>
+            {showCode ? <TableHead>{t("technical.columns.code")}</TableHead> : null}
             <TableHead>{t("technical.columns.coverage")}</TableHead>
             <TableHead className="text-right">
               {t("technical.columns.limit")}
@@ -600,12 +621,14 @@ function SectionTable({
         <TableBody>
           {(s.coverages ?? []).map((row, i) => (
             <TableRow key={i}>
-              <TableCell className="tabular-nums text-ink-3">
-                {text(row.code)}
-              </TableCell>
+              {showCode ? (
+                <TableCell className="tabular-nums text-ink-3">
+                  {text(row.code)}
+                </TableCell>
+              ) : null}
               <TableCell>{text(row.name)}</TableCell>
               <TableCell className="text-right tabular-nums">
-                {uf(row.limit_uf, 0)}
+                {ufCell(row.limit_uf, 0)}
               </TableCell>
               <TableCell className="text-caption text-ink-2">
                 {text(row.sublimit_text)}
@@ -643,13 +666,13 @@ function SectionTable({
             <TableRow key={i}>
               <TableCell>{text(row.peril)}</TableCell>
               <TableCell className="text-right tabular-nums">
-                {text(row.pct)}
+                {pctCell(row.pct)}
               </TableCell>
               <TableCell className="text-right tabular-nums">
-                {uf(row.min_uf)}
+                {ufCell(row.min_uf)}
               </TableCell>
               <TableCell className="text-right tabular-nums">
-                {uf(row.max_uf)}
+                {ufCell(row.max_uf)}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {text(row.days)}
@@ -665,11 +688,12 @@ function SectionTable({
   }
 
   // warranties
+  const showCode = anyCode(s.warranties ?? []);
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>{t("technical.columns.code")}</TableHead>
+          {showCode ? <TableHead>{t("technical.columns.code")}</TableHead> : null}
           <TableHead>{t("technical.columns.warranty")}</TableHead>
           <TableHead>{t("technical.columns.requirement")}</TableHead>
           <TableHead className="text-right">
@@ -681,9 +705,11 @@ function SectionTable({
       <TableBody>
         {(s.warranties ?? []).map((row, i) => (
           <TableRow key={i}>
-            <TableCell className="tabular-nums text-ink-3">
-              {text(row.code)}
-            </TableCell>
+            {showCode ? (
+              <TableCell className="tabular-nums text-ink-3">
+                {text(row.code)}
+              </TableCell>
+            ) : null}
             <TableCell>{text(row.title)}</TableCell>
             <TableCell className="text-caption text-ink-2">
               {text(row.requirement)}

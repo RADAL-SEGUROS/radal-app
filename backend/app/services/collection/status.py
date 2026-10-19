@@ -21,6 +21,12 @@ The order is binding — the first rule that matches wins:
 6. ``due_today``        ``today == due``;
 7. ``upcoming``         everything else (incl. a cuota with no due date).
 
+``pending_review`` (review r2, D1) sits between 2 and 3: a cuota of a policy
+loaded late, due before the plan's review cutoff, while the broker has not
+said whether it was paid (:mod:`app.services.collection.past_review`). It is
+never late, raises no alert and is cached as ``pending``. Only callers that
+pass ``review_cutoff`` see it — the payment writes (balance checks) do not need it.
+
 Flags are orthogonal: ``partial`` (active payments and balance > tolerance),
 ``direct_debit_rejected`` (rejection dated after the last active payment),
 ``unconfirmed`` (paid, best evidence weaker than ``insurer_confirmed``),
@@ -60,7 +66,14 @@ if TYPE_CHECKING:
     from app.models.payment import Payment
 
 StateName = Literal[
-    "voided", "paid", "promised", "termination_risk", "overdue", "due_today", "upcoming"
+    "voided",
+    "paid",
+    "pending_review",
+    "promised",
+    "termination_risk",
+    "overdue",
+    "due_today",
+    "upcoming",
 ]
 
 #: Weakest -> strongest. ``unconfirmed`` = best evidence below insurer_confirmed.
@@ -176,8 +189,13 @@ def compute_installment_state(
     today: date,
     cadence_days: list[int],
     tolerance_uf: Decimal = DEFAULT_TOLERANCE_UF,
+    review_cutoff: date | None = None,
 ) -> InstallmentState:
     """Derive the state of one cuota from its payments. Pure — see module doc.
+
+    ``review_cutoff``: the plan's past-installments cutoff while the broker has
+    not decided (``past_review.review_cutoffs``) — an open cuota due before it
+    reads ``pending_review``.
 
     ``payments`` is every payment of the cuota (active AND reversed); reversed
     rows are ignored for sums and evidence. ``cadence_days`` drives the
@@ -271,6 +289,16 @@ def compute_installment_state(
     days_late = max(0, (today - due).days) if due is not None else 0
     promise = getattr(inst, "promise_until", None)
 
+    if review_cutoff is not None and due is not None and due < review_cutoff:
+        return InstallmentState(
+            state="pending_review",
+            flags=frozenset(flags),
+            paid_uf=paid_uf,
+            balance_uf=balance,
+            days_late=0,
+            evidence=evidence,
+        )
+
     # A promise only matters once the cuota is late: a promise on a cuota that
     # has not fallen due (or falls due today) leaves it upcoming / due_today —
     # never in the overdue card, bucket or rail chip.
@@ -337,17 +365,42 @@ def broker_collection_params(db: "Session", broker_id: int) -> tuple[list[int], 
     return cadence, tolerance
 
 
+def installment_review_cutoff(db: "Session", inst: "CollectionInstallment") -> date | None:
+    """The cuota's plan review cutoff (``None`` when nothing awaits a decision)."""
+    from app.services.collection.past_review import review_cutoffs  # noqa: PLC0415
+
+    plan_id = getattr(inst, "collection_plan_id", None)
+    if plan_id is None:
+        return None
+    return review_cutoffs(db, inst.broker_id, [plan_id]).get(plan_id)
+
+
+_UNSET: Any = object()
+
+
 def refresh_installment_cache(
-    db: "Session", inst: "CollectionInstallment", *, today: date
+    db: "Session",
+    inst: "CollectionInstallment",
+    *,
+    today: date,
+    review_cutoff: Any = _UNSET,
 ) -> InstallmentState:
     """Recompute one cuota and write the cache columns. The caller commits.
 
     Writes ``status`` (legacy mapping), ``paid_on`` and ``days_late``. A legacy
     row (no payments, cached paid/cancelled) is left exactly as it is.
+    ``review_cutoff`` defaults to the plan's (one query); batch callers pass it.
     """
     cadence, tolerance = broker_collection_params(db, inst.broker_id)
+    if review_cutoff is _UNSET:
+        review_cutoff = installment_review_cutoff(db, inst)
     state = compute_installment_state(
-        inst, list(inst.payments), today=today, cadence_days=cadence, tolerance_uf=tolerance
+        inst,
+        list(inst.payments),
+        today=today,
+        cadence_days=cadence,
+        tolerance_uf=tolerance,
+        review_cutoff=review_cutoff,
     )
     if state.legacy:
         return state
@@ -373,6 +426,7 @@ __all__ = [
     "best_evidence",
     "broker_collection_params",
     "compute_installment_state",
+    "installment_review_cutoff",
     "legacy_status_for",
     "plan_termination_date",
     "refresh_installment_cache",

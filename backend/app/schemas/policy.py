@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -25,6 +25,7 @@ from app.models.enums import (
 from app.models.policy import PolicyStatus
 from app.schemas.analytics import GroupedSummary
 from app.schemas.catalog import LineRef, SubtypeRef
+from app.schemas.collection import PastInstallmentsRead
 from app.schemas.utc import UtcDatetime
 from app.schemas.wallclock import WallClockDatetime
 
@@ -108,6 +109,9 @@ class CollectionSummaryRead(BaseModel):
     level_reason: str | None = None
     installments_count: int = 0
     paid_count: int = 0
+    #: Review r2 (D1): past cuotas awaiting the broker's paid/unpaid decision
+    #: ``{plan_id, count, total_uf, first_due, last_due}``, else null.
+    past_installments_pending: PastInstallmentsRead | None = None
 
 
 class OperabilityRead(BaseModel):
@@ -281,6 +285,10 @@ class PolicyUploadResponse(BaseModel):
     #: ``{"status": "pending"}`` tells the SPA to fire
     #: ``POST /policies/{id}/technical-read`` next.
     technical_read: dict[str, Any] | None = None
+    #: Review r2 (D1): the plan read from the policy has cuotas already past
+    #: due -> ``{plan_id, count, total_uf, first_due, last_due}``; the SPA asks
+    #: "¿Ya están pagadas?" (``POST /collections/plans/{plan_id}/past-installments``).
+    past_installments: PastInstallmentsRead | None = None
 
 
 class PolicyFromProposal(BaseModel):
@@ -374,6 +382,9 @@ class PolicyRead(BaseModel):
     has_policy_number: bool = True
     collection_summary: CollectionSummaryRead | None = None
     missing: list[str] = Field(default_factory=list)
+    #: Review r2 (D1): same as ``collection_summary.past_installments_pending``
+    #: — the policy page shows its "¿Ya están pagadas?" banner while set.
+    past_installments_pending: PastInstallmentsRead | None = None
 
 
 class PolicyDetail(PolicyRead):
@@ -419,6 +430,8 @@ class PolicySummary(BaseModel):
     overdue_uf: Decimal = Decimal("0")
     without_source_document: int = 0
     provisional: int = 0
+    #: Review r2 (B5): ``mine`` when narrowed with ``owner=me`` / ``mine=1``.
+    owner_scope: Literal["all", "mine"] = "all"
     grouped: GroupedSummary | None = Field(
         default=None,
         description="Buckets listos para el gráfico cuando se pide ?group_by=.",

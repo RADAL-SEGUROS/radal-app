@@ -103,13 +103,23 @@ async function fetchBlob(path: string): Promise<{ blob: Blob; name: string | nul
   return { blob: res.data, name: filenameFromDisposition(disposition) };
 }
 
-/** `GET /documents/{id}/download` — a fresh, short-lived link. */
-export async function fetchDocumentLink(documentId: number): Promise<DocumentDownload> {
-  const { data } = await api.get<DocumentDownload>(`/documents/${documentId}/download`);
+export type OpenMode = "download" | "preview";
+
+/**
+ * `GET /documents/{id}/download` — a fresh, short-lived link. Review r2 B7:
+ * `mode=preview` mints an `inline` link (the PDF opens in the tab instead of
+ * downloading and leaving an `about:blank` behind), `mode=download` an
+ * `attachment` one carrying the ORIGINAL file name.
+ */
+export async function fetchDocumentLink(
+  documentId: number,
+  mode: OpenMode = "download",
+): Promise<DocumentDownload> {
+  const { data } = await api.get<DocumentDownload>(`/documents/${documentId}/download`, {
+    params: { mode },
+  });
   return data;
 }
-
-export type OpenMode = "download" | "preview";
 
 /**
  * Open a server-minted file URL: absolute → straight to the browser (no
@@ -159,7 +169,7 @@ export async function downloadDocument(
   documentId: number,
   filename?: string | null,
 ): Promise<void> {
-  const link = await fetchDocumentLink(documentId);
+  const link = await fetchDocumentLink(documentId, "download");
   await openFileUrl(
     link.url,
     "download",
@@ -175,7 +185,7 @@ export async function downloadDocument(
 export async function previewDocument(documentId: number): Promise<void> {
   const tab = reserveTab();
   try {
-    const link = await fetchDocumentLink(documentId);
+    const link = await fetchDocumentLink(documentId, "preview");
     await openFileUrl(link.url, "preview", link.original_name, tab);
   } catch (error) {
     tab?.close();

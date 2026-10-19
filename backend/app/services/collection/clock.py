@@ -47,6 +47,7 @@ from app.services.collection.alerts import (
     sync_installment_notifications,
 )
 from app.services.collection.board import policies_without_plan_stmt
+from app.services.collection.past_review import review_cutoffs
 from app.services.collection.resolver import active_native_channels, lead_insurer_id
 from app.services.collection.settings import settings_or_none
 from app.services.collection.status import broker_collection_params, refresh_installment_cache
@@ -101,8 +102,13 @@ def refresh_open_installments(
         .order_by(CollectionInstallment.id)
     ).all()
     stats = {"refreshed": 0, "alerts_raised": 0, "alerts_closed": 0}
+    # Review r2 (D1): past cuotas of a policy loaded late stay quiet until the
+    # broker decides (one query per broker, not per cuota).
+    cutoffs = review_cutoffs(db, broker_id)
     for inst in insts:
-        state = refresh_installment_cache(db, inst, today=today)
+        state = refresh_installment_cache(
+            db, inst, today=today, review_cutoff=cutoffs.get(inst.collection_plan_id)
+        )
         stats["refreshed"] += 1
         outcome = sync_installment_notifications(
             db, inst, state, today=today, cadence_days=cadence, now=now

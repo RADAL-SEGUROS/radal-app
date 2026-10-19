@@ -118,7 +118,8 @@
       "promised": "Payment promised",
       "paid": "Paid",
       "voided": "Voided",
-      "unknown": "No status"
+      "unknown": "No status",
+      "pending_review": "Under review"
     },
     "installment": {
       "number": "Installment {{number}}",

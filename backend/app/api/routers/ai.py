@@ -990,12 +990,17 @@ def summarize_case_file(
 def _agent_action_read(action: AgentAction, user: User) -> AgentActionRead:
     from app.services import agent_tools
 
+    from app.schemas.ai import AgentActionDisplayRow
+    from app.services.agent_display import action_display_for
+
     payload = AgentActionRead.model_validate(action)
     payload.allowed = (
         agent_tools.action_allowed(action, user)
         if action.status == AgentActionStatus.PROPOSED
         else False
     )
+    # Review r2 (B6): the confirm card's Spanish rows (never raw args / ids).
+    payload.display = [AgentActionDisplayRow(**row) for row in action_display_for(action)]
     return payload
 
 

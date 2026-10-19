@@ -99,9 +99,18 @@ def _val(value: Any) -> str | None:
 
 
 def current_state(db: Session, inst: "CollectionInstallment", *, today: date) -> InstallmentState:
+    """The live state, ``pending_review`` included (review r2 D1) — balance and
+    paid/voided are the same with or without it."""
+    from app.services.collection.status import installment_review_cutoff  # noqa: PLC0415
+
     cadence, tolerance = broker_collection_params(db, inst.broker_id)
     return compute_installment_state(
-        inst, list(inst.payments), today=today, cadence_days=cadence, tolerance_uf=tolerance
+        inst,
+        list(inst.payments),
+        today=today,
+        cadence_days=cadence,
+        tolerance_uf=tolerance,
+        review_cutoff=installment_review_cutoff(db, inst),
     )
 
 

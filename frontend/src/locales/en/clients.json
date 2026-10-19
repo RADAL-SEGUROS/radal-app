@@ -1,14 +1,14 @@
 {
-  "title": "Clients",
+  "title": "Insureds",
   "subtitle": "Your book of business: the canonical insured plus your private CRM record.",
-  "empty": "No clients match the current filter.",
-  "notFound": "We could not find this client.",
+  "empty": "No insureds match the current filter.",
+  "notFound": "We could not find this insured.",
   "actions": {
-    "new": "New client",
+    "new": "New insured",
     "viewPlacements": "View placements"
   },
   "kpi": {
-    "total": "Total clients",
+    "total": "Total insureds",
     "active": "Active",
     "withPlacements": "With an active placement",
     "unassigned": "Without account manager",
@@ -68,7 +68,7 @@
     "internalNotes": "Internal notes"
   },
   "form": {
-    "createTitle": "New client",
+    "createTitle": "New insured",
     "createSubtitle": "Identified by RUT: if the insured already exists on the platform it is linked, otherwise it is created.",
     "editTitle": "Edit client",
     "editSubtitle": "Only your private CRM record is editable. The canonical insured is shared across brokers.",

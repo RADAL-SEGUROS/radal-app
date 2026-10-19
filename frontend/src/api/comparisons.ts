@@ -44,6 +44,17 @@ export function isProviderDown(error: unknown): boolean {
   return status === 502 || status === 503 || status === 504;
 }
 
+/**
+ * Reading / aligning / promoting moves the account's journey server-side
+ * (review r2 A5/A6: Cotizaciones recibidas → Comparación, a colocación created
+ * on demand) — refresh the views that show the stage.
+ */
+function invalidateJourney(qc: QueryClient) {
+  void qc.invalidateQueries({ queryKey: qk.caseFiles.all });
+  void qc.invalidateQueries({ queryKey: qk.accountGroups.all });
+  void qc.invalidateQueries({ queryKey: qk.navigator.all });
+}
+
 /** GET /comparisons/{id} — header + columns + aligned matrix + dictionary. */
 export function useComparison(comparisonId: number | undefined) {
   return useQuery({
@@ -88,6 +99,27 @@ export async function pollComparison(
 }
 
 /** POST /comparisons — create-or-get the account's live comparison. */
+/**
+ * Open (or create) the account's comparison. `POST /comparisons` returns the
+ * existing one for the account, so it is safe as a query: fetched once per
+ * account and kept, and it survives StrictMode remounts.
+ */
+export function useEnsureComparison(caseFileId: number | undefined) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: ["comparisons", "ensure", caseFileId ?? 0],
+    enabled: !!caseFileId,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await api.post<Comparison>("/comparisons", { case_file_id: caseFileId });
+      qc.setQueryData(qk.comparisons.detail(data.id), data);
+      return data;
+    },
+  });
+}
+
 export function useCreateComparison() {
   const qc = useQueryClient();
   return useMutation({
@@ -119,6 +151,7 @@ export function useAddEntry(comparisonId: number) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.comparisons.detail(comparisonId) });
+      invalidateJourney(qc);
     },
   });
 }
@@ -157,6 +190,29 @@ export function useDeleteEntry(comparisonId: number) {
   });
 }
 
+/**
+ * POST /comparisons/{id}/entries/{entryId}/retry — *Reintentar* a column whose
+ * read failed (review r2 A2): the column's own document is read again INTO
+ * THE SAME column. A failure keeps the column failed and answers the same
+ * structured AI error as adding one.
+ */
+export function useRetryEntry(comparisonId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (entryId: number) => {
+      const { data } = await api.post<ComparisonEntryResult>(
+        `/comparisons/${comparisonId}/entries/${entryId}/retry`,
+        {},
+      );
+      return data;
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: qk.comparisons.detail(comparisonId) });
+      invalidateJourney(qc);
+    },
+  });
+}
+
 /** POST /comparisons/{id}/align — re-run the alignment (a paid AI call). */
 export function useAlign(comparisonId: number) {
   const qc = useQueryClient();
@@ -170,6 +226,7 @@ export function useAlign(comparisonId: number) {
     },
     onSuccess: (data) => {
       qc.setQueryData(qk.comparisons.detail(comparisonId), data.comparison);
+      invalidateJourney(qc);
     },
   });
 }
@@ -198,6 +255,8 @@ export function usePromoteEntry(comparisonId: number) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.comparisons.detail(comparisonId) });
       void qc.invalidateQueries({ queryKey: qk.proposals.all });
+      void qc.invalidateQueries({ queryKey: qk.placements.all });
+      invalidateJourney(qc);
     },
   });
 }

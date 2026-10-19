@@ -1125,7 +1125,19 @@ def create_plan(
         current_user=world.executive,
     )
     world.plans[key] = read.id
-    return db.get(CollectionPlan, read.id)
+    plan = db.get(CollectionPlan, read.id)
+    if read.past_installments_pending is not None:
+        # Review r2 (D1): past cuotas of a manual/reader policy start "por
+        # revisar". The demo's late cuotas ARE unpaid — say so, so the overdue /
+        # termination-risk examples stay on the board.
+        from app.services.collection import past_review
+        from app.services.collection.clock import business_today
+
+        past_review.decide(
+            db, plan, decision="unpaid", user=world.executive, today=business_today()
+        )
+        db.commit()
+    return plan
 
 
 def installment(world: World, plan_key: str, number: int) -> CollectionInstallment:

@@ -272,6 +272,16 @@ export interface AgentActionResult {
  * Confirmar disabled-with-reason without a second request; the server still
  * re-checks the real RBAC gate on confirm.
  */
+/**
+ * One server-built line of a proposed write (review r2 B6): Spanish label and
+ * an already-formatted value (UF/CLP Chilean style, dd-mm-aaaa, the cuota
+ * NUMBER and policy number — never an internal id or enum).
+ */
+export interface AgentActionDisplayRow {
+  label: string;
+  value: string | number | null;
+}
+
 export interface AgentAction {
   id: number;
   thread_id: number;
@@ -287,6 +297,8 @@ export interface AgentAction {
   confirmed_at: string | null;
   created_at: string | null;
   allowed: boolean;
+  /** B6: what the confirm card renders instead of the raw arguments. */
+  display?: AgentActionDisplayRow[] | null;
 }
 
 /** The linkage stub a `role=tool` message carries in `tool_calls`. */

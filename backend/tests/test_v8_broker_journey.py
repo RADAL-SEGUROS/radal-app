@@ -229,7 +229,7 @@ def test_policy_upload_resolves_insurer_from_account_when_pdf_names_no_rut(
     assert body["is_core_valid"] is True
     # Resolved from the account's accepted proposal — never by name.
     assert body["policy"]["insurer_id"] == world.insurer.id
-    assert any("account" in w.lower() for w in body["warnings"])
+    assert any("cotización aceptada de la cuenta" in w.lower() for w in body["warnings"])
 
 
 def test_policy_upload_of_another_tenants_document_is_404(

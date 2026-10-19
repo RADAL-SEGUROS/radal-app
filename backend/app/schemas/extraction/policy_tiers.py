@@ -366,7 +366,9 @@ class TechRisk(_Group):
 
 
 class TechSublimits(_Group):
-    """The table of coverage EXTENSIONS / sublimits, one row each (same row shape as a coverage)."""
+    """An EXPLICIT table of coverage extensions / sublimits, one row each (same row
+    shape as a coverage); empty when the policy has none (review r2: every row of
+    the coverage table is a ``tech_risk`` coverage)."""
 
     sublimits: list[CoverageSlim] = Field(default_factory=list)
 
@@ -486,7 +488,7 @@ _TECH_RISK = TierGroup(
     max_tokens=6000,
     guidance="""Registra la MATERIA ASEGURADA y las COBERTURAS.
 - items: cada ubicación, bien, vehículo o persona asegurada (type = ubicación|bien|vehículo|persona), con su descripción, dirección o patente y monto asegurado UF.
-- coverages: SOLO las coberturas PRINCIPALES o básicas (el amparo de cada materia: incendio, sismo, todo riesgo, perjuicio por paralización…; normalmente pocas), con su código POL/CAD si aparece, nombre, límite UF y, en sublimit_text, su condición en una frase literal breve. El CUADRO DE EXTENSIONES DE COBERTURA Y SUBLÍMITES NO va aquí: lo extrae otra llamada paralela.
+- coverages: TODAS las filas del CUADRO DE COBERTURAS de la póliza (la tabla o lista de coberturas contratadas), UNA por fila y en el orden del documento, sin omitir ninguna. En vehículos y otros ramos también son coberturas las asistencias (grúa, 24/7), el vehículo de reemplazo, los daños en el extranjero, la responsabilidad civil, la defensa penal, el valor a nuevo, el taller de marca, huelga / terrorismo, sismo / fenómenos de la naturaleza…: si la póliza la lista como cobertura, es una fila. Cada fila con su código POL/CAD si aparece, nombre, límite UF (o monto asegurado) y, en sublimit_text, su condición en una frase literal breve. Solo las filas de un cuadro APARTE titulado "extensiones de cobertura" o "sublímites" NO van aquí: las extrae otra llamada paralela.
 - indemnity_limit (texto literal), aggregate_limit_uf, valuation_basis (base de indemnización: valor de reposición, valor real…), average_rate_permille (tasa promedio por mil), cmf_policy_code (código POL/CAD de las condiciones generales).""",
 )
 
@@ -494,9 +496,10 @@ _TECH_SUBLIMITS = TierGroup(
     name="tech_sublimits",
     schema=TechSublimits,
     max_tokens=6000,
-    guidance="""Registra SOLO el CUADRO DE EXTENSIONES DE COBERTURA Y SUBLÍMITES.
-- sublimits: UNA fila por cada extensión, cláusula adicional o partida con sublímite: name (su nombre), limit_uf (el sublímite en UF si es un monto) y en sublimit_text la condición literal breve ("10% del monto asegurado, máx UF 25.000", "No otorgada").
-- No juntes varias extensiones en un mismo texto: cada una es su propia fila, en el orden del documento.""",
+    guidance="""Registra SOLO un CUADRO EXPLÍCITO de EXTENSIONES DE COBERTURA y/o SUBLÍMITES: una tabla o lista APARTE del cuadro de coberturas, titulada así ("extensiones de cobertura", "sublímites", "cláusulas adicionales con sublímite").
+- sublimits: UNA fila por cada extensión o partida con sublímite de ese cuadro: name (su nombre), limit_uf (el sublímite en UF si es un monto) y en sublimit_text la condición literal breve ("10% del monto asegurado, máx UF 25.000", "No otorgada").
+- No juntes varias extensiones en un mismo texto: cada una es su propia fila, en el orden del documento.
+- Si la póliza NO tiene ese cuadro aparte, devuelve sublimits: []. Nunca repitas aquí las filas del cuadro de coberturas (las extrae otra llamada paralela).""",
 )
 
 _TECH_DEDUCTIBLES = TierGroup(
@@ -547,7 +550,9 @@ SECTION_GROUP: dict[str, str] = {
     "exclusions": "tech_clauses",
     "particular_clauses": "tech_clauses",
 }
-#: Sections filled by MORE than one group: Coberturas = the principal coverages
-#: (``tech_risk``) followed by the sublimits table (``tech_sublimits``) — kept apart
-#: because a single call packed all 41 sublimits of a TRBF policy into ONE text.
+#: Sections filled by MORE than one group: Coberturas = every row of the coverage
+#: table (``tech_risk``) followed by an explicit extensions/sublimits table
+#: (``tech_sublimits``) — kept apart because a single call packed all 41
+#: sublimits of a TRBF policy into ONE text. A sublimit row named like a
+#: coverage row is dropped on merge (``policy_reading.technical_sections``).
 EXTRA_SECTION_GROUPS: dict[str, tuple[str, ...]] = {"coverages": ("tech_sublimits",)}

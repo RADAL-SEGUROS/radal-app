@@ -506,8 +506,12 @@ def tool_call(
     max_retries: int = 2,
     max_tokens: int | None = None,
     schema: "type | None" = None,
+    extra_body: dict[str, Any] | None = None,
 ) -> ToolCallResult:
     """Force one function call against ``tool_schema`` and return its parsed args.
+
+    ``extra_body`` is passed through to the provider untouched (e.g. the comparison
+    standardizer turns GLM's thinking off — see ``comparison_standardize``).
 
     Builds an OpenAI client against ``AI_BASE_URL`` / ``AI_API_KEY``, calls
     ``chat.completions`` with ``tools=[{type:function, function:tool_schema}]``
@@ -546,6 +550,8 @@ def tool_call(
     }
     if tool_name:
         request["tool_choice"] = {"type": "function", "function": {"name": tool_name}}
+    if extra_body:
+        request["extra_body"] = dict(extra_body)
 
     last_error: AIError | None = None
     for attempt in range(max_retries + 1):
@@ -2742,6 +2748,9 @@ def extract_budget_proposal(
             extraction.raw_output = raw_output
         extraction.finished_at = datetime.now(timezone.utc)
         db.commit()
+        # The comparison router keeps the failed attempt as a VISIBLE failed column
+        # (review round 2, A2): it needs the row this attempt wrote.
+        exc.extraction_id = extraction.id  # type: ignore[attr-defined]
 
     # The provider work (threads) never touches ``db``; only this thread does.
     try:
@@ -2960,13 +2969,22 @@ def _source_reading(db: Session, source: "ComparisonSource") -> dict[str, Any]:
     This is the holistic input — the model sees the whole offer, not a compacted
     facet slug. Labels / verbatim are capped so a wide programme stays bounded.
     """
+    from app.services.comparison_standardize import insurer_short_name
+
+    money_core = _source_money_core(db, source)
+    label = None
+    proposal = getattr(source, "proposal", None)
+    if proposal is not None and getattr(proposal, "insurer", None) is not None:
+        insurer = proposal.insurer
+        label = insurer.trade_name or insurer_short_name(insurer.legal_name)
     return build_reading(
         comparison_source_id=source.id,
         proposal_id=source.proposal_id,
         is_wrong_file=bool(source.is_wrong_file),
         wrong_file_reason=source.wrong_file_reason,
-        money_core=_source_money_core(db, source),
+        money_core=money_core,
         facets=_source_facets(source),
+        insurer_label=label or insurer_short_name(money_core.get("insurer_name")),
     )
 
 
@@ -2978,11 +2996,14 @@ def build_reading(
     wrong_file_reason: str | None,
     money_core: dict[str, Any],
     facets: list[dict[str, Any]],
+    insurer_label: str | None = None,
 ) -> dict[str, Any]:
     """The standardizer's input for ONE column — pure (no DB), so the timing probe can
-    build it from an in-memory read."""
+    build it from an in-memory read. ``insurer`` is the short insurer name the
+    recommendation must speak in (review round 2, A3)."""
     reading: dict[str, Any] = {
         "comparison_source_id": comparison_source_id,
+        "insurer": insurer_label,
         "proposal_id": proposal_id,
         "is_wrong_file": bool(is_wrong_file),
         "money_core": money_core,
@@ -3137,7 +3158,15 @@ def _submit_comparison_tool_schema() -> dict[str, Any]:
         "properties": {
             "comparison_source_id": {"type": "integer", "description": "La columna a la que pertenece la celda."},
             "present": {"type": "boolean", "description": "true si la oferta la ampara, false si la excluye."},
-            "value": {"type": ["string", "number"], "description": "Valor: límite UF, %, mínimo UF, días…"},
+            "value": {
+                "type": ["string", "number"],
+                "description": "Valor: un NÚMERO cuando es una cantidad (15000, no '15.000' ni 'UF 15.000'); texto solo si es compuesto.",
+            },
+            "unit": {
+                "type": "string",
+                "enum": ["uf", "pct", "permille", "days", "hours", "clp", "usd"],
+                "description": "Unidad del valor numérico: uf, pct (%), permille (‰), days, hours, clp, usd.",
+            },
             "verbatim": {"type": "string", "description": "La redacción EXACTA de esa oferta para esta dimensión."},
         },
         "required": ["comparison_source_id"],
@@ -3216,6 +3245,20 @@ def _submit_comparison_messages(
         "cargas incrementales. Cada dimensión lleva sus celdas por columna (valor + redacción literal) "
         "y su alcance (common/extra). Además entrega una recomendación con fundamento y salvedades. "
         "Llama a la función submit_comparison. No inventes dimensiones ni valores."
+        "\n\nREGLAS DE LA TABLA: "
+        "(1) UN concepto = UNA dimensión, aunque una compañía lo trate como cobertura y otra como "
+        "cláusula o extensión (rehabilitación automática, cláusula de 72 horas, paneles, "
+        "inalterabilidad): reúne sus celdas en la misma fila. "
+        "(2) Nunca mezcles en una fila una cobertura o sublímite con un DEDUCIBLE ni con una "
+        "EXCLUSIÓN: el deducible de sismo es su propia fila, distinta de la cobertura de sismo. "
+        "(3) En las EXCLUSIONES, present=true significa que la oferta CONTIENE esa exclusión (se "
+        "aplica); present=false solo si la oferta dice que NO la aplica. Mismo sentido en todas las "
+        "columnas. "
+        "(4) `value` es un NÚMERO cuando es una cantidad (15000, 25, 2.21) con su `unit` (uf, pct, "
+        "permille, days, hours); deja texto solo si el valor es compuesto (\"10% máx UF 20.000\"). "
+        "(5) En la recomendación nombra cada oferta por su COMPAÑÍA (campo `insurer` de la lectura: "
+        "p. ej. Southbridge, HDI, Mapfre), nunca \"columna N\" ni ids; compara la PRIMA TOTAL "
+        "(total_premium_uf = neta + IVA), no la prima exenta ni la afecta por separado."
     )
     user = _compare_input_blob(readings, prior_structure)
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -3224,22 +3267,37 @@ def _submit_comparison_messages(
 def _recommend_messages(
     dimensions: list[dict[str, Any]], readings: list[dict[str, Any]]
 ) -> list[dict[str, str]]:
+    from app.services.comparison_standardize import reading_labels
+
+    labels = reading_labels(readings)
     money = [
-        {"comparison_source_id": r.get("comparison_source_id"), "money_core": r.get("money_core")}
+        {
+            "comparison_source_id": r.get("comparison_source_id"),
+            "insurer": labels.get(r.get("comparison_source_id")),
+            "total_premium_uf": (r.get("money_core") or {}).get("total_premium_uf"),
+            "money_core": r.get("money_core"),
+        }
         for r in readings
     ]
     valid_ids = [m["comparison_source_id"] for m in money if m.get("comparison_source_id") is not None]
+    names = ", ".join(
+        f"{m['comparison_source_id']} = {m['insurer']}" for m in money if m.get("comparison_source_id") is not None
+    )
     system = (
         "Eres el recomendador de un comparador de ofertas de seguros en Chile. Recibes la tabla "
         "comparativa estandarizada (dimensiones con celdas por columna) y los núcleos de prima de "
-        "cada oferta. Entrega UNA recomendación con la columna recomendada, su fundamento y las "
+        "cada oferta. Entrega UNA recomendación con la oferta recomendada, su fundamento y las "
         "salvedades. Llama a la función recommend_comparison. "
         "OBLIGATORIO: DEBES elegir un pick concreto — 'recommended_comparison_source_id' tiene que "
         "ser uno de los comparison_source_id presentes en el arreglo 'money' "
         f"(valores válidos: {valid_ids or 'ver arreglo money'}), nunca null. "
         "El 'rationale' DEBE ser un texto no vacío en español que justifique esa elección. "
         "Aunque las ofertas sean parecidas o falten datos, elige la mejor opción disponible y "
-        "explica el porqué; usa 'caveats' para las salvedades, no para evitar elegir."
+        "explica el porqué; usa 'caveats' para las salvedades, no para evitar elegir. "
+        f"En 'rationale' y 'caveats' nombra cada oferta por su COMPAÑÍA ({names or 'campo insurer'}); "
+        "NUNCA escribas \"columna\", \"comparison_source_id\" ni números de id. Compara el precio "
+        "por la PRIMA TOTAL (total_premium_uf = prima neta + IVA, el total a pagar), nunca por la "
+        "prima exenta o la afecta por separado; considera TODAS las ofertas del arreglo 'money'."
     )
     user = json.dumps({"dimensions": dimensions, "money": money}, ensure_ascii=False, default=str)
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -3252,8 +3310,14 @@ def submit_comparison(
     sources: list["ComparisonSource"],
     broker_id: int,
     user: User | None = None,
+    still_current: Any = None,  # Callable[[], bool] | None
 ) -> ComparisonResult:
     """Holistically standardize an account's offers into ONE comparison table.
+
+    ``still_current`` (review round 2, A1): re-checked right before the snapshot is
+    committed. When a column arrived (or was retried) WHILE the provider worked, the
+    table does not cover it — it is saved but the comparison stays ``draft`` (needs a
+    re-align) instead of being marked ``aligned`` over a stale set of columns.
 
     The model sees ALL cotización readings at once + the prior comparison
     structure (carried forward). Default is ONE ``submit_comparison`` tool call;
@@ -3344,7 +3408,12 @@ def submit_comparison(
     comparison.dictionary = dictionary
     comparison.canonical_version = canonical_version
     comparison.aligned_matrix = table
-    comparison.status = ComparisonStatus.ALIGNED
+    stale = still_current is not None and not still_current()
+    if stale:
+        warnings.append(
+            "Llegó una cotización mientras se alineaba: la tabla no la incluye. Realinea."
+        )
+    comparison.status = ComparisonStatus.DRAFT if stale else ComparisonStatus.ALIGNED
     if extraction is not None:
         comparison.source_extraction_id = extraction.id
     db.add(comparison)
@@ -4778,6 +4847,19 @@ DISCIPLINA DE DATOS
   en vez de suponerlo, y dilo así.
 - Refiérete a las entidades por su etiqueta visible (por ejemplo EXP-2026-0004,
   el n° de póliza, el nombre del asegurado), nunca por ids crudos.
+
+LENGUAJE DE LA RESPUESTA (lo lee un corredor, no un programador)
+- NUNCA escribas en tu respuesta el nombre de una herramienta (list_policies,
+  send_status_inquiry, search_document_text…), un valor interno en inglés
+  (no_plan, overdue, termination_risk, declared, transfer, pending_review…) ni un
+  id interno (installment_id, policy_id, "cuota 68"). Los nombres de herramientas
+  de estas instrucciones son solo para ti.
+- Habla en términos del negocio: "revisé tus pólizas", "consulté a la compañía",
+  "busqué en el PDF"; "cuota 1 de 10 de la póliza N° 0020119904"; "sin plan de
+  pago"; "vencida", "en riesgo de término", "por revisar (cuota pasada de una
+  póliza cargada tarde)", "pagada", "pago declarado", "confirmado por la compañía";
+  medios de pago: "transferencia", "PAC", "PAT", "contado", "cheque".
+- Montos al estilo chileno: "UF 1.181,28", "$ 45.300"; fechas dd-mm-aaaa.
 
 ESTILO
 - Responde SIEMPRE en español de Chile, breve y concreto.

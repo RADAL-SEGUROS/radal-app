@@ -95,7 +95,7 @@ from app.services import catalog as catalog_service
 from app.services import extraction_commit
 from app.services import mirror as mirror_service
 from app.services import policy_reading
-from app.services import policy_reading_commit
+from app.services import policy_duplicates, policy_reading_commit
 from app.services import policy_registry as registry
 
 router = APIRouter(prefix="/policies", tags=["policies"])
@@ -119,7 +119,7 @@ def get_policy_or_404(db: Session, policy_id: int, broker_id: int) -> Policy:
         select(Policy).where(Policy.id == policy_id, Policy.broker_id == broker_id)
     ).first()
     if policy is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Póliza no encontrada")
     return policy
 
 
@@ -141,7 +141,7 @@ def _resolve_insurer(db: Session, insurer_id: int, broker_id: int) -> Insurer:
         )
     )
     if insurer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Insurer not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compañía no encontrada")
     if not (insurer.rut or "").strip() or not (insurer.cmf_code or "").strip():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -164,7 +164,7 @@ def _resolve_document(db: Session, document_id: int | None, broker_id: int) -> N
     if exists is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="The referenced document does not belong to this broker",
+            detail="Documento no encontrado",
         )
 
 
@@ -184,7 +184,7 @@ def _resolve_own_case(db: Session, case_file_id: int, broker_id: int) -> CaseFil
     ).first()
     if case is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Case file {case_file_id} not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Cuenta no encontrada"
         )
     return case
 
@@ -285,6 +285,8 @@ def _read(
         if case is not None and case.broker_id == policy.broker_id and case.account_group_id:
             group_id = case.account_group_id
     summary = registry.collection_summary(db, policy, today=today, params_cache=cache)
+    from app.schemas.collection import PastInstallmentsRead  # noqa: PLC0415
+
     return PolicyRead.model_validate(policy).model_copy(
         update={
             "insurer_name": insurer.legal_name if insurer else None,
@@ -302,6 +304,11 @@ def _read(
             "group_id": group_id,
             "has_policy_number": not registry.is_placeholder_number(policy.policy_number),
             "collection_summary": CollectionSummaryRead(**summary),
+            "past_installments_pending": (
+                PastInstallmentsRead(**summary["past_installments_pending"])
+                if summary.get("past_installments_pending")
+                else None
+            ),
             "missing": registry.compute_policy_missing(db, policy),
         }
     )
@@ -425,16 +432,20 @@ def owner_me_clause(broker_id: int, user_id: int):
     )
 
 
-def count_expiring(db: Session, scoped: list, today: date, days: int) -> int:
-    """Computed-active policies whose ``end_date`` falls within ``days`` (incl. today)."""
-    return _count(
-        db,
-        *scoped,
+def expiring_clauses(today: date, days: int) -> list:
+    """Computed-active policies whose ``end_date`` falls within ``days`` (incl.
+    today) — ONE definition for the list filter and the cards that count it."""
+    return [
         registry.computed_status_clause("active", today),
         Policy.end_date.is_not(None),
         Policy.end_date >= today,
         Policy.end_date <= today + timedelta(days=days),
-    )
+    ]
+
+
+def count_expiring(db: Session, scoped: list, today: date, days: int) -> int:
+    """Computed-active policies whose ``end_date`` falls within ``days`` (incl. today)."""
+    return _count(db, *scoped, *expiring_clauses(today, days))
 
 
 def _summary_cards(db: Session, broker_id: int, scoped: list, today: date) -> dict[str, Any]:
@@ -482,6 +493,9 @@ def _summary_cards(db: Session, broker_id: int, scoped: list, today: date) -> di
         .options(selectinload(CollectionInstallment.payments))
     ).all()
     if past_due:
+        from app.services.collection.past_review import review_cutoffs
+
+        cutoffs = review_cutoffs(db, broker_id)
         for inst in past_due:
             state = compute_installment_state(
                 inst,
@@ -489,6 +503,7 @@ def _summary_cards(db: Session, broker_id: int, scoped: list, today: date) -> di
                 today=today,
                 cadence_days=cadence,
                 tolerance_uf=tolerance,
+                review_cutoff=cutoffs.get(inst.collection_plan_id),
             )
             if state.state in registry.LATE_STATES:
                 cards["overdue_installments"] += 1
@@ -506,6 +521,8 @@ def get_policies_summary(
     _user: User = Depends(require_permission("Policies", "View")),
     scope: ScopeFilters = Depends(scope_filters),
     group_by: str | None = group_by_query(),
+    owner: Literal["me"] | None = Query(default=None),
+    mine: bool = Query(default=False),
 ) -> PolicySummary:
     """The portfolio board + the v12 main-view cards.
 
@@ -522,6 +539,10 @@ def get_policies_summary(
     ``status | insurer | insurance_line | account_group | month``.
     """
     scoped = [Policy.broker_id == broker_id, *scope_predicates("policies", scope, broker_id)]
+    narrowed = owner == "me" or mine
+    if narrowed:
+        # Review r2 (B5): the cards follow the list's "Mías" (``owner=me``).
+        scoped.append(owner_me_clause(broker_id, _user.id))
     rows = db.execute(
         select(Policy.status, func.count(Policy.id))
         .where(*scoped)
@@ -564,6 +585,7 @@ def get_policies_summary(
             else Decimal("0")
         ),
         expiring_within_60_days=expiring,
+        owner_scope="mine" if narrowed else "all",
         grouped=grouped_or_none(
             db, "policies", group_by=group_by, broker_id=broker_id, extra_filters=scoped
         ),
@@ -612,6 +634,13 @@ def list_policies(
         description="source_document | plan | payer_contact | commission | policy_number | …",
     ),
     owner: Literal["me"] | None = Query(default=None),
+    mine: bool = Query(default=False, description="alias of owner=me"),
+    expiring_within_days: int | None = Query(
+        default=None,
+        ge=0,
+        le=3650,
+        description="computed-active policies whose end date falls within N days (today included)",
+    ),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> PolicyPage:
@@ -678,8 +707,11 @@ def list_policies(
         )
     if origin:
         stmt = stmt.where(Policy.origin.in_(origin))
-    if owner == "me":
+    if owner == "me" or mine:
         stmt = stmt.where(owner_me_clause(broker_id, current_user.id))
+    if expiring_within_days is not None:
+        # Review r2 (B4): the copilot's "vencen en 30 días" opens exactly this.
+        stmt = stmt.where(*expiring_clauses(registry.today_santiago(), expiring_within_days))
     if q and q.strip():
         clauses = []
         for variant in _q_variants(q):
@@ -918,7 +950,7 @@ def _create_manual(
             select(Client).where(Client.id == payload.client_id, Client.broker_id == broker_id)
         ).first()
         if client is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asegurado no encontrado")
         linked_existing = True
     elif payload.insured_rut:
         linked_existing = (
@@ -1103,7 +1135,7 @@ def create_policy(
         select(Client).where(Client.id == client_id, Client.broker_id == broker_id)
     ).first()
     if client is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asegurado no encontrado")
 
     policy = Policy(
         broker_id=broker_id,
@@ -1214,6 +1246,20 @@ def _is_member(db: Session, case: CaseFile, client_id: int) -> bool:
     )
 
 
+def _refuse_duplicate(db: Session, policy: Policy, *, document: Any, user: User) -> None:
+    """409 ``policy_duplicate`` (D2). The request's document goes when it is a
+    fresh orphan of this user — never when anything links it."""
+    detail = policy_duplicates.duplicate_detail(db, policy)
+    db.rollback()
+    if document.id != policy.source_document_id:
+        detail["document_removed"] = policy_duplicates.discard_request_document(
+            db, document=document, user=user
+        )
+    else:
+        detail["document_removed"] = False
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
 @router.post("/upload", response_model=PolicyUploadResponse, status_code=status.HTTP_201_CREATED)
 def upload_policy(
     payload: PolicyUploadRequest,
@@ -1242,12 +1288,21 @@ def upload_policy(
     if document is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document {payload.document_id} not found",
+            detail="Documento no encontrado",
         )
+
+    # Review r2 (D2): the exact file of a policy already registered is a 409
+    # before any read — no AI call, no side effect.
+    same_file = policy_duplicates.duplicate_by_checksum(
+        db, broker_id=broker_id, document=document
+    )
+    if same_file is not None:
+        _refuse_duplicate(db, same_file, document=document, user=current_user)
 
     # Attach the account folder when the caller names one and the document has
     # none — extraction context + the committer both read ``case_file_id``.
     named_client: Client | None = None
+    attached_case_here = False
     if payload.case_file_id is not None:
         case = _resolve_own_case(db, payload.case_file_id, broker_id)
         if payload.client_id is not None:
@@ -1258,7 +1313,7 @@ def upload_policy(
             ).first()
             if named_client is None:
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Asegurado no encontrado"
                 )
             if not _is_member(db, case, named_client.id):
                 raise HTTPException(
@@ -1267,6 +1322,7 @@ def upload_policy(
                 )
         if document.case_file_id is None:
             document.case_file_id = case.id
+            attached_case_here = True
             db.commit()
 
     # v12: no folder at all -> the colocación is resolved on demand AFTER the
@@ -1278,10 +1334,14 @@ def upload_policy(
         if payload.insurance_subtype_id is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=(
-                    "El documento no está asociado a una cuenta — indica case_file_id, o "
-                    "el subtipo (insurance_subtype_id) para ubicar o crear su colocación"
-                ),
+                detail={
+                    "code": "subtype_required",
+                    "reason": (
+                        "Elige el ramo y el subtipo de la póliza para ubicar o crear su "
+                        "cuenta."
+                    ),
+                    "field": "insurance_subtype_id",
+                },
             )
         subtype = _resolve_subtype(db, payload.insurance_subtype_id)
         if payload.client_id is not None:
@@ -1292,7 +1352,7 @@ def upload_policy(
             ).first()
             if given_client is None:
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Asegurado no encontrado"
                 )
 
     # SUGGEST: writes exactly one extraction row in every outcome. Fast reading
@@ -1326,6 +1386,21 @@ def upload_policy(
             },
         )
 
+    # Review r2 (D2): a policy the broker already has (same n°, same insurer
+    # when resolvable) is a 409 right after the core read — BEFORE any commit
+    # work: no client, no plan, no notification, no technical re-read.
+    existing = policy_duplicates.duplicate_by_number(
+        db,
+        broker_id=broker_id,
+        payload=result.payload,
+        chosen_insurer_id=payload.insurer_id,
+    )
+    if existing is not None:
+        if attached_case_here:
+            document.case_file_id = None
+            db.commit()
+        _refuse_duplicate(db, existing, document=document, user=current_user)
+
     attach_warnings: list[str] = []
     upload_client: Client | None = named_client
     # 2b.5: the no-folder upload landed on an insured ALREADY in the cartera
@@ -1352,11 +1427,11 @@ def upload_policy(
                 detail={
                     "code": "insured_unresolved",
                     "reason": (
-                        "El RUT del asegurado leído no está en tu cartera: créalo "
-                        "(Crear asegurado, prellenado) o elige el cliente (client_id)."
+                        "El RUT del asegurado leído no está en tu cartera: créalo o "
+                        "elige el asegurado."
                         if known_rut
-                        else "No pudimos identificar al asegurado en el PDF: indica el "
-                        "cliente (client_id) para registrar la póliza."
+                        else "No pudimos identificar al asegurado en el PDF: elige el "
+                        "asegurado para registrar la póliza."
                     ),
                     "suggestion": suggestion,
                     "extraction_id": result.extraction.id,
@@ -1521,8 +1596,10 @@ def upload_policy(
     )
 
     policy = get_policy_or_404(db, commit_result.entity_id, broker_id)
+    policy_row = _read(db, policy)
     return PolicyUploadResponse(
-        policy=_read(db, policy),
+        policy=policy_row,
+        past_installments=policy_row.past_installments_pending,
         extraction_id=result.extraction.id,
         is_core_valid=bool(commit_result.extra.get("is_core_valid")),
         core_validation=policy.core_validation,
@@ -1963,7 +2040,7 @@ def replace_policy_parties(
             )
             if owned is None:
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Asegurado no encontrado"
                 )
         elif party.rut:
             client_id = db.scalar(

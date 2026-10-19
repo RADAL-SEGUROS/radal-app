@@ -81,8 +81,8 @@ import {
   PostsaleBadge,
   daysBetween,
   offBy,
-  renderValue,
 } from "@/pages/policies/shared";
+import { DeductiblesList } from "@/components/policies/DeductiblesList";
 import { SubFunnel } from "@/pages/policies/SubFunnel";
 import { MirrorDiffPanel } from "@/pages/policies/MirrorDiffPanel";
 import { WarrantyTracker } from "@/pages/policies/WarrantyTracker";
@@ -668,9 +668,9 @@ export function PolicyDetailBody({ policyId }: { policyId: number }) {
                   <div className="text-caption font-medium text-text-muted">
                     {t("policy.fields.deductibles")}
                   </div>
-                  <p className="mt-1 text-body text-text-secondary">
-                    {renderValue(p.deductibles)}
-                  </p>
+                  <div className="mt-1.5">
+                    <DeductiblesList value={p.deductibles} />
+                  </div>
                 </div>
               ) : null}
 

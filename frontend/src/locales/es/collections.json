@@ -43,7 +43,8 @@
       "current": "No hay planes al día con saldo",
       "overdue": "No hay cuotas vencidas",
       "settled": "No hay planes saldados",
-      "upcoming": "No hay cuotas por vencer en los próximos 30 días"
+      "upcoming": "No hay cuotas por vencer en los próximos 30 días",
+      "review": "No hay cuotas pasadas esperando tu decisión"
     },
     "emptyFiltered": "Prueba quitando algún filtro.",
     "emptyHint": "Las cuotas entran a Cobranza cuando una póliza tiene su plan de pago.",
@@ -61,7 +62,8 @@
     "current": "Al día",
     "overdue": "Vencidas",
     "settled": "Saldadas",
-    "upcoming": "Próximas"
+    "upcoming": "Próximas",
+    "review": "Por revisar"
   },
   "cards": {
     "collectedMonth": "Cobrado este mes",
@@ -474,7 +476,8 @@
     "termination_risk": "Riesgo de término",
     "unknown": "Sin estado",
     "upcoming": "Por vencer",
-    "voided": "Anulada"
+    "voided": "Anulada",
+    "pending_review": "Por revisar"
   },
   "title": "Cobranza"
 }

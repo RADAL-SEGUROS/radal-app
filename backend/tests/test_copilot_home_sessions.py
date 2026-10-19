@@ -522,8 +522,18 @@ def test_home_admin_sees_the_broker_and_matches_the_summaries(
     assert indicators["active_policies"]["secondary"] == pytest.approx(float(policies["active_premium_uf"]))
     assert indicators["active_policies"]["link"] == "/policies?status=active"
     assert indicators["expiring_policies_30"]["value"] == 1
-    assert indicators["todo_notifications"]["value"] == 0  # the exec's row is theirs
-    assert indicators["todo_notifications"]["link"] == "/notifications?tray=todo"
+    # Review r2 (B4): the expiry card opens a list that really filters by expiry.
+    assert indicators["expiring_policies_30"]["link"] == "/policies?expiring=30"
+    expiring = client.get(
+        f"{API}/policies", params={"expiring_within_days": 30}, headers=headers_a
+    ).json()
+    assert expiring["total"] == indicators["expiring_policies_30"]["value"]
+    # Review r2 (B4): the admin's to-dos are the TEAM's (Notificaciones → Todas).
+    team = client.get(
+        f"{API}/notifications", params={"tray": "todo", "scope": "all"}, headers=headers_a
+    ).json()
+    assert indicators["todo_notifications"]["value"] == team["total"] == 1
+    assert indicators["todo_notifications"]["link"] == "/notifications?tray=todo&scope=all"
 
     keys = [s["key"] for s in body["suggestions"]]
     assert 4 <= len(keys) <= 6 and len(set(keys)) == len(keys)
@@ -548,7 +558,13 @@ def test_home_executive_sees_their_own_book(client, db, world, headers_a_exec, p
     assert indicators["active_policies"]["value"] == mine["total"] == 1
     assert indicators["active_policies"]["link"] == "/policies?status=active&mine=1"
     assert indicators["expiring_policies_30"]["value"] == 1
+    assert indicators["expiring_policies_30"]["link"] == "/policies?expiring=30&mine=1"
+    expiring_mine = client.get(
+        f"{API}/policies", params={"expiring_within_days": 30, "mine": 1}, headers=headers_a_exec
+    ).json()
+    assert expiring_mine["total"] == 1
     assert indicators["todo_notifications"]["value"] == 1
+    assert indicators["todo_notifications"]["link"] == "/notifications?tray=todo"
 
 
 def test_home_other_executive_has_an_empty_book_but_four_suggestions(

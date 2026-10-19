@@ -18,6 +18,8 @@ in place. Which alert a cuota deserves TODAY is a pure function of its state
 
 A ``promised`` cuota (promise still in the future) raises nothing new — the
 broker already managed it. Paid or voided -> every alert about it is closed.
+A ``pending_review`` cuota (a past cuota of a policy loaded late, review r2 D1)
+raises nothing and any alert it had is closed until the broker decides.
 
 Recipients: the plan's account owner, else the policy's
 (:func:`app.services.notifications.recipients_for_policy`: owner, else every
@@ -72,7 +74,7 @@ def installment_alert(
     cadence_days: list[int],
 ) -> tuple[NotificationKind, NotificationTray, str] | None:
     """The single alert this cuota deserves today, or ``None``. Pure."""
-    if state.state in ("paid", "voided", "promised"):
+    if state.state in ("paid", "voided", "promised", "pending_review"):
         return None
     due = inst.due_date
     if due is None:
@@ -165,7 +167,7 @@ def sync_installment_notifications(
     ``closed`` (paid/voided), ``raised`` (an alert was created or updated),
     ``none`` (nothing due today, or a historic policy).
     """
-    if state.state in ("paid", "voided"):
+    if state.state in ("paid", "voided", "pending_review"):
         closed = close_for_origin(
             db,
             broker_id=inst.broker_id,

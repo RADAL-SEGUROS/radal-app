@@ -270,7 +270,7 @@ export default function CollectionsPage() {
   const pageIndex = pageRaw && Number(pageRaw) > 1 ? Number(pageRaw) - 1 : 0;
   const limit = flag ? PAGE_WITH_FLAG : PAGE;
 
-  const summary = useCollectionsBoardSummary();
+  const summary = useCollectionsBoardSummary(true, mine ? "me" : undefined);
   const insurers = usePaymentInsurers({ scope: "mine" });
   const lines = useCatalogLines();
   const board = useBoardInstallments({
@@ -446,7 +446,10 @@ export default function CollectionsPage() {
       <Tabs value={tab} onValueChange={(v) => set({ tab: v === "upcoming" ? null : v, flag: null })}>
         <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <TabsList variant="underline" className="min-w-max">
-            {COLLECTION_BUCKETS.map((b) => (
+            {/* "Por revisar" (D1) only appears while something waits for it. */}
+            {COLLECTION_BUCKETS.filter(
+              (b) => b !== "review" || tab === "review" || (counts.review ?? 0) > 0,
+            ).map((b) => (
               <TabsTrigger key={b} value={b} className="gap-1.5">
                 {labelOf(t, BUCKET_LABEL, b)}
                 {counts[b] !== undefined ? (

@@ -239,12 +239,14 @@ def _comparison_with_sources(db, world):
     return comparison, [s1, s2]
 
 
-def _submit_comparison_tool_double(dimensions, recommendation=None, *, monkeypatch):
-    """Fake ``tool_call`` for the holistic submit_comparison path (hermetic)."""
+def _submit_comparison_tool_double(rows, recommendation=None, *, monkeypatch, calls=None):
+    """Fake ``tool_call`` for submit_comparison (rows of references) + recommend."""
     def _call(*, tool_schema=None, schema=None, **kwargs):
         name = (tool_schema or {}).get("name")
+        if calls is not None:
+            calls.append(name)
         parsed = (
-            {"dimensions": dimensions, "recommendation": recommendation}
+            {"rows": rows, "recommendation": recommendation}
             if name == "submit_comparison"
             else {"recommendation": recommendation}
         )
@@ -260,27 +262,25 @@ def _submit_comparison_tool_double(dimensions, recommendation=None, *, monkeypat
 
     monkeypatch.setattr(ai_service, "tool_call", _call)
 
-
 def test_submit_comparison_snapshots_table_and_recommendation(world, db, monkeypatch):
-    """The holistic comparison standardizes ALL readings into one table + a rec."""
+    """The comparison standardizes ALL readings into one table + a rec.
+
+    "Sismo" repeats in both readings -> pre-matched in code (never sent to the model);
+    "Incendio" / "Robo" are unmatched -> the model answers only matches (none here), so
+    each becomes a row of its own, with its cells rebuilt from the facet."""
     monkeypatch.setattr(settings, "AI_API_KEY", "test-key")
     comparison, sources = _comparison_with_sources(db, world)
+    for source, value in zip(sources, ("5%", "5%")):
+        source.facets = [{**source.facets[0], "value": value, "verbatim": "5% de la pérdida"}, source.facets[1]]
+    db.commit()
 
-    dimensions = [
-        {"key": "sismo", "group": "deductible", "label": "Sismo", "scope": "common", "cells": [
-            {"comparison_source_id": sources[0].id, "present": True, "value": "5%", "verbatim": "5% de la pérdida"},
-            {"comparison_source_id": sources[1].id, "present": True, "value": "5%"},
-        ]},
-        {"key": "incendio", "group": "coverage", "label": "Incendio", "scope": "extra", "cells": [
-            {"comparison_source_id": sources[0].id, "present": True},
-        ]},
-    ]
     recommendation = {
         "recommended_comparison_source_id": sources[0].id,
         "rationale": "Mejor deducible de sismo por prima equivalente.",
         "caveats": ["Revisar el mínimo UF del sismo."],
     }
-    _submit_comparison_tool_double(dimensions, recommendation, monkeypatch=monkeypatch)
+    calls: list = []
+    _submit_comparison_tool_double([], recommendation, monkeypatch=monkeypatch, calls=calls)
 
     result = ai_service.submit_comparison(
         db, comparison=comparison, sources=sources, broker_id=world.a.broker_id
@@ -288,11 +288,19 @@ def test_submit_comparison_snapshots_table_and_recommendation(world, db, monkeyp
 
     assert result.used_ai is True
     assert result.batched is False
+    assert calls == ["submit_comparison"]  # small input: one call that also recommends
     assert result.recommendation["recommended_comparison_source_id"] == sources[0].id
     keys = {entry["key"] for entry in result.dictionary}
-    assert keys == {"sismo", "incendio"}
+    assert keys == {"sismo", "incendio", "robo"}
     assert result.canonical_version == 1
-    assert result.table["dimensions"] == dimensions
+    dims = {d["key"]: d for d in result.table["dimensions"]}
+    assert dims["sismo"]["scope"] == "common" and dims["sismo"]["group"] == "deductible"
+    # Review round 2 (A4): a plain "5%" is standardized to the number 5 + unit "pct".
+    assert [(c["comparison_source_id"], c["value"], c["unit"]) for c in dims["sismo"]["cells"]] == [
+        (sources[0].id, 5, "pct"), (sources[1].id, 5, "pct")
+    ]
+    assert dims["incendio"]["scope"] == "extra"
+    assert [c["comparison_source_id"] for c in dims["robo"]["cells"]] == [sources[1].id]
 
     # One audit row was written and snapshotted onto the comparison.
     assert result.extraction is not None
@@ -301,35 +309,29 @@ def test_submit_comparison_snapshots_table_and_recommendation(world, db, monkeyp
     assert comparison.source_extraction_id == result.extraction.id
     assert comparison.aligned_matrix["recommendation"]["rationale"]
 
-
 def test_submit_comparison_dictionary_grows_monotonically(world, db, monkeypatch):
     monkeypatch.setattr(settings, "AI_API_KEY", "test-key")
     comparison, sources = _comparison_with_sources(db, world)
 
-    _submit_comparison_tool_double(
-        [{"key": "sismo", "group": "deductible", "label": "Sismo", "cells": []},
-         {"key": "incendio", "group": "coverage", "label": "Incendio", "cells": []}],
-        monkeypatch=monkeypatch,
-    )
+    _submit_comparison_tool_double([], monkeypatch=monkeypatch)
     ai_service.submit_comparison(
         db, comparison=comparison, sources=sources, broker_id=world.a.broker_id
     )
     db.refresh(comparison)
+    assert comparison.canonical_version == 1
 
     # A re-run that introduces a brand-new dimension bumps the version and appends.
-    _submit_comparison_tool_double(
-        [{"key": "sismo", "group": "deductible", "label": "Sismo", "cells": []},
-         {"key": "lucro_cesante", "group": "coverage", "label": "Lucro cesante", "cells": []}],
-        monkeypatch=monkeypatch,
-    )
+    sources[1].facets = list(sources[1].facets) + [
+        {"group": "coverage", "label": "Lucro cesante", "present": True}
+    ]
+    db.commit()
     result = ai_service.submit_comparison(
         db, comparison=comparison, sources=sources, broker_id=world.a.broker_id
     )
     keys = {entry["key"] for entry in result.dictionary}
-    assert "lucro_cesante" in keys
-    assert {"sismo", "incendio"} <= keys  # nothing dropped
+    assert "lucro-cesante" in keys
+    assert {"sismo", "incendio", "robo"} <= keys  # nothing dropped
     assert result.canonical_version == 2
-
 
 def test_submit_comparison_blocks_on_provider_down(world, db, monkeypatch):
     """BLOCK-ON-DOWN: a raised AIError PROPAGATES (no deterministic fallback)."""
@@ -350,25 +352,33 @@ def test_submit_comparison_blocks_on_provider_down(world, db, monkeypatch):
     assert comparison.status is not ComparisonStatus.ALIGNED
 
 
-def test_submit_comparison_batches_over_threshold_and_merges(world, db, monkeypatch):
-    """Above AI_COMPARE_MAX_INPUT_CHARS the readings run in batches then merge."""
+def test_submit_comparison_one_call_per_group_class_with_unmatched_facets(world, db, monkeypatch):
+    """Above GROUP_SPLIT_MIN_FACETS: one call per group class that still has unmatched
+    facets (here cover + deductible; nothing matched in code is ever sent), the
+    recommend call in parallel, matches folded by reference."""
     monkeypatch.setattr(settings, "AI_API_KEY", "test-key")
-    # Force batching: the two readings cannot share a batch.
-    monkeypatch.setattr(settings, "AI_COMPARE_MAX_INPUT_CHARS", 200)
+    from app.services import comparison_standardize as standardize
+
+    monkeypatch.setattr(standardize, "GROUP_SPLIT_MIN_FACETS", 1)
     comparison, sources = _comparison_with_sources(db, world)
+    sources[0].facets = list(sources[0].facets) + [{"group": "deductible", "label": "Robo", "verbatim": "UF 10"}]
+    sources[1].facets = list(sources[1].facets) + [{"group": "deductible", "label": "Hurto", "verbatim": "UF 15"}]
+    db.commit()
 
     calls: list[str] = []
+    seen: list[dict] = []
 
-    def _call(*, tool_schema=None, schema=None, **kwargs):
+    def _call(*, tool_schema=None, messages=None, **kwargs):
         name = (tool_schema or {}).get("name")
         calls.append(name)
         if name == "submit_comparison":
-            # Each batch reports one distinct dimension.
-            idx = sum(1 for c in calls if c == "submit_comparison")
-            parsed = {"dimensions": [
-                {"key": f"dim_{idx}", "group": "coverage", "label": f"Dim {idx}", "cells": []}
-            ]}
-        else:  # recommend_comparison over the merged table
+            blob = json.loads(messages[1]["content"])
+            seen.append(blob)
+            groups = {f["group"] for r in blob["readings"] for f in r["facets"]}
+            # The deductible call pairs Robo (source 0) with Hurto (source 1).
+            refs = [[r["comparison_source_id"], r["facets"][0]["n"]] for r in blob["readings"] if r["facets"]]
+            parsed = {"rows": [{"refs": refs}] if groups == {"deductible"} else []}
+        else:
             parsed = {"recommendation": {"recommended_comparison_source_id": sources[0].id,
                                           "rationale": "merged", "caveats": []}}
         return ai_service.ToolCallResult(
@@ -379,45 +389,47 @@ def test_submit_comparison_batches_over_threshold_and_merges(world, db, monkeypa
         )
 
     monkeypatch.setattr(ai_service, "tool_call", _call)
-
     result = ai_service.submit_comparison(
         db, comparison=comparison, sources=sources, broker_id=world.a.broker_id
     )
 
-    assert result.batched is True
-    assert result.batch_count == 2
+    assert result.batched is True and result.batch_count == 2
     assert calls.count("submit_comparison") == 2
-    assert calls.count("recommend_comparison") == 1  # one rec over the merged table
-    # The merged table unions both batches' dimensions.
-    keys = {d["key"] for d in result.table["dimensions"]}
-    assert keys == {"dim_1", "dim_2"}
+    assert calls.count("recommend_comparison") == 1
+    sent = [f["label"] for blob in seen for r in blob["readings"] for f in r["facets"]]
+    assert "Sismo" not in sent  # matched in code
+    robo = next(d for d in result.table["dimensions"] if d["key"] == "robo")
+    assert robo["group"] == "deductible"
+    assert [c["verbatim"] for c in robo["cells"]] == ["UF 10", "UF 15"]
     assert result.recommendation["rationale"] == "merged"
-    assert any("batches" in w for w in result.warnings)
 
-
-def test_submit_comparison_blocks_on_empty_dimensions(world, db, monkeypatch):
-    """HARD GUARD: zero dimensions (a truncated/empty answer) blocks the step —
-    NEVER a 200 committing an empty table."""
+def test_submit_comparison_empty_answer_loses_no_facet(world, db, monkeypatch):
+    """An empty model answer no longer means an empty table: every facet is a
+    pre-matched row or a row of its own (the model only folds differently-worded ones)."""
     monkeypatch.setattr(settings, "AI_API_KEY", "test-key")
     comparison, sources = _comparison_with_sources(db, world)
 
     def _empty(*, tool_schema=None, **kwargs):
-        parsed = {"dimensions": [], "recommendation": None}
+        parsed = {"rows": [], "recommendation": {"recommended_comparison_source_id": sources[0].id,
+                                                  "rationale": "r", "caveats": []}}
         return ai_service.ToolCallResult(
             parsed=parsed, payload=None, raw={"content": "{}", "parsed": parsed},
             usage=None, reasoning=None, warnings=[], model="fake/empty",
         )
 
     monkeypatch.setattr(ai_service, "tool_call", _empty)
-
-    with pytest.raises(ai_service.AIProviderError):
-        ai_service.submit_comparison(
-            db, comparison=comparison, sources=sources, broker_id=world.a.broker_id
-        )
-    db.rollback()
+    result = ai_service.submit_comparison(
+        db, comparison=comparison, sources=sources, broker_id=world.a.broker_id
+    )
+    placed = sorted(
+        (c["comparison_source_id"], d["label"]) for d in result.table["dimensions"] for c in d["cells"]
+    )
+    assert placed == sorted([
+        (sources[0].id, "Sismo"), (sources[1].id, "Sismo"),
+        (sources[0].id, "Incendio"), (sources[1].id, "Robo"),
+    ])
     db.refresh(comparison)
-    assert comparison.status is not ComparisonStatus.ALIGNED
-
+    assert comparison.status is ComparisonStatus.ALIGNED
 
 def test_submit_comparison_runs_recommend_fallback_when_no_pick(world, db, monkeypatch):
     """When the holistic answer names NO pick, the dedicated recommend call runs

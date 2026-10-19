@@ -106,6 +106,8 @@ __all__ = [
     "stage_states",
     "advance_to_active",
     "case_has_policy",
+    "comparison_read_count",
+    "advance_for_comparison",
 ]
 
 
@@ -372,13 +374,117 @@ def _guard_market_submission(db: Session, case: CaseFile) -> str | None:
     return None
 
 
+def comparison_read_count(db: Session, case: CaseFile) -> int:
+    """Cotizaciones READ into the folder's live comparison (review round 2, A6).
+
+    A column whose read succeeded and was not flagged as a wrong file counts as a
+    received cotización even before it is promoted to a ``proposal`` — that is the
+    v12 comparison flow (upload → read → align → promote only the winner).
+    """
+    from sqlalchemy import func
+
+    from app.models.ai import Extraction, ExtractionStatus
+    from app.models.comparison import (
+        Comparison,
+        ComparisonEntry,
+        ComparisonSource,
+        ComparisonStatus,
+    )
+
+    return int(
+        db.scalar(
+            select(func.count(ComparisonEntry.id))
+            .join(Comparison, Comparison.id == ComparisonEntry.comparison_id)
+            .join(ComparisonSource, ComparisonSource.id == ComparisonEntry.comparison_source_id)
+            .join(Extraction, Extraction.id == ComparisonSource.source_extraction_id)
+            .where(
+                Comparison.broker_id == case.broker_id,
+                Comparison.case_file_id == case.id,
+                Comparison.status != ComparisonStatus.SUPERSEDED,
+                ComparisonSource.is_wrong_file.is_(False),
+                Extraction.status == ExtractionStatus.SUCCEEDED,
+            )
+        )
+        or 0
+    )
+
+
 def _guard_comparison(db: Session, case: CaseFile) -> str | None:
     confirmed = [p for p in case_proposals(db, case) if p.is_confirmed]
-    if not confirmed:
+    if not confirmed and comparison_read_count(db, case) == 0:
         return (
             "Se necesita al menos una cotización confirmada para armar la "
             "comparación."
         )
+    return None
+
+
+#: Why the comparator moved the folder (bitácora + the *omitida* rows).
+_COMPARATOR_NOTES: dict[CaseStage, tuple[str, str]] = {
+    CaseStage.QUOTES_RECEIVED: (
+        "Cotización recibida en el comparador",
+        "La cuenta pasó a «Cotizaciones recibidas»: llegó una cotización al comparador",
+    ),
+    CaseStage.COMPARISON: (
+        "Cotizaciones alineadas en el comparador",
+        "La cuenta pasó a «Comparación»: las cotizaciones se alinearon",
+    ),
+}
+
+
+def advance_for_comparison(
+    db: Session, *, case: CaseFile | None, target: CaseStage, user: User | None
+) -> str | None:
+    """Move an OPEN account folder FORWARD to ``target`` when the comparator gets there
+    (A6: a cotización read → *Cotizaciones recibidas*; an alignment → *Comparación*).
+
+    Never moves back, never touches a closed folder, a post-sale kind or one already at
+    or past ``target``. Stages it never entered are written *omitida* (``skip_forward``,
+    the partial-journey rule); placements walk the placement machine. One bitácora row.
+    Returns a Spanish warning when the move is refused (a placement that cannot follow),
+    ``None`` otherwise; it never raises — the comparator's own work is already done.
+    Flush-only: the caller commits.
+    """
+    if case is None or case.kind not in ACCOUNT_KINDS or case.status != CaseFileStatus.OPEN:
+        return None
+    chain = CASE_STAGE_FLOW.get(case.kind, ())
+    if target not in chain or case.stage not in chain:
+        return None
+    if chain.index(case.stage) >= chain.index(target):
+        return None
+    note, description = _COMPARATOR_NOTES.get(target, (None, None))
+    origin = case.stage
+    skipped: list[str] = []
+    try:
+        skip_forward(
+            db,
+            case=case,
+            target=target,
+            user=user,
+            note=note,
+            reason=f"Etapa omitida: la cuenta entró en «{stage_label(target)}» desde el comparador.",
+            write_activity=False,
+            skipped_out=skipped,
+        )
+    except CaseTransitionError as exc:
+        return str(exc)
+    db.add(
+        Activity(
+            broker_id=case.broker_id,
+            user_id=user.id if user else None,
+            action="case_file.skipped_to",
+            entity_type=EntityType.CASE_FILE,
+            entity_id=case.id,
+            description=(description or skip_description(origin, target, len(skipped)))
+            + (f"; {stages_omitted(len(skipped))}" if skipped else ""),
+            meta={
+                "from": origin.value,
+                "to": target.value,
+                "skipped": skipped,
+                "via": "comparison",
+            },
+        )
+    )
     return None
 
 

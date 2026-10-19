@@ -43,7 +43,8 @@
       "current": "No current plans with a balance",
       "overdue": "No overdue installments",
       "settled": "No settled plans",
-      "upcoming": "No installments due in the next 30 days"
+      "upcoming": "No installments due in the next 30 days",
+      "review": "No past cuotas are waiting for your decision"
     },
     "emptyFiltered": "Try removing a filter.",
     "emptyHint": "Installments reach Collections once a policy has its payment plan.",
@@ -61,7 +62,8 @@
     "current": "Current",
     "overdue": "Overdue",
     "settled": "Settled",
-    "upcoming": "Upcoming"
+    "upcoming": "Upcoming",
+    "review": "To review"
   },
   "cards": {
     "collectedMonth": "Collected this month",
@@ -474,7 +476,8 @@
     "termination_risk": "Termination risk",
     "unknown": "No status",
     "upcoming": "Upcoming",
-    "voided": "Voided"
+    "voided": "Voided",
+    "pending_review": "To review"
   },
   "title": "Collections"
 }
