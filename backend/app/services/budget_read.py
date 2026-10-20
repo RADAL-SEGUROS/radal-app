@@ -69,6 +69,7 @@ MONEY_CORE_KEYS: tuple[str, ...] = (
     "coverage_start",
     "coverage_end",
     "validity_business_days",
+    "insured_amount_uf",
     "taxable_premium_uf",
     "exempt_premium_uf",
     "net_premium_uf",

@@ -32,6 +32,8 @@ import type {
   CoverageKind,
   DocumentCategory,
   DocumentDirection,
+  SystemDocumentCategory,
+  SystemEntityType,
   EndorsementKind,
   EndorsementStatus,
   EntityType,
@@ -396,7 +398,16 @@ export const DOCUMENT_CATEGORY_LABEL = {
   comparison_pack: "documents:categories.comparison_pack",
   proposal_pack: "documents:categories.proposal_pack",
   archive_pack: "documents:categories.archive_pack",
-} as const satisfies Record<DocumentCategory, string>;
+  // Server-filed categories (never in an upload picker, but listed): r3 F3.
+  budget_proposal: "documents:categories.budget_proposal",
+  antecedentes_pack: "documents:categories.antecedentes_pack",
+  payment_receipt: "documents:categories.payment_receipt",
+  email_message: "documents:categories.email_message",
+  cancellation_letter: "documents:categories.cancellation_letter",
+  payment_consent: "documents:categories.payment_consent",
+  portal_screenshot: "documents:categories.portal_screenshot",
+  insurer_statement_upload: "documents:categories.insurer_statement_upload",
+} as const satisfies Record<DocumentCategory | SystemDocumentCategory, string>;
 
 export const DOCUMENT_DIRECTION_LABEL = {
   insured_to_broker: "documents:directions.insured_to_broker",
@@ -432,7 +443,16 @@ export const ENTITY_TYPE_LABEL = {
   collection_plan: "settings:entities.collection_plan",
   warranty: "settings:entities.warranty",
   account_group: "settings:entities.account_group",
-} as const satisfies Record<EntityType, string>;
+  // v12 entity types documents may hang off (r3 F3).
+  payment: "settings:entities.payment",
+  installment: "settings:entities.installment",
+  share_link: "settings:entities.share_link",
+  status_inquiry: "settings:entities.status_inquiry",
+  mail_account: "settings:entities.mail_account",
+  portal_search: "settings:entities.portal_search",
+  insurance_subtype: "settings:entities.insurance_subtype",
+  payment_intent: "settings:entities.payment_intent",
+} as const satisfies Record<EntityType | SystemEntityType, string>;
 
 export const OFFERING_STATUS_LABEL = {
   draft: "offerings:status.draft",

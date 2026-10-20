@@ -310,8 +310,23 @@ def _rows_for(db: Session, broker_id: int, tool: str, args: dict[str, Any]) -> l
 
     if "amount" in args:
         add("Monto", money(args.get("amount"), str(args.get("currency") or "UF")))
+    # Review r3 (R1): a cuota named by number is pinned to its id at proposal time;
+    # the "Cuota" row (number of count · póliza N°) already says both.
+    pinned = bool(args.get("installment_id") or args.get("installment_ids")) or (
+        args.get("entity_type") in ("policy", "installment") and args.get("entity_id")
+    )
     for key, value in args.items():
         if value is None or value == [] or value == "" or key in _SKIP or key == "amount":
+            continue
+        if key in ("policy_number", "installment_number", "installment_numbers"):
+            if pinned or (key == "policy_number" and args.get("policy_id")):
+                continue
+            if key == "policy_number":
+                add("Póliza", f"N° {_text(value)}")
+            elif key == "installment_number":
+                add("Cuota", str(value))
+            else:
+                add("Cuotas", ", ".join(str(v) for v in value))
             continue
         if key in _ID_KEYS:
             label, resolve = _ID_KEYS[key]

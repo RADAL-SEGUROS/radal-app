@@ -66,6 +66,7 @@
   "needAlign": {
     "title": "Listo para alinear",
     "hint": "Las columnas ya muestran compañía y prima; realínealas para compararlas fila a fila.",
+    "hintIncomplete": "Alguna columna no tiene compañía o prima: usa «Reintentar» en esa columna para volver a leerla, y luego realinea.",
     "pendingTitle_one": "{{count}} cotización todavía sin alinear",
     "pendingTitle_other": "{{count}} cotizaciones todavía sin alinear"
   },

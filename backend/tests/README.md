@@ -15,7 +15,7 @@ directory — it never touches `backend/radal.db`. `tests/conftest.py` pins
 | File | Covers |
 |---|---|
 | `test_identifiers.py` | RUT módulo-11 validation + canonical normalization (valid / invalid / K / 0 cases) |
-| `test_money_invariants.py` | `net = taxable + exempt`, `vat = 0.19 * taxable`, `total = net + vat`, `comprehensive_rate = taxable_rate + exempt_rate`; bad combinations rejected 422 |
+| `test_money_invariants.py` | `net = taxable + exempt`, `vat = 0.19 * taxable`, `total = net + vat`; rates never summed (a missing tasa integral = net / insured amount); bad combinations rejected 422 |
 | `test_quote_declared_value.py` | `quote_request.declared_value_uf == SUM(quote_line_item.value_uf)` on every mutation path |
 | `test_proposal_rules.py` | a proposal cannot exist without `source_document_id`, nor with an insurer missing `rut`/`cmf_code` |
 | `test_insurer_dedup.py` | find-or-create dedups on normalized `cmf_code`/`rut` and **never** on name |

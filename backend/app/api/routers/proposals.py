@@ -209,7 +209,7 @@ def _apply_money(db: Session, proposal: Proposal, incoming: dict[str, Any]) -> N
                 "message": (
                     "The premium figures are inconsistent. Chilean rules: "
                     "net = taxable + exempt; vat = 0.19 * taxable (not on net); "
-                    "total = net + vat; comprehensive_rate = taxable_rate + exempt_rate."
+                    "total = net + vat."
                 ),
                 "errors": errors,
             },

@@ -114,6 +114,10 @@ def main(argv: list[str] | None = None) -> int:
         "--sequential", action="store_true", help="read the PDFs one after another (as the SPA uploads them)"
     )
     parser.add_argument("--env-file", type=Path, default=BASE_DIR / ".env")
+    parser.add_argument(
+        "--dump", type=Path, default=None,
+        help="write the readings' money cores + the standardized table/recommendation as JSON",
+    )
     args = parser.parse_args(argv)
 
     _load_env(args.env_file)
@@ -170,6 +174,29 @@ def main(argv: list[str] | None = None) -> int:
               f"{len(result.dimensions)} dimensions · pick="
               f"{(result.recommendation or {}).get('recommended_comparison_source_id')}")
         print("  calls: " + json.dumps(result.call_stats, ensure_ascii=False))
+        print("  recommendation: " + json.dumps(result.recommendation, ensure_ascii=False))
+        for warning in result.warnings:
+            print(f"  warning: {warning}")
+        if args.dump is not None:
+            from app.schemas.proposal import effective_rate_permille
+
+            cores = []
+            for reading in readings:
+                core = reading.get("money_core") or {}
+                cores.append({
+                    "comparison_source_id": reading.get("comparison_source_id"),
+                    "money_core": core,
+                    "derived_comprehensive_rate_permille": str(effective_rate_permille(
+                        core.get("net_premium_uf"), core.get("insured_amount_uf")
+                    )),
+                })
+            args.dump.write_text(json.dumps(
+                {"cores": cores, "dimensions": result.dimensions,
+                 "recommendation": result.recommendation, "warnings": result.warnings,
+                 "call_stats": result.call_stats, "wall_seconds": result.wall_seconds},
+                ensure_ascii=False, indent=1, default=str,
+            ))
+            print(f"  dumped to {args.dump}")
     return 0
 
 

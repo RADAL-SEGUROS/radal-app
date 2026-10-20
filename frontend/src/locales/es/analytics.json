@@ -130,7 +130,9 @@
     "claims": "Siniestros"
   },
   "documents": {
-    "download": "Descargar"
+    "download": "Descargar",
+    "emailName": "Correo del {{date}}",
+    "code": "Código {{code}}"
   },
   "board": {
     "empty": "Sin cuentas en esta fase",

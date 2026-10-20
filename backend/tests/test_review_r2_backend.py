@@ -147,7 +147,8 @@ def test_reuploading_the_same_policy_is_a_409_with_no_side_effects(
     assert detail["code"] == "policy_duplicate"
     assert detail["policy_id"] == policy_id and detail["policy_number"] == "DUP-1"
     assert detail["insurer_name"]
-    assert detail["reason"] == f"Esta póliza ya existe: N° DUP-1 de {detail['insurer_name']}."
+    # The company name's own trailing period ("… S.A.") is not doubled.
+    assert detail["reason"] == f"Esta póliza ya existe: N° DUP-1 de {detail['insurer_name'].rstrip('.')}."
     # The orphan the same user just uploaded is gone (and its read with it).
     assert detail["document_removed"] is True
     db.expire_all()

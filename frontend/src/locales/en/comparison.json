@@ -66,6 +66,7 @@
   "needAlign": {
     "title": "Ready to align",
     "hint": "The columns already show insurer and premium; realign them to compare row by row.",
+    "hintIncomplete": "Some column lacks insurer or premium: use “Retry” on that column to read it again, then realign.",
     "pendingTitle_one": "{{count}} quote not aligned yet",
     "pendingTitle_other": "{{count}} quotes not aligned yet"
   },

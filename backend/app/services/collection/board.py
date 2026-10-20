@@ -307,6 +307,16 @@ def _money(rows: Iterable[BoardRow]) -> dict[str, Any]:
     }
 
 
+#: Review r3 (R7, owner decision 2026-10-19): TEAM inboxes — broker-wide whatever
+#: the "Mías" toggle says; the summary marks them ``card_scopes[key] = "team"``.
+TEAM_CARDS: tuple[str, ...] = ("unconfirmed_payments", "pending_evidence", "plans_missing")
+#: The cuota cards, narrowed by ``owner=me``.
+PERSONAL_CARDS: tuple[str, ...] = (
+    "due_7d", "due_30d", "overdue", "termination_risk", "past_installments_pending",
+    "collected_month_uf",
+)
+
+
 def summary_cards(
     db: Session, broker_id: int, *, today: date, owner_user_id: int | None = None
 ) -> dict[str, Any]:
@@ -358,7 +368,13 @@ def summary_cards(
     plans_missing = db.scalar(
         select(func.count()).select_from(policies_without_plan_stmt(broker_id, today=today).subquery())
     )
+    personal = "mine" if owner_user_id is not None else "all"
     return {
+        # Review r3 (R7): which cards follow "Mías" and which are team inboxes.
+        "card_scopes": {
+            **{key: personal for key in PERSONAL_CARDS},
+            **{key: "team" for key in TEAM_CARDS},
+        },
         "as_of": today,
         "due_7d": _money(due_7),
         "due_30d": _money(due_30),

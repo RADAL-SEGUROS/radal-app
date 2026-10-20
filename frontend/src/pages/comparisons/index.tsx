@@ -649,6 +649,8 @@ function ComparisonBoard({
           liveEntries={liveEntries}
           matrix={hasDimensions ? matrix : null}
           recommendation={recommendation}
+          busy={busy}
+          onRetry={retry}
           alignNotice={
             !hasDimensions || pendingColumns > 0 ? (
               <AlignNotice
@@ -656,6 +658,7 @@ function ComparisonBoard({
                 aligning={aligning}
                 blocked={alignBlocked}
                 onAlign={runAlign}
+                incompleteColumns={liveEntries.some((e) => (e.missing_core ?? []).length > 0)}
               />
             ) : null
           }
@@ -679,11 +682,14 @@ function AlignNotice({
   aligning,
   blocked,
   onAlign,
+  incompleteColumns = false,
 }: {
   pendingColumns: number;
   aligning: boolean;
   blocked: string | null;
   onAlign: () => void;
+  /** Some column read without compañía / prima: never claim they show them (r3). */
+  incompleteColumns?: boolean;
 }) {
   const { t } = useTranslation("comparison");
   return (
@@ -699,7 +705,11 @@ function AlignNotice({
                 : t("needAlign.title")}
           </div>
           <p className="text-caption text-ink-3">
-            {aligning ? t("align.runningInline") : t("needAlign.hint")}
+            {aligning
+              ? t("align.runningInline")
+              : incompleteColumns
+                ? t("needAlign.hintIncomplete")
+                : t("needAlign.hint")}
           </p>
         </div>
       </div>
@@ -849,9 +859,10 @@ function RecommendationCard({
 
   return (
     <FadeUp>
-      <Card className="border-brand-line bg-brand-soft/30 p-5">
+      <Card className="border-brand-line bg-brand-soft/30 p-4 sm:p-5">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-deep">
+          {/* Below sm the icon would eat ~50 px of a 330 px card (review r3). */}
+          <span className="mt-0.5 hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-deep sm:flex">
             <Sparkles className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1">
@@ -942,9 +953,57 @@ function AlignBlockedBanner({
 
 // The sticky label column is OPAQUE on every row (review r2: at ~546 px the
 // tinted premium rows let the scrolled values show through the labels).
+//
+// Review r3 (F1): it is also NARROW and its labels WRAP. In an auto-layout
+// table a cell's width is only a preference — a `truncate` (nowrap) label made
+// the column as wide as its longest label (~460 px inside a 330 px phone
+// card), so the sticky column covered every value. Now nothing in it is
+// nowrap: ~35 % of a 375 px screen, 220 px from `sm`, 260 px from `lg`.
 const LABEL_CELL =
-  "sticky left-0 z-20 w-[150px] min-w-[150px] border-r border-line bg-bg-surface px-3 py-2.5 text-left text-caption font-medium text-ink-3 sm:w-[220px] sm:min-w-[220px] sm:px-4";
-const COL_WIDTH = "min-w-[220px] sm:min-w-[248px]";
+  "sticky left-0 z-20 w-[128px] min-w-[128px] max-w-[128px] border-r border-line bg-bg-surface px-2.5 py-2.5 text-left align-top text-caption font-medium text-ink-3 whitespace-normal [overflow-wrap:anywhere] sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px] sm:px-4 lg:w-[260px] lg:min-w-[260px] lg:max-w-[260px]";
+const COL_WIDTH = "min-w-[184px] sm:min-w-[248px]";
+
+/** A display that is only a quantity ("10", "UF 5", "15 %") — no condition words. */
+const QUANTITY_ONLY = /^(?:UF\s|US\$\s|\$\s)?-?[\d.]+(?:,\d+)?(?:\s?(?:%|‰))?$/;
+/** Wording that qualifies a sublimit amount ("máx UF 25.000", "otros UF 3", "por pieza"). */
+const QUALIFIER = /(?:m[aá]x|m[ií]n|otros?\b|por\s|hasta|tope|evento|agregado)/i;
+/** Verbatims longer than this are clamped in the cell, full text in the tooltip. */
+const LONG_VERBATIM = 140;
+
+/**
+ * What a standardized cell SAYS (review r3, F2 / R2). A deductible is its
+ * condition — "10 % de la pérdida, mínimo UF 25" — never a bare "10": two
+ * offers with different minimums must not read the same. When the value is
+ * only a quantity and the verbatim carries the condition (deductibles, a
+ * qualified sublimit, or any unit-less number), the verbatim IS the display.
+ */
+function cellDisplay(
+  cell: ComparisonDimensionCell,
+  group: string,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): { text: string | null; verbatim: string | null; clamp: boolean } {
+  const formatted = formatDimValue(cell.value, cell.unit, t);
+  const verbatim = cell.verbatim?.trim() || null;
+  const quantityOnly = formatted == null || QUANTITY_ONLY.test(formatted);
+  const unitless = formatted != null && /^-?[\d.]+(?:,\d+)?$/.test(formatted);
+  const prefersVerbatim =
+    !!verbatim &&
+    verbatim !== formatted &&
+    ((group === "deductible" && quantityOnly) ||
+      (group === "sublimit" && quantityOnly && QUALIFIER.test(verbatim)) ||
+      unitless);
+  if (prefersVerbatim && verbatim) {
+    const text = formatDimValue(verbatim, null, t) ?? verbatim;
+    const long = verbatim.length > LONG_VERBATIM;
+    // A clamped verbatim keeps "Texto original" for the full wording.
+    return { text, verbatim: long ? verbatim : null, clamp: long };
+  }
+  return {
+    text: formatted,
+    verbatim: verbatim && verbatim !== formatted ? verbatim : null,
+    clamp: false,
+  };
+}
 
 /** Chilean number with only the decimals it needs: 15000 → "15.000", 57.03 → "57,03". */
 function chileanNumber(value: number): string {
@@ -1020,6 +1079,8 @@ function ComparisonGrid({
   matrix,
   recommendation,
   alignNotice,
+  busy,
+  onRetry,
 }: {
   comparison: Comparison;
   liveEntries: ComparisonEntry[];
@@ -1028,6 +1089,10 @@ function ComparisonGrid({
   recommendation: ComparisonRecommendation | null;
   /** "Listo para alinear" / "N columnas sin alinear" — shown inside the grid card. */
   alignNotice?: React.ReactNode;
+  /** A read / retry is running: Reintentar waits for it (said, not greyed silently). */
+  busy: boolean;
+  /** *Reintentar* a column that read but lacks its core (r3 R5/F5). */
+  onRetry: (entry: ComparisonEntry, label: string) => void;
 }) {
   const { t } = useTranslation("comparison");
 
@@ -1070,7 +1135,10 @@ function ComparisonGrid({
     <FadeUp delay={0.05}>
       <Card className="overflow-hidden">
         {alignNotice ? <div className="border-b border-line">{alignNotice}</div> : null}
-        <div className="overflow-x-auto">
+        {/* On a phone each swipe lands a company column flush against the
+            sticky labels (scroll-padding = the label width), never half
+            under them (review r3 F1). */}
+        <div className="overflow-x-auto max-sm:snap-x max-sm:snap-mandatory max-sm:scroll-pl-[128px]">
           <table className="w-full border-collapse text-body">
             <thead>
               <tr>
@@ -1082,7 +1150,7 @@ function ComparisonGrid({
                     key={entry.id}
                     className={cn(
                       COL_WIDTH,
-                      "border-l border-line bg-bg-surface p-4 text-left align-top",
+                      "border-l border-line bg-bg-surface p-4 text-left align-top max-sm:snap-start",
                     )}
                   >
                     <ColumnHeader
@@ -1090,6 +1158,8 @@ function ComparisonGrid({
                       entry={entry}
                       index={index}
                       recommendedByAi={isRecommendedByAi(entry)}
+                      busy={busy}
+                      onRetry={onRetry}
                     />
                   </th>
                 ))}
@@ -1246,11 +1316,12 @@ function DimensionBlock({
           return (
             <tr key={dim.key} className="border-t border-line">
               <td className={LABEL_CELL} title={dim.label ?? dim.key}>
-                <span className="flex flex-col gap-0.5">
-                  <span className="block truncate text-ink">
+                <span className="flex flex-col gap-1">
+                  {/* Wraps (never nowrap): see LABEL_CELL. */}
+                  <span className="block text-ink [text-wrap:pretty]">
                     {dim.label ?? dim.key}
                   </span>
-                  <Badge variant="outline" className="w-fit">
+                  <Badge variant="outline" className="w-fit max-w-full">
                     {enumLabel(t, FACET_GROUP_LABEL, dim.group, String(dim.group))}
                   </Badge>
                 </span>
@@ -1265,7 +1336,7 @@ function DimensionBlock({
                     key={c.entry.id}
                     className="border-l border-line px-4 py-2.5 align-top text-caption"
                   >
-                    <DimensionCell cell={cell} exclusion={dim.group === "exclusion"} />
+                    <DimensionCell cell={cell} group={String(dim.group ?? "")} />
                   </td>
                 );
               })}
@@ -1279,14 +1350,15 @@ function DimensionBlock({
 
 function DimensionCell({
   cell,
-  exclusion,
+  group,
 }: {
   cell: ComparisonDimensionCell | undefined;
   /**
-   * An EXCLUSION row (A4): `present=true` means the offer INCLUDES the
-   * exclusion — it applies. Read the same way in every column.
+   * The row's facet group. An EXCLUSION row (A4): `present=true` means the
+   * offer INCLUDES the exclusion — it applies. Read the same way in every
+   * column. A DEDUCTIBLE row shows its full condition (r3 F2).
    */
-  exclusion: boolean;
+  group: string;
 }) {
   const { t } = useTranslation("comparison");
 
@@ -1299,8 +1371,15 @@ function DimensionCell({
     );
   }
 
-  const value = formatDimValue(cell.value, cell.unit, t);
-  const verbatim = cell.verbatim && cell.verbatim !== value ? cell.verbatim : null;
+  const exclusion = group === "exclusion";
+  const display = cellDisplay(cell, group, t);
+  const { text: value, clamp } = display;
+  const valueClass = clamp ? "line-clamp-4" : undefined;
+  // A cover priced at "UF 0" is a cover the offer does not include (r3: PxP
+  // "UF 0" read as included); its wording stays one tap away.
+  const zeroCover =
+    (group === "coverage" || group === "sublimit") && num(cell.value ?? null) === 0;
+  const verbatim = zeroCover ? cell.verbatim?.trim() || null : display.verbatim;
   const verbatimLink = verbatim ? (
     <TooltipProvider delayDuration={150}>
       <Tooltip>
@@ -1332,19 +1411,21 @@ function DimensionCell({
       <span className="flex items-start gap-1.5 text-warn-text">
         <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-ink">{value ?? t("grid.exclusionApplies")}</span>
+          <span className={cn("text-ink", valueClass)}>{value ?? t("grid.exclusionApplies")}</span>
           {verbatimLink}
         </span>
       </span>
     );
   }
 
-  if (cell.present === false) {
+  if (cell.present === false || zeroCover) {
     return (
       <span className="flex items-start gap-1.5 text-neg-text">
         <Minus className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span>{value ?? t("grid.notIncluded")}</span>
+          <span className={valueClass}>
+            {zeroCover ? t("grid.notIncluded") : (value ?? t("grid.notIncluded"))}
+          </span>
           {verbatimLink}
         </span>
       </span>
@@ -1355,7 +1436,9 @@ function DimensionCell({
     <span className="flex items-start gap-1.5 text-pos-text">
       <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-ink">{value ?? t("grid.included")}</span>
+        <span className={cn("text-ink [text-wrap:pretty]", valueClass)}>
+          {value ?? t("grid.included")}
+        </span>
         {verbatimLink}
       </span>
     </span>
@@ -1378,7 +1461,8 @@ function SectionRow({
           colSpan={span}
           className="border-t border-line bg-brand-soft px-4 py-2 text-caption font-medium text-brand-deep"
         >
-          <span className="flex flex-wrap items-center gap-2">
+          {/* Sticky inside the full-width cell: in view while the grid scrolls. */}
+          <span className="sticky left-4 inline-flex max-w-[calc(100vw-4rem)] flex-wrap items-center gap-x-2 gap-y-0.5">
             {label}
             {hint ? <span className="font-normal text-ink-3">{hint}</span> : null}
           </span>
@@ -1397,17 +1481,22 @@ function ColumnHeader({
   entry,
   index,
   recommendedByAi,
+  busy,
+  onRetry,
 }: {
   comparison: Comparison;
   entry: ComparisonEntry;
   index: number;
   recommendedByAi?: boolean;
+  busy: boolean;
+  onRetry: (entry: ComparisonEntry, label: string) => void;
 }) {
   const { t } = useTranslation("comparison");
   const { t: tc } = useTranslation("common");
 
   const canEdit = useCan("Proposals", "Edit");
   const canApprove = useCan("Proposals", "Approve");
+  const canCreate = useCan("Proposals", "Create");
 
   const patch = usePatchEntry(comparison.id);
   const remove = useDeleteEntry(comparison.id);
@@ -1434,6 +1523,17 @@ function ColumnHeader({
       onSuccess: () => toast.success(t("remove.done")),
       onError: (error) => toast.error(apiError(error, tc("state.error"))),
     });
+
+  // r3 R5/F5: a column that READ but lacks its core (old reads without
+  // compañía / prima) can be read again — the server says so with `can_retry`.
+  const canRetry = entry.can_retry === true;
+  const retryBlocked = !canCreate.allowed
+    ? t("failed.noPermission")
+    : entry.document_id == null
+      ? t("failed.noDocument")
+      : busy
+        ? t("align.waitReading")
+        : null;
 
   const promoteHint = !canApprove.allowed
     ? t("promote.noPermission")
@@ -1492,6 +1592,19 @@ function ColumnHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
+        {canRetry ? (
+          <DisabledHint hint={retryBlocked}>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!!retryBlocked}
+              onClick={() => onRetry(entry, columnLabel(entry, index))}
+            >
+              <RefreshCw className="h-4 w-4" />
+              {t("failed.retry")}
+            </Button>
+          </DisabledHint>
+        ) : null}
         {promoted ? (
           <Button variant="secondary" size="sm" asChild>
             <Link to={`/proposals/${entry.proposal_id}`}>

@@ -15,7 +15,10 @@ Chilean invariants, enforced in the service layer:
     net   = taxable + exempt          # earthquake cover is VAT-exempt
     vat   = 0.19 * taxable            # on the TAXABLE part, NOT on net
     total = net + vat
-    comprehensive_rate = taxable_rate + exempt_rate
+
+The rates are copied as the cotización states them and NEVER summed (review r3):
+taxable/exempt rates are often one rate over two portions of the insured amount; a
+missing tasa integral is only ever ``net / insured_amount × 1000``.
 
 Deductibles are JSON keyed by peril (§3) because perils differ per line
 (property: fire/earthquake; transport, fleet and cyber have entirely different

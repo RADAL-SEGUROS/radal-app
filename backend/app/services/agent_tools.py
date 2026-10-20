@@ -900,7 +900,25 @@ class PolicyIdArgs(_Args):
     policy_id: int = Field(..., gt=0)
 
 
+#: Review r3 (R1): how every cuota tool names its cuota — what the broker SAYS.
+_POLICY_NUMBER_DESC = (
+    "N° de póliza tal como lo dice la persona (p. ej. TRBF-0020126441). PREFERIDO: el "
+    "servidor lo resuelve en la cartera."
+)
+_INSTALLMENT_NUMBER_DESC = "Número de la cuota dentro de su póliza (1, 2, 3…), no un id."
+_INSTALLMENT_ID_DESC = (
+    "Id interno de la cuota: SOLO si lo leíste en list_installments; nunca lo deduzcas. "
+    "Si además das policy_number/installment_number deben coincidir."
+)
+
+
 class ListInstallmentsArgs(_Args):
+    policy_number: str | None = Field(
+        default=None, min_length=1, max_length=64, description=_POLICY_NUMBER_DESC
+    )
+    installment_number: int | None = Field(
+        default=None, ge=1, le=999, description=_INSTALLMENT_NUMBER_DESC
+    )
     bucket: _BUCKET | None = None
     level: _LEVEL | None = None
     insurer_id: int | None = Field(default=None, gt=0)
@@ -915,8 +933,30 @@ class EmptyArgs(_Args):
     pass
 
 
-class InstallmentIdArgs(_Args):
-    installment_id: int = Field(..., gt=0)
+class CuotaTargetArgs(_Args):
+    """One cuota, named by policy number + cuota number (preferred) or by id (R1)."""
+
+    policy_number: str | None = Field(
+        default=None, min_length=1, max_length=64, description=_POLICY_NUMBER_DESC
+    )
+    installment_number: int | None = Field(
+        default=None, ge=1, le=999, description=_INSTALLMENT_NUMBER_DESC
+    )
+    installment_id: int | None = Field(default=None, gt=0, description=_INSTALLMENT_ID_DESC)
+
+    @model_validator(mode="after")
+    def _cuota_target(self) -> "CuotaTargetArgs":
+        if self.installment_id is None and not (
+            self.policy_number and self.installment_number is not None
+        ):
+            raise ValueError(
+                "Indica la cuota: policy_number + installment_number (preferido) o installment_id"
+            )
+        return self
+
+
+#: Back-compatible name (``get_collection_mode``'s args).
+InstallmentIdArgs = CuotaTargetArgs
 
 
 class ListStatusInquiriesArgs(_Args):
@@ -926,7 +966,13 @@ class ListStatusInquiriesArgs(_Args):
 
 
 class ListPendingEvidenceArgs(_Args):
-    installment_id: int | None = Field(default=None, gt=0)
+    policy_number: str | None = Field(
+        default=None, min_length=1, max_length=64, description=_POLICY_NUMBER_DESC
+    )
+    installment_number: int | None = Field(
+        default=None, ge=1, le=999, description=_INSTALLMENT_NUMBER_DESC
+    )
+    installment_id: int | None = Field(default=None, gt=0, description=_INSTALLMENT_ID_DESC)
     limit: int = Field(default=_LIST_LIMIT, ge=1)
 
 
@@ -1039,8 +1085,7 @@ class UpdatePolicyFieldsArgs(_Args):
         return self
 
 
-class RegisterPaymentArgs(_Args):
-    installment_id: int = Field(..., gt=0)
+class RegisterPaymentArgs(CuotaTargetArgs):
     amount: _POSITIVE
     currency: PaymentCurrency = PaymentCurrency.UF
     paid_on: date
@@ -1050,48 +1095,107 @@ class RegisterPaymentArgs(_Args):
     note: str | None = Field(default=None, max_length=4000)
 
 
-class RecordPaymentPromiseArgs(_Args):
-    installment_id: int = Field(..., gt=0)
+class RecordPaymentPromiseArgs(CuotaTargetArgs):
     promise_until: date
     note: str | None = Field(default=None, max_length=4000)
 
 
 class StartCollectionArgs(_Args):
+    policy_number: str | None = Field(
+        default=None, min_length=1, max_length=64, description=_POLICY_NUMBER_DESC
+    )
     plan_id: int | None = Field(default=None, gt=0)
     policy_id: int | None = Field(default=None, gt=0)
     level_preference: Literal["auto", "assisted"] | None = None
 
     @model_validator(mode="after")
     def _anchor(self) -> "StartCollectionArgs":
-        if self.plan_id is None and self.policy_id is None:
-            raise ValueError("Indica el plan de pago (plan_id) o la póliza (policy_id)")
+        if self.plan_id is None and self.policy_id is None and not self.policy_number:
+            raise ValueError(
+                "Indica la póliza (policy_number, preferido, o policy_id) o el plan de pago (plan_id)"
+            )
         return self
 
 
 class SendStatusInquiryArgs(_Args):
-    policy_id: int = Field(..., gt=0)
+    policy_number: str | None = Field(
+        default=None, min_length=1, max_length=64, description=_POLICY_NUMBER_DESC
+    )
+    policy_id: int | None = Field(default=None, gt=0)
     # Empty -> every open cuota of the policy, resolved at proposal time so
     # the card names exactly what will be asked.
-    installment_ids: list[int] | None = Field(default=None, max_length=60)
+    installment_numbers: list[Annotated[int, Field(ge=1, le=999)]] | None = Field(
+        default=None, max_length=60,
+        description="Números de cuota de esa póliza (1, 2…); vacío = todas las pendientes.",
+    )
+    installment_ids: list[int] | None = Field(
+        default=None, max_length=60, description=_INSTALLMENT_ID_DESC
+    )
     to_address: str | None = Field(default=None, max_length=255)
     message: str | None = Field(default=None, max_length=4000)
 
+    @model_validator(mode="after")
+    def _policy_target(self) -> "SendStatusInquiryArgs":
+        if self.policy_id is None and not self.policy_number:
+            raise ValueError("Indica la póliza: policy_number (preferido) o policy_id")
+        return self
 
-class SendPaymentReminderArgs(_Args):
-    installment_id: int = Field(..., gt=0)
+
+class SendPaymentReminderArgs(CuotaTargetArgs):
     kind: Literal["payer_reminder", "payer_overdue"] = "payer_reminder"
 
 
 class CreateShareLinkArgs(_Args):
     entity_type: Literal["policy", "collection_plan", "installment", "case_file"] = "policy"
-    entity_id: int = Field(..., gt=0)
+    entity_id: int | None = Field(default=None, gt=0)
+    # R1: a policy or a cuota by what the broker says (entity_id then optional).
+    policy_number: str | None = Field(
+        default=None, min_length=1, max_length=64, description=_POLICY_NUMBER_DESC
+    )
+    installment_number: int | None = Field(
+        default=None, ge=1, le=999, description=_INSTALLMENT_NUMBER_DESC
+    )
     audience: Literal["insured", "insurer"]
     expires_in_days: int | None = Field(default=None, ge=1, le=365)
     label: str | None = Field(default=None, max_length=160)
 
+    @model_validator(mode="after")
+    def _share_target(self) -> "CreateShareLinkArgs":
+        if self.entity_id is not None:
+            return self
+        if self.entity_type == "policy" and self.policy_number:
+            return self
+        if (
+            self.entity_type == "installment"
+            and self.policy_number
+            and self.installment_number is not None
+        ):
+            return self
+        raise ValueError(
+            "Indica qué compartir: entity_id, o policy_number (póliza) / policy_number + "
+            "installment_number (cuota)"
+        )
+
 
 class CreatePaymentLinkArgs(_Args):
-    installment_ids: list[int] = Field(..., min_length=1, max_length=50)
+    policy_number: str | None = Field(
+        default=None, min_length=1, max_length=64, description=_POLICY_NUMBER_DESC
+    )
+    installment_numbers: list[Annotated[int, Field(ge=1, le=999)]] | None = Field(
+        default=None, max_length=50, description="Números de cuota de esa póliza (1, 2…)."
+    )
+    installment_ids: list[int] | None = Field(
+        default=None, max_length=50, description=_INSTALLMENT_ID_DESC
+    )
+
+    @model_validator(mode="after")
+    def _cuotas_target(self) -> "CreatePaymentLinkArgs":
+        if not self.installment_ids and not (self.policy_number and self.installment_numbers):
+            raise ValueError(
+                "Indica las cuotas: policy_number + installment_numbers (preferido) o "
+                "installment_ids"
+            )
+        return self
 
 
 class SkipCaseToStageArgs(_Args):
@@ -1187,26 +1291,63 @@ def _exec_get_policy(db: Session, *, broker_id: int, user: User, args: PolicyIdA
     return data
 
 
+#: Review r3 (R1): the row the model reads — compact. The old 28-key row (~780
+#: chars) made 30 rows ~23 k chars, cut at the 10 k fold limit MID-JSON: the model
+#: saw ~12 cuotas and a broken tail, then guessed ids. Null / empty values are
+#: dropped and the level's long explanation stays in ``get_collection_mode``.
 _INSTALLMENT_ROW_KEYS = (
-    "id", "plan_id", "policy_id", "policy_number", "number", "installment_count",
+    "id", "policy_id", "policy_number", "number", "installment_count",
     "due_date", "currency", "gross_amount_uf", "paid_uf", "balance_uf", "balance_clp",
-    "state", "flags", "days_late", "evidence", "paid_on", "level", "level_reason",
-    "level_missing", "promise_until", "direct_debit_rejected_at", "insured_name",
-    "insurer_id", "insurer_name", "line_name", "payment_mode", "notices_enabled",
+    "state", "flags", "days_late", "evidence", "paid_on", "level",
+    "promise_until", "direct_debit_rejected_at", "insured_name",
+    "insurer_name", "payment_mode",
 )
+_INSTALLMENT_RESULT_CHARS = 12_000
 
 
 def _installment_rows(page: Any) -> list[dict]:
     rows = []
     for item in page.items:
         data = json.loads(item.model_dump_json())
-        row = _pick(data, _INSTALLMENT_ROW_KEYS)
+        row = {
+            key: value
+            for key, value in _pick(data, _INSTALLMENT_ROW_KEYS).items()
+            if value not in (None, [], "", "0") or key in ("number", "balance_uf")
+        }
+        if row.get("currency") == "UF":
+            row.pop("currency")
+        if row.get("days_late") == 0:
+            row.pop("days_late")
         note = data.get("last_note") or {}
         if note:
             body = str(note.get("body") or "")
             row["last_note"] = body if len(body) <= 140 else body[:137] + "…"
         rows.append(row)
     return rows
+
+
+def _fit_rows(result: dict, key: str, limit: int) -> dict:
+    """Drop WHOLE rows from the end until the fold fits ``limit`` (never a cut row)."""
+    rows = list(result.get(key) or [])
+    budget = limit - 400
+
+    def size() -> int:
+        return len(json.dumps({**result, key: rows}, ensure_ascii=False, default=str))
+
+    if size() <= budget:
+        return result
+    while rows and size() > budget:
+        rows.pop()
+    return {
+        **result,
+        key: rows,
+        "shown": len(rows),
+        "truncated": True,
+        "hint": (
+            "Hay más cuotas de las que caben: filtra por policy_number (todas las cuotas de "
+            "esa póliza) o por bucket."
+        ),
+    }
 
 
 def _board_page(db: Session, *, broker_id: int, user: User, **filters: Any):
@@ -1224,21 +1365,68 @@ def _board_page(db: Session, *, broker_id: int, user: User, **filters: Any):
 def _exec_list_installments(
     db: Session, *, broker_id: int, user: User, args: ListInstallmentsArgs
 ) -> dict:
-    page = _board_page(
-        db, broker_id=broker_id, user=user,
+    """The board rows; ``policy_number`` (R1) narrows to that policy's cuotas — every
+    one of them, ordered by number — and ``installment_number`` to one cuota."""
+    from app.services import agent_targets
+
+    filters = dict(
         bucket=args.bucket, level=args.level, insurer_id=args.insurer_id,
-        line_code=args.line_code, policy_id=args.policy_id, q=args.q,
+        line_code=args.line_code, q=args.q,
         owner="me" if args.owner_me else None,
-        limit=min(args.limit, _INSTALLMENT_LIMIT),
     )
-    return {
-        "as_of": page.as_of.isoformat(),
-        "uf_rate": str(page.uf_rate) if page.uf_rate is not None else None,
-        "total": page.total,
-        "shown": len(page.items),
-        "counts": page.counts,
-        "installments": _installment_rows(page),
-    }
+    if not args.policy_number:
+        page = _board_page(
+            db, broker_id=broker_id, user=user, policy_id=args.policy_id,
+            limit=min(args.limit, _INSTALLMENT_LIMIT), **filters,
+        )
+        rows = _installment_rows(page)
+        if args.installment_number is not None:
+            rows = [r for r in rows if r.get("number") == args.installment_number]
+        return _fit_rows(
+            {
+                "as_of": page.as_of.isoformat(),
+                "uf_rate": str(page.uf_rate) if page.uf_rate is not None else None,
+                "total": page.total if args.installment_number is None else len(rows),
+                "shown": len(rows),
+                "counts": page.counts,
+                "installments": rows,
+            },
+            "installments",
+            _INSTALLMENT_RESULT_CHARS,
+        )
+    policies = agent_targets.policies_by_number(db, broker_id, args.policy_number)
+    if args.policy_id is not None:
+        policies = [p for p in policies if p.id == args.policy_id]
+    if not policies:
+        raise agent_targets.TargetRefused(
+            "policy_not_found",
+            f"No encontré la póliza N° {args.policy_number} en la cartera de la corredora.",
+            policy_number=args.policy_number,
+        )
+    rows: list[dict] = []
+    page = None
+    for policy in policies:
+        # A policy has at most a few dozen cuotas: list them ALL (the 30-row cap is
+        # what made the model guess an id it had not seen).
+        page = _board_page(
+            db, broker_id=broker_id, user=user, policy_id=policy.id, limit=200, **filters
+        )
+        rows += _installment_rows(page)
+    if args.installment_number is not None:
+        rows = [r for r in rows if r.get("number") == args.installment_number]
+    rows.sort(key=lambda r: (str(r.get("policy_number") or ""), r.get("number") or 0))
+    return _fit_rows(
+        {
+            "as_of": page.as_of.isoformat(),
+            "uf_rate": str(page.uf_rate) if page.uf_rate is not None else None,
+            "total": len(rows),
+            "shown": len(rows),
+            "policies_matched": len(policies),
+            "installments": rows,
+        },
+        "installments",
+        _INSTALLMENT_RESULT_CHARS,
+    )
 
 
 def _exec_get_collection_overview(
@@ -1258,6 +1446,7 @@ def _exec_get_collection_overview(
             "as_of", "due_7d", "due_30d", "overdue", "termination_risk",
             "collected_month_uf", "unconfirmed_payments", "pending_evidence",
             "plans_missing", "past_installments_pending", "total", "by_status",
+            "card_scopes",
         ),
     )
     top = _board_page(db, broker_id=broker_id, user=user, bucket="overdue", limit=5)
@@ -1274,10 +1463,11 @@ def _exec_get_collection_mode(
 ) -> dict:
     from app.api.routers.collections import get_installment_mode
 
-    mode = get_installment_mode(args.installment_id, db=db, broker_id=broker_id, _user=user)
+    inst = _target_installment(db, broker_id=broker_id, args=args)
+    mode = get_installment_mode(inst.id, db=db, broker_id=broker_id, _user=user)
     return {
-        "installment_id": args.installment_id,
-        "installment": _installment_label(db, broker_id, args.installment_id),
+        "installment_id": inst.id,
+        "installment": _installment_label(db, broker_id, inst.id),
         **_dump(mode),
     }
 
@@ -1324,10 +1514,13 @@ def _exec_list_pending_evidence(
 ) -> dict:
     from app.api.routers.inquiries import list_evidence
 
+    installment_id = args.installment_id
+    if args.policy_number and args.installment_number is not None:
+        installment_id = _target_installment(db, broker_id=broker_id, args=args).id
     page = list_evidence(
         status_filter=None,
         inquiry_id=None,
-        installment_id=args.installment_id,
+        installment_id=installment_id,
         limit=min(args.limit, _LIST_LIMIT),
         offset=0,
         db=db,
@@ -1750,6 +1943,32 @@ def _validate_installment(db: Session, *, broker_id: int, installment_id: int):
     return get_installment_or_404(db, installment_id, broker_id)
 
 
+def _target_installment(db: Session, *, broker_id: int, args: Any):
+    """Resolve the cuota an args object names (R1) and PIN it on the args.
+
+    ``policy_number`` + ``installment_number`` are resolved server-side within the
+    broker; an ``installment_id`` given with them must agree; missing / ambiguous /
+    disagreeing → :class:`agent_targets.TargetRefused` (the proposal is refused, the
+    model relays the Spanish message). The resolved id is written back on the args so
+    the stored proposal, its card and the confirm step all name the SAME cuota; the
+    confirm step resolves again and refuses if the world changed."""
+    from app.services import agent_targets
+
+    inst = agent_targets.resolve_installment(
+        db,
+        broker_id,
+        installment_id=getattr(args, "installment_id", None),
+        policy_number=getattr(args, "policy_number", None),
+        installment_number=getattr(args, "installment_number", None),
+    )
+    args.installment_id = inst.id
+    if getattr(args, "policy_number", None):
+        policy = inst.collection_plan.policy
+        args.policy_number = policy.policy_number
+        args.installment_number = int(inst.number)
+    return inst
+
+
 def _installment_result(db: Session, broker_id: int, installment_id: int, detail: str, **extra) -> dict:
     inst = _own_installment(db, broker_id, installment_id)
     plan = inst.collection_plan if inst is not None else None
@@ -1768,7 +1987,7 @@ def _validate_register_payment(
 ) -> None:
     from app.api.routers.policies import _resolve_document
 
-    _validate_installment(db, broker_id=broker_id, installment_id=args.installment_id)
+    _target_installment(db, broker_id=broker_id, args=args)
     _resolve_document(db, args.receipt_document_id, broker_id)
 
 
@@ -1778,6 +1997,7 @@ def _exec_register_payment(
     from app.api.routers.collections import register_installment_payment
     from app.schemas.collection_board import PaymentCreate
 
+    _target_installment(db, broker_id=broker_id, args=args)
     result = register_installment_payment(
         args.installment_id,
         payload=PaymentCreate(
@@ -1808,8 +2028,11 @@ def _summarize_register_payment(db: Session, *, broker_id: int, args: RegisterPa
         if args.confirmed_by_insurer
         else " — pago declarado (sin confirmación de la compañía)"
     )
+    from app.services.agent_display import money
+
+    # Review r3: "UF 131,69" (Chilean), never "131.69 UF".
     return (
-        f"Registrar un pago de {args.amount} {args.currency.value} el {_fmt_day(args.paid_on)} "
+        f"Registrar un pago de {money(args.amount, args.currency.value)} el {_fmt_day(args.paid_on)} "
         f"en {_installment_label(db, broker_id, args.installment_id)}{evidence}"
     )
 
@@ -1817,7 +2040,7 @@ def _summarize_register_payment(db: Session, *, broker_id: int, args: RegisterPa
 def _validate_record_promise(
     db: Session, *, broker_id: int, user: User, args: RecordPaymentPromiseArgs
 ) -> None:
-    _validate_installment(db, broker_id=broker_id, installment_id=args.installment_id)
+    _target_installment(db, broker_id=broker_id, args=args)
 
 
 def _exec_record_promise(
@@ -1826,6 +2049,7 @@ def _exec_record_promise(
     from app.api.routers.collections import register_payment_promise
     from app.schemas.collection_board import PromiseCreate
 
+    _target_installment(db, broker_id=broker_id, args=args)
     result = register_payment_promise(
         args.installment_id,
         payload=PromiseCreate(promise_until=args.promise_until, note=args.note),
@@ -1857,7 +2081,16 @@ def _plan_for(db: Session, broker_id: int, args: StartCollectionArgs):
 
     if args.plan_id is not None:
         return get_plan_or_404(db, args.plan_id, broker_id)
-    policy = get_policy_or_404(db, args.policy_id, broker_id)
+    if args.policy_number:
+        from app.services import agent_targets
+
+        policy = agent_targets.resolve_policy(
+            db, broker_id, policy_id=args.policy_id, policy_number=args.policy_number
+        )
+        args.policy_id = policy.id
+        args.policy_number = policy.policy_number
+    else:
+        policy = get_policy_or_404(db, args.policy_id, broker_id)
     plan = db.scalars(
         select(CollectionPlan)
         .where(CollectionPlan.broker_id == broker_id, CollectionPlan.policy_id == policy.id)
@@ -1919,15 +2152,37 @@ def _summarize_start_collection(db: Session, *, broker_id: int, args: StartColle
     )
 
 
+def _target_inquiry(db: Session, *, broker_id: int, args: SendStatusInquiryArgs):
+    """R1: the policy by number (or id, agreeing) and the cuotas by number (or ids,
+    agreeing) — pinned on the args as ``policy_id`` / ``installment_ids``."""
+    from app.services import agent_targets
+
+    policy = agent_targets.resolve_policy(
+        db, broker_id, policy_id=args.policy_id, policy_number=args.policy_number
+    )
+    args.policy_id = policy.id
+    if args.policy_number:
+        args.policy_number = policy.policy_number
+    if args.installment_numbers:
+        insts = agent_targets.resolve_installments(
+            db, broker_id,
+            installment_ids=args.installment_ids,
+            installment_numbers=args.installment_numbers,
+            policy=policy,
+        )
+        args.installment_ids = [inst.id for inst in insts]
+        args.installment_numbers = [int(inst.number) for inst in insts]
+    return policy
+
+
 def _validate_send_status_inquiry(
     db: Session, *, broker_id: int, user: User, args: SendStatusInquiryArgs
 ) -> None:
-    from app.api.routers.policies import get_policy_or_404
     from app.services.collection.resolver import insurer_contact_email, lead_insurer_id
     from app.services.mail import inquiries as inquiry_service
     from app.services.notices import installment_state
 
-    policy = get_policy_or_404(db, args.policy_id, broker_id)
+    policy = _target_inquiry(db, broker_id=broker_id, args=args)
     own = inquiry_service.policy_installments(db, policy)
     if args.installment_ids:
         if any(i not in {inst.id for inst in own} for i in args.installment_ids):
@@ -1962,6 +2217,7 @@ def _exec_send_status_inquiry(
     from app.api.routers.inquiries import create_status_inquiry
     from app.schemas.inquiries import InquiryCreate
 
+    _target_inquiry(db, broker_id=broker_id, args=args)
     inquiry = create_status_inquiry(
         payload=InquiryCreate(
             policy_id=args.policy_id,
@@ -2014,7 +2270,7 @@ def _validate_send_payment_reminder(
     from app.services import notices
     from app.services.collection.resolver import payer_contact_email
 
-    inst = _validate_installment(db, broker_id=broker_id, installment_id=args.installment_id)
+    inst = _target_installment(db, broker_id=broker_id, args=args)
     today = notices.business_today()
     if notices.installment_state(db, inst, today=today).state in ("paid", "voided"):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=notices.REASON_SETTLED)
@@ -2036,6 +2292,7 @@ def _exec_send_payment_reminder(
     from app.models.enums import NoticeChannel, NoticeKind
     from app.schemas.inquiries import NoticeRequest
 
+    _target_installment(db, broker_id=broker_id, args=args)
     notice = send_payer_notice(
         payload=NoticeRequest(
             installment_id=args.installment_id,
@@ -2076,6 +2333,29 @@ def _gates_create_share_link(args: CreateShareLinkArgs) -> list[tuple[str, str]]
     return [(module_for_entity(args.entity_type), "View")]
 
 
+def _target_share(db: Session, *, broker_id: int, args: CreateShareLinkArgs) -> None:
+    """R1: a policy / cuota named by number resolves to its ``entity_id`` (an id given
+    with the numbers must agree)."""
+    from app.services import agent_targets
+
+    if args.entity_type == "installment" and args.policy_number:
+        inst = agent_targets.resolve_installment(
+            db, broker_id,
+            installment_id=args.entity_id,
+            policy_number=args.policy_number,
+            installment_number=args.installment_number,
+        )
+        args.entity_id = inst.id
+        args.policy_number = inst.collection_plan.policy.policy_number
+        args.installment_number = int(inst.number)
+    elif args.entity_type == "policy" and args.policy_number:
+        policy = agent_targets.resolve_policy(
+            db, broker_id, policy_id=args.entity_id, policy_number=args.policy_number
+        )
+        args.entity_id = policy.id
+        args.policy_number = policy.policy_number
+
+
 def _validate_create_share_link(
     db: Session, *, broker_id: int, user: User, args: CreateShareLinkArgs
 ) -> None:
@@ -2083,6 +2363,7 @@ def _validate_create_share_link(
     from app.models.enums import ShareEntity
     from app.services.share_links import audience_refusal
 
+    _target_share(db, broker_id=broker_id, args=args)
     _target_or_404(
         db, broker_id=broker_id, user=user,
         entity_type=ShareEntity(args.entity_type), entity_id=args.entity_id,
@@ -2099,6 +2380,7 @@ def _exec_create_share_link(
     from app.models.enums import ShareAudience, ShareEntity
     from app.schemas.share import ShareLinkCreate
 
+    _target_share(db, broker_id=broker_id, args=args)
     link = create_link(
         payload=ShareLinkCreate(
             entity_type=ShareEntity(args.entity_type),
@@ -2139,13 +2421,28 @@ def _summarize_create_share_link(db: Session, *, broker_id: int, args: CreateSha
     )
 
 
+def _target_payment_link(db: Session, *, broker_id: int, args: CreatePaymentLinkArgs) -> list:
+    """R1: the cuotas by policy number + numbers (ids given with them must agree)."""
+    from app.services import agent_targets
+
+    insts = agent_targets.resolve_installments(
+        db, broker_id,
+        installment_ids=args.installment_ids,
+        policy_number=args.policy_number,
+        installment_numbers=args.installment_numbers,
+    )
+    args.installment_ids = [inst.id for inst in insts]
+    if args.installment_numbers:
+        args.installment_numbers = [int(inst.number) for inst in insts]
+    return insts
+
+
 def _validate_create_payment_link(
     db: Session, *, broker_id: int, user: User, args: CreatePaymentLinkArgs
 ) -> None:
     from app.services.collection.resolver import resolve_collection_mode
 
-    for installment_id in dict.fromkeys(args.installment_ids):
-        inst = _validate_installment(db, broker_id=broker_id, installment_id=installment_id)
+    for inst in _target_payment_link(db, broker_id=broker_id, args=args):
         mode = resolve_collection_mode(db, inst, broker_id=broker_id)
         if mode.level != "native":
             raise _unprocessable(
@@ -2160,6 +2457,7 @@ def _exec_create_payment_link(
     from app.api.routers.payments import create_intent
     from app.schemas.payments import IntentCreate
 
+    _target_payment_link(db, broker_id=broker_id, args=args)
     created = create_intent(
         payload=IntentCreate(installment_ids=list(dict.fromkeys(args.installment_ids))),
         db=db,
@@ -2179,7 +2477,7 @@ def _exec_create_payment_link(
 def _summarize_create_payment_link(
     db: Session, *, broker_id: int, args: CreatePaymentLinkArgs
 ) -> str:
-    labels = [_installment_label(db, broker_id, i) for i in dict.fromkeys(args.installment_ids)]
+    labels = [_installment_label(db, broker_id, i) for i in dict.fromkeys(args.installment_ids or [])]
     return "Generar un link de pago (Forpay) por " + "; ".join(labels)
 
 
@@ -2608,11 +2906,13 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
                 "Cuotas de Cobranza con su estado vivo (bucket upcoming|overdue|"
                 "current|settled), nivel de cobro (record|assisted|native) y su "
                 "motivo, días de atraso, saldo UF/CLP, evidencia y última gestión. "
-                "Máx. 30 filas."
+                "Cada fila trae policy_number y number (n° de cuota). Para UNA póliza "
+                "usa policy_number (entrega TODAS sus cuotas) y, si quieres una sola, "
+                "installment_number. Sin filtro: máx. 30 filas."
             ),
             args_schema=ListInstallmentsArgs,
             execute=_exec_list_installments,
-            max_result_chars=10_000,
+            max_result_chars=_INSTALLMENT_RESULT_CHARS,
         ),
         ToolSpec(
             name="get_collection_overview",
@@ -2636,7 +2936,8 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             action="View",
             description=(
                 "Nivel de cobro de una cuota ahora (record, assisted o native), el "
-                "motivo en español, los canales y lo que falta para subir de nivel."
+                "motivo en español, los canales y lo que falta para subir de nivel. "
+                "Indica la cuota con policy_number + installment_number."
             ),
             args_schema=InstallmentIdArgs,
             execute=_exec_get_collection_mode,
@@ -2802,7 +3103,9 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             action="Edit",
             description=(
                 "PROPONE registrar un pago (total o parcial) de una cuota que la "
-                "persona informó, con monto, moneda (UF|CLP|USD) y fecha. Queda como "
+                "persona informó, con monto, moneda (UF|CLP|USD) y fecha. Indica la "
+                "cuota con policy_number + installment_number (lo que dijo la persona); "
+                "el servidor la resuelve y rechaza si no existe o es ambigua. Queda como "
                 "pago declarado salvo confirmed_by_insurer. La persona debe confirmar."
             ),
             args_schema=RegisterPaymentArgs,
@@ -2818,7 +3121,8 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             action="Edit",
             description=(
                 "PROPONE anotar una promesa de pago de una cuota (promete pagar el "
-                "promise_until) con una nota de gestión. La persona debe confirmar."
+                "promise_until) con una nota de gestión. Indica la cuota con "
+                "policy_number + installment_number. La persona debe confirmar."
             ),
             args_schema=RecordPaymentPromiseArgs,
             execute=_exec_record_promise,
@@ -2832,7 +3136,7 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             module="Collections",
             action="Edit",
             description=(
-                "PROPONE iniciar la cobranza de un plan de pago (plan_id o policy_id): "
+                "PROPONE iniciar la cobranza de una póliza (policy_number) o de un plan de pago: "
                 "activa los recordatorios al pagador. La cobranza asistida funciona "
                 "con cualquier compañía. La persona debe confirmar."
             ),
@@ -2849,7 +3153,8 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             action="Edit",
             description=(
                 "PROPONE preguntar por correo a la compañía el estado de pago de las "
-                "cuotas de una póliza (sin installment_ids: todas las pendientes). Úsalo "
+                "cuotas de una póliza (policy_number; installment_numbers para algunas, "
+                "vacío = todas las pendientes). Úsalo "
                 "en vez de suponer un pago. La persona debe confirmar."
             ),
             args_schema=SendStatusInquiryArgs,
@@ -2865,7 +3170,8 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             action="Edit",
             description=(
                 "PROPONE enviar ahora un aviso por correo al pagador de una cuota "
-                "(payer_reminder o payer_overdue). La persona debe confirmar."
+                "(payer_reminder o payer_overdue), indicada con policy_number + "
+                "installment_number. La persona debe confirmar."
             ),
             args_schema=SendPaymentReminderArgs,
             execute=_exec_send_payment_reminder,
@@ -2881,8 +3187,9 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             description=(
                 "PROPONE crear un enlace público (listo para WhatsApp) de una póliza, "
                 "plan, cuota o cuenta para el asegurado (insured) o la compañía "
-                "(insurer). Una cuenta solo se comparte con el asegurado. La persona "
-                "debe confirmar."
+                "(insurer). Una póliza o cuota se indica con policy_number (+ "
+                "installment_number). Una cuenta solo se comparte con el asegurado. La "
+                "persona debe confirmar."
             ),
             args_schema=CreateShareLinkArgs,
             execute=_exec_create_share_link,
@@ -2897,7 +3204,8 @@ TOOL_REGISTRY: dict[str, ToolSpec] = {
             module="Collections",
             action="Edit",
             description=(
-                "PROPONE generar un link de pago (Forpay) por cuotas de nivel nativo. "
+                "PROPONE generar un link de pago (Forpay) por cuotas de nivel nativo "
+                "(policy_number + installment_numbers). "
                 "Si una cuota no es nativa se rechaza con el motivo. La persona debe "
                 "confirmar."
             ),

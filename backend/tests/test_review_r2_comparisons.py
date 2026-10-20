@@ -445,11 +445,14 @@ def test_exclusion_cells_mean_the_offer_contains_the_exclusion():
         ("UF 15.000", "x", "coverage", 15000, "uf"),
         ("25%", "x", "clause", 25, "pct"),
         ("57,03", "Prima UF 57,03", "other", 57.03, "uf"),
-        # The verbatim names both % and UF: the sublimit default (an amount >= 100 is UF).
-        (20000, "10% máx UF 20.000", "sublimit", 20000, "uf"),
-        (10, "10% máx UF 20.000", "coverage", 10, None),  # ambiguous and not a sublimit: no guess
-        ("7 días", "x", "deductible", 7, "days"),
+        # Review r3 (R2): a composite verbatim ("10% … máx UF 20.000") is the display value;
+        # the bare number would drop the cap.
+        (20000, "10% máx UF 20.000", "sublimit", "10% máx UF 20.000", None),
+        (10, "10% máx UF 20.000", "coverage", "10% máx UF 20.000", None),
+        # A deductible always shows its condition.
+        ("7 días", "Carencia 7 días", "deductible", "Carencia 7 días", None),
         ("10% máx UF 20.000", "x", "sublimit", "10% máx UF 20.000", None),  # composite stays text
+        (15, "Validez: 15 días corridos", "other", 15, "days"),
     ],
 )
 def test_cell_values_are_numbers_with_a_unit(value, verbatim, group, expected_value, expected_unit):

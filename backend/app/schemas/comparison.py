@@ -103,6 +103,11 @@ class ComparisonPremiumCore(BaseModel):
     taxable_rate_permille: Any = None
     exempt_rate_permille: Any = None
     comprehensive_rate_permille: Any = None
+    #: Review r3 (R4): the offer's total insured amount (the tasa integral's base).
+    insured_amount_uf: Any = None
+    #: True when ``comprehensive_rate_permille`` was COMPUTED (net / insured × 1000)
+    #: because the document states no single integral rate.
+    comprehensive_rate_derived: bool = False
     commission_pct: Any = None
     validity_business_days: Any = None
     period_start_at: Any = None
@@ -154,6 +159,9 @@ class ComparisonEntryRead(BaseModel):
     insurer_suggestions: list[ComparisonInsurerSuggestion] = Field(default_factory=list)
     # Core figures the read did not find (e.g. ``total_premium_uf``) — a hint, not a block.
     missing_core: list[str] = Field(default_factory=list)
+    # Review r3 (R5): show *Reintentar* (``POST …/entries/{id}/retry``): a failed / empty
+    # read, or an ``ok`` read with a non-empty ``missing_core``; never once promoted.
+    can_retry: bool = False
 
     created_at: UtcDatetime | None = None
     updated_at: UtcDatetime | None = None

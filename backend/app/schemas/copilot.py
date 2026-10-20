@@ -36,6 +36,9 @@ class CopilotIndicator(BaseModel):
     tone: Literal["neutral", "warn", "danger", "ok"] = "neutral"
     #: In-app SPA path the card opens (carries ``owner=me`` / ``mine=1`` for scope=mine).
     link: str
+    #: Review r3 (R7): ``team`` = a team inbox (broker-wide in every scope, label
+    #: "Equipo"); otherwise the home's scope (``mine`` / ``all``).
+    scope: Literal["mine", "all", "team"] = "all"
 
 
 class CopilotSuggestion(BaseModel):

@@ -194,5 +194,9 @@
   },
   "reading": {
     "elapsed": "{{seconds}} s"
+  },
+  "scope": {
+    "team": "Team",
+    "teamHint": "Team inbox: not filtered by Mine"
   }
 }

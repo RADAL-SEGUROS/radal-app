@@ -37,10 +37,12 @@ import {
   QUERY_CATALOG,
   QUERY_GROUPS,
   indicatorSpec,
+  isTeamIndicator,
   querySpec,
   type IndicatorSpec,
   type QuerySpec,
 } from "./catalog";
+import { TeamScopeChip } from "@/components/common/TeamScopeChip";
 
 /** What a click on a query hands the page: the prompt + the skill to load. */
 export interface QueryStart {
@@ -361,6 +363,8 @@ function FloatingIndicator({
   const secondary = asNumber(indicator.secondary);
   const isUf = indicator.unit === "uf";
   const label = t(spec.labelKey);
+  // A team inbox does not shrink with "Mis números" — say so (r3 F4).
+  const team = isTeamIndicator(indicator.key, indicator.scope);
 
   const format = (n: number) => (isUf ? formatUF(n, { decimals: 0 }) : formatNumber(n));
   const body = (
@@ -369,9 +373,12 @@ function FloatingIndicator({
         <span className={cn("grid h-8 w-8 place-items-center rounded-sm", TONE_TILE[tone])}>
           <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         </span>
-        {tone !== "neutral" ? (
-          <span className={cn("mt-1 h-1.5 w-1.5 rounded-full", TONE_DOT[tone])} aria-hidden />
-        ) : null}
+        <span className="flex items-center gap-1.5">
+          {team ? <TeamScopeChip /> : null}
+          {tone !== "neutral" ? (
+            <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[tone])} aria-hidden />
+          ) : null}
+        </span>
       </div>
       <div className="mt-3 flex flex-col">
         <span className={cn("text-kpi tabular-nums", TONE_VALUE[tone])}>

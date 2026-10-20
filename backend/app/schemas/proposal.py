@@ -9,7 +9,7 @@ Two things live here besides plain I/O models:
        net    = taxable + exempt          # earthquake cover is VAT-exempt
        vat    = 0.19 * taxable            # on the TAXABLE part, NOT on net
        total  = net + vat
-       comprehensive_rate = taxable_rate + exempt_rate
+       # rates are NEVER summed; a missing tasa integral = net / insured_amount × 1000
 
 2. The comparison payload — competing proposals aligned side by side: premiums,
    rates, deductibles per peril, and a coverage matrix keyed by
@@ -435,16 +435,18 @@ def reconcile_money_verbose(
       * ``errors`` — one entry per broken HARD invariant (the premium arithmetic
         ``net = taxable + exempt`` · ``vat = 0.19 × taxable`` · ``total = net +
         vat``); these stay a ``422`` because they are true arithmetic;
-      * ``warnings`` — SOFT invariants, currently only rate additivity.
+      * ``warnings`` — SOFT notes (none today; kept for the 3-tuple contract).
 
-    **APPROVED DEVIATION from CLAUDE.md rule 5.** ``comprehensive_rate =
-    taxable_rate + exempt_rate`` is NO LONGER a hard error: real insurers (HDI)
-    quote ``comprehensive`` as a weighted "tasa media" that is genuinely NOT the
-    sum of the per-peril rates (verified: HDI reads 2,357‰ directly from the
-    document). ``comprehensive_rate_permille`` is therefore accepted as an
-    INDEPENDENT read; a non-additive value is surfaced as a warning, never a
-    block. When ``comprehensive_rate`` is ABSENT it is still DERIVED from the sum
-    (a convenience, not a constraint). The premium invariants remain HARD.
+    **Rates are never summed (review r3, R4).** ``comprehensive_rate_permille`` (the
+    *tasa integral*) is an INDEPENDENT read. The taxable and exempt rates are often
+    the SAME rate applied to two PORTIONS of one insured amount (Southbridge: 2,21 ‰
+    on the 40 % afecta + 2,21 ‰ on the 60 % exenta) — their sum (4,42 ‰) is
+    meaningless; the old "derive comprehensive = taxable + exempt" put 4,420 ‰ on the
+    Propuesta. When the integral rate is ABSENT it is derived ONLY as
+    ``net_premium_uf / insured_amount_uf × 1000`` (the effective rate over the whole
+    insured amount — 1 097,84 / 475 256 = 2,310 ‰ = 2,21 + 0,100 terrorismo, which IS
+    additive because both are on the full base), and only when ``insured_amount_uf``
+    is among ``values``. The premium invariants remain HARD.
 
     :func:`reconcile_money` is the back-compatible ``(derived, errors)`` wrapper
     over this — every existing caller keeps its 2-tuple contract.
@@ -515,24 +517,27 @@ def reconcile_money_verbose(
                 )
             )
 
-    # comprehensive_rate ~= taxable_rate + exempt_rate — a SOFT check (see docstring).
-    if taxable_rate is not None and exempt_rate is not None:
-        expected_rate = _q(Decimal(taxable_rate) + Decimal(exempt_rate))
-        if comprehensive_rate is None:
-            # Absent: derive from the sum (a convenience, not a constraint).
-            derived["comprehensive_rate_permille"] = expected_rate
-        elif abs(Decimal(comprehensive_rate) - expected_rate) > RATE_TOLERANCE:
-            # Present but non-additive (e.g. HDI's weighted "tasa media"): warn,
-            # never block. The read stands as an independent value.
-            warnings.append(
-                _mismatch(
-                    "comprehensive_rate_permille", expected_rate, Decimal(comprehensive_rate),
-                    "comprehensive_rate ~= taxable_rate + exempt_rate (soft: weighted tasa media)",
-                    RATE_TOLERANCE,
-                )
-            )
+    # The tasa integral: never a sum of rates (R4). Absent -> effective rate over the
+    # whole insured amount, when both are known.
+    del taxable_rate, exempt_rate
+    if comprehensive_rate is None:
+        effective = effective_rate_permille(net, values.get("insured_amount_uf"))
+        if effective is not None:
+            derived["comprehensive_rate_permille"] = effective
 
     return derived, errors, warnings
+
+
+def effective_rate_permille(net_premium_uf: Any, insured_amount_uf: Any) -> Decimal | None:
+    """``net / insured_amount × 1000`` (‰), 4 decimals; ``None`` without both (R4)."""
+    try:
+        net = Decimal(str(net_premium_uf)) if net_premium_uf is not None else None
+        base = Decimal(str(insured_amount_uf)) if insured_amount_uf is not None else None
+    except (InvalidOperation, ValueError):
+        return None
+    if net is None or base is None or base <= 0 or net < 0:
+        return None
+    return _q(net / base * Decimal(1000))
 
 
 def reconcile_money(values: dict[str, Any]) -> tuple[dict[str, Decimal], list[dict[str, Any]]]:

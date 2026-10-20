@@ -5733,6 +5733,128 @@ GET /documents/102/download?mode=preview
  "expires_in_seconds": 900, "...": "..."}
 ```
 
+### 19.20 Review round 3 fixes
+
+Contract: `docs/v12/13-review-r3-fixes.md` (source: the round-3 computer-use review on dev, `.review-tmp/r3-report.md`).
+
+**Frontend (F1–F5).** *F1 — comparison at 375 px:* the sticky label column of `pages/comparisons/index.tsx` is
+fixed-width (128 px · `sm` 220 · `lg` 260) and **nothing in it is nowrap** — in an auto-layout table a cell width is
+only a preference, and the old `truncate` label stretched the column to its longest label (~460 px in a 330 px card),
+covering every value. Value columns are `min-w-[184px]` below `sm`; under `sm` the scroller snaps each company column
+flush against the labels (`snap-x` + `scroll-pl-[128px]` + `snap-start` on the headers); section titles are sticky
+inside their full-width row; the recommendation card drops its icon gutter below `sm`. Verified with Playwright at
+375 and 1440 against a mocked `GET /comparisons/{id}` (no horizontal overflow at 1440 with three columns).
+*F2 — condition text:* `cellDisplay()` shows the verbatim whenever the value is only a quantity and the verbatim says
+more — always for `deductible` rows, for `sublimit` rows whose verbatim carries a qualifier (máx/mín/otros/por/hasta),
+and for any unit-less number ("Reposición a nuevo 10" → its wording); verbatims over 140 chars clamp to four lines with
+"Texto original" for the full text. A `coverage`/`sublimit` cell valued 0 renders "No incluida" (PxP "UF 0"). This
+covers matrices aligned before R2 as well. *F3 — labels:* transcript steps use the past-tense map
+`TOOL_STEP_LABEL_KEY` (`components/agent/labels.ts`, `dashboard:agent.steps.*`: "Buscó en el documento",
+"Revisó cuotas"…); an unknown tool reads "Consultó datos" and a failed one "Falló: Acción del agente" — the raw tool
+id is never shown (also removed from `PendingActionCard`). `search_document_text` joined both maps. Documents carry
+the server-filed categories / entity types (`SYSTEM_DOCUMENT_CATEGORIES`, `SYSTEM_ENTITY_TYPES` in `api/types.ts`,
+labelled through `DOCUMENT_CATEGORY_LABEL` / `ENTITY_TYPE_LABEL`; never offered in upload pickers); Portafolio →
+Documentos falls back to "Otro", names an opaque inbound mail "Correo del {fecha}" and hides the corpus code when the
+file name already leads with it. *F4 — "Equipo":* `components/common/TeamScopeChip.tsx` (tooltip "Bandeja del equipo:
+no se filtra por Mías") on Pagos sin confirmar, the Respuestas por confirmar button/banner/page and the copilot's
+`pending_evidence` indicator, for every user; the copilot shows it when `indicator.scope === "team"` **or** the key is
+`pending_evidence` (fallback for servers without R7); `KpiCard` gained a `badge` slot. *F5 — Reintentar:* a live
+column with `can_retry: true` (R5) shows *Reintentar* in its header (same `POST …/entries/{id}/retry` path and
+progress as a failed column); when any column lacks compañía/prima the align notice no longer claims "las columnas ya
+muestran compañía y prima". Screenshots: `.review-tmp/r3-f3-shots/` (gitignored).
+
+#### Backend (R1–R7)
+
+**No schema change, no migration** (new keys live in JSON: `agent_action.arguments`, `extraction.parsed`,
+`comparison.aligned_matrix`). Tests: `tests/test_review_r3_agent_targets.py`, `test_review_r3_comparisons.py`,
+`test_review_r3_team_inboxes.py`.
+
+- **R1 — the agent targets a cuota by what the broker says** (`services/agent_targets.py`). *Root cause, two parts:*
+  the cuota tools took only `installment_id`, so a cuota the model had not seen was guessed; and the
+  `list_installments` row was ~780 chars, so 30 rows (~23 k) were **cut mid-JSON at the 10 k fold limit** — the model
+  saw ~12 cuotas and a broken tail. *Fix:* `register_payment`, `record_payment_promise`, `send_payment_reminder`,
+  `get_collection_mode`, `list_pending_evidence` take **`policy_number` + `installment_number`** (listed first in the
+  schema; `installment_id` optional); `send_status_inquiry` takes `policy_number` (or `policy_id`) +
+  `installment_numbers`; `create_payment_link` `policy_number` + `installment_numbers`; `create_share_link`
+  `policy_number` (+ `installment_number`) instead of `entity_id`; `start_collection` `policy_number`. Resolution is
+  server-side within the broker: the policy number matches **exactly after normalisation** (case, spaces, dashes,
+  dots, slashes, underscores, a leading "N°"/"Póliza" ignored; leading zeros significant), placeholders excluded.
+  Missing / ambiguous (two policies with the number and a cuota of that number in both; two plans with the same cuota
+  number) / unknown cuota → **422 `TargetRefused`** `{code, message, …}` (`policy_not_found`, `policy_ambiguous` +
+  `candidates`, `installment_not_found`, `installment_ambiguous`, `target_mismatch`, `target_missing`), folded to the
+  model as `{"error": "target_refused", "code", "detail"}` — **nothing is proposed**. An id given with numbers must name
+  the same cuota (`target_mismatch`: the exact round-3 failure). The resolved id is **pinned** on the stored arguments
+  (with the canonical policy number + cuota number), the card reads it, and the confirm step resolves again (a
+  disagreement there is a 422, the row stays `proposed`). `list_installments(policy_number=…)` returns **every** cuota
+  of that policy ordered by number (`installment_number` narrows to one); rows are compact (nulls/zeros dropped, the
+  level's long reason left to `get_collection_mode`, ~350 chars) and `_fit_rows` drops WHOLE rows to fit 12 k with
+  `truncated` + a Spanish `hint`. The system prompt (HERRAMIENTAS) and the cobranza skill say: a cuota = policy number +
+  cuota number, never a deduced id; `target_refused` → relay and ask. The card summary prints `UF 131,69`.
+- **R2 — condition text in comparison cells** (`comparison_standardize.normalize_cell_value`). A `deductible` cell
+  whose value is only a quantity shows its **verbatim** as `value` ("10% de la pérdida, mínimo UF 10"); so does any
+  non-exclusion cell whose verbatim is a composite condition (≥ 2 quantities, or a cap/floor/base word: máx, mín,
+  tope, otros, de la pérdida, del monto, carencia…). The parsed number survives as `numeric_value` (+ `numeric_unit`);
+  `unit` is dropped there. A cover cell valued 0/None — or whose verbatim's **first sentence** says "no contratado /
+  no cotizado / no incluido" (Southbridge's "PxP no contratado … ofrecido por UF 90.000") — is `present=false`,
+  `value=null`. "15" with "15 días" → `unit=days`; "10" with "10 años" → `"10 años"`; a bare coverage amount ≥ 100
+  is UF like a sublimit. The recommend input clamps text values to 120 chars.
+- **R3 — the recommendation reads the final table.** The parallel recommend over the provisional (unfolded) table is
+  gone: the alignment calls run (in parallel, per class), the table is built and folded, **then** one recommend call
+  reads it (insurer names + prima total in `money`). The small path's single call only matches now. A **timed-out**
+  recommend keeps the aligned table with the warning "La recomendación tardó más de lo esperado…" (other errors
+  block); a pick-less answer warns in Spanish. `RECOMMEND_TIMEOUT_MAX_SECONDS` 45 → **50** (worst case 55 + 50 s,
+  inside the Lambda's 120 s; the SPA polls past the 60 s edge).
+- **R4 — tasa integral.** *Root cause:* `reconcile_money_verbose` (promote) **derived `comprehensive = taxable_rate +
+  exempt_rate`** when the cotización stated none; Southbridge prints 2,21 ‰ on the 40 % afecta portion and 2,21 ‰ on
+  the 60 % exenta portion of one UF 475 256 base (+ 0,100 ‰ terrorismo) → 4,420 ‰. *Fix:* rates are **never summed**
+  (promote, `derive_money`, the propuesta; the additivity warning is gone too). A missing integral rate is derived only
+  as **prima neta / monto asegurado × 1000** — the read gained `insured_amount_uf` (total of every insured matter;
+  `MONEY_CORE_KEYS`, `_COMPARE_CORE_KEYS`) and the core tool says "tasa integral solo si el documento la declara;
+  nunca la sumes". Entry `premium` gains `insured_amount_uf` + `comprehensive_rate_derived`. The propuesta takes rates
+  from the cotización only (the tool's `*_rate_permille` ignored), and `_correct_summed_rate` repairs proposals promoted
+  before the fix (stored value = the sum and the read had no integral rate → recomputed, else dropped; a READ
+  integral rate is never touched); the broker-proposal snapshot uses the same core.
+- **R5 — Reintentar + no invented totals.** `ComparisonEntryRead.can_retry` = not promoted, has its document, and
+  `status ∈ {failed, empty}` **or** `ok` with a non-empty `missing_core` (same `POST …/retry`). In the recommend input a
+  column without a read prima total carries `total_premium_read: false` and **no premium figures at all**; the prompt
+  forbids computing one; `_note_missing_totals` prepends the caveat "No se leyó la prima total de X: reintenta…".
+- **R6 — no backend change:** documents keep returning the enum (`category`, `entity_type`); the SPA maps them (F3).
+- **R7 — team inboxes [D].** `GET /collections/summary` adds `card_scopes {card: all|mine|team}`
+  (`board.TEAM_CARDS` = `unconfirmed_payments`, `pending_evidence`, `plans_missing` → `team` in both scopes; the cuota
+  cards follow `owner_scope`); the copilot indicators carry `scope` (`pending_evidence` → `team`, the rest = the
+  home's scope). Counts unchanged (already broker-wide).
+
+**Live (2 runs, 2026-10-19, GLM-5.3-Flash, `compare_timing_probe --sequential --dump`, the three Viña Indómita
+cotizaciones):** reads 17.2 / 12.1 / 14.8 s and 26.0 / 16.9 / 14.2 s; standardization **19.5 s** (cover 9.8 s, then
+recommend 9.7 s) and **13.9 s** (cover 4.0 + deductible 1.6 s, then recommend 9.9 s); 121 / 120 rows. Both
+recommendations pick Southbridge and credit **HDI** with the perjuicio por paralización (UF 90 000, Southbridge "no
+contratado"). Every deductible row shows the full condition in all three columns ("10% de la pérdida, mínimo UF 10 /
+25 / 250…", sismo "2% … mínimo UF 50 / 100 / 100"). `insured_amount_uf` read 475 256 / 565 256 / 475 256 → tasa integral
+**2,310 / 2,551 / 2,100 ‰** (Southbridge = 2,21 + 0,100; Mapfre = its single 2,10). Residual: Southbridge's facet read
+skipped the "Riesgos políticos y terrorismo" line of its rate table, so one run's caveat said Southbridge lacks it (the
+table's gap, not a misattribution).
+
+```json
+register_payment (tool args, preferred)
+{"policy_number": "TRBF-0020126441", "installment_number": 2, "amount": 131.69, "paid_on": "2026-10-19", "method": "transfer"}
+  stored arguments: {..., "policy_number": "TRBF-0020126441", "installment_number": 2, "installment_id": 812}
+  display: [{"label": "Monto", "value": "UF 131,69"}, {"label": "Cuota", "value": "2 de 10 · póliza N° TRBF-0020126441"}, ...]
+refused: {"error": "target_refused", "code": "target_mismatch", "detail": "La cuota indicada por id (cuota 5 de 10 · póliza N° V-FL-0091447) no es la cuota 2 de la póliza N° TRBF-0020126441. No propongo nada sobre otra cuota: confirma la póliza y el número de cuota con la persona."}
+
+list_installments {"policy_number": "TRBF-0020126441"} -> {"total": 10, "shown": 10, "policies_matched": 1, "installments": [
+  {"id": 812, "policy_id": 17, "policy_number": "TRBF-0020126441", "number": 2, "installment_count": 10,
+   "due_date": "2026-11-20", "gross_amount_uf": "131.6900", "balance_uf": "131.6900", "state": "upcoming",
+   "level": "assisted", "insured_name": "Viña Santa Alicia SpA", "insurer_name": "Southbridge", "payment_mode": "coupon_book"}, ...]}
+
+GET /comparisons/{id} entries[]: {..., "status": "ok", "missing_core": ["insurer_name", "total_premium_uf", "net_premium_uf"], "can_retry": true,
+  "premium": {"net_premium_uf": "1097.84", "insured_amount_uf": "475256", "comprehensive_rate_permille": "2.3100", "comprehensive_rate_derived": true, ...}}
+aligned_matrix deductible cell: {"comparison_source_id": 1, "value": "10% de la pérdida, mínimo UF 10", "numeric_value": 10, "verbatim": "10% de la pérdida, mínimo UF 10"}
+
+GET /collections/summary?owner=me -> {..., "owner_scope": "mine", "unconfirmed_payments": 3,
+  "card_scopes": {"due_7d": "mine", "overdue": "mine", ..., "unconfirmed_payments": "team", "pending_evidence": "team", "plans_missing": "team"}}
+GET /ai/copilot/home -> {"scope": "mine", "indicators": [{"key": "pending_evidence", "value": 1, "scope": "team", ...}, {"key": "overdue_installments", "scope": "mine", ...}]}
+```
+
 ### 19.15 Verified state & still open
 
 The handoff for this pass — as-built, the candid error log of the build and the full owed list — is

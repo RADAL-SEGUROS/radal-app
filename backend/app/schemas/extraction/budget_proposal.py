@@ -154,6 +154,12 @@ class BudgetProposalExtraction(RootExtraction):
         description="Vigencia de la oferta en días hábiles",
     )
 
+    #: Review r3 (R4): the TOTAL insured amount of the offer — the base the tasa
+    #: integral is computed over when the document does not state one.
+    insured_amount_uf: UF = Field(
+        default=None,
+        validation_alias=AliasChoices("insured_amount_uf", "sum_insured_uf"),
+    )
     taxable_premium_uf: UF = Field(
         default=None,
         validation_alias=AliasChoices("taxable_premium_uf", "net_premium_taxable_uf"),
@@ -254,6 +260,13 @@ def budget_proposal_tool_schema() -> dict[str, Any]:
                     "type": "integer",
                     "description": "Vigencia de la oferta en días hábiles.",
                 },
+                "insured_amount_uf": {
+                    "type": "number",
+                    "description": (
+                        "Monto asegurado TOTAL de la oferta (UF): la suma de todas las materias "
+                        "aseguradas (bienes + perjuicio por paralización…), como lo declara el documento."
+                    ),
+                },
                 "taxable_premium_uf": {"type": "number", "description": "Prima afecta (UF)."},
                 "exempt_premium_uf": {"type": "number", "description": "Prima exenta (UF)."},
                 "net_premium_uf": {"type": "number", "description": "Prima neta = afecta + exenta (UF)."},
@@ -261,7 +274,13 @@ def budget_proposal_tool_schema() -> dict[str, Any]:
                 "total_premium_uf": {"type": "number", "description": "Total a pagar = neta + IVA (UF)."},
                 "taxable_rate_permille": {"type": "number", "description": "Tasa afecta, por mil."},
                 "exempt_rate_permille": {"type": "number", "description": "Tasa exenta, por mil."},
-                "comprehensive_rate_permille": {"type": "number", "description": "Tasa total, por mil."},
+                "comprehensive_rate_permille": {
+                    "type": "number",
+                    "description": (
+                        "Tasa integral/total por mil SOLO si el documento la declara como una sola "
+                        "cifra; si no, null. NUNCA la sumes desde la tasa afecta y la exenta."
+                    ),
+                },
                 "commission_pct": {"type": "number", "description": "Comisión del corredor, 0-100."},
                 # (c) open, heterogeneous dimensions — SLIM
                 "facets": {

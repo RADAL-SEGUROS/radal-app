@@ -9,8 +9,8 @@
  * auto-confirms.
  *
  * Generic by construction: the header label comes from the explicit
- * `TOOL_LABEL_KEY` map (unknown tools fall back to a generic label + the tool
- * id), the sentence is the server's Spanish `summary`, and the body is the
+ * `TOOL_LABEL_KEY` map (unknown tools fall back to a generic label — never
+ * the tool's raw id), the sentence is the server's Spanish `summary`, and the body is the
  * server-built `display` rows (review r2 B6/C6: Spanish labels, Chilean
  * money and dates, the cuota NUMBER — never an internal id or an enum). An
  * action stored before `display` existed falls back to its arguments, with
@@ -41,7 +41,6 @@ import {
   MODULE_LABEL_KEY,
   RBAC_ACTION_LABEL_KEY,
   humanize,
-  isKnownTool,
   lookup,
   toolLabelKey,
 } from "@/components/agent/labels";
@@ -152,11 +151,6 @@ export function PendingActionCard({
         </span>
         <span className="min-w-0 flex-1 truncate text-label font-medium text-ink">
           {toolLabel}
-          {isKnownTool(action.tool) ? null : (
-            <span className="ms-1.5 font-mono text-[11px] font-normal text-ink-3">
-              {action.tool}
-            </span>
-          )}
         </span>
         <Badge variant={STATUS_BADGE[action.status]}>
           {t(ACTION_STATUS_LABEL_KEY[action.status])}

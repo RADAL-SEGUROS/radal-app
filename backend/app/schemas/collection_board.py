@@ -126,6 +126,11 @@ class CollectionsSummary(EntitySummary):
     #: Review r2 (B5): ``mine`` when the cuota cards were narrowed with
     #: ``owner=me`` / ``mine=1`` (the team inboxes stay broker-wide).
     owner_scope: Literal["all", "mine"] = "all"
+    #: Review r3 (R7, owner decision): the scope EACH card was computed in. The team
+    #: inboxes (``unconfirmed_payments`` "Pagos sin confirmar", ``pending_evidence``
+    #: "Respuestas por confirmar", ``plans_missing``) are ``"team"`` — broker-wide in
+    #: both scopes, labelled "Equipo" in the UI; every cuota card is ``owner_scope``.
+    card_scopes: dict[str, Literal["all", "mine", "team"]] = Field(default_factory=dict)
 
 
 # --- payments ------------------------------------------------------------------

@@ -27,6 +27,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { TeamScopeChip } from "@/components/common/TeamScopeChip";
 import { PageHeader } from "@/components/common/PageHeader";
 import {
   CopyButton,
@@ -522,6 +523,7 @@ export default function CollectionsInquiriesPage() {
             <Link to="/collections/evidence">
               <Inbox className="h-4 w-4" />
               {t("collections:evidence.title")}
+              <TeamScopeChip />
             </Link>
           </Button>
         }

@@ -475,7 +475,9 @@ def _class_reading(source_id: int, extra: list[dict]) -> dict:
     )
 
 
-def test_alignment_calls_run_per_class_in_parallel_with_the_recommend_call(monkeypatch):
+def test_alignment_calls_run_per_class_in_parallel_then_the_recommend_reads_the_final_table(monkeypatch):
+    """Review r3 (R3): the alignment calls run in parallel; the recommend call runs only
+    AFTER them, over the FINAL (folded) table — never a provisional one."""
     readings = [
         _class_reading(1, [{"group": "coverage", "label": "Rehabilitación automática", "verbatim": "Rehab 1"},
                            {"group": "deductible", "label": "Deducible incendio", "verbatim": "10 %"}]),
@@ -483,19 +485,26 @@ def test_alignment_calls_run_per_class_in_parallel_with_the_recommend_call(monke
                            {"group": "deductible", "label": "Incendio y adicionales", "verbatim": "UF 25"}]),
         _class_reading(3, [{"group": "other", "label": "Forma de pago", "verbatim": "10 cuotas"}]),
     ]  # 36 facets > GROUP_SPLIT_MIN_FACETS
-    barrier = threading.Barrier(3, timeout=5)  # cover + deductible + recommend together
+    barrier = threading.Barrier(2, timeout=5)  # cover + deductible together
     seen: dict[str, dict] = {}
+    events: list[str] = []
+    lock = threading.Lock()
 
     def _call(*, tool_schema=None, messages=None, **kwargs):
         name = tool_schema["name"]
-        barrier.wait()
         blob = json.loads(messages[1]["content"])
         if name == "recommend_comparison":
-            # The provisional table: every facet already a row (shared + own).
-            assert len(blob["dimensions"]) == 5 + 6 + 5
+            with lock:
+                events.append("recommend")
+            # The FINAL table: rehab 1 + 2 and the two deductibles are ONE row each
+            # (5 sublimits + 6 exclusions + rehab + deductible + forma de pago).
+            assert len(blob["dimensions"]) == 5 + 6 + 3
+            rehab = [d for d in blob["dimensions"] if d["label"] == "Rehabilitación automática"]
+            assert len(rehab) == 1 and set(rehab[0]["cells"]) == {"Cía 1", "Cía 2"}
             assert {m["insurer"] for m in blob["money"]} == {"Cía 1", "Cía 2", "Cía 3"}
             return _result({"recommendation": {"recommended_comparison_source_id": 2,
                                                "rationale": "La columna 2 es la mejor.", "caveats": []}})
+        barrier.wait()
         groups = {f["group"] for r in blob["readings"] for f in r["facets"]}
         bucket = "deductible" if groups == {"deductible"} else "cover"
         seen[bucket] = blob
@@ -505,6 +514,8 @@ def test_alignment_calls_run_per_class_in_parallel_with_the_recommend_call(monke
         props = tool_schema["parameters"]["properties"]["rows"]["items"]["properties"]
         assert set(props) == {"fixed", "refs"}  # no wording, no labels, no keys
         time.sleep(0.2 if bucket == "cover" else 0.0)  # the first bucket answers last
+        with lock:
+            events.append(bucket)
         if bucket == "cover":
             return _result({"rows": [{"refs": [[1, 12], [2, 12]]}]})  # rehab 1 == rehab 2
         return _result({"rows": [{"refs": [[1, 13], [2, 13]]}]})
@@ -513,6 +524,7 @@ def test_alignment_calls_run_per_class_in_parallel_with_the_recommend_call(monke
     result = standardize.standardize_readings(readings, {"dictionary": []})
 
     assert set(seen) == {"cover", "deductible"}  # every exclusion matched in code: no call
+    assert events[-1] == "recommend" and sorted(events[:2]) == ["cover", "deductible"]
     assert result.batched is True and result.batch_count == 2
     assert list(result.call_stats) == ["prematch", "cover", "deductible", "recommend"]
     assert result.call_stats["prematch"]["matched_facets"] == 33

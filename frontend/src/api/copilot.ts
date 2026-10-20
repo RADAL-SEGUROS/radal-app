@@ -34,6 +34,11 @@ export interface CopilotIndicator {
   tone?: CopilotTone | null;
   /** In-app path (or absolute URL) the card opens. */
   link?: string | null;
+  /**
+   * Review r3 R7: `team` marks a TEAM INBOX (pagos por confirmar…) that stays
+   * broker-wide even when the home shows "Mis números" — the UI labels it "Equipo".
+   */
+  scope?: "team" | "mine" | "all" | null;
 }
 
 export interface CopilotSuggestion {

@@ -194,5 +194,9 @@
   },
   "reading": {
     "elapsed": "{{seconds}} s"
+  },
+  "scope": {
+    "team": "Equipo",
+    "teamHint": "Bandeja del equipo: no se filtra por Mías"
   }
 }

@@ -240,11 +240,12 @@
     "payment": "Pago",
     "installment": "Cuota",
     "share_link": "Link compartido",
-    "status_inquiry": "Consulta a compañía",
+    "status_inquiry": "Consulta de estado",
     "mail_account": "Cuenta de correo",
     "portal_search": "Cotización en portal",
     "insurance_subtype": "Subtipo de ramo",
-    "payment_intent": "Cobro en línea"
+    "payment_intent": "Cobro en línea",
+    "other": "Otro"
   },
   "guard": {
     "noPermission": "No tienes permisos para esta acción",

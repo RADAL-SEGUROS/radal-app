@@ -4,7 +4,7 @@
  * House rule: NO dynamic keys (`t(\`agent.tools.${tool}\`)` compiles and then
  * renders a raw key the day the backend adds a tool). Every label goes through
  * one of these maps, with an explicit fallback for anything unknown — a new
- * server tool renders as the generic label plus its id, never as a raw key.
+ * server tool renders as the generic label (never its id, never a raw key).
  *
  * Tool names mirror `backend/app/services/agent_tools.py::TOOL_REGISTRY`.
  */
@@ -19,6 +19,7 @@ export const TOOL_LABEL_KEY: Record<string, string> = {
   get_case_history: "agent.tools.get_case_history",
   get_quote_comparison: "agent.tools.get_quote_comparison",
   list_documents: "agent.tools.list_documents",
+  search_document_text: "agent.tools.search_document_text",
   create_group: "agent.tools.create_group",
   attach_client_to_group: "agent.tools.attach_client_to_group",
   create_case_file: "agent.tools.create_case_file",
@@ -62,6 +63,59 @@ export function lookup(map: Record<string, string>, key: string | null | undefin
 /** Label key for a tool; unknown tools fall back to the generic label. */
 export function toolLabelKey(tool: string | null | undefined): string {
   return lookup(TOOL_LABEL_KEY, tool) ?? GENERIC_TOOL_LABEL_KEY;
+}
+
+/**
+ * Every registry tool -> the past-tense STEP line the transcript shows
+ * ("Buscó en el documento", "Revisó cuotas"). Review r3 F3: a step never shows
+ * a tool's raw name — an unknown tool reads "Consultó datos".
+ */
+export const TOOL_STEP_LABEL_KEY: Record<string, string> = {
+  search_entities: "agent.steps.search_entities",
+  get_group_tree: "agent.steps.get_group_tree",
+  get_case_file: "agent.steps.get_case_file",
+  get_case_history: "agent.steps.get_case_history",
+  get_quote_comparison: "agent.steps.get_quote_comparison",
+  list_documents: "agent.steps.list_documents",
+  search_document_text: "agent.steps.search_document_text",
+  create_group: "agent.steps.create_group",
+  attach_client_to_group: "agent.steps.attach_client_to_group",
+  create_case_file: "agent.steps.create_case_file",
+  renew_case: "agent.steps.renew_case",
+  add_note: "agent.steps.add_note",
+  list_policies: "agent.steps.list_policies",
+  get_policy: "agent.steps.get_policy",
+  list_installments: "agent.steps.list_installments",
+  get_collection_overview: "agent.steps.get_collection_overview",
+  get_collection_mode: "agent.steps.get_collection_mode",
+  list_status_inquiries: "agent.steps.list_status_inquiries",
+  list_pending_evidence: "agent.steps.list_pending_evidence",
+  check_case_files: "agent.steps.check_case_files",
+  check_policy_files: "agent.steps.check_policy_files",
+  get_catalog: "agent.steps.get_catalog",
+  list_portal_searches: "agent.steps.list_portal_searches",
+  get_portal_search: "agent.steps.get_portal_search",
+  list_notifications: "agent.steps.list_notifications",
+  load_skill: "agent.steps.load_skill",
+  create_policy_manual: "agent.steps.create_policy_manual",
+  update_policy_fields: "agent.steps.update_policy_fields",
+  register_payment: "agent.steps.register_payment",
+  record_payment_promise: "agent.steps.record_payment_promise",
+  start_collection: "agent.steps.start_collection",
+  send_status_inquiry: "agent.steps.send_status_inquiry",
+  send_payment_reminder: "agent.steps.send_payment_reminder",
+  create_share_link: "agent.steps.create_share_link",
+  create_payment_link: "agent.steps.create_payment_link",
+  skip_case_to_stage: "agent.steps.skip_case_to_stage",
+  activate_case_stage: "agent.steps.activate_case_stage",
+  run_portal_search: "agent.steps.run_portal_search",
+};
+
+export const GENERIC_STEP_LABEL_KEY = "agent.steps.generic";
+
+/** Step label key for a tool; unknown tools fall back to "Consultó datos". */
+export function stepLabelKey(tool: string | null | undefined): string {
+  return lookup(TOOL_STEP_LABEL_KEY, tool) ?? GENERIC_STEP_LABEL_KEY;
 }
 
 /** True when the tool has its own label (otherwise show its id beside the generic one). */

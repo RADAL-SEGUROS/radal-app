@@ -85,7 +85,7 @@ function EditDocumentDialog({ doc, onDone }: { doc: RadalDocument; onDone: () =>
   const { t: td } = useTranslation("documents");
   const update = useUpdateDocument(doc.id);
   const [name, setName] = React.useState(doc.original_name);
-  const [category, setCategory] = React.useState<DocumentCategory>(doc.category);
+  const [category, setCategory] = React.useState<RadalDocument["category"]>(doc.category);
   const [phase, setPhase] = React.useState(doc.phase ?? "");
 
   return (

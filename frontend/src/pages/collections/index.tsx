@@ -70,6 +70,7 @@ import {
   type CobranzaLevel,
 } from "@/api/collections";
 import { LevelBadge } from "@/components/collections/LevelBadge";
+import { TeamScopeChip } from "@/components/common/TeamScopeChip";
 import { InstallmentSheet } from "@/components/collections/InstallmentSheet";
 import {
   BUCKET_EMPTY,
@@ -329,6 +330,7 @@ export default function CollectionsPage() {
               <Link to="/collections/evidence">
                 <Inbox className="h-4 w-4" />
                 {t("collections:evidence.title")}
+                <TeamScopeChip />
                 {s && s.pending_evidence > 0 ? (
                   <Badge variant="warn" className="px-1.5 py-0 tabular-nums">
                     {s.pending_evidence}
@@ -412,6 +414,7 @@ export default function CollectionsPage() {
             countTo={s?.unconfirmed_payments ?? 0}
             hint={t("collections:cards.unconfirmedHint")}
             icon={<CheckCircle2 />}
+            badge={<TeamScopeChip />}
           />
         </CardButton>
       </Stagger>
@@ -435,6 +438,7 @@ export default function CollectionsPage() {
               <span className="min-w-0 flex-1 text-body text-ink-2">
                 {t("collections:banner.pendingEvidence", { count: s.pending_evidence })}
               </span>
+              <TeamScopeChip />
               <Button asChild variant="secondary" size="sm">
                 <Link to="/collections/evidence">{t("collections:banner.pendingEvidenceCta")}</Link>
               </Button>

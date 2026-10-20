@@ -12,8 +12,8 @@ Two shapes matter here:
     The chat surface over ``agent_thread`` / ``agent_message``.
 
 Money follows the Chilean invariants (docs/v2-architecture.md §4.2):
-``net = taxable + exempt``, ``vat = 0.19 * taxable``, ``total = net + vat``,
-``comprehensive_rate = taxable_rate + exempt_rate``. The schemas carry every
+``net = taxable + exempt``, ``vat = 0.19 * taxable``, ``total = net + vat``;
+rates are copied as read, never summed (review r3, R4). The schemas carry every
 component as an OPTIONAL field: the model rarely emits all of them and the
 service back-fills what it can derive.
 """

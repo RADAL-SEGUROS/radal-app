@@ -4,8 +4,10 @@
  * Filter chips exist only for parameters the endpoint honours server-side
  * (`entity_type`, `category` — the shared.tsx doctrine); pagination is the
  * endpoint's own `limit/offset`. Category labels come from the `documents`
- * namespace and entity labels from `settings:entities` — both enums are fully
- * enumerated there, nothing is minted here.
+ * namespace and entity labels from `settings:entities` through the explicit
+ * maps in `i18n/labels.ts` — including the categories / entity types the
+ * server files on its own (`email_message`, `status_inquiry`…). A value no map
+ * knows reads "Otro", never the raw token (review r3 F3).
  *
  * Download goes through `GET /documents/{id}/download` (the `document` table is
  * the only place an S3 key lives — the list row carries no usable URL), fetched
@@ -26,9 +28,13 @@ import { formatDate } from "@/lib/format";
 import {
   DOCUMENT_CATEGORIES,
   ENTITY_TYPES,
+  SYSTEM_DOCUMENT_CATEGORIES,
+  SYSTEM_ENTITY_TYPES,
   type DocumentCategory,
   type EntityType,
   type RadalDocument,
+  type SystemDocumentCategory,
+  type SystemEntityType,
 } from "@/api/types";
 import {
   FilterChip,
@@ -55,6 +61,14 @@ function formatBytes(bytes: number | null | undefined): string {
     unit = next;
   }
   return `${value.toLocaleString("de-DE", { maximumFractionDigits: 1 })} ${unit}`;
+}
+
+/** A mail kept by the inbound pipeline is named by an opaque id ("correo-fmut2pnu…"). */
+const OPAQUE_MAIL_NAME = /^correo-[a-z0-9]{12,}/i;
+
+/** The "08" / "03" corpus code only adds information when the name does not lead with it. */
+function showsCode(name: string, code: string | null): code is string {
+  return !!code && !name.trim().startsWith(code);
 }
 
 /** Per-row download: a fresh short-lived link on click (`lib/download.ts`). */
@@ -103,8 +117,8 @@ export default function DocumentsTab() {
     // SERVER-side, exactly like the export, so the table and the file the
     // broker downloads can never disagree about what was filtered.
     ...scope,
-    entity_type: (entityType as EntityType) || undefined,
-    category: (category as DocumentCategory) || undefined,
+    entity_type: (entityType as EntityType | SystemEntityType) || undefined,
+    category: (category as DocumentCategory | SystemDocumentCategory) || undefined,
     limit: PAGE_SIZE,
     offset: pageIndex * PAGE_SIZE,
   });
@@ -112,7 +126,7 @@ export default function DocumentsTab() {
 
   const entityOptions = React.useMemo(
     () =>
-      ENTITY_TYPES.map((value) => ({
+      [...ENTITY_TYPES, ...SYSTEM_ENTITY_TYPES].map((value) => ({
         value,
         label: enumLabel(tSettings, ENTITY_TYPE_LABEL, value),
       })),
@@ -120,7 +134,7 @@ export default function DocumentsTab() {
   );
   const categoryOptions = React.useMemo(
     () =>
-      DOCUMENT_CATEGORIES.map((value) => ({
+      [...DOCUMENT_CATEGORIES, ...SYSTEM_DOCUMENT_CATEGORIES].map((value) => ({
         value,
         label: enumLabel(tDocuments, DOCUMENT_CATEGORY_LABEL, value),
       })),
@@ -132,29 +146,46 @@ export default function DocumentsTab() {
       {
         accessorKey: "original_name",
         header: t("columns.name"),
-        cell: ({ row }) => (
-          <div className="min-w-0 max-w-[320px]">
-            <p className="truncate font-medium text-ink">{row.original.original_name}</p>
-            {row.original.document_code ? (
-              <p className="truncate text-caption tabular-nums text-ink-3">
-                {row.original.document_code}
-              </p>
-            ) : null}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const doc = row.original;
+          const name =
+            doc.category === "email_message" && OPAQUE_MAIL_NAME.test(doc.original_name)
+              ? t("documents.emailName", { date: formatDate(doc.created_at) })
+              : doc.original_name;
+          return (
+            <div className="min-w-0 max-w-[320px]" title={doc.original_name}>
+              <p className="truncate font-medium text-ink">{name}</p>
+              {showsCode(doc.original_name, doc.document_code) ? (
+                <p className="truncate text-caption tabular-nums text-ink-3">
+                  {t("documents.code", { code: doc.document_code })}
+                </p>
+              ) : null}
+            </div>
+          );
+        },
       },
       {
         accessorKey: "category",
         header: t("columns.category"),
         cell: ({ row }) =>
-          enumLabel(tDocuments, DOCUMENT_CATEGORY_LABEL, row.original.category),
+          enumLabel(
+            tDocuments,
+            DOCUMENT_CATEGORY_LABEL,
+            row.original.category,
+            tDocuments("categories.other"),
+          ),
       },
       {
         accessorKey: "entity_type",
         header: t("columns.entityType"),
         cell: ({ row }) => (
           <span className="text-ink-2">
-            {enumLabel(tSettings, ENTITY_TYPE_LABEL, row.original.entity_type)}
+            {enumLabel(
+              tSettings,
+              ENTITY_TYPE_LABEL,
+              row.original.entity_type,
+              tSettings("entities.other"),
+            )}
           </span>
         ),
       },

@@ -16,6 +16,8 @@ interface KpiCardProps {
   /** Optional small caption below the value. */
   hint?: React.ReactNode;
   icon?: React.ReactNode;
+  /** A small chip beside the label (e.g. the "Equipo" scope chip). */
+  badge?: React.ReactNode;
   /** Tone colors the HINT line (up/down/status), not a chip. */
   tone?: KpiTone;
   className?: string;
@@ -43,6 +45,7 @@ export function KpiCard({
   format,
   hint,
   icon,
+  badge,
   tone = "default",
   className,
 }: KpiCardProps) {
@@ -50,8 +53,9 @@ export function KpiCard({
     <FadeUp className="h-full">
       <Card interactive className={cn("h-full p-[18px]", className)}>
         <div className="flex items-start justify-between gap-2">
-          <div className="text-caption font-medium text-ink-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-caption font-medium text-ink-3">
             {label}
+            {badge}
           </div>
           {icon ? (
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-brand-soft text-brand-deep [&_svg]:h-4 [&_svg]:w-4">

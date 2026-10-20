@@ -45,6 +45,17 @@ export const INDICATORS: Record<string, IndicatorSpec> = {
   active_policies: { labelKey: "agent.indicators.active_policies", icon: ShieldCheck },
 };
 
+/**
+ * Team inboxes (owner decision, review r3 R7): broker-wide in every scope. The
+ * server marks them `scope: "team"`; this list covers a server that does not
+ * send the field yet.
+ */
+const TEAM_INDICATORS: ReadonlySet<string> = new Set(["pending_evidence"]);
+
+export function isTeamIndicator(key: string, scope?: string | null): boolean {
+  return scope === "team" || TEAM_INDICATORS.has(key);
+}
+
 export function indicatorSpec(key: string): IndicatorSpec | null {
   return Object.prototype.hasOwnProperty.call(INDICATORS, key) ? INDICATORS[key] : null;
 }

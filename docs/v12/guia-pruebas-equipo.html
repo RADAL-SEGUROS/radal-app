@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radal v12 · Guía de pruebas para el equipo</title>
+<style>
+:root{
+  --paper:#fafaf9;--paper-2:#f4f4f2;--bone:#fff;--line:#e8e8e5;--line-strong:#d9d9d5;
+  --ink:#17191a;--ink-2:#41464a;--ink-3:#6b7075;--muted:#9ba0a5;
+  --brand:#0e7c70;--brand-deep:#0b655b;--brand-soft:rgba(14,124,112,.08);
+  --pos:#16a34a;--pos-text:#15803d;--pos-soft:rgba(22,163,74,.10);
+  --warn:#d97706;--warn-text:#b45309;--warn-soft:rgba(217,119,6,.10);
+  --neg:#dc2626;--neg-text:#b91c1c;--neg-soft:rgba(220,38,38,.08);
+  --info:#2563eb;--info-soft:rgba(37,99,235,.08);
+  --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --display:"Space Grotesk",Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.6 var(--sans)}
+a{color:var(--brand)}
+code,kbd{font-family:var(--mono);font-size:.86em;background:var(--paper-2);border:1px solid var(--line);padding:.05em .35em;border-radius:4px}
+.layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+nav.toc{position:sticky;top:0;height:100vh;overflow:auto;border-right:1px solid var(--line);background:var(--bone);padding:22px 18px}
+nav.toc .wm{font:600 20px var(--display);letter-spacing:-.01em;color:var(--brand);margin-bottom:2px}
+nav.toc .sub{font-size:12px;color:var(--ink-3);margin-bottom:18px}
+nav.toc ol{list-style:none;margin:0;padding:0;counter-reset:t}
+nav.toc li{counter-increment:t}
+nav.toc ol a{display:block;padding:5px 8px;border-radius:6px;color:var(--ink-2);text-decoration:none;font-size:13.5px}
+nav.toc ol a::before{content:counter(t,decimal-leading-zero);font:500 11px var(--mono);color:var(--muted);margin-right:8px}
+nav.toc ol a:hover,nav.toc ol a.active{background:var(--brand-soft);color:var(--brand-deep)}
+nav.toc .side-note{margin-top:18px;font-size:12px;color:var(--ink-3);border-top:1px dashed var(--line);padding-top:12px}
+main{max-width:1180px;padding:40px 56px 120px;min-width:0}
+header.hero{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:12px}
+.eyebrow{font:500 12px var(--mono);color:var(--brand);text-transform:uppercase;letter-spacing:.08em}
+h1{font-size:34px;line-height:1.15;letter-spacing:-.02em;margin:10px 0 12px}
+h2{font-size:25px;letter-spacing:-.015em;margin:64px 0 6px;padding-top:12px}
+h2 .n{font:500 14px var(--mono);color:var(--muted);margin-right:10px}
+h3{font-size:18px;margin:34px 0 8px;letter-spacing:-.01em}
+h4{font-size:15px;margin:18px 0 6px}
+.lede{font-size:17px;color:var(--ink-2);max-width:900px}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--bone);color:var(--ink-2);white-space:nowrap}
+.chip.sigue{color:var(--pos-text);background:var(--pos-soft);border-color:#bfe5cc}
+.chip.desvia{color:var(--warn-text);background:var(--warn-soft);border-color:#f3d7ae}
+.chip.adelanta{color:var(--info);background:var(--info-soft);border-color:#c9d8fb}
+.chip.agrega{color:var(--brand-deep);background:var(--brand-soft);border-color:#bfe0db}
+.chip.neg{color:var(--neg-text);background:var(--neg-soft);border-color:#f5c6c6}
+.chip.soon{color:var(--ink-3);border-style:dashed}
+.chip.role{font-family:var(--mono);font-size:11.5px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:1100px){.g3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:860px){.layout{grid-template-columns:1fr}nav.toc{display:none}main{padding:24px 18px 80px}.g2,.g3{grid-template-columns:1fr}h1{font-size:28px}}
+.card{background:var(--bone);border:1px solid var(--line);border-radius:12px;padding:18px 20px;min-width:0}
+.card h4{margin-top:0}
+.card.accent{border-left:3px solid var(--brand)}
+.card.warn{border-left:3px solid var(--warn)}
+.card.neg{border-left:3px solid var(--neg)}
+.card p:last-child{margin-bottom:0}
+.callout{border-radius:10px;padding:14px 18px;margin:18px 0;border:1px solid}
+.callout.trap{background:var(--neg-soft);border-color:#f5c6c6}
+.callout.tip{background:var(--brand-soft);border-color:#bfe0db}
+.callout.q{background:var(--warn-soft);border-color:#f3d7ae}
+.callout.note{background:var(--info-soft);border-color:#c9d8fb}
+.callout p{margin:.3em 0}
+.callout ul{margin:.3em 0;padding-left:20px}
+table{width:100%;border-collapse:collapse;background:var(--bone);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13.5px;margin:12px 0}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--paper-2);font-weight:600;color:var(--ink-2);font-size:12.5px}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.tbl-wrap{overflow-x:auto}
+.muted{color:var(--ink-3)}
+.small{font-size:12.5px}
+footer{margin-top:80px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3)}
+/* figures */
+figure{margin:14px 0;min-width:0}
+figure a.shot{display:block;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;background:var(--bone);box-shadow:0 1px 0 rgba(0,0,0,.02),0 8px 24px -14px rgba(0,0,0,.18)}
+figure img{display:block;width:100%;height:auto}
+figure.phone{max-width:300px}
+figure.narrow{max-width:460px}
+figure.mid{max-width:760px}
+figcaption{font-size:12.5px;color:var(--ink-3);margin-top:6px}
+.reused{font:500 11px var(--mono);color:var(--muted)}
+/* decision cards */
+.decision{background:var(--bone);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:18px 0}
+.decision .head{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.decision h3{margin:0;font-size:18px}
+.decision .cols{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:20px;margin-top:12px;align-items:start}
+@media(max-width:1000px){.decision .cols{grid-template-columns:1fr}}
+.decision dl{margin:0;display:grid;grid-template-columns:118px 1fr;gap:8px 14px;font-size:14px}
+.decision dt{color:var(--ink-3);font-weight:600;font-size:12.5px;padding-top:2px}
+.decision dd{margin:0}
+@media(max-width:600px){.decision dl{grid-template-columns:1fr}.decision dt{padding-top:6px}}
+.spec{font-size:13px;background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+/* scenarios */
+details.scn{background:var(--bone);border:1px solid var(--line);border-radius:12px;margin:12px 0;overflow:hidden}
+details.scn>summary{cursor:pointer;list-style:none;padding:14px 18px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+details.scn>summary::-webkit-details-marker{display:none}
+details.scn>summary .id{font:600 13px var(--mono);color:var(--brand);min-width:30px}
+details.scn>summary .t{font-weight:600;font-size:15.5px;flex:1 1 280px}
+details.scn>summary::after{content:"+";font:500 18px var(--mono);color:var(--muted);margin-left:auto}
+details.scn[open]>summary::after{content:"–"}
+details.scn[open]>summary{border-bottom:1px solid var(--line);background:var(--paper-2)}
+details.scn .body{padding:6px 20px 18px}
+details.scn .body h4{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin:16px 0 4px}
+details.scn ol,details.scn ul{padding-left:22px;margin:4px 0}
+details.scn li{margin:3px 0}
+.eye{background:var(--warn-soft);border:1px solid #f3d7ae;border-radius:10px;padding:10px 14px;margin-top:10px}
+.eye h4{margin-top:2px!important;color:var(--warn-text)!important}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+button,.btn{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bone);color:var(--ink-2);cursor:pointer}
+button.p{background:var(--brand);border-color:var(--brand);color:#fff}
+button:hover{filter:brightness(.97)}
+/* form */
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;background:var(--bone);border:1px solid var(--line);border-radius:14px;padding:20px}
+.form .full{grid-column:1/-1}
+@media(max-width:760px){.form{grid-template-columns:1fr}}
+.form label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);margin-bottom:4px}
+.form input,.form select,.form textarea{width:100%;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--paper);color:var(--ink)}
+.form textarea{min-height:76px;resize:vertical}
+.form .hint{font-size:12px;color:var(--ink-3);margin-top:3px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg label{display:inline-flex;align-items:center;gap:6px;font-weight:500;border:1px solid var(--line-strong);border-radius:8px;padding:5px 10px;background:var(--paper);cursor:pointer;margin:0}
+.seg input{width:auto;margin:0}
+pre.out{white-space:pre-wrap;background:var(--paper-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font:12.5px/1.55 var(--mono);margin:12px 0;min-height:60px}
+.ok{color:var(--pos-text);font-weight:600;font-size:13px}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:14px}
+@media(max-width:600px){.kv{grid-template-columns:1fr}}
+.kv b{color:var(--ink-2)}
+.mtoc{display:none;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.mtoc a{font-size:12.5px;padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:var(--bone);text-decoration:none;color:var(--ink-2)}
+@media(max-width:860px){.mtoc{display:flex}}
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+@media print{
+  .mtoc,nav.toc,.toolbar,.form button,#copy-status{display:none!important}
+  .layout{display:block}
+  main{max-width:none;padding:0}
+  body{background:#fff;font-size:12px}
+  h2{margin-top:28px;break-after:avoid}
+  .decision,details.scn,.card,figure{break-inside:avoid}
+  figure a.shot{box-shadow:none}
+  a{color:inherit;text-decoration:none}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" aria-label="Contenido">
+  <div class="wm">radal</div>
+  <div class="sub">Guía de pruebas · v12 · 19-10-2026</div>
+  <ol>
+    <li><a href="#portada">Esta versión</a></li>
+    <li><a href="#entrar">Cómo entrar</a></li>
+    <li><a href="#porque">Por qué está construida así</a></li>
+    <li><a href="#probar">Qué probar</a></li>
+    <li><a href="#no-esta">Qué no está todavía</a></li>
+    <li><a href="#feedback">Cómo dar feedback</a></li>
+    <li><a href="#referencias">Referencias y glosario</a></li>
+  </ol>
+  <div class="side-note">Especificación de referencia: <a href="team-spec-clic-a-clic-v15.html#inicio">RADAL, clic a clic · v15</a>.<br>Detalle técnico: <a href="../v12-cobranza-y-viaje-parcial.html">explicación v12</a> (en inglés).</div>
+</nav>
+
+<main>
+
+<!-- ============================================================ 1 -->
+<header class="hero" id="portada">
+  <div class="eyebrow">Radal · v12 · guía de pruebas para el equipo</div>
+  <h1>Prueben Radal como corredores: qué hay, por qué está así y qué mirar</h1>
+  <p class="lede">Esta guía es para el equipo que conoce el negocio. No necesitan saber de software: necesitamos su ojo de corredor. Queremos saber si la IA lee bien los PDF, si los números cuadran, si el vocabulario es el de ustedes y si los flujos calzan con cómo trabajan.</p>
+  <div class="meta">
+    <span class="chip">19-10-2026</span>
+    <span class="chip">Ambiente <b>dev</b> · <a href="https://dev.radalseguros.cl">dev.radalseguros.cl</a></span>
+    <span class="chip">Versión del 19-10-2026 (ronda 3)</span>
+    <span class="chip">Corredora de prueba: Corredora Demo SpA</span>
+  </div>
+  <nav class="mtoc" aria-label="Contenido"><a href="#entrar">Cómo entrar</a><a href="#porque">Por qué así</a><a href="#probar">Qué probar</a><a href="#no-esta">Qué no está</a><a href="#feedback">Feedback</a><a href="#referencias">Glosario</a></nav>
+  <div class="callout trap">
+    <p><b>Es un ambiente de prueba compartido.</b> Varias personas prueban a la vez con los mismos usuarios y los mismos datos ficticios. Los números pueden cambiar mientras pruebas porque otra persona registró un pago o subió una póliza. Nada de lo que hagas aquí llega a clientes ni a compañías reales.</p>
+  </div>
+</header>
+
+<h3>Qué trae esta versión</h3>
+<div class="grid g3">
+  <div class="card accent">
+    <h4>v12: pólizas primero y cobranza</h4>
+    <p class="small">Pólizas es la lista principal. Hay viajes parciales: se puede partir desde la póliza, desde cotizaciones o desde cero, y las etapas que no ocurrieron se marcan <i>omitida</i>. La cobranza tiene tres niveles por cuota. Hay links públicos para el asegurado y la compañía, y una campana con <i>Por hacer</i> y <i>Para saber</i>.</p>
+  </div>
+  <div class="card accent">
+    <h4>El copiloto es el inicio</h4>
+    <p class="small">Al entrar abre el <b>Agente</b>. Muestra tus números del día, cada uno con un link a la lista que lo explica, y te ofrece consultas frecuentes. Las conversaciones quedan guardadas en una barra lateral. El agente prepara las acciones y nada se escribe hasta que tú confirmas.</p>
+  </div>
+  <div class="card accent">
+    <h4>Lectura rápida con IA</h4>
+    <p class="small">Una póliza se lee en dos tiempos. Primero los datos principales (asegurado, vigencia, prima y cuotas), en unos 10 a 20 segundos. Después, en segundo plano, los <b>Datos técnicos</b>: coberturas, deducibles, garantías, exclusiones y cláusulas. Las cotizaciones también se leen por partes, en paralelo.</p>
+  </div>
+</div>
+<p class="small muted">Incluye además las correcciones de las rondas de revisión 2 y 3 del 19-10-2026. Lo corregido y lo pendiente aparece en <a href="#conocidos">Problemas ya conocidos</a>.</p>
+
+<!-- ============================================================ 2 -->
+<h2 id="entrar"><span class="n">02</span>Cómo entrar</h2>
+<p>Entra a <a href="https://dev.radalseguros.cl"><b>https://dev.radalseguros.cl</b></a>. Todos los usuarios usan la contraseña <code>radal1234</code>. Son usuarios de prueba compartidos de un ambiente que no es productivo.</p>
+
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Correo</th><th>Quién es</th><th>Qué ve</th><th>Úsalo para</th></tr></thead>
+  <tbody>
+    <tr><td><code>admin@demo.cl</code></td><td>Carolina Rojas, administradora de la corredora <i>Corredora Demo SpA</i> (en pantalla, “Demo Corredores”)</td><td>Toda la corredora. En la campana elige <b>Mías / Todas</b>. Tiene <b>Configuración</b>.</td><td>La mayoría de los escenarios: pólizas, cobranza, comparación, agente y configuración.</td></tr>
+    <tr><td><code>ejecutivo@demo.cl</code></td><td>Matías Fuentes, ejecutivo de cuentas y <b>dueño</b> de las cuentas demo</td><td>El copiloto le muestra “Mis números”. Recibe los <i>Por hacer</i> de sus cuentas. No tiene Configuración.</td><td>Ver la app como la ve el ejecutivo: filtro <b>Mías</b>, sus tareas y lo que llega desde los links públicos.</td></tr>
+    <tr><td><code>admin@radal.cl</code></td><td>Equipo Radal (plataforma)</td><td>Sólo el <b>Mantenedor</b>: compañías y cobro, cuentas de proveedor, eventos y tareas programadas.</td><td>Ver qué configura Radal por compañía. No ve datos de ninguna corredora.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Links públicos (sin usuario)</h3>
+<p>El asegurado y la compañía no tienen usuario en Radal. Responden por un link que el corredor les comparte, por ejemplo por WhatsApp. Ábrelos en una <b>ventana privada</b> para verlos como los vería el asegurado o la compañía: <kbd>Ctrl/Cmd + Shift + N</kbd> en Chrome y Safari, <kbd>Ctrl/Cmd + Shift + P</kbd> en Firefox.</p>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Para</th><th>Link</th><th>Qué muestra</th></tr></thead>
+  <tbody>
+    <tr><td>Asegurado</td><td><a href="https://dev.radalseguros.cl/s/HsWb9LqBbq8dlKkD7GTvH2GqR8KvOYKq"><code>/s/HsWb9LqBbq8dlKkD7GTvH2GqR8KvOYKq</code></a></td><td>Transportes del Sur SpA · póliza HDI-VL-778812 (HDI): cuotas, cómo pagar y subir un comprobante.</td></tr>
+    <tr><td>Compañía</td><td><a href="https://dev.radalseguros.cl/s/HC1KFTUmVwzZYXHxuUuSkSiemayTeVC_"><code>/s/HC1KFTUmVwzZYXHxuUuSkSiemayTeVC_</code></a></td><td>Consulta de estado de pago INQ-LOJM4N · póliza 5520-0001 (Sura).</td></tr>
+    <tr><td>Compañía</td><td><a href="https://dev.radalseguros.cl/s/qZJgVZhu_w_OHYBU5ovHELwVF5H7be22"><code>/s/qZJgVZhu_w_OHYBU5ovHELwVF5H7be22</code></a></td><td>Sura · póliza 5520-0001: informar el estado de cada cuota.</td></tr>
+  </tbody>
+</table></div>
+<p class="small muted">Desde el panel de una cuota (<i>Compartir</i>) puedes crear links nuevos para tus propias pruebas.</p>
+
+<h3>Reglas del ambiente</h3>
+<div class="grid g2">
+  <div class="card warn">
+    <h4>Para no pisarse entre ustedes</h4>
+    <ul class="small">
+      <li>Todo lo que crees debe partir con el prefijo <b>“QA ”</b> y tus iniciales, por ejemplo <i>QA MR Ferretería</i>. Así se encuentra y se limpia fácil.</li>
+      <li>No cambies las contraseñas de los usuarios compartidos.</li>
+      <li>En <b>Configuración → Cobranza</b> no cambies la cadencia ni las tolerancias sin avisar, porque afectan a todos.</li>
+      <li>No invites correos reales en <i>Equipo y roles</i>. Usa direcciones <code>@example.com</code>.</li>
+    </ul>
+  </div>
+  <div class="card warn">
+    <h4>Lo que es así a propósito</h4>
+    <ul class="small">
+      <li><b>Los datos son ficticios</b>: corredora, asegurados, pólizas y montos de demostración.</li>
+      <li><b>En dev, el correo sólo llega a direcciones @radalseguros.cl.</b> Un recordatorio a otra dirección queda registrado como <i>omitido</i>, y eso no es un error.</li>
+      <li><b>La IA de este ambiente es lenta.</b> Más adelante habrá un proveedor más rápido. Si algo tarda pero termina bien, no es un error. Sí repórtalo si pasa de 2 minutos, si se queda pegado o si se pierde el resultado.</li>
+      <li>Si una página carga a medias o muestra un error <code>429</code>, recarga una vez y anota la hora.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ 3 -->
+<h2 id="porque"><span class="n">03</span>Por qué la app está construida así</h2>
+<p>Ustedes conocen la especificación <a href="team-spec-clic-a-clic-v15.html#inicio"><i>RADAL, clic a clic · v15</i></a>. Cada tarjeta explica una decisión: qué ves, por qué se hizo así, qué dice la especificación y si la versión la <b>sigue</b> o se <b>desvía</b>. Si una desviación no les hace sentido como corredores, ese es justamente el feedback que buscamos. Repórtenlo como <i>Pregunta de negocio</i>.</p>
+<div class="legend">
+  <span class="chip sigue">Sigue la especificación</span>
+  <span class="chip desvia">Se desvía</span>
+  <span class="chip adelanta">Adelanta algo del lanzamiento</span>
+  <span class="chip agrega">Agrega algo que la especificación no tenía</span>
+  <span class="chip soon">Pronto</span>
+</div>
+
+<!-- D1 -->
+<div class="decision" id="d-copiloto">
+  <div class="head"><h3>1 · El copiloto es la pantalla de inicio</h3><span class="chip desvia">Se desvía</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>Al entrar se abre <b>Agente</b> con un saludo y cinco indicadores: cuotas vencidas, pagos por confirmar, pendientes por revisar, pólizas que vencen en 30 días y pólizas vigentes. Cada indicador abre la lista que lo explica. Debajo aparecen consultas frecuentes como <i>Revisar cuotas vencidas</i>, <i>Confirmar pagos informados</i>, <i>Archivos faltantes</i> o <i>Consultar estado a las compañías</i>. Tus conversaciones quedan guardadas a la izquierda; puedes buscarlas, renombrarlas, archivarlas y restaurarlas.</dd>
+      <dt>Por qué</dt><dd>La decisión fue que el corredor parta el día preguntando y resolviendo, no mirando un tablero. El administrador ve “Toda la corredora” y el ejecutivo ve “Mis números”. Cada número sale del mismo cálculo que la lista a la que lleva.</dd>
+      <dt>Especificación</dt><dd><div class="spec">La pantalla de inicio es el <b>Dashboard</b>: <i>Comisión del mes (estimada)</i> contra la meta y ocho tarjetas, cada una con el mismo número que la lista filtrada que abre. <a href="team-spec-clic-a-clic-v15.html#pantallas">Pantallas y reglas › Dashboard</a> · <a href="team-spec-clic-a-clic-v15.html#plan">Plan de construcción › P1 #10</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b> la regla de que cada número abre su lista con el mismo dato. <b>Se desvía</b> en el inicio, que es el copiloto y no el Dashboard, y en que la <i>comisión del mes contra la meta</i> no está en esta versión.</dd>
+    </dl>
+    <div>
+      <figure><a class="shot" href="guia-pruebas-img/01-copiloto-inicio.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/01-copiloto-inicio.jpg" alt="Inicio del copiloto con indicadores y consultas frecuentes"></a><figcaption>Inicio del copiloto (admin): indicadores, consultas frecuentes y conversaciones guardadas.</figcaption></figure>
+      <figure><a class="shot" href="guia-pruebas-img/03-copiloto-ejecutivo.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/03-copiloto-ejecutivo.jpg" alt="Copiloto del ejecutivo con Mis números"></a><figcaption>El mismo inicio visto por el ejecutivo: “Mis números”.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D2 -->
+<div class="decision" id="d-polizas">
+  <div class="head"><h3>2 · Pólizas como lista principal</h3><span class="chip desvia">Se desvía en parte</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd><b>Pólizas</b> aparece en el menú, con tarjetas de vigentes, prima vigente, cuotas vencidas, sin plan de pago, sin respaldo y vencen en 90 días. Cada tarjeta filtra la lista. Arriba están <b>Subir póliza</b> (el PDF) y <b>Registrar a mano</b>. La ficha muestra <i>Falta</i>, partes, cobranza, viaje, datos técnicos, prima y el contenido extraído.</dd>
+      <dt>Por qué</dt><dd>La mayoría de los corredores ya tiene la póliza emitida. Por eso se parte desde ahí y no desde el proceso completo. La ficha muestra la aritmética de la prima tal como la pide la regla: neta = afecta + exenta, IVA = 19 % de la <b>afecta</b> (no de la neta) y bruta = neta + IVA.</dd>
+      <dt>Especificación</dt><dd><div class="spec">El menú es Dashboard · Portafolio · Cobranza · Agentes IA · Configuración, y Pólizas es una pestaña del Portafolio. La ficha va en el orden cabecera → “Falta: X” → bloques → bitácora. <a href="team-spec-clic-a-clic-v15.html#pantallas">Pantallas y reglas</a> · <a href="team-spec-clic-a-clic-v15.html#polizas">Pólizas</a> · R9 y R38 en <a href="team-spec-clic-a-clic-v15.html#estructura">Estructura de datos › Reglas que no se rompen</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b> en la ficha (“Falta: X” con <i>Completar</i>, sin pop-ups, R38). En la prima, la ficha avisa si no cuadra (R9). <b>Se desvía</b> en dos puntos. Primero, el menú: Pólizas está en el menú, junto a Asegurados y Portafolio, y no hay un botón único <i>+ Nuevo</i>. Segundo, en <i>Registrar a mano</i> una prima bruta que no cuadra con neta + IVA <b>no deja guardar</b>, mientras que R9 pide advertir sin bloquear.</dd>
+    </dl>
+    <div>
+      <figure><a class="shot" href="guia-pruebas-img/04-polizas-lista.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/04-polizas-lista.jpg" alt="Lista de pólizas"></a><figcaption>Pólizas: tarjetas, filtros y la lista.</figcaption></figure>
+      <figure><a class="shot" href="guia-pruebas-img/07-poliza-ficha.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/07-poliza-ficha.jpg" alt="Ficha de la póliza"></a><figcaption>Ficha de la póliza 0020119904: Falta, Partes (con beneficiario prendario) y Cobranza.</figcaption></figure>
+      <figure><a class="shot" href="guia-pruebas-img/10-poliza-prima.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/10-poliza-prima.jpg" alt="Bloque prima con aritmética verificada"></a><figcaption>Prima de la misma póliza: “Aritmética verificada”.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D3 -->
+<div class="decision" id="d-viaje">
+  <div class="head"><h3>3 · Viajes parciales: las etapas que no ocurrieron quedan “omitida”</h3><span class="chip sigue">Sigue la especificación</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>Una póliza que entra por PDF muestra en su <b>Viaje</b> “Origen: PDF leído”, las 12 etapas, las anteriores como <i>omitida</i>, y <i>Póliza emitida</i> y <i>Vigente</i> marcadas. En la cuenta, el rail muestra sólo lo que ocurrió. Por ejemplo: Antecedentes y Bases técnicas <i>omitida</i>, Mercado <i>parcial</i> y Comparación en curso. Hay un link para “Ver etapas omitidas”.</dd>
+      <dt>Por qué</dt><dd>El corredor parte desde donde está. Si sube la póliza, Radal crea la colocación de ese ramo y vigencia y la cierra con la póliza. No se inventan etapas: las que se saltaron quedan registradas como omitidas. Una vez <i>Vigente</i> no se puede volver atrás. La colocación se crea cuando hace falta, por ejemplo al promover una cotización.</dd>
+      <dt>Especificación</dt><dd><div class="spec">“Una sola máquina: 12 etapas, 7 pasos, 3 vías” y el paso 2b.6. R1: toda póliza pertenece a una colocación y, si no existe, la crea la vía. R6: lo anterior queda <i>omitida</i>. R34: la etapa nunca contradice a sus pólizas. <a href="team-spec-clic-a-clic-v15.html#vias">Las tres vías</a> · <a href="team-spec-clic-a-clic-v15.html#estructura">Reglas que no se rompen</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b> R1, R6 y R34. La <i>vía</i> (Tradicional, Digital o Manual) aparece como etiqueta de la cuenta.</dd>
+    </dl>
+    <div>
+      <figure><a class="shot" href="guia-pruebas-img/08-poliza-viaje-omitidas.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/08-poliza-viaje-omitidas.jpg" alt="Viaje de una póliza con etapas omitidas"></a><figcaption>Viaje de la póliza 0020119904: entró con el PDF.</figcaption></figure>
+      <figure><a class="shot" href="guia-pruebas-img/19-cuenta-resumen.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/19-cuenta-resumen.jpg" alt="Resumen de cuenta con rail de etapas"></a><figcaption>Cuenta “Property · QA R3 2026-2027” de VIÑA INDÓMITA SpA: Antecedentes y Bases técnicas omitidas.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D4 -->
+<div class="decision" id="d-catalogo">
+  <div class="head"><h3>4 · Catálogo cerrado de ramos y compañías, y por qué se pide elegir la compañía</h3><span class="chip sigue">Sigue la especificación (R4)</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>Para <b>Subir póliza</b> eliges primero <b>Ramo · Subtipo</b> de una lista fija: 18 ramos y 54 subtipos, iguales para todas las corredoras. Si el PDF no trae el RUT ni el código CMF de la compañía, Radal pregunta <i>“¿Qué compañía emitió esta póliza?”</i> y te sugiere las más probables a partir del nombre leído.</dd>
+      <dt>Por qué</dt><dd>Muchas pólizas reales imprimen sólo el nombre comercial de la compañía. Una compañía <b>nunca se identifica sólo por el nombre</b>: “HDI”, “HDI Seguros” y “HDI Seguros S.A.” serían tres compañías distintas. Se identifica por RUT y código CMF. Por eso el corredor confirma cuál es, y sólo cuando el PDF no la identifica.</dd>
+      <dt>Especificación</dt><dd><div class="spec">R4: compañía, ramo y subtipo son catálogos globales y cerrados que ninguna corredora crea; la compañía es única por RUT. <a href="team-spec-clic-a-clic-v15.html#estructura">Estructura de datos › Catálogo de ramos y subtipos · R4</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b>. Las corredoras ya no crean ramos. La pregunta por la compañía no estaba descrita en la especificación; aplica la misma regla de no identificar por nombre.</dd>
+    </dl>
+    <div>
+      <figure><a class="shot" href="guia-pruebas-img/05-subir-poliza.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/05-subir-poliza.jpg" alt="Diálogo Subir póliza"></a><figcaption>Subir póliza: primero ramo · subtipo, el asegurado es opcional y después el PDF.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D5 -->
+<div class="decision" id="d-ia">
+  <div class="head"><h3>5 · La IA sugiere y la persona confirma</h3><span class="chip sigue">Sigue en lo técnico</span><span class="chip desvia">Se desvía en los datos principales</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>Los <b>Datos técnicos</b> llegan con la marca <b>“Leído por IA — Revisar y confirmar”</b> y el texto “Nada se guarda en la póliza hasta que confirmes”. Puedes <i>Confirmar datos técnicos</i> o <i>Descartar</i>. Las <b>exclusiones y cláusulas se muestran sólo con su título</b>. Si quieres el texto, pídeselo al agente: busca en el PDF y <b>cita el texto literal</b>, con página y sección.</dd>
+      <dt>Por qué</dt><dd>Separar los datos principales de los técnicos permite tener la póliza en pantalla en unos 10 a 20 segundos, sin esperar la lectura completa. Los títulos bastan para revisar qué cubre la póliza. El texto completo vive en el PDF y el agente lo cita tal cual, sin reescribirlo. Si el asegurado leído no existe en tu cartera, Radal pregunta antes de crearlo (“Crear este asegurado y seguir”).</dd>
+      <dt>Especificación</dt><dd><div class="spec">R2: el lector nunca escribe en tablas de negocio; genera una extracción y una persona la confirma. Paso 2b.4 <i>Confirmar datos</i>: un formulario prellenado junto al PDF, con lo dudoso en rojo. <a href="team-spec-clic-a-clic-v15.html#vias">Las tres vías › Vía 2</a> · <a href="team-spec-clic-a-clic-v15.html#estructura">R2</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b> en los datos técnicos, en el asegurado nuevo y en la compañía. <b>Se desvía</b> en los datos principales (número, vigencia, prima, cuotas y partes): se registran al subir, después de una validación fija que comprueba que el documento es una póliza. No hay una pantalla 2b.4 lado a lado ni una tarjeta “Por confirmar (n)”. Lo que falta aparece como “Falta”. <b>Revisen si echan de menos el paso 2b.4.</b></dd>
+    </dl>
+    <div>
+      <figure><a class="shot" href="guia-pruebas-img/09-poliza-datos-tecnicos.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/09-poliza-datos-tecnicos.jpg" alt="Datos técnicos leídos por IA por confirmar"></a><figcaption>Datos técnicos de 0020119904 por confirmar: las exclusiones van sólo con título.</figcaption></figure>
+      <figure><a class="shot" href="guia-pruebas-img/02-copiloto-conversacion.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/02-copiloto-conversacion.jpg" alt="Conversación del agente con tarjeta de confirmación"></a><figcaption>El agente propone registrar un pago y sólo escribe cuando la persona lo confirma.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D6 -->
+<div class="decision" id="d-pasadas">
+  <div class="head"><h3>6 · “¿Ya están pagadas?” al cargar pólizas con cuotas vencidas</h3><span class="chip agrega">Agrega</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>Si cargas una póliza que lleva meses en vigencia, Radal cuenta las cuotas con vencimiento pasado y pregunta: <i>Sí, marcar pagadas</i> · <i>No, quedan vencidas</i> · <i>Decidir después</i>. Mientras no decidas, esas cuotas quedan <b>“Por revisar”</b>: no generan alertas de término ni cuentan como vencidas. En Cobranza aparece la pestaña <i>Por revisar</i>, que sólo se muestra si tiene cuotas, y en la ficha hay un aviso para decidir.</dd>
+      <dt>Por qué</dt><dd>Cargar la cartera histórica no puede llenar la campana de falsos “Riesgo de término”. Eso pasó en la ronda 2 y fue el error más molesto. Si eliges <i>Sí, marcar pagadas</i>, se registra un pago <b>declarado</b> por cuota, con la fecha de vencimiento como fecha de pago. Por eso esas cuotas aparecen después en “Pagos sin confirmar”, a la espera de que la compañía las confirme.</dd>
+      <dt>Especificación</dt><dd><div class="spec">El plan de pago es la pantalla final de toda vía (1.15) y el estado de la cuota se calcula contra su vencimiento y la cadencia (el reloj de la cuota). No contempla la carga de pólizas antiguas. <a href="team-spec-clic-a-clic-v15.html#vias">Las tres vías › 1.15</a> · <a href="team-spec-clic-a-clic-v15.html#cobranza">Cobranza › El reloj de la cuota</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Agrega</b> un estado nuevo, <i>Por revisar</i>, para un caso que la especificación no tenía. ¿Es correcto que las cuotas que marcas como pagadas queden como “Pagos sin confirmar”? Opinen.</dd>
+    </dl>
+    <div>
+      <figure class="narrow"><a class="shot" href="guia-pruebas-img/11-ya-estan-pagadas.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/11-ya-estan-pagadas.jpg" alt="Pregunta ¿Ya están pagadas?"></a><figcaption>Al subir INC-0-2026-114873: 7 cuotas pasadas. <span class="reused">captura de la revisión del 19-10 en dev</span></figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D7 -->
+<div class="decision" id="d-duplicados">
+  <div class="head"><h3>7 · Pólizas duplicadas: se bloquean</h3><span class="chip sigue">Sigue la especificación (R5)</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>Si subes una póliza que ya existe, con el mismo número y la misma compañía o el mismo archivo, aparece <i>“Esta póliza ya existe: N° … de …”</i> con <b>Ver póliza</b>. No se registra nada nuevo: ni otra póliza, ni cuotas, ni alertas, ni una nueva lectura técnica. Si es el mismo archivo, ni siquiera se llama a la IA.</dd>
+      <dt>Por qué</dt><dd>En la ronda 2, subir dos veces el mismo PDF duplicaba cuotas y notificaciones. Una póliza registrada a mano sin su PDF no cuenta como duplicada: el PDF la completa.</dd>
+      <dt>Especificación</dt><dd><div class="spec">R5: póliza única por compañía y n° de póliza. Sin número (vía Manual), advierte sin bloquear. 2b.6: “Si ya existe igual número y compañía, bloquea por duplicada”. Subir el PDF de una póliza digitada la completa. <a href="team-spec-clic-a-clic-v15.html#estructura">R5</a> · <a href="team-spec-clic-a-clic-v15.html#vias">Las tres vías › 2b.6 y 3.3</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b>. Como en dev ya hay varias pólizas del set de demostración, subirlas de nuevo es justamente la prueba de este bloqueo.</dd>
+    </dl>
+    <div>
+      <figure class="narrow"><a class="shot" href="guia-pruebas-img/12-poliza-duplicada.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/12-poliza-duplicada.jpg" alt="Póliza ya existe"></a><figcaption>Duplicado detectado en menos de 3 segundos. <span class="reused">captura de la revisión del 19-10 en dev</span></figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D8 -->
+<div class="decision" id="d-cobranza">
+  <div class="head"><h3>8 · Cobranza en tres niveles por cuota: registro, asistida y en línea</h3><span class="chip adelanta">Adelanta el lanzamiento</span><span class="chip desvia">Se desvía de R43</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>Cada cuota lleva su nivel. <b>Registro</b>: sólo anotas. <b>Asistida</b>: Radal recuerda al pagador y pregunta a la compañía, y tú confirmas. <b>En línea</b>: el pago con el proveedor (Forpay) está <b>en pausa</b>, así que ninguna cuota ofrece pagar en línea. El panel de la cuota ofrece <i>Registrar pago</i> (también parcial y en pesos), <i>Registrar gestión</i>, <i>Promesa de pago</i>, <i>Cargo automático rechazado</i> (sólo PAC/PAT), <i>Enviar recordatorio</i>, <i>Consultar a la compañía</i> y <i>Compartir</i>. Un pago erróneo se <i>Revierte</i> con motivo y nunca se borra.</dd>
+      <dt>Por qué</dt><dd>La cobranza es el dolor número uno. El nivel asistido sirve para cualquier compañía desde el primer día. El estado de la cuota se calcula: nunca se cambia a mano y nunca se registra más que el saldo. Cuando una compañía pase a <i>en línea</i>, sus cuotas abiertas suben de nivel solas. El corredor no ve en qué etapa de incorporación está cada compañía.</dd>
+      <dt>Especificación</dt><dd><div class="spec">MVP: Cobranza es un <b>registro</b> con notificaciones al ejecutivo y <b>no escribe a nadie fuera de la corredora (R43)</b>. Los avisos al contratante (C5) y el pago en plataforma con carga del estado de pago (C6) son del lanzamiento. R30: el estado se calcula. R17: la cobranza va al contratante o pagador. <a href="team-spec-clic-a-clic-v15.html#cobranza">Cobranza, clic a clic</a> · <a href="team-spec-clic-a-clic-v15.html#estructura">R17, R30, R43</a> · <a href="team-spec-clic-a-clic-v15.html#plan">Plan › P3</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b> C1 (pago, parcial, PAC rechazado, confirmar y revertir con motivo), C2 (gestión y promesa), la cadencia configurable y R30. <b>Adelanta</b> C5: recordatorios al pagador con plantillas que se aprueban una por una en Configuración. <b>Se desvía</b> de R43, porque Radal sí escribe fuera: recordatorios y consultas a la compañía.</dd>
+    </dl>
+    <div>
+      <figure><a class="shot" href="guia-pruebas-img/13-cobranza.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/13-cobranza.jpg" alt="Pantalla Cobranza"></a><figcaption>Cobranza: tarjetas, avisos, pestañas Próximas, Vencidas, Al día y Saldadas, y filtros, entre ellos <i>Nivel</i> y <i>Mías</i>.</figcaption></figure>
+      <figure class="narrow"><a class="shot" href="guia-pruebas-img/14-cobranza-panel-cuota.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/14-cobranza-panel-cuota.jpg" alt="Panel de una cuota"></a><figcaption>Panel de una cuota (Gestionar): acciones y lo que falta para la cobranza asistida.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D9 -->
+<div class="decision" id="d-respuestas">
+  <div class="head"><h3>9 · Consultas a la compañía y “Respuestas por confirmar”</h3><span class="chip agrega">Agrega (reemplaza C6)</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>Desde una cuota, <b>Consultar a la compañía</b> envía un correo con un código (INQ-…). Si ya hay una consulta abierta para esa cuota, Radal no deja abrir otra y te lleva a la primera. La respuesta de la compañía llega por tres caminos: el correo, el link público de la compañía o el comprobante que sube el asegurado. Las tres terminan en <b>Respuestas por confirmar</b> como <i>Sugerida</i>, con las señales que la respaldan (código de consulta, remitente, n° de cuota y monto). Tú eliges <i>Confirmar</i>, <i>Otra cuota</i> o <i>Rechazar</i>.</dd>
+      <dt>Por qué</dt><dd>El pago llega a la cuenta de la compañía, no a la del corredor. Por eso no hay conciliación automática y la única fuente confiable es preguntarle a la compañía. Las respuestas por correo se procesan <b>cada 5 minutos</b> y <b>nunca se aplican solas</b>: una persona confirma.</dd>
+      <dt>Especificación</dt><dd><div class="spec">C6: cargar el estado de pago de la compañía (Excel o PDF), cruzarlo y llevar las diferencias a una bandeja (lanzamiento). R2: una persona confirma. R41: todo pasa por el corredor. <a href="team-spec-clic-a-clic-v15.html#cobranza">Cobranza › C6</a> · <a href="team-spec-clic-a-clic-v15.html#estructura">R2, R41</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Agrega</b> las consultas por correo en lugar de la carga masiva de C6, que no está. <b>Sigue</b> R2: sugerencia, confirmación humana y registro.</dd>
+    </dl>
+    <div>
+      <figure><a class="shot" href="guia-pruebas-img/15-respuestas-por-confirmar.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/15-respuestas-por-confirmar.jpg" alt="Respuestas por confirmar"></a><figcaption>Respuestas por confirmar: del link de la compañía, del comprobante del pagador y del correo.</figcaption></figure>
+      <figure><a class="shot" href="guia-pruebas-img/16-consultas-companias.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/16-consultas-companias.jpg" alt="Consultas a compañías"></a><figcaption>Consultas a compañías y su estado.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D10 -->
+<div class="decision" id="d-links">
+  <div class="head"><h3>10 · Links públicos para el asegurado y la compañía</h3><span class="chip adelanta">Adelanta el lanzamiento</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>El <b>asegurado</b> ve sus cuotas, cómo pagar y puede subir un comprobante, que queda “en revisión por tu corredora”. La <b>compañía</b> ve las cuotas consultadas y puede informar su estado. No necesitan usuario ni contraseña. No ven otras pólizas, comisiones ni notas internas.</dd>
+      <dt>Por qué</dt><dd>Los únicos usuarios con sesión son los de la corredora. El asegurado y la compañía responden por un link que se puede mandar por WhatsApp. Lo que informan es una sugerencia hasta que el corredor la confirma.</dd>
+      <dt>Especificación</dt><dd><div class="spec">“Vista del asegurado (issue 16)”, en el lanzamiento. R41: sin mensajería directa entre compañía y asegurado; todo pasa por el corredor. <a href="team-spec-clic-a-clic-v15.html#plan">Plan de construcción › P3</a> · <a href="team-spec-clic-a-clic-v15.html#estructura">R41</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Adelanta</b> la vista del asegurado y agrega la de la compañía. <b>Sigue</b> R41.</dd>
+    </dl>
+    <div class="grid g2">
+      <figure class="phone"><a class="shot" href="guia-pruebas-img/32-movil-link-asegurado.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/32-movil-link-asegurado.jpg" alt="Link del asegurado en el celular"></a><figcaption>Link del asegurado en un celular (375 px).</figcaption></figure>
+      <figure><a class="shot" href="guia-pruebas-img/30-link-compania.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/30-link-compania.jpg" alt="Link de la compañía"></a><figcaption>Link de la compañía: consulta INQ-LOJM4N.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D11 -->
+<div class="decision" id="d-notif">
+  <div class="head"><h3>11 · Notificaciones: Por hacer / Para saber, y Mías / Todas</h3><span class="chip sigue">Sigue la especificación</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>La campana tiene dos bandejas. <b>Por hacer</b> pide una acción y se cierra cuando se resuelve el origen. <b>Para saber</b> informa. Los administradores eligen <b>Mías / Todas</b>. Las tareas de una cuenta le llegan a su <b>dueño</b>, el ejecutivo. Algunas bandejas son <b>del equipo</b> y no se filtran por “Mías”: “Pagos sin confirmar” y “Respuestas por confirmar” muestran lo de toda la corredora. Por eso llevan la etiqueta <b>Equipo</b>.</dd>
+      <dt>Por qué</dt><dd>Un pago informado lo puede confirmar cualquiera del equipo, no sólo el dueño de la cuenta. Las tareas personales sí van a la persona responsable.</dd>
+      <dt>Especificación</dt><dd><div class="spec">Bandejas Por hacer y Para saber; una sola notificación viva por origen y destinatario; el destinatario es el ejecutivo de la colocación. <a href="team-spec-clic-a-clic-v15.html#pantallas">Pantallas y reglas › Notificaciones</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b> las bandejas y el destinatario. <b>Agrega</b> Mías / Todas para administradores y las bandejas de equipo.</dd>
+    </dl>
+    <div class="grid g2">
+      <figure><a class="shot" href="guia-pruebas-img/17-campana.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/17-campana.jpg" alt="Campana de la administradora"></a><figcaption>Campana de la administradora: Por hacer, Para saber, Mías y Todas.</figcaption></figure>
+      <figure><a class="shot" href="guia-pruebas-img/18-campana-ejecutivo.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/18-campana-ejecutivo.jpg" alt="Campana del ejecutivo"></a><figcaption>Campana del ejecutivo: sus tareas.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D12 -->
+<div class="decision" id="d-comparacion">
+  <div class="head"><h3>12 · Comparación de cotizaciones → Propuesta</h3><span class="chip sigue">Sigue</span><span class="chip soon">PDF de la propuesta: Pronto</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>En la <b>Comparación</b> subes las cotizaciones una a una. Cada una se lee y aparece como columna con su compañía y prima total, sin recargar la página. Radal las <b>alinea</b> en una tabla estandarizada (coberturas, sublímites, deducibles, exclusiones y garantías, cada valor con su <i>Texto original</i>) y propone una <b>recomendación de la IA</b> con salvedades. <b>Promover a propuesta</b> te pide elegir la compañía del catálogo. En la pestaña <b>Propuesta</b>, <b>Generar propuesta</b> arma el borrador. El botón <i>Descargar PDF</i> dice <i>Pronto</i>.</dd>
+      <dt>Por qué</dt><dd>El comparador es uno de los tres diferenciales que el corredor compra el primer día. La propuesta (lo que el corredor envía a la compañía) es lo contrario de la cotización (lo que la compañía ofrece). En el código se llaman al revés, pero en pantalla dicen lo correcto.</dd>
+      <dt>Especificación</dt><dd><div class="spec">Comparador de cotizaciones (P1 #9). Documentos que arma RADAL: el <i>Comparativo</i> y la <i>Propuesta</i>, en PDF para adjuntar. <a href="team-spec-clic-a-clic-v15.html#plan">Plan › P1</a> · <a href="team-spec-clic-a-clic-v15.html#pantallas">Pantallas › Documentos que arma RADAL</a> · <a href="team-spec-clic-a-clic-v15.html#vias">Las tres vías › Vía 1 y 2a</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b> el comparador y la propuesta en pantalla. <b>Pronto</b>: el PDF de la propuesta. Lo pendiente de la propuesta está en <a href="#conocidos">Problemas ya conocidos</a>.</dd>
+    </dl>
+    <div>
+      <figure><a class="shot" href="guia-pruebas-img/20-comparacion-recomendacion.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/20-comparacion-recomendacion.jpg" alt="Comparación con recomendación de la IA"></a><figcaption>Comparación de las 3 cotizaciones de Viña Indómita: recomendación y salvedades. <span class="reused">captura de la revisión del 19-10 en dev</span></figcaption></figure>
+      <figure><a class="shot" href="guia-pruebas-img/22-propuesta.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/22-propuesta.jpg" alt="Pestaña Propuesta"></a><figcaption>Propuesta en borrador (Southbridge). La tasa integral 4,420 ‰ está mal: es un error conocido.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D13 -->
+<div class="decision" id="d-portales">
+  <div class="head"><h3>13 · Cotizar en portales: Pronto</h3><span class="chip soon">Pronto</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd><b>Cotizar en portales</b> aparece en el menú, deshabilitado con la etiqueta <i>Pronto</i>. Su página explica por qué y qué hacer mientras tanto: pedir la cotización y subir el PDF en la Comparación.</dd>
+      <dt>Por qué</dt><dd>Para aplicar filtros dentro del portal de cada compañía se necesita el <b>usuario y la clave de la corredora en ese portal</b>. El mecanismo está construido, con HDI como ejemplo, pero queda apagado hasta tener esas credenciales.</dd>
+      <dt>Especificación</dt><dd><div class="spec">2a: el corredor sube las cotizaciones de los portales y RADAL arma el comparativo. 2c (preparar en RADAL lo que se cotizará en portales) es de una fase posterior. <a href="team-spec-clic-a-clic-v15.html#vias">Las tres vías › Vía 2</a> · <a href="team-spec-clic-a-clic-v15.html#plan">Plan › Fases posteriores</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b>: lo del MVP es subir el PDF, y eso funciona.</dd>
+    </dl>
+    <div>
+      <figure><a class="shot" href="guia-pruebas-img/27-cotizar-portales-pronto.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/27-cotizar-portales-pronto.jpg" alt="Cotizar en portales pronto"></a><figcaption>Cotizar en portales: explica por qué todavía no está disponible.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D14 -->
+<div class="decision" id="d-agente">
+  <div class="head"><h3>14 · El agente propone y sólo escribe cuando confirmas</h3><span class="chip sigue">Sigue R2</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>El agente responde con tus datos: cartera, cuotas, pólizas, documentos y faltantes. Bajo cada respuesta muestra los pasos que dio, por ejemplo “Consultó: Listar cuotas”. Para escribir (registrar un pago, enviar un recordatorio, consultar a una compañía) prepara una <b>tarjeta</b> con los datos en lenguaje de corredor: monto, cuota y póliza, fecha y medio. Nada pasa hasta que aprietas <b>Confirmar</b>. Con <b>Habilidades</b> puedes cargar instrucciones especializadas, como <i>Revisar cobranza</i>.</dd>
+      <dt>Por qué</dt><dd>Es la regla de toda la IA de Radal: la IA sugiere, una persona confirma y recién entonces se registra. Cada intento queda registrado.</dd>
+      <dt>Especificación</dt><dd><div class="spec">El menú incluye “Agentes IA”. R2: nada se escribe sin confirmación. El agente por WhatsApp es de una fase posterior. <a href="team-spec-clic-a-clic-v15.html#pantallas">Pantallas y reglas</a> · <a href="team-spec-clic-a-clic-v15.html#estructura">R2</a> · <a href="team-spec-clic-a-clic-v15.html#plan">Plan › Fases posteriores</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b>. La tarjeta identifica la cuota por número de póliza y número de cuota (“Cuota 2 de 4 · póliza N° …”): <b>léanla antes de Confirmar</b>.</dd>
+    </dl>
+    <div>
+      <figure class="phone"><a class="shot" href="guia-pruebas-img/34-movil-copiloto.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/34-movil-copiloto.jpg" alt="Copiloto en el celular"></a><figcaption>El copiloto en el celular.</figcaption></figure>
+    </div>
+  </div>
+</div>
+
+<!-- D15 -->
+<div class="decision" id="d-vocab">
+  <div class="head"><h3>15 · Vocabulario en pantalla: “Asegurados” y “Cuenta”</h3><span class="chip desvia">Se desvía</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd>En el menú, <b>Asegurados</b> lista las carpetas comerciales, por ejemplo VIÑA INDÓMITA SpA, con sus empresas (RUT), vigencias y ramos. Dentro de cada una, el trabajo de un ramo en una vigencia se llama <b>cuenta</b>: “Property · QA R3 2026-2027”, “Pólizas de la cuenta”, “Nueva cuenta”.</dd>
+      <dt>Por qué</dt><dd>Es el vocabulario que heredó dev antes de la especificación v15. Cambiarlo toca muchas pantallas y no entró en esta versión.</dd>
+      <dt>Especificación</dt><dd><div class="spec">En pantalla: <b>Cliente</b> (la carpeta), <b>Asegurado</b> (un RUT) y <b>Colocación</b> (un ramo en una vigencia), “nunca Cuenta ni Lead”. <a href="team-spec-clic-a-clic-v15.html#vocab">El modelo y el idioma</a> · <a href="team-spec-clic-a-clic-v15.html#plan">Plan › P1 #2</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Se desvía.</b> Cuando prueben, anoten dónde el vocabulario los confunde. Eso ayuda a priorizar el cambio.</dd>
+    </dl>
+    <div>
+      <div class="card small">
+        <div class="kv">
+          <b>Especificación</b><b>En pantalla hoy</b>
+          <span>Cliente (carpeta)</span><span>Asegurado (menú <i>Asegurados</i>)</span>
+          <span>Asegurado (RUT)</span><span>Empresa (columna <i>Empresas</i>), contratante</span>
+          <span>Colocación</span><span>Cuenta (ramo · vigencia)</span>
+          <span>Expediente</span><span>Expediente (“Ver expediente completo”)</span>
+          <span>Compañía</span><span>Compañía / Aseguradora</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- D16 -->
+<div class="decision" id="d-config">
+  <div class="head"><h3>16 · Dónde se configura: Configuración (la corredora) y Mantenedor (Radal)</h3><span class="chip sigue">Sigue en cobranza</span><span class="chip desvia">Se desvía en Compañías y Metas</span></div>
+  <div class="cols">
+    <dl>
+      <dt>Qué ves</dt><dd><b>Configuración</b>, sólo para la administradora, tiene las pestañas Perfil · Equipo y roles · Documentos · Correo · Cobranza · Compañías y cobro · Integraciones. En <b>Cobranza</b> están la cadencia (por defecto −15, −5, 0, +3 y +10 días), las tolerancias, los avisos al contratante (cada plantilla se aprueba) y las consultas automáticas a la compañía. En <b>Compañías y cobro</b>, la corredora completa por compañía el correo de cobranza y “cómo pagar”. El <b>Mantenedor</b> (<code>admin@radal.cl</code>) es la consola de Radal: perfil de cobro por compañía, cuentas de proveedor (las claves se guardan pero nunca se muestran), eventos recibidos y tareas programadas.</dd>
+      <dt>Por qué</dt><dd>Lo que es igual para todas las corredoras, como la incorporación de una compañía al pago en línea, lo configura Radal una vez. Lo que es propio de cada corredora, como sus contactos y sus instrucciones, lo ajusta ella.</dd>
+      <dt>Especificación</dt><dd><div class="spec">Configuración: Perfil de la corredora · Usuarios · Compañías (catálogo <b>sólo de consulta</b>, con <i>Pedir alta de compañía</i>, “sin contactos”) · Cobranza (cadencia; C5.1 <i>Aprobar mensajes</i>) · Metas. <a href="team-spec-clic-a-clic-v15.html#pantallas">Pantallas y reglas › Configuración</a> · <a href="team-spec-clic-a-clic-v15.html#cobranza">Cobranza › C3 y C5</a>.</div></dd>
+      <dt>Sigue / desvía</dt><dd><b>Sigue</b> la cadencia y la aprobación de mensajes. <b>Se desvía</b> en Compañías: la corredora sí guarda un contacto de cobranza por compañía, porque lo necesitan las consultas. Tampoco están las Metas, porque no hay Dashboard de comisión.</dd>
+    </dl>
+    <div>
+      <figure><a class="shot" href="guia-pruebas-img/24-configuracion-cobranza.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/24-configuracion-cobranza.jpg" alt="Configuración Cobranza"></a><figcaption>Configuración → Cobranza: cadencia y tolerancias.</figcaption></figure>
+      <figure><a class="shot" href="guia-pruebas-img/25-configuracion-companias.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/25-configuracion-companias.jpg" alt="Configuración Compañías y cobro"></a><figcaption>Configuración → Compañías y cobro: nivel, correo de cobranza y cómo pagar, por compañía.</figcaption></figure>
+    </div>
+  </div>
+  <div class="grid g3" style="margin-top:8px">
+    <figure><a class="shot" href="guia-pruebas-img/26-configuracion-correo.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/26-configuracion-correo.jpg" alt="Configuración Correo"></a><figcaption>Correo: sale desde la casilla de Radal. Google y Microsoft dicen “Pronto”.</figcaption></figure>
+    <figure><a class="shot" href="guia-pruebas-img/28-mantenedor.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/28-mantenedor.jpg" alt="Mantenedor"></a><figcaption>Mantenedor (admin@radal.cl).</figcaption></figure>
+    <figure><a class="shot" href="guia-pruebas-img/29-mantenedor-tareas.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/29-mantenedor-tareas.jpg" alt="Tareas programadas"></a><figcaption>Tareas programadas: reloj de cobranza, avisos, consultas y lectura de casillas.</figcaption></figure>
+  </div>
+</div>
+
+<!-- ============================================================ 4 -->
+<h2 id="probar"><span class="n">04</span>Qué probar</h2>
+<p>Hay diez escenarios. Elijan los que les toquen; no hace falta hacerlos todos ni en orden. Cada uno indica el usuario, los documentos, los pasos, lo que debería pasar y qué mirar con ojo de corredor. Los PDF son del set de demostración del equipo, la carpeta <b>“EXPEDIENTES DEMO”</b>.</p>
+<div class="callout note">
+  <p><b>Qué PDF sirven, y por qué algunos dicen “ya existe”.</b> En dev ya están cargadas las pólizas <code>0020119904</code> (Viña Indómita), <code>V-FL-0091447</code> (Coccolino Vehículos), <code>INC-0-2026-114873</code> (Coccolino Multirriesgo) y <code>TRBF-0020126441</code> (Viña Santa Alicia). Si las subes, verás “Esta póliza ya existe”, que es la prueba del bloqueo de duplicados (R5). Al 19-10 todavía <b>no están en dev</b>:</p>
+  <ul>
+    <li><code>LA FAVORITA/…/08 Poliza N 15-04-0091883 - HDI - La Favorita.pdf</code>: Property, vigencia desde el 05-01-2027, sin cuotas pasadas.</li>
+    <li><code>JO PASTELERIA/ACCIDENTES PERSONALES/…/08 Poliza N AP-CH-2026-77104 - Chubb - JO Pasteleria AP.pdf</code>: 10 cuotas mensuales desde el 05-07-2026, así que trae <b>cuotas pasadas</b>.</li>
+    <li><code>JO PASTELERIA/RESPONSABILIDAD CIVIL/…/08 Poliza N RC-CH-2026-118447 - Chubb - JO Pasteleria RC.pdf</code>: 4 cuotas trimestrales; las del 20-06 y del 20-09-2026 ya vencieron.</li>
+    <li>Formatos reales de compañía, más largos: <code>GRUPO VIÑA INDOMITA/VIÑA INDOMITA/…/20588155 TRBF VIÑA INDOMITA 2024-2025.pdf</code> (Liberty, ya vencida).</li>
+  </ul>
+  <p>Como el ambiente es compartido, <b>la primera persona que suba un PDF lo registra</b>. Las siguientes verán “ya existe”, y eso también es una prueba válida. Para no depender de un PDF, usen <b>Registrar a mano</b> con una póliza “QA” (escenario S4).</p>
+</div>
+<div class="toolbar"><button type="button" id="open-all">Abrir todos</button><button type="button" id="close-all">Cerrar todos</button></div>
+
+<!-- S1 -->
+<details class="scn" id="s1">
+  <summary><span class="id">S1</span><span class="t">Copiloto y conversaciones</span><span class="chip role">admin@demo.cl</span><span class="chip">≈ 10 min</span></summary>
+  <div class="body">
+    <h4>Documentos</h4><p>Ninguno.</p>
+    <h4>Pasos</h4>
+    <ol>
+      <li>Entra. Debe abrirse <b>Agente</b> con “Hola, Carolina” y los indicadores de “Toda la corredora”.</li>
+      <li>Haz clic en cada indicador y comprueba que la lista que abre muestra el mismo número. Por ejemplo, “Cuotas vencidas” abre Cobranza en la pestaña Vencidas.</li>
+      <li>Haz clic en la consulta frecuente <i>Revisar cuotas vencidas</i>. Se abre una conversación nueva que responde con tus datos. Compara las cuotas y los montos con la pantalla Cobranza.</li>
+      <li>En la barra izquierda, busca la conversación por una palabra, renómbrala (menú <i>Opciones de «…»</i>), archívala, mira <i>Archivadas</i> y restáurala.</li>
+      <li>Abre <i>Ver más consultas</i> y prueba una de Pólizas o Portafolio.</li>
+    </ol>
+    <h4>Qué debería pasar</h4>
+    <ul><li>Cada indicador coincide con su lista. Las respuestas llegan en menos de un minuto, en español, sin códigos internos.</li><li>Las conversaciones del ejecutivo no aparecen en la barra de la administradora, y al revés.</li></ul>
+    <div class="eye"><h4>Ojo de corredor</h4><ul><li>¿Son estos los números con los que ustedes parten el día? ¿Falta alguno, como la comisión del mes o las renovaciones?</li><li>¿Las consultas frecuentes son las que harían? Propongan otras.</li><li>¿La respuesta le habla a un corredor: montos en UF, fechas dd-mm-aaaa, sin jerga técnica?</li></ul></div>
+  </div>
+</details>
+
+<!-- S2 -->
+<details class="scn" id="s2">
+  <summary><span class="id">S2</span><span class="t">Subir una póliza nueva, revisar los Datos técnicos y probar el duplicado</span><span class="chip role">admin@demo.cl</span><span class="chip">≈ 10 min</span></summary>
+  <div class="body">
+    <h4>Documentos</h4><p><code>08 Poliza N 15-04-0091883 - HDI - La Favorita.pdf</code>. Si alguien ya la subió, prueben el duplicado con ella y usen <code>20588155 TRBF VIÑA INDOMITA 2024-2025.pdf</code> como póliza nueva.</p>
+    <h4>Pasos</h4>
+    <ol>
+      <li><a href="https://dev.radalseguros.cl/policies">Pólizas</a> → <b>Subir póliza</b> → elige <b>Ramo · Subtipo</b> (para La Favorita, el que ustedes elegirían, por ejemplo <i>Property · Nominada</i>) y deja el asegurado en blanco.</li>
+      <li>Arrastra el PDF. Mira la barra: <i>Subiendo · Leyendo datos principales · Listo</i>. Anota cuánto tarda; debería estar entre 10 y 20 segundos.</li>
+      <li>Si pregunta <i>“¿Qué compañía emitió esta póliza?”</i>, revisa la sugerencia y elige. Si dice <i>“No sabemos a qué asegurado pertenece esta póliza”</i>, usa <i>Crear este asegurado y seguir</i>.</li>
+      <li>En la ficha, revisa <b>Partes</b>, <b>Cobranza</b>, <b>Viaje</b> (“Origen: PDF leído”, con etapas omitidas), <b>Prima</b> (“Aritmética verificada”) y <b>Contenido extraído</b> (cuotas).</li>
+      <li>Espera la tarjeta <b>Datos técnicos leídos por IA</b>, que tarda menos de un minuto. Abre Coberturas, Deducibles, Exclusiones y Cláusulas y compáralas con el PDF. Después <b>Confirma</b> o <b>Descarta</b>.</li>
+      <li>Vuelve a subir <b>el mismo PDF</b>. Debe decir “Esta póliza ya existe” y no registrar nada nuevo.</li>
+    </ol>
+    <h4>Qué debería pasar</h4>
+    <ul><li>La póliza queda en la colocación correcta, con su plan de pago leído. Si el PDF no trae cuotas, aparece en “Sin plan de pago”.</li><li>Los Datos técnicos no se guardan hasta que confirmas.</li></ul>
+    <div class="eye"><h4>Ojo de corredor</h4><ul><li><b>Exactitud:</b> el número, la vigencia (12:00), la prima afecta, exenta, neta, IVA y bruta, la comisión, las cuotas, el beneficiario o acreedor y cada deducible, comparados con el PDF.</li><li>¿Las coberturas y los sublímites quedaron en la sección correcta? ¿Hay repetidas?</li><li>¿Les basta con ver sólo el título de las exclusiones?</li><li>¿Echan de menos revisar los datos principales antes de que se registren, como en el paso 2b.4?</li></ul></div>
+  </div>
+</details>
+
+<!-- S3 -->
+<details class="scn" id="s3">
+  <summary><span class="id">S3</span><span class="t">Póliza con cuotas pasadas: “¿Ya están pagadas?”</span><span class="chip role">admin@demo.cl</span><span class="chip">≈ 10 min</span></summary>
+  <div class="body">
+    <h4>Documentos</h4><p><code>08 Poliza N AP-CH-2026-77104 - Chubb - JO Pasteleria AP.pdf</code> (Accidentes Personales · AP colectivo). Una segunda persona puede usar <code>08 Poliza N RC-CH-2026-118447 - Chubb - JO Pasteleria RC.pdf</code> (Responsabilidad Civil). Ambas son del mismo asegurado, Pacto Food SpA: la segunda debería <b>asociarse al asegurado que ya existe</b> en vez de crear otro.</p>
+    <h4>Pasos</h4>
+    <ol>
+      <li>Sube la póliza como en S2. Al terminar debe preguntar “Esta póliza tiene N cuotas con vencimiento pasado (UF …). ¿Ya están pagadas?”.</li>
+      <li>Elige <b>Decidir después</b>. Ve a <a href="https://dev.radalseguros.cl/collections">Cobranza</a>: debe aparecer la pestaña <b>Por revisar</b> con esas cuotas, que no cuentan como vencidas. La campana no debe recibir “Riesgo de término”.</li>
+      <li>Abre la ficha de la póliza. Debe mostrar un aviso que repite la pregunta.</li>
+      <li>Decide: <b>No, quedan vencidas</b> (las alertas siguen su curso de inmediato) o <b>Sí, marcar pagadas</b> (las cuotas quedan pagadas como pago declarado).</li>
+    </ol>
+    <h4>Qué debería pasar</h4>
+    <ul><li>La cantidad y el total en UF de la pregunta coinciden con el cuadro de cuotas del PDF.</li><li>Con <i>Sí</i>, las cuotas aparecen en “Pagos sin confirmar”. Con <i>No</i>, aparecen en Vencidas o en Riesgo de término.</li><li>La segunda póliza de Pacto Food SpA se asocia al asegurado existente; no debe crear un segundo asegurado con el mismo RUT. Revisa si llega una notificación <i>Para saber</i> de “póliza enlazada a un asegurado existente”: en la revisión del 19-10 no siempre llegó.</li></ul>
+    <div class="eye"><h4>Ojo de corredor</h4><ul><li>¿Así es como cargarían la cartera vieja de un cliente?</li><li>¿Tiene sentido que las cuotas marcadas como pagadas queden “sin confirmar por la compañía”?</li></ul></div>
+  </div>
+</details>
+
+<!-- S4 -->
+<details class="scn" id="s4">
+  <summary><span class="id">S4</span><span class="t">Registrar a mano una póliza “QA” y cargar su plan de pago</span><span class="chip role">admin@demo.cl</span><span class="chip">≈ 15 min</span></summary>
+  <div class="body">
+    <h4>Documentos</h4><p>Ninguno: es una póliza sin PDF (vía Manual).</p>
+    <h4>Pasos</h4>
+    <ol>
+      <li><a href="https://dev.radalseguros.cl/policies/new">Pólizas → Registrar a mano</a>. Usa un asegurado “QA” tuyo o “QA Ferretería Revisión SpA”, una compañía del catálogo y un ramo · subtipo.</li>
+      <li>Vigencia que haya partido hace unos meses, por ejemplo 01-06-2026 a 01-06-2027. N° de póliza <code>QA-&lt;tus iniciales&gt;-001</code>.</li>
+      <li>Escribe los montos como los escribirías tú: <code>1.234,5</code> o <code>12,5</code>. Prueba primero una prima bruta que <b>no cuadre</b> con afecta + exenta + IVA y mira cómo reacciona. Después corrígela o déjala vacía para que Radal la calcule.</li>
+      <li>Guarda. En la ficha deberías ver “Sin respaldo” y lo que falta como “Falta”.</li>
+      <li>Carga el <b>plan de pago</b> desde la ficha, con cuotas mensuales desde la fecha de inicio. Si hay cuotas con fecha pasada, la ficha debería mostrar el aviso <i>“¿Ya están pagadas?”</i> de S3.</li>
+      <li>Intenta registrar otra póliza con el mismo n° y la misma compañía. No debería dejarte (R5).</li>
+    </ol>
+    <h4>Qué debería pasar</h4>
+    <ul><li>Los formatos chilenos se entienden bien: punto para miles y coma para decimales.</li><li>Hoy una prima bruta que no cuadra con neta + IVA <b>no deja guardar</b>. La especificación (R9) dice advertir sin bloquear: cuéntennos qué prefieren.</li><li>Si las cuotas no suman la prima bruta, Radal muestra la diferencia.</li></ul>
+    <div class="eye"><h4>Ojo de corredor</h4><ul><li>¿El formulario pide lo justo? ¿Falta algún dato que siempre registran?</li><li>¿Los métodos de pago (Cupón, PAC, PAT, Transferencia, Pago único) cubren su realidad?</li><li>¿Les ha pasado una póliza cuya bruta no cuadra con la aritmética? ¿Cómo la registrarían?</li></ul></div>
+    <figure class="mid"><a class="shot" href="guia-pruebas-img/06-registrar-a-mano.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/06-registrar-a-mano.jpg" alt="Formulario Registrar a mano"></a><figcaption>Registrar a mano: asegurado, compañía, ramo · subtipo y vigencia; el resto es opcional.</figcaption></figure>
+  </div>
+</details>
+
+<!-- S5 -->
+<details class="scn" id="s5">
+  <summary><span class="id">S5</span><span class="t">Cobranza del día a día</span><span class="chip role">admin@demo.cl</span><span class="chip">≈ 20 min</span></summary>
+  <div class="body">
+    <h4>Documentos</h4><p>Una imagen o PDF cualquiera como comprobante, nombrado “QA comprobante”. Usa de preferencia cuotas de tu póliza QA de S4.</p>
+    <h4>Pasos</h4>
+    <ol>
+      <li><a href="https://dev.radalseguros.cl/collections">Cobranza</a>: recorre las tarjetas y las pestañas Próximas, Vencidas, Al día y Saldadas, y los filtros Compañía, Ramo, Método, Nivel y Mías.</li>
+      <li>En una cuota, <b>Gestionar</b> → <b>Registrar pago</b> parcial en pesos (<code>150.000</code>). Debe quedar “Parcial” con “Pagado UF … de …”.</li>
+      <li>Intenta registrar un pago <b>mayor que el saldo</b>. No debe permitirlo.</li>
+      <li><b>Promesa de pago</b> con una fecha. La cuota queda en acuerdo hasta esa fecha.</li>
+      <li>En una cuota con <b>PAC</b>, prueba <b>Cargo automático rechazado</b>. En una cuota que no es PAC, el botón debe estar deshabilitado y decir por qué.</li>
+      <li>En la lista de pagos del panel, <b>Revertir</b> un pago con motivo. No debe borrarse: queda revertido.</li>
+      <li><b>Enviar recordatorio</b>: en la vista previa, el monto debe ser el <b>saldo</b> y el saludo debe ir a quien corresponde (contratante o pagador). Si el destinatario no es @radalseguros.cl, quedará “omitido”.</li>
+      <li><b>Consultar a la compañía</b> dos veces por la misma cuota. La segunda debe rechazarse con un link a la primera.</li>
+    </ol>
+    <h4>Qué debería pasar</h4>
+    <ul><li>El panel, el plan de pago de la ficha y las tarjetas cuentan lo mismo después de cada paso.</li><li>Ningún botón queda muerto: o funciona, o está deshabilitado con su motivo.</li></ul>
+    <div class="eye"><h4>Ojo de corredor</h4><ul><li>¿El orden por urgencia y los estados (Por vencer, Vencida, Riesgo de término, En acuerdo, Parcial) son los suyos?</li><li>¿El texto del recordatorio es algo que enviarían a su cliente?</li><li>¿Falta alguna gestión típica de cobranza?</li></ul></div>
+  </div>
+</details>
+
+<!-- S6 -->
+<details class="scn" id="s6">
+  <summary><span class="id">S6</span><span class="t">Preguntarle a la compañía por correo y confirmar la respuesta</span><span class="chip role">admin@demo.cl</span><span class="chip">≈ 15 min (incluye esperar hasta 5 min)</span></summary>
+  <div class="body">
+    <h4>Documentos</h4><p>Tu casilla <b>@radalseguros.cl</b>, que hará de “compañía”. En dev sólo esas direcciones reciben correo. Si no tienes una, haz este escenario junto a alguien que sí la tenga.</p>
+    <h4>Pasos</h4>
+    <ol>
+      <li>En una cuota de tu póliza QA: <b>Consultar a la compañía</b>, con tu dirección @radalseguros.cl como destinatario.</li>
+      <li>En tu correo, responde al mensaje sin cambiar el asunto (lleva el código <code>RADAL-INQ-…</code>). Por ejemplo: <i>“Confirmamos que la cuota N está pagada, UF X, el dd-mm-aaaa”</i>.</li>
+      <li>Espera hasta 5 minutos y abre <a href="https://dev.radalseguros.cl/collections/evidence">Cobranza → Respuestas por confirmar</a>.</li>
+      <li>Revisa la sugerencia: cuota sugerida, monto, fecha y señales (código de consulta, remitente, n° de cuota y monto). Elige <b>Confirmar</b>, <b>Otra cuota</b> o <b>Rechazar</b>.</li>
+      <li>Ve a <a href="https://dev.radalseguros.cl/collections/inquiries">Consultas a compañías</a>: la consulta debe pasar a “Respondida” y después a “Resuelta”.</li>
+    </ol>
+    <h4>Qué debería pasar</h4>
+    <ul><li>La respuesta <b>nunca</b> se aplica sola. Al confirmar se registra el pago y la cuota baja de las vencidas.</li></ul>
+    <div class="eye"><h4>Ojo de corredor</h4><ul><li>¿Así le escribirían a la compañía? ¿El correo de consulta tiene lo necesario (póliza, asegurado, cuota y monto)?</li><li>Prueben respuestas ambiguas, como “la cuota 3 sí, la 4 no” o un monto distinto. ¿La sugerencia acierta?</li></ul></div>
+  </div>
+</details>
+
+<!-- S7 -->
+<details class="scn" id="s7">
+  <summary><span class="id">S7</span><span class="t">Comparar 3 cotizaciones → Promover → Generar propuesta</span><span class="chip role">admin@demo.cl</span><span class="chip">≈ 20–25 min</span></summary>
+  <div class="body">
+    <h4>Documentos</h4><p><code>GRUPO VIÑA INDOMITA/VIÑA INDOMITA/2. Subexpediente de Comparación…/</code> <code>03 Cotizacion Southbridge - Vina Indomita.pdf</code>, <code>04 Cotizacion HDI - Vina Indomita.pdf</code> y <code>05 Cotizacion Mapfre - Vina Indomita.pdf</code>. Como referencia humana, usen <code>06 Comparativo de Alternativas - Vina Indomita.pdf</code> de la misma carpeta.</p>
+    <h4>Pasos</h4>
+    <ol>
+      <li><b>Asegurados → VIÑA INDÓMITA SpA → Nueva cuenta</b>: Property · Todo Riesgo, con tus propias fechas y una etiqueta de vigencia “QA &lt;tus iniciales&gt; 2026-2027”. Si dice “Ya existe una carpeta abierta para este ramo y esta vigencia”, cambia la fecha de inicio.</li>
+      <li>En la cuenta, pestaña <b>Comparación</b> → <b>Abrir comparador</b> → <b>Agregar cotización</b>: sube 03, 04 y 05, una por una. Cada una tarda unos 70 segundos y aparece como columna con compañía y prima total.</li>
+      <li>Espera la alineación, alrededor de un minuto. Lee la tabla y la <b>recomendación de la IA</b> y compáralas con los PDF y con el 06.</li>
+      <li><b>Promover a propuesta</b> la cotización que elegirías. La compañía se elige de una lista.</li>
+      <li>Pestaña <b>Propuesta</b> → <b>Generar propuesta</b>. Tarda entre 75 y 90 segundos y hoy no muestra barra de progreso. Revisa primas, IVA, tasa y comisión.</li>
+      <li>Vuelve al <b>Resumen</b>: la cuenta debió avanzar sola (Antecedentes y Bases técnicas omitidas, Mercado parcial).</li>
+    </ol>
+    <h4>Qué debería pasar</h4>
+    <ul><li>Las primas de las tres compañías: Southbridge UF 1.181,28, HDI UF 1.541,24 y Mapfre UF 1.077,68.</li><li>“Descargar PDF” de la propuesta está deshabilitado con <i>Pronto</i>.</li></ul>
+    <div class="eye"><h4>Ojo de corredor</h4><ul><li><b>Lo más importante de esta ronda:</b> ¿la tabla compara lo que ustedes comparan? ¿Los deducibles muestran porcentaje, base y mínimo? ¿Hay filas repetidas o conceptos partidos en dos?</li><li>¿La recomendación dice algo que contradice la tabla o el PDF? Copien la frase exacta en el reporte.</li><li>¿La propuesta tiene lo que mandarían a la compañía (ver “Documentos que arma RADAL” en la especificación)?</li></ul></div>
+    <figure class="mid"><a class="shot" href="guia-pruebas-img/21-comparacion-tabla.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/21-comparacion-tabla.jpg" alt="Tabla de comparación"></a><figcaption>Tabla de la comparación. Los deducibles de Southbridge y HDI salen como “10” o “2”, sin “% de la pérdida, mínimo UF X”: es un error conocido. <span class="reused">captura de la revisión del 19-10 en dev</span></figcaption></figure>
+  </div>
+</details>
+
+<!-- S8 -->
+<details class="scn" id="s8">
+  <summary><span class="id">S8</span><span class="t">El agente: preguntas de cartera, citar el PDF y registrar un pago</span><span class="chip role">admin@demo.cl</span><span class="chip">≈ 15 min</span></summary>
+  <div class="body">
+    <h4>Documentos</h4><p>Ninguno. Ten a mano el PDF de la póliza que vas a preguntar, por ejemplo <code>08 Poliza N INC-0-2026-114873 - HDI - Coccolino Multirriesgo.pdf</code>.</p>
+    <h4>Pasos</h4>
+    <ol>
+      <li><b>Nueva conversación</b>: “Resume mi cartera”. Compara las cifras con Pólizas y Cobranza.</li>
+      <li>“¿Qué dice la póliza INC-0-2026-114873 sobre el deducible de sismo? Cita el texto.” Busca la cita en el PDF: ¿es literal? ¿La página y la cláusula son correctas?</li>
+      <li>Abre <b>Habilidades</b>, activa <i>Revisar cobranza</i> y pregunta “¿Qué cuotas están en riesgo y qué le pregunto a cada compañía?”.</li>
+      <li>“Registra un pago de la cuota 1 de la póliza QA-&lt;tus iniciales&gt;-001 por transferencia.” El agente debe pedir lo que falte y mostrar una <b>tarjeta</b>. <b>Antes de Confirmar, verifica que la tarjeta diga tu póliza y tu cuota.</b> Si no, <b>Descarta</b> y repórtalo.</li>
+    </ol>
+    <h4>Qué debería pasar</h4>
+    <ul><li>Nada se escribe sin <i>Confirmar</i>. Después de confirmar, el resultado aparece en español y la cuota cambia en Cobranza.</li></ul>
+    <div class="eye"><h4>Ojo de corredor</h4><ul><li>¿Le confiarían esta respuesta a un cliente? ¿Hay datos inventados?</li><li>¿Qué le pedirían al agente en un día normal que hoy no sepa hacer?</li></ul></div>
+  </div>
+</details>
+
+<!-- S9 -->
+<details class="scn" id="s9">
+  <summary><span class="id">S9</span><span class="t">Links públicos: el asegurado sube un comprobante y la compañía informa</span><span class="chip role">sin usuario + ejecutivo@demo.cl</span><span class="chip">≈ 10 min</span></summary>
+  <div class="body">
+    <h4>Documentos</h4><p>Una imagen o PDF nombrado “QA comprobante”.</p>
+    <h4>Pasos</h4>
+    <ol>
+      <li>En una ventana privada abre el <a href="https://dev.radalseguros.cl/s/HsWb9LqBbq8dlKkD7GTvH2GqR8KvOYKq">link del asegurado</a>. Revisa cuotas, “Cómo pagar” y estados. Sube el comprobante en una cuota impaga y recarga la página: debe seguir “Comprobante en revisión”.</li>
+      <li>Abre un <a href="https://dev.radalseguros.cl/s/qZJgVZhu_w_OHYBU5ovHELwVF5H7be22">link de compañía</a> e <b>informa el estado</b> de una cuota, con una nota que empiece con “QA”.</li>
+      <li>Entra como <code>ejecutivo@demo.cl</code> y busca las nuevas tareas en la campana. Después entra como admin y revisa <b>Respuestas por confirmar</b>.</li>
+      <li>También puedes crear tu propio link desde el panel de una cuota de tu póliza QA, con <b>Compartir</b>.</li>
+    </ol>
+    <h4>Qué debería pasar</h4>
+    <ul><li>Lo que informan el asegurado y la compañía llega como <i>Sugerida</i>; nada se marca pagado solo.</li><li>Los links no muestran comisiones, notas internas ni otras pólizas.</li></ul>
+    <div class="eye"><h4>Ojo de corredor</h4><ul><li>¿Le mandarían este link a su cliente por WhatsApp? ¿Qué le cambiarían al texto?</li><li>¿Una compañía respondería por aquí?</li></ul></div>
+  </div>
+</details>
+
+<!-- S10 -->
+<details class="scn" id="s10">
+  <summary><span class="id">S10</span><span class="t">Vista del ejecutivo (Mías) y uso en el celular</span><span class="chip role">ejecutivo@demo.cl</span><span class="chip">≈ 15 min</span></summary>
+  <div class="body">
+    <h4>Documentos</h4><p>Ninguno. Usa tu celular o la vista responsiva del navegador a 375 px de ancho.</p>
+    <h4>Pasos</h4>
+    <ol>
+      <li>Como ejecutivo: el copiloto debe decir “Mis números”. Compara cada indicador con Pólizas y Cobranza usando el filtro <b>Mías</b>.</li>
+      <li>Revisa qué controles están deshabilitados para el ejecutivo y si cada uno explica por qué. No debería ver Configuración.</li>
+      <li>En el celular: Pólizas, una ficha, Cobranza y el panel de una cuota, la campana, el copiloto y los links públicos.</li>
+    </ol>
+    <h4>Qué debería pasar</h4>
+    <ul><li>Lo personal se filtra por “Mías”. Las bandejas de equipo (“Pagos sin confirmar”, “Respuestas por confirmar”) siguen mostrando lo de toda la corredora, y eso es intencional.</li><li>En el celular todo se lee y se puede tocar, salvo la tabla de la Comparación, que tiene un error conocido.</li></ul>
+    <div class="eye"><h4>Ojo de corredor</h4><ul><li>¿Qué haría un ejecutivo desde el celular en terreno? ¿Lo puede hacer?</li><li>¿Debería Pólizas o Cobranza abrir con “Mías” activado para el ejecutivo?</li></ul></div>
+    <div class="grid g2" style="margin-top:12px">
+      <figure class="phone"><a class="shot" href="guia-pruebas-img/33-movil-polizas.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/33-movil-polizas.jpg" alt="Pólizas en el celular"></a><figcaption>Pólizas a 375 px.</figcaption></figure>
+    </div>
+  </div>
+</details>
+
+<!-- ============================================================ 5 -->
+<h2 id="no-esta"><span class="n">05</span>Qué no está todavía (no lo reporten como error)</h2>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Qué</th><th>Estado</th><th>Qué ves en la app</th></tr></thead>
+  <tbody>
+    <tr><td>Pago en línea (Forpay)</td><td><span class="chip soon">En pausa</span></td><td>Pausado por decisión hasta que el equipo se reúna con Forpay. Ninguna cuota ofrece “Pagar”. En el Mantenedor, la cuenta de prueba de Forpay aparece con la verificación fallida.</td></tr>
+    <tr><td>Cotizar en portales</td><td><span class="chip soon">Pronto</span></td><td>Menú deshabilitado con su motivo: necesita el usuario y la clave de cada compañía.</td></tr>
+    <tr><td>WhatsApp</td><td><span class="chip soon">Pronto</span></td><td>No se envía nada por WhatsApp. Los links públicos se pueden copiar y mandar a mano.</td></tr>
+    <tr><td>Conectar Google Workspace / Microsoft 365</td><td><span class="chip soon">Pronto</span></td><td>En Configuración → Correo aparecen deshabilitados. Sí se puede conectar un servidor propio (SMTP/IMAP).</td></tr>
+    <tr><td>PDF de la Propuesta</td><td><span class="chip soon">Pronto</span></td><td>“Descargar PDF · Pronto”. La propuesta se ve en pantalla.</td></tr>
+    <tr><td>Lectura de documentos escaneados</td><td><span class="chip soon">No está</span></td><td>La IA lee PDF con texto. Un escaneo sin texto no se lee. Un Excel se imprime a PDF antes de subirlo.</td></tr>
+    <tr><td>Dashboard con comisión del mes contra la meta</td><td><span class="chip soon">No está</span></td><td>El inicio es el copiloto (decisión 1).</td></tr>
+    <tr><td>Carga masiva del estado de pago de la compañía (C6)</td><td><span class="chip soon">No está</span></td><td>En su lugar están las consultas a la compañía y Respuestas por confirmar (decisión 9).</td></tr>
+    <tr><td>Asegurado propio de cada corredora (R33)</td><td><span class="chip soon">Pendiente</span></td><td>En dev hay una sola corredora de prueba, así que no se nota.</td></tr>
+    <tr><td>Endosos, siniestros, validación espejo y renovación</td><td><span class="chip">Sin cambios en v12</span></td><td>Los botones existen en la ficha (Nuevo endoso, Registrar siniestro, Renovar) y vienen de versiones anteriores. No fueron foco de esta versión, así que las diferencias con E1–E4 y S1–S3 de la especificación son esperadas. Las observaciones sirven, pero no son prioridad.</td></tr>
+    <tr><td>UF y dólar del día</td><td><span class="chip">Aviso</span></td><td>La tarea diaria que trae la UF desde mindicador.cl falla a ratos. Se usa el último valor cargado, así que los montos en pesos pueden usar una UF de días anteriores.</td></tr>
+  </tbody>
+</table></div>
+
+<h3 id="conocidos">Problemas ya conocidos</h3>
+<p>La revisión del 19-10-2026 encontró los siguientes problemas. Los de la primera columna <b>ya están corregidos en esta versión</b>: si los vuelven a ver, repórtenlos como crítico. Los de la segunda siguen pendientes y no hace falta reportarlos de nuevo, salvo que encuentren casos peores.</p>
+<div class="grid g2">
+  <div class="card accent"><h4>Corregido en esta versión</h4><ul class="small">
+    <li><b>El agente ya no apunta a otra cuota.</b> Identifica la cuota por <i>número de póliza + número de cuota</i>; si no la encuentra o hay dudas, se niega a proponer. La tarjeta muestra “Cuota 2 de 4 · póliza N° …” para que verifiquen antes de Confirmar.</li>
+    <li>El agente conoce la fecha de hoy (“con fecha de hoy” ya no la pregunta).</li>
+    <li><b>Comparación:</b> los deducibles muestran la condición completa (“10 % de la pérdida, mínimo UF 10”); la recomendación se calcula sobre la tabla final y compara prima total; una columna sin prima ofrece <i>Reintentar</i> y la recomendación nunca inventa una prima.</li>
+    <li><b>Comparación en el celular:</b> la columna de etiquetas es angosta y los valores se ven al deslizar.</li>
+    <li><b>Propuesta:</b> la tasa integral ya no suma tasas (Southbridge: 2,31 ‰ = prima neta ÷ monto asegurado).</li>
+    <li>Textos internos: los pasos del agente y Portafolio → Documentos muestran nombres en español.</li>
+    <li>Las bandejas de equipo (“Pagos sin confirmar”, “Respuestas por confirmar”) llevan la marca <b>Equipo</b>: no se filtran por Mías, a propósito.</li>
+  </ul></div>
+  <div class="card warn"><h4>Pendiente</h4><ul class="small">
+    <li><b>Propuesta:</b> “Información adicional” puede mostrar montos sin “UF” o Sí/No como “—”, alguna fecha en formato 2026-10-15, y la pestaña puede decir “Cotización 1” en vez del nombre de la compañía. <i>Generar propuesta</i> no muestra progreso (tarda ~1 minuto). El PDF de la propuesta está en “Pronto”.</li>
+    <li><b>Comparación en el celular:</b> al bajar por una tabla larga, el nombre de la compañía no queda fijo arriba.</li>
+    <li>“Nueva cuenta” no tiene campo de nombre.</li>
+    <li><b>Datos de demostración:</b> el link del asegurado de HDI dice “Pago en línea con Webpay a través de Radal” (texto de demostración). Las pólizas 0020119904 y V-FL-0091447 se cargaron antes de las correcciones: conservan cuotas vencidas y notificaciones de “Riesgo de término” repetidas. Si aparecen repeticiones <b>nuevas</b>, repórtenlas.</li>
+  </ul></div>
+</div>
+<figure class="mid"><a class="shot" href="guia-pruebas-img/23-propuesta-pdf-pronto.jpg" target="_blank"><img loading="lazy" src="guia-pruebas-img/23-propuesta-pdf-pronto.jpg" alt="Descargar PDF pronto"></a><figcaption>Un control que todavía no está aparece deshabilitado, con “Pronto” y su motivo. Nunca es un botón que no hace nada. <span class="reused">captura de la revisión del 19-10 en dev</span></figcaption></figure>
+
+<!-- ============================================================ 6 -->
+<h2 id="feedback"><span class="n">06</span>Cómo dar feedback</h2>
+<div class="grid g2">
+  <div class="card accent">
+    <h4>Reglas simples</h4>
+    <ul class="small">
+      <li><b>Una observación por reporte.</b> Si son tres cosas, hagan tres reportes.</li>
+      <li><b>Captura de pantalla</b> siempre, con la URL visible si se puede.</li>
+      <li><b>La hora</b> en que pasó (el formulario la llena sola) y el usuario con que estaban.</li>
+      <li>Si es de exactitud, indiquen <b>qué dice el PDF</b> (página) y <b>qué dice Radal</b>.</li>
+      <li>Envíen el reporte por <b>el canal acordado con Benjamín</b>.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Severidad</h4>
+    <ul class="small">
+      <li><b>Crítica:</b> pierde o ensucia datos o plata, o detiene el trabajo. Ejemplo: un pago queda en la póliza equivocada.</li>
+      <li><b>Alta:</b> un flujo principal no se puede terminar, o un número sale equivocado.</li>
+      <li><b>Media:</b> funciona, pero confunde o hay que darle vueltas.</li>
+      <li><b>Baja:</b> texto, formato o detalle visual.</li>
+    </ul>
+    <p class="small"><b>Tipo:</b> <i>Error</i> (no hace lo que debería), <i>Mejora</i> (funciona, pero podría ser mejor) o <i>Pregunta de negocio</i> (dudan de la decisión, no del funcionamiento).</p>
+  </div>
+</div>
+
+<h3>Formulario</h3>
+<p class="small muted">Este formulario no envía nada: arma un texto y lo copia para que lo peguen en el canal acordado.</p>
+<form class="form" id="fb" onsubmit="return false">
+  <div><label for="f-user">Usuario con que probaste</label>
+    <select id="f-user"><option>admin@demo.cl</option><option>ejecutivo@demo.cl</option><option>admin@radal.cl</option><option>Link público (asegurado)</option><option>Link público (compañía)</option><option>Otro</option></select></div>
+  <div><label for="f-who">Tu nombre</label><input id="f-who" placeholder="Ej.: María R."></div>
+  <div class="full"><label for="f-title">Título corto</label><input id="f-title" placeholder="Ej.: El deducible de sismo de HDI sale sin mínimo"></div>
+  <div><label for="f-url">Pantalla / URL</label><input id="f-url" placeholder="https://dev.radalseguros.cl/…"></div>
+  <div><label for="f-scn">Escenario</label>
+    <select id="f-scn"><option value="">—</option><option>S1 Copiloto y conversaciones</option><option>S2 Subir póliza y Datos técnicos</option><option>S3 Cuotas pasadas</option><option>S4 Registrar a mano</option><option>S5 Cobranza del día a día</option><option>S6 Consulta por correo</option><option>S7 Comparación → Propuesta</option><option>S8 Agente</option><option>S9 Links públicos</option><option>S10 Ejecutivo y celular</option><option>Otro</option></select></div>
+  <div><label for="f-width">Dispositivo</label>
+    <select id="f-width"><option>Computador</option><option>Celular</option><option>Tablet</option></select></div>
+  <div><label for="f-time">Hora (Chile)</label><input id="f-time"><div class="hint">Se llena con la hora actual de Chile; corrígela si pasó antes.</div></div>
+  <div class="full"><label for="f-did">Qué hiciste (pasos)</label><textarea id="f-did" placeholder="1. … 2. … 3. …"></textarea></div>
+  <div><label for="f-exp">Qué esperabas</label><textarea id="f-exp"></textarea></div>
+  <div><label for="f-got">Qué pasó</label><textarea id="f-got"></textarea></div>
+  <div><label>Severidad</label>
+    <div class="seg" id="f-sev"><label><input type="radio" name="sev" value="crítica">Crítica</label><label><input type="radio" name="sev" value="alta">Alta</label><label><input type="radio" name="sev" value="media" checked>Media</label><label><input type="radio" name="sev" value="baja">Baja</label></div></div>
+  <div><label>Tipo</label>
+    <div class="seg" id="f-type"><label><input type="radio" name="type" value="Error" checked>Error</label><label><input type="radio" name="type" value="Mejora">Mejora</label><label><input type="radio" name="type" value="Pregunta de negocio">Pregunta de negocio</label></div></div>
+  <div class="full"><label class="seg" style="display:flex"><span style="display:inline-flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="f-shot" style="width:auto">Adjunto captura de pantalla</span></label></div>
+  <div class="full toolbar"><button type="button" class="p" id="copy">Copiar reporte</button><button type="button" id="clear">Limpiar</button><span id="copy-status" class="ok" aria-live="polite"></span></div>
+  <div class="full"><pre class="out" id="preview">La vista previa del reporte aparece aquí.</pre></div>
+</form>
+
+<!-- ============================================================ 7 -->
+<h2 id="referencias"><span class="n">07</span>Referencias y glosario</h2>
+<div class="grid g2">
+  <div class="card">
+    <h4>Especificación del equipo (v15) usada en esta guía</h4>
+    <ul class="small">
+      <li><a href="team-spec-clic-a-clic-v15.html#inicio">Inicio</a>: RADAL en una página.</li>
+      <li><a href="team-spec-clic-a-clic-v15.html#vocab">El modelo y el idioma</a>: vocabulario y decisiones clave.</li>
+      <li><a href="team-spec-clic-a-clic-v15.html#pantallas">Pantallas y reglas</a>: Dashboard, Notificaciones, Configuración y Documentos que arma RADAL.</li>
+      <li><a href="team-spec-clic-a-clic-v15.html#vias">Las tres vías</a>: 12 etapas, 2a/2b, 1.15 Plan de pago y Vía Manual.</li>
+      <li><a href="team-spec-clic-a-clic-v15.html#polizas">Pólizas</a>: la ficha y lo que falta.</li>
+      <li><a href="team-spec-clic-a-clic-v15.html#cobranza">Cobranza</a>: reloj de la cuota, C1 a C6.</li>
+      <li><a href="team-spec-clic-a-clic-v15.html#estructura">Estructura de datos</a>: catálogo y reglas R1, R2, R4, R5, R6, R9, R14, R17, R30, R33, R34, R37, R38, R41, R42 y R43.</li>
+      <li><a href="team-spec-clic-a-clic-v15.html#plan">Plan de construcción</a>: P1, P3 y fases posteriores.</li>
+    </ul>
+    <h4>Para profundizar</h4>
+    <ul class="small">
+      <li><a href="../v12-cobranza-y-viaje-parcial.html">Explicación técnica de v12</a> (viajes parciales y cobranza en tres niveles, en inglés).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Glosario rápido</h4>
+    <div class="kv small">
+      <b>Póliza</b><span>Cada documento que emite la compañía. Una colocación puede tener varias (flota, capas o tramos).</span>
+      <b>Cuota</b><span>Una fecha y un monto del plan de pago. Su estado se calcula contra el vencimiento: Por vencer, Vence hoy, Vencida, Riesgo de término, En acuerdo, Pagada o Anulada. <i>Parcial</i> es una marca. <i>Por revisar</i> es nueva: una cuota pasada de una póliza cargada tarde.</span>
+      <b>Colocación / Cuenta</b><span>Un ramo, en una vigencia, para uno o varios RUT del cliente. En la especificación se llama <i>Colocación</i>; en pantalla hoy, <i>Cuenta</i>.</span>
+      <b>Asegurado</b><span>En la especificación es un RUT. En el menú de la app, <i>Asegurados</i> son las carpetas comerciales (el “Cliente” de la especificación) y los RUT aparecen como <i>Empresas</i>.</span>
+      <b>Compañía</b><span>La aseguradora. Catálogo cerrado, identificada por RUT y código CMF, nunca por el nombre.</span>
+      <b>Vigencia</b><span>De la póliza: el período exacto, de 12:00 a 12:00. De trabajo: la etiqueta “2026-2027” que agrupa las cuentas.</span>
+      <b>Cobranza</b><span>Plan, pagos, gestiones y avisos de cada cuota, en tres niveles: registro, asistida y en línea (en pausa).</span>
+      <b>Cotización</b><span>Lo que la compañía <b>ofrece</b>. Entra a la Comparación.</span>
+      <b>Propuesta</b><span>Lo que el corredor <b>envía</b> a la compañía elegida para que emita. Es lo opuesto a la cotización.</span>
+      <b>Etapa omitida</b><span>Una etapa que no ocurrió porque se entró más adelante. Queda registrada y no se finge.</span>
+      <b>Datos técnicos</b><span>Ítems, coberturas, deducibles, garantías, exclusiones y cláusulas leídos por la IA. Se guardan sólo cuando alguien los confirma.</span>
+      <b>Por hacer / Para saber</b><span>Las dos bandejas de la campana: lo que pide una acción y lo que sólo informa.</span>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Radal · guía de pruebas v12 para el equipo · 19-10-2026 · ambiente dev (versión del 19-10-2026, ronda 3). Las capturas son de dev, tomadas el 19-10-2026 con usuarios de prueba; las marcadas “captura de la revisión del 19-10 en dev” vienen de la ronda de revisión 3 del mismo día. Los números de las capturas cambian a medida que el equipo prueba.
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+  // Abrir / cerrar escenarios, y abrirlos todos al imprimir
+  var all=function(open){document.querySelectorAll('details.scn').forEach(function(d){d.open=open;});};
+  document.getElementById('open-all').addEventListener('click',function(){all(true);});
+  document.getElementById('close-all').addEventListener('click',function(){all(false);});
+  window.addEventListener('beforeprint',function(){all(true);});
+
+  // Marca la sección activa en el índice
+  var links=[].slice.call(document.querySelectorAll('nav.toc a[href^="#"]'));
+  var targets=links.map(function(a){return document.querySelector(a.getAttribute('href'));});
+  function spy(){
+    var y=window.scrollY+120,idx=0;
+    targets.forEach(function(t,i){if(t&&t.offsetTop<=y)idx=i;});
+    links.forEach(function(a,i){a.classList.toggle('active',i===idx);});
+  }
+  window.addEventListener('scroll',spy,{passive:true});spy();
+
+  // Formulario de feedback → Markdown
+  var $=function(id){return document.getElementById(id);};
+  function chileNow(){
+    try{return new Intl.DateTimeFormat('es-CL',{timeZone:'America/Santiago',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date());}
+    catch(e){return new Date().toLocaleString();}
+  }
+  $('f-time').value=chileNow();
+  function radio(name){var r=document.querySelector('input[name="'+name+'"]:checked');return r?r.value:'';}
+  function block(t){t=(t||'').trim();return t?t.replace(/\n/g,'\n  '):'—';}
+  function build(){
+    var title=$('f-title').value.trim()||'(sin título)';
+    return '### ['+radio('type')+'] '+title+'\n'+
+      '- Severidad: '+radio('sev')+'\n'+
+      '- Escenario: '+($('f-scn').value||'—')+'\n'+
+      '- Usuario: '+$('f-user').value+($('f-who').value.trim()?' · reporta '+$('f-who').value.trim():'')+'\n'+
+      '- Dónde: '+($('f-url').value.trim()||'—')+' · '+$('f-width').value+'\n'+
+      '- Hora (Chile): '+($('f-time').value.trim()||'—')+'\n'+
+      '- Qué hice:\n  '+block($('f-did').value)+'\n'+
+      '- Qué esperaba:\n  '+block($('f-exp').value)+'\n'+
+      '- Qué pasó:\n  '+block($('f-got').value)+'\n'+
+      '- Captura: '+($('f-shot').checked?'adjunta':'no adjunta')+'\n';
+  }
+  function refresh(){$('preview').textContent=build();}
+  $('fb').addEventListener('input',refresh);$('fb').addEventListener('change',refresh);
+  $('copy').addEventListener('click',function(){
+    var text=build();$('preview').textContent=text;
+    function done(ok){$('copy-status').textContent=ok?'Copiado. Pégalo en el canal acordado con Benjamín.':'No se pudo copiar: selecciona el texto de abajo y cópialo a mano.';}
+    if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(function(){done(true);},function(){fallback();});}
+    else fallback();
+    function fallback(){
+      var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+      var ok=false;try{ok=document.execCommand('copy');}catch(e){}
+      document.body.removeChild(ta);done(ok);
+    }
+  });
+  $('clear').addEventListener('click',function(){
+    ['f-title','f-url','f-did','f-exp','f-got','f-who'].forEach(function(id){$(id).value='';});
+    $('f-shot').checked=false;$('f-time').value=chileNow();$('copy-status').textContent='';refresh();
+  });
+  refresh();
+})();
+</script>
+</body>
+</html>

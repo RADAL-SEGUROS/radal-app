@@ -56,12 +56,31 @@ class TestReconcileMoneyDerivation:
         assert errors == []
         assert derived["exempt_premium_uf"] == D("50.0000")
 
-    def test_derives_comprehensive_rate(self) -> None:
+    def test_rates_are_never_summed_into_the_comprehensive_rate(self) -> None:
+        # Review r3 (R4): Southbridge quotes 2,21 ‰ on the afecta portion AND 2,21 ‰ on
+        # the exenta portion of ONE insured amount — the sum (4,42 ‰) is meaningless.
         derived, errors = reconcile_money(
-            {"taxable_rate_permille": D("1.2"), "exempt_rate_permille": D("0.8")}
+            {"taxable_rate_permille": D("2.21"), "exempt_rate_permille": D("2.21")}
         )
         assert errors == []
-        assert derived["comprehensive_rate_permille"] == D("2.0000")
+        assert "comprehensive_rate_permille" not in derived
+
+    def test_comprehensive_rate_is_derived_from_premium_over_insured_amount(self) -> None:
+        # The Southbridge cotización facts: neta 1 097,84 over UF 475 256 = 2,310 ‰
+        # (= 2,21 ‰ bienes + 0,100 ‰ terrorismo, both on the full base).
+        derived, errors = reconcile_money(
+            {
+                "taxable_premium_uf": D("439.14"),
+                "exempt_premium_uf": D("658.70"),
+                "vat_uf": D("83.44"),
+                "total_premium_uf": D("1181.28"),
+                "taxable_rate_permille": D("2.21"),
+                "exempt_rate_permille": D("2.21"),
+                "insured_amount_uf": D("475256"),
+            }
+        )
+        assert errors == []
+        assert derived["comprehensive_rate_permille"] == D("2.3100")
 
     def test_zero_exempt_is_honoured_not_treated_as_missing(self) -> None:
         derived, errors = reconcile_money(
@@ -134,19 +153,22 @@ class TestReconcileMoneyRejection:
         )
         assert [e["field"] for e in errors] == ["total_premium_uf"]
 
-    def test_non_additive_comprehensive_rate_is_a_soft_warning_not_an_error(self) -> None:
-        # APPROVED DEVIATION (rule 5): HDI quotes a weighted "tasa media" that is
-        # NOT the sum of the per-peril rates. It must NOT block — it is a warning.
+    def test_a_read_comprehensive_rate_stands_alone(self) -> None:
+        # HDI quotes a weighted "tasa media" that is NOT the sum of the per-peril
+        # rates; since review r3 (R4) no additivity is assumed at all: no error, no
+        # warning, nothing derived over it.
         values = {
             "taxable_rate_permille": D("1.2"),
             "exempt_rate_permille": D("0.8"),
             "comprehensive_rate_permille": D("5.0"),  # not 2.0
+            "net_premium_uf": D("100"),
+            "insured_amount_uf": D("1000"),
         }
         _, errors = reconcile_money(values)
-        assert errors == []  # no longer a hard error
-        _, errors_v, warnings = reconcile_money_verbose(values)
-        assert errors_v == []
-        assert [w["field"] for w in warnings] == ["comprehensive_rate_permille"]
+        assert errors == []
+        derived, errors_v, warnings = reconcile_money_verbose(values)
+        assert errors_v == [] and warnings == []
+        assert "comprehensive_rate_permille" not in derived
 
     def test_net_below_taxable_is_reported(self) -> None:
         # Implies a negative exempt premium, which is nonsense.

@@ -161,6 +161,7 @@ def _indicator(
     unit: str | None = "count",
     secondary: float | int | None = None,
     tone: str = "neutral",
+    scope: str = "all",
 ) -> dict[str, Any]:
     return {
         "key": key,
@@ -169,6 +170,7 @@ def _indicator(
         "unit": unit,
         "tone": tone,
         "link": link,
+        "scope": scope,
     }
 
 
@@ -184,6 +186,7 @@ def _indicators(n: _Numbers, scope: Scope) -> list[dict[str, Any]]:
                 tone="danger" if n.overdue else "ok",
                 # The SPA's Cobranza board reads ``tab`` (bucket) and ``owner``.
                 link="/collections?tab=overdue" + ("&owner=me" if mine else ""),
+                scope=scope,
             )
         )
     if n.pending_evidence is not None:
@@ -193,6 +196,8 @@ def _indicators(n: _Numbers, scope: Scope) -> list[dict[str, Any]]:
                 n.pending_evidence,
                 tone="warn" if n.pending_evidence else "ok",
                 link="/collections/evidence",
+                # R7: a TEAM inbox — broker-wide whatever the home's scope.
+                scope="team",
             )
         )
     out.append(
@@ -201,6 +206,7 @@ def _indicators(n: _Numbers, scope: Scope) -> list[dict[str, Any]]:
             n.todo,
             tone="warn" if n.todo else "ok",
             link="/notifications?tray=todo" + ("" if mine else "&scope=all"),
+            scope=scope,
         )
     )
     if n.expiring_30 is not None:
@@ -212,6 +218,7 @@ def _indicators(n: _Numbers, scope: Scope) -> list[dict[str, Any]]:
                 # Review r2 (B4): the Pólizas list filters by expiry
                 # (``expiring`` -> ``GET /policies?expiring_within_days=``).
                 link=f"/policies?expiring={EXPIRING_WINDOW_DAYS}" + ("&mine=1" if mine else ""),
+                scope=scope,
             )
         )
     if n.active is not None:
@@ -222,6 +229,7 @@ def _indicators(n: _Numbers, scope: Scope) -> list[dict[str, Any]]:
                 secondary=n.active_uf,
                 tone="neutral",
                 link="/policies?status=active" + ("&mine=1" if mine else ""),
+                scope=scope,
             )
         )
     return out

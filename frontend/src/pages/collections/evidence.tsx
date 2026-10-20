@@ -13,6 +13,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, ChevronLeft, ChevronRight, Inbox } from "lucide-react";
 
+import { TeamScopeChip } from "@/components/common/TeamScopeChip";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState, ErrorBanner, LoadingRows } from "@/components/common/kit";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,7 @@ export default function CollectionsEvidencePage() {
         }
         title={t("collections:evidence.title")}
         subtitle={t("collections:evidence.description")}
+        actions={<TeamScopeChip className="text-caption" />}
       />
 
       <Tabs value={tab} onValueChange={(v) => setParams({ tab: v === "open" ? null : v, page: null })}>

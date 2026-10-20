@@ -17,12 +17,14 @@ import type {
   ListResponse,
   RadalDocument,
   ScopeParams,
+  SystemDocumentCategory,
+  SystemEntityType,
 } from "@/api/types";
 
 export interface DocumentListParams extends ScopeParams {
-  entity_type?: EntityType;
+  entity_type?: EntityType | SystemEntityType;
   entity_id?: number;
-  category?: DocumentCategory;
+  category?: DocumentCategory | SystemDocumentCategory;
   phase?: string;
   limit?: number;
   offset?: number;

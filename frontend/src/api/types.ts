@@ -76,6 +76,23 @@ export const ENTITY_TYPES = [
 ] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 
+/**
+ * v12 entity types a document may hang off (a mail kept for a status inquiry,
+ * a receipt on a payment…). Not offered as upload targets; labelled for lists
+ * (review r3 F3: Portafolio → Documentos showed "status_inquiry").
+ */
+export const SYSTEM_ENTITY_TYPES = [
+  "payment",
+  "installment",
+  "share_link",
+  "status_inquiry",
+  "mail_account",
+  "portal_search",
+  "insurance_subtype",
+  "payment_intent",
+] as const;
+export type SystemEntityType = (typeof SYSTEM_ENTITY_TYPES)[number];
+
 export const CLIENT_STATUSES = ["prospect", "onboarding", "active", "archived"] as const;
 export type ClientStatus = (typeof CLIENT_STATUSES)[number];
 
@@ -181,6 +198,24 @@ export const DOCUMENT_CATEGORIES = [
   "archive_pack",
 ] as const;
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
+
+/**
+ * Categories the SERVER files on its own (comparison reads, generated packs,
+ * v12 cobranza / mail / RPA). Never offered in an upload picker, but listed
+ * documents carry them — they need a label (review r3 F3: Portafolio →
+ * Documentos showed "email_message").
+ */
+export const SYSTEM_DOCUMENT_CATEGORIES = [
+  "budget_proposal",
+  "antecedentes_pack",
+  "payment_receipt",
+  "email_message",
+  "cancellation_letter",
+  "payment_consent",
+  "portal_screenshot",
+  "insurer_statement_upload",
+] as const;
+export type SystemDocumentCategory = (typeof SYSTEM_DOCUMENT_CATEGORIES)[number];
 
 /** Who sent the document to whom — the registry's `direction`. */
 export const DOCUMENT_DIRECTIONS = [
@@ -1122,7 +1157,8 @@ export interface InspectionVersionCreate {
 export interface RadalDocument {
   id: number;
   broker_id: number;
-  entity_type: EntityType;
+  /** Includes the v12 types the server files on its own (`status_inquiry`…). */
+  entity_type: EntityType | SystemEntityType;
   entity_id: number;
   s3_key: string;
   bucket: string;
@@ -1130,7 +1166,8 @@ export interface RadalDocument {
   mime_type: string | null;
   size_bytes: number | null;
   checksum: string | null;
-  category: DocumentCategory;
+  /** Includes the server-filed categories (`email_message`, `payment_receipt`…). */
+  category: DocumentCategory | SystemDocumentCategory;
   phase: string | null;
   /** Which expediente this file was filed under (null for loose uploads). */
   case_file_id: number | null;
@@ -1155,7 +1192,7 @@ export interface DocumentDownload {
 }
 
 export interface DocumentUpdate {
-  category?: DocumentCategory;
+  category?: DocumentCategory | SystemDocumentCategory;
   phase?: string | null;
   original_name?: string;
 }
@@ -1412,6 +1449,12 @@ export interface ComparisonEntry {
   insurer_read_name?: string | null;
   /** Core figures the read did not find (`total_premium_uf`, …) — a hint, not a block. */
   missing_core?: string[] | null;
+  /**
+   * Review r3 R5: the column may be read again (*Reintentar*) — a failed read,
+   * or one that succeeded but left `missing_core` non-empty (old reads without
+   * insurer / prima). Absent on older servers (= only failed columns retry).
+   */
+  can_retry?: boolean | null;
   /** A5: the catalogue insurer, when the read resolved it. */
   insurer_id?: number | null;
   /** A5: catalogue matches for `insurer_name`, best first. */

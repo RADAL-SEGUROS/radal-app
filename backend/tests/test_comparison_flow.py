@@ -431,7 +431,8 @@ def test_promote_succeeds_with_non_additive_comprehensive_rate(
     proposal = db.get(Proposal, body["proposal_id"])
     assert str(proposal.comprehensive_rate_permille) == "2.3570"  # stored independently
     # The soft rate note is surfaced, not swallowed, and not a 422.
-    assert any("comprehensive_rate" in w for w in body["warnings"])
+    # Review r3 (R4): no additivity is assumed any more, so no warning either.
+    assert not any("comprehensive_rate" in w for w in body["warnings"])
 
 
 def test_promote_without_any_insurer_identity_is_422(

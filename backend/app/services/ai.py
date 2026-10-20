@@ -1101,8 +1101,7 @@ def derive_money(suggestion: ProposalSuggestion) -> dict[str, Decimal | None]:
     """Back-fill and cross-check the Chilean premium invariants.
 
     ``net = taxable + exempt`` · ``vat = 0.19 * taxable`` (NOT on net — earthquake
-    cover is VAT-exempt) · ``total = net + vat`` ·
-    ``comprehensive_rate = taxable_rate + exempt_rate``.
+    cover is VAT-exempt) · ``total = net + vat``. Rates are copied as read (R4).
 
     Missing components are DERIVED where the arithmetic allows. Components that
     are all present but contradict each other raise :class:`MoneyInconsistent`
@@ -1152,22 +1151,12 @@ def derive_money(suggestion: ProposalSuggestion) -> dict[str, Decimal | None]:
         if abs(total - (net + vat)) > MONEY_TOLERANCE:
             conflicts.append(f"total_premium_uf ({total}) != net ({net}) + vat ({vat})")
 
-    # comprehensive_rate = taxable_rate + exempt_rate
+    # Rates are copied as read, never summed (review r3, R4): the taxable and exempt
+    # rates are often one rate over two PORTIONS of the insured amount, and the tasa
+    # integral is its own figure.
     taxable_rate = suggestion.taxable_rate_permille
     exempt_rate = suggestion.exempt_rate_permille
     comprehensive_rate = suggestion.comprehensive_rate_permille
-    if comprehensive_rate is None and taxable_rate is not None and exempt_rate is not None:
-        comprehensive_rate = taxable_rate + exempt_rate
-    elif (
-        comprehensive_rate is not None
-        and taxable_rate is not None
-        and exempt_rate is not None
-        and abs(comprehensive_rate - (taxable_rate + exempt_rate)) > RATE_TOLERANCE
-    ):
-        conflicts.append(
-            f"comprehensive_rate_permille ({comprehensive_rate}) != "
-            f"taxable_rate ({taxable_rate}) + exempt_rate ({exempt_rate})"
-        )
 
     if conflicts:
         raise MoneyInconsistent("; ".join(conflicts))
@@ -2856,6 +2845,7 @@ _COMPARE_CORE_KEYS = (
     "insurer_rut",
     "insurer_cmf_code",
     "quotation_number",
+    "insured_amount_uf",
     "taxable_premium_uf",
     "exempt_premium_uf",
     "net_premium_uf",
@@ -3270,15 +3260,28 @@ def _recommend_messages(
     from app.services.comparison_standardize import reading_labels
 
     labels = reading_labels(readings)
-    money = [
-        {
+
+    def _money_entry(r: dict[str, Any]) -> dict[str, Any]:
+        core = dict(r.get("money_core") or {})
+        total = core.get("total_premium_uf")
+        entry: dict[str, Any] = {
             "comparison_source_id": r.get("comparison_source_id"),
             "insurer": labels.get(r.get("comparison_source_id")),
-            "total_premium_uf": (r.get("money_core") or {}).get("total_premium_uf"),
-            "money_core": r.get("money_core"),
+            "total_premium_uf": total,
+            "total_premium_read": total not in (None, ""),
         }
-        for r in readings
-    ]
+        if total in (None, ""):
+            # Review r3 (R5): with only a partial premium the model computed "totals"
+            # (exempt taken as net, + IVA). Without the read total, no premium figure
+            # goes in at all: there is nothing to compute from.
+            core = {
+                k: v for k, v in core.items()
+                if not (k.endswith("_premium_uf") or k == "vat_uf")
+            }
+        entry["money_core"] = core
+        return entry
+
+    money = [_money_entry(r) for r in readings]
     valid_ids = [m["comparison_source_id"] for m in money if m.get("comparison_source_id") is not None]
     names = ", ".join(
         f"{m['comparison_source_id']} = {m['insurer']}" for m in money if m.get("comparison_source_id") is not None
@@ -3297,7 +3300,12 @@ def _recommend_messages(
         f"En 'rationale' y 'caveats' nombra cada oferta por su COMPAÑÍA ({names or 'campo insurer'}); "
         "NUNCA escribas \"columna\", \"comparison_source_id\" ni números de id. Compara el precio "
         "por la PRIMA TOTAL (total_premium_uf = prima neta + IVA, el total a pagar), nunca por la "
-        "prima exenta o la afecta por separado; considera TODAS las ofertas del arreglo 'money'."
+        "prima exenta o la afecta por separado; considera TODAS las ofertas del arreglo 'money'. "
+        "Si una oferta tiene total_premium_read=false, su prima total NO se leyó: dilo así "
+        "(\"no se leyó la prima total de X\") y NUNCA la calcules ni la estimes (ni desde la "
+        "prima exenta o la afecta, ni sumando IVA); compara precios solo entre las ofertas con "
+        "prima total leída. Lo que digas de una compañía debe estar en SU celda de la tabla: "
+        "una cobertura con no=true o sin celda esa compañía NO la tiene."
     )
     user = json.dumps({"dimensions": dimensions, "money": money}, ensure_ascii=False, default=str)
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -3486,7 +3494,40 @@ def _winner_core(db: Session, winner: "Proposal") -> dict[str, Any]:
         value = getattr(winner, key, None)
         if value is not None:
             core[key] = value
+    _correct_summed_rate(db, winner, core)
     return core
+
+
+def _correct_summed_rate(db: Session, winner: "Proposal", core: dict[str, Any]) -> None:
+    """Review r3 (R4): undo the pre-fix "tasa integral = afecta + exenta" on an
+    already-promoted proposal.
+
+    Before R4 the promote step DERIVED ``comprehensive_rate_permille`` as the sum of
+    the taxable and exempt rates when the cotización stated none — Southbridge's
+    2,21 ‰ + 2,21 ‰ (one rate over the 40 % / 60 % portions) became 4,420 ‰ on the
+    Propuesta. When the read behind the proposal has NO integral rate and the stored
+    value equals that sum, the stored value is that derivation, not what the document
+    says: it is replaced by ``net / insured_amount × 1000`` when the read carries the
+    insured amount, else dropped."""
+    from app.models.ai import Extraction
+    from app.schemas.proposal import effective_rate_permille
+
+    stored = core.get("comprehensive_rate_permille")
+    taxable_rate = getattr(winner, "taxable_rate_permille", None)
+    exempt_rate = getattr(winner, "exempt_rate_permille", None)
+    if stored is None or taxable_rate is None or exempt_rate is None or not winner.extraction_id:
+        return
+    extraction = db.get(Extraction, winner.extraction_id)
+    parsed = extraction.parsed if extraction is not None and isinstance(extraction.parsed, dict) else None
+    if parsed is None or parsed.get("comprehensive_rate_permille") not in (None, ""):
+        return
+    if abs(Decimal(str(stored)) - (Decimal(str(taxable_rate)) + Decimal(str(exempt_rate)))) > RATE_TOLERANCE:
+        return
+    effective = effective_rate_permille(winner.net_premium_uf, parsed.get("insured_amount_uf"))
+    if effective is None:
+        core.pop("comprehensive_rate_permille", None)
+    else:
+        core["comprehensive_rate_permille"] = effective
 
 
 def _winner_facets(db: Session, winner: "Proposal", broker_id: int) -> list[dict[str, Any]]:
@@ -3765,7 +3806,9 @@ def submit_propuesta(
         if value is not None:
             core[key] = value
     for key, value in tool_core.items():
-        if value is not None:
+        # R4: rates are what the cotización states (the winner) — never the model's
+        # (it summed the afecta + exenta rates into a 4,420 ‰ "tasa integral").
+        if value is not None and not str(key).endswith("_rate_permille"):
             core[key] = value
 
     money = {key: core.get(key) for key in _PROPUESTA_MONEY_KEYS if core.get(key) is not None}
@@ -4833,6 +4876,12 @@ HERRAMIENTAS
   persona debe confirmar o descartar en el chat. Dilo así en tu respuesta cuando propongas algo.
 - Si una herramienta responde permission_denied o not_found, explícalo con naturalidad;
   no insistas con la misma llamada.
+- Una CUOTA se indica SIEMPRE por el n° de póliza y el número de cuota que dice la
+  persona (policy_number + installment_number); el servidor la resuelve en la cartera.
+  Una póliza, por su policy_number. NUNCA deduzcas ni adivines un id interno: usa un
+  installment_id solo si lo leíste en list_installments, y entonces junto con su
+  policy_number e installment_number. Si la respuesta es target_refused, NO se propuso
+  nada: transmite su mensaje a la persona y pregunta; no reintentes con otro id.
 
 DISCIPLINA DE DATOS
 - Los montos son UF. Prima neta = afecta + exenta; IVA = 0,19 × la parte AFECTA
@@ -5136,6 +5185,24 @@ class AgentTurnResult:
     actions: list[AgentAction]
 
 
+_WEEKDAYS_ES = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+
+
+def _agent_today_line(now: datetime | None = None) -> str:
+    """Today's date in Chile, so "hoy" / "ayer" / "este mes" resolve without asking the user.
+
+    Found in review round 3: asked to register a payment "con fecha de hoy", the agent stopped
+    to ask for the date because nothing told it what day it was.
+    """
+    from zoneinfo import ZoneInfo
+
+    local = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo("America/Santiago"))
+    return (
+        f"FECHA: hoy es {_WEEKDAYS_ES[local.weekday()]} {local:%d-%m-%Y} (hora de Chile). "
+        "Usa esta fecha para \"hoy\", \"ayer\", \"este mes\" y fechas relativas; no la preguntes."
+    )
+
+
 def _agent_system_prompt(thread: AgentThread) -> str:
     """The base prompt + the skills catalogue + the thread's active playbooks.
 
@@ -5147,7 +5214,7 @@ def _agent_system_prompt(thread: AgentThread) -> str:
     """
     from app.services import agent_skills
 
-    parts = [_AGENT_SYSTEM, agent_skills.skills_index_prompt()]
+    parts = [_AGENT_SYSTEM, _agent_today_line(), agent_skills.skills_index_prompt()]
     active = agent_skills.active_skills_prompt(
         agent_skills.active_keys(getattr(thread, "active_skills", None)),
         budget=agent_skills.MAX_ACTIVE_SKILLS_CHARS,
@@ -5253,6 +5320,15 @@ def _fold_http_exception(exc: Any) -> dict[str, Any]:
             "feature": detail.get("feature"),
             "detail": detail.get("message"),
         }
+    from app.services.agent_targets import TARGET_REFUSAL_CODES
+
+    if isinstance(detail, dict) and detail.get("code") in TARGET_REFUSAL_CODES:
+        # Review r3 (R1): the cuota / policy the model named did not resolve to
+        # exactly one row. Nothing was proposed; the model relays the message.
+        folded = {"error": "target_refused", "code": detail["code"], "detail": detail.get("message")}
+        if detail.get("candidates"):
+            folded["candidates"] = detail["candidates"]
+        return folded
     if status_code == 404:
         return {"error": "not_found", "detail": detail}
     if status_code == 403:

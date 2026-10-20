@@ -56,7 +56,7 @@ from app.schemas.comparison import (
     ComparisonRead,
 )
 from app.schemas.comparison import ComparisonInsurerSuggestion
-from app.schemas.proposal import reconcile_money_verbose
+from app.schemas.proposal import effective_rate_permille, reconcile_money_verbose
 from app.services import ai as ai_service
 from app.services import case_files as machine
 from app.services.ai_error_copy import (
@@ -222,7 +222,15 @@ def _premium_core(
     if extraction is None or not isinstance(extraction.parsed, dict):
         return None
     parsed = extraction.parsed
-    return ComparisonPremiumCore(**{key: parsed.get(key) for key in _PREMIUM_KEYS})
+    core = ComparisonPremiumCore(**{key: parsed.get(key) for key in _PREMIUM_KEYS})
+    core.insured_amount_uf = parsed.get("insured_amount_uf")
+    if core.comprehensive_rate_permille is None:
+        # R4: never a sum of rates — the effective rate over the whole insured amount.
+        effective = effective_rate_permille(parsed.get("net_premium_uf"), parsed.get("insured_amount_uf"))
+        if effective is not None:
+            core.comprehensive_rate_permille = effective
+            core.comprehensive_rate_derived = True
+    return core
 
 
 # --- Read state of a column (review round 2, A2) ------------------------------
@@ -392,6 +400,15 @@ def _entry_read(
         if status_ == "ok" and source is not None
         else []
     )
+    document_id = extraction.document_id if extraction is not None else None
+    # Review r3 (R5): *Reintentar* is offered for a failed / empty read AND for a read
+    # that succeeded without its core (old reads with no insurer or prima total) —
+    # never for a promoted column or one without its file (``retry_entry``'s 409/422).
+    can_retry = (
+        entry.proposal_id is None
+        and document_id is not None
+        and (status_ in {"failed", "empty"} or (status_ == "ok" and bool(missing)))
+    )
     return ComparisonEntryRead(
         id=entry.id,
         comparison_id=entry.comparison_id,
@@ -402,7 +419,7 @@ def _entry_read(
         is_wrong_file=bool(source.is_wrong_file) if source else False,
         wrong_file_reason=source.wrong_file_reason if source else None,
         source_extraction_id=source.source_extraction_id if source else None,
-        document_id=extraction.document_id if extraction is not None else None,
+        document_id=document_id,
         facets=source.facets if source else None,
         premium=_premium_core(db, source) if status_ == "ok" else None,
         status=status_,
@@ -417,6 +434,7 @@ def _entry_read(
         insurer_id=insurer.id if insurer is not None else None,
         insurer_suggestions=suggestions,
         missing_core=missing,
+        can_retry=can_retry,
         created_at=entry.created_at,
         updated_at=entry.updated_at,
     )
@@ -1173,6 +1191,10 @@ def promote_entry(
     money: dict[str, Any] = {
         key: parsed.get(key) for key in _MONEY_KEYS if parsed.get(key) is not None
     }
+    # R4: the base of a derived tasa integral (net / insured × 1000) — never stored as
+    # a proposal column, only used for the derivation.
+    if parsed.get("insured_amount_uf") is not None:
+        money["insured_amount_uf"] = parsed.get("insured_amount_uf")
     derived, errors, rate_warnings = reconcile_money_verbose(money)
     if errors:
         db.rollback()

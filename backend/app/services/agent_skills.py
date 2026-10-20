@@ -87,7 +87,8 @@ _COLLECTIONS_REVIEW = SkillSpec(
 4. NUNCA afirmes que una cuota está pagada o impaga sin evidencia. Antes revisa list_pending_evidence y list_status_inquiries. Una cuota sin evidencia es "sin evidencia de pago", no "impaga". Evidencia declarada (declared) es la palabra del corredor o del pagador; insurer_confirmed / provider_confirmed es confirmación real.
 5. Si no sabes el estado real, PREGUNTA A LA COMPAÑÍA (send_status_inquiry) en vez de suponer. Una consulta por póliza con todas sus cuotas pendientes.
 6. No dupliques: si la póliza ya tiene una consulta abierta (draft, sent o replied), menciónala en vez de proponer otra; si una respuesta espera revisión, pide revisarla en la bandeja de respuestas.
-7. Cierra con un resumen breve: total vencido en UF, cuántas en riesgo de término, las acciones propuestas (pendientes de confirmar en las tarjetas) y lo que falta (correo del pagador, correo de cobranza de la compañía).""",
+7. Cierra con un resumen breve: total vencido en UF, cuántas en riesgo de término, las acciones propuestas (pendientes de confirmar en las tarjetas) y lo que falta (correo del pagador, correo de cobranza de la compañía).
+8. Toda acción sobre una cuota (pago, promesa, aviso, consulta) la indica por policy_number + installment_number (lo que dijo la persona). Para ver las cuotas de UNA póliza usa list_installments(policy_number=...). Si la respuesta es target_refused, transmítela y pregunta: nunca uses un id que no leíste.""",
     tools=(
         "get_collection_overview",
         "list_installments",

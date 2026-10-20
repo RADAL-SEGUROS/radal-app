@@ -1,15 +1,16 @@
 /**
- * One collapsed line per tool the assistant used ("Consultó: Listar pólizas"),
+ * One collapsed line per tool the assistant used ("Revisó pólizas"),
  * expandable to the stored result JSON — progressive disclosure, not a wall of
  * JSON (agent spec §8.4).
  *
- * Labels come from the explicit `TOOL_LABEL_KEY` map; a tool the map does not
- * know yet renders the generic label plus its id (never a raw i18n key).
+ * Labels come from the explicit `TOOL_STEP_LABEL_KEY` map (past-tense steps:
+ * "Buscó en el documento"); a tool the map does not know yet reads "Consultó
+ * datos" — never its raw name, never a raw i18n key (review r3 F3).
  */
 import * as React from "react";
 import { BookOpen, ChevronRight, Search, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { isKnownTool, toolLabelKey } from "@/components/agent/labels";
+import { stepLabelKey, toolLabelKey } from "@/components/agent/labels";
 import { cn } from "@/lib/utils";
 
 function prettify(content: string | null): string {
@@ -31,14 +32,12 @@ export function ToolTraceRow({
   /** `ok | error` (loop trace statuses; pending_confirmation renders as a card). */
   status: string;
   content: string | null;
-  /** A ready sentence that replaces the generic "Consultó: …" line. */
+  /** A ready sentence that replaces the step line. */
   summary?: string | null;
 }) {
   const { t } = useTranslation("dashboard");
   const [open, setOpen] = React.useState(false);
   const failed = status === "error";
-  const known = isKnownTool(tool);
-  const label = known ? t(toolLabelKey(tool)) : `${t(toolLabelKey(tool))} · ${tool}`;
   const Icon = failed ? TriangleAlert : tool === "load_skill" ? BookOpen : Search;
 
   return (
@@ -66,8 +65,8 @@ export function ToolTraceRow({
           {summary && !failed
             ? summary
             : failed
-              ? t("agent.trace.failed", { tool: label })
-              : t("agent.trace.used", { tool: label })}
+              ? t("agent.trace.failed", { tool: t(toolLabelKey(tool)) })
+              : t(stepLabelKey(tool))}
         </span>
       </button>
       {open ? (

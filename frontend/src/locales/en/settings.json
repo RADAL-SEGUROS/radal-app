@@ -240,11 +240,12 @@
     "payment": "Payment",
     "installment": "Installment",
     "share_link": "Share link",
-    "status_inquiry": "Insurer inquiry",
+    "status_inquiry": "Status inquiry",
     "mail_account": "Mail account",
     "portal_search": "Portal search",
     "insurance_subtype": "Line subtype",
-    "payment_intent": "Online charge"
+    "payment_intent": "Online charge",
+    "other": "Other"
   },
   "guard": {
     "noPermission": "You do not have permission for this action",

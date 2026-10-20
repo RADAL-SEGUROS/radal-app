@@ -32,20 +32,20 @@ STANDARDIZE_CALL_TIMEOUT_SECONDS = 70
 #: The whole step's provider budget (batches + recommend), under the Lambda's 120 s.
 STANDARDIZE_BUDGET_SECONDS = 110
 RECOMMEND_TIMEOUT_MIN_SECONDS = 15
-RECOMMEND_TIMEOUT_MAX_SECONDS = 45
+RECOMMEND_TIMEOUT_MAX_SECONDS = 50
 #: Above this many facets (all readings together) the unmatched facets are aligned with one
-#: parallel call per group class, the recommend call running alongside; below it, one call
-#: aligns AND recommends.
+#: parallel call per group class; below it, one call aligns. Either way the recommend call
+#: runs AFTER, over the final table (review r3, R3).
 GROUP_SPLIT_MIN_FACETS = 30
-#: Per alignment call of the split path (and the parallel recommend): the whole step must
-#: land inside the 60 s edge. Live 2026-10-19 at ~20 tok/s: cover call 56.5 s, recommend
-#: 43.2 s, wall 56.6 s.
+#: Per alignment call of the split path. Live 2026-10-19 at ~20 tok/s: cover call 56.5 s,
+#: recommend 43.2 s. Since R3 the recommend follows the alignment: worst case 55 + 50 s,
+#: inside the Lambda's 120 s and past the 60 s edge (the SPA polls ``status=aligned``).
 ALIGN_CALL_TIMEOUT_SECONDS = 55
 #: A TIMED-OUT alignment call does not block the step: the table is already complete
 #: (every facet is a pre-matched row or a row of its own); only the folding of
 #: differently-worded facets of that class is missing, said in a warning (Realinear
-#: retries). Any other provider error still blocks, and so does a step where the
-#: recommendation cannot be produced either (BLOCK-ON-PROVIDER-DOWN).
+#: retries). Likewise a TIMED-OUT recommendation keeps the finished table with a warning.
+#: Any other provider error still blocks (BLOCK-ON-PROVIDER-DOWN).
 SOFT_ALIGN_TIMEOUT = True
 
 
@@ -463,16 +463,99 @@ def _unit_from_text(text: Any) -> str | None:
     return kinds.pop() if len(kinds) == 1 else None
 
 
-def normalize_cell_value(cell: dict[str, Any], group: Any) -> dict[str, Any]:
-    """``value`` as a NUMBER with its ``unit`` when it is a plain quantity (A4).
+#: A quantity in a verbatim: "UF 5", "10%", "2,5 ‰", "15.000", "30 días".
+_QUANTITY_RE = _re.compile(r"(?<![\w.,])\d+(?:[.,]\d+)*(?![\w])")
+#: A cap / floor / second branch: the part a bare number drops ("mínimo UF 25",
+#: "máx UF 20.000", "otros UF 3", "con un tope de …").
+_CONDITION_RE = _re.compile(
+    r"\b(?:m[aá]x(?:imo)?|m[ií]n(?:imo)?|tope|otros?|otras?|adicional|por\s+evento|"
+    r"por\s+ubicaci[oó]n|de\s+la\s+p[eé]rdida|del\s+monto|del\s+siniestro|carencia)\b",
+    _re.IGNORECASE,
+)
+#: "Not contracted" wording behind a 0 the model put in ``value`` (PxP "UF 0").
+_NOT_INCLUDED_RE = _re.compile(
+    r"\bno\s+(?:contratad|cotizad|incluid|cubiert|otorgad|aplica)", _re.IGNORECASE
+)
+#: "<n> <word>" units the grid has no symbol for (kept as the phrase).
+_COUNT_WORD_RE = r"\s*(d[ií]as?|horas?|hrs?\.?|años?|meses|mes|cuotas?|semanas?)\b"
+#: A display value this long is shortened only in the recommend input.
+RECOMMEND_VALUE_CHARS = 120
+
+
+def _is_plain(value: Any) -> bool:
+    """A bare quantity (number, "10", "UF 15.000", "25%") or nothing."""
+    if value is None or isinstance(value, bool):
+        return value is None
+    if isinstance(value, (int, float)):
+        return True
+    return isinstance(value, str) and (not value.strip() or _SIMPLE_VALUE_RE.match(value) is not None)
+
+
+def is_composite_condition(text: Any) -> bool:
+    """True when a verbatim states more than one bare number can carry: a cap or floor,
+    a base ("de la pérdida"), a second amount ("…UF 5; otros UF 3")."""
+    if not isinstance(text, str) or not text.strip():
+        return False
+    return len(_QUANTITY_RE.findall(text)) >= 2 or (
+        _CONDITION_RE.search(text) is not None and _QUANTITY_RE.search(text) is not None
+    )
+
+
+def _as_condition(cell: dict[str, Any], group: Any) -> dict[str, Any]:
+    """The cell shown as its VERBATIM condition (review r3, R2): ``value`` = the condition
+    text; the parsed number survives as ``numeric_value`` (+ ``numeric_unit``)."""
+    verbatim = " ".join(str(cell.get("verbatim") or "").split())
+    parsed = normalize_cell_value({k: v for k, v in cell.items() if k != "unit"}, group, _plain_only=True)
+    out = {k: v for k, v in cell.items() if k != "unit"}
+    out["value"] = verbatim
+    number = parsed.get("value")
+    if isinstance(number, (int, float)) and not isinstance(number, bool):
+        out["numeric_value"] = number
+        if parsed.get("unit"):
+            out["numeric_unit"] = parsed["unit"]
+    return out
+
+
+def normalize_cell_value(
+    cell: dict[str, Any], group: Any, *, _plain_only: bool = False
+) -> dict[str, Any]:
+    """``value`` as a NUMBER with its ``unit`` when it is a plain quantity (A4), and the
+    condition text when a number alone would lie (review r3, R2).
 
     ``"475256"`` -> ``475256``; ``"UF 15.000"`` -> ``15000`` + ``uf``; ``"25%"`` -> ``25``
-    + ``pct``. A composite text ("10% del monto asegurado, máx UF 25.000") stays text
-    (the decisive wording is the coverage). A bare number takes the unit its verbatim
-    names when it names exactly one; a bare sublimit amount >= 100 is UF (the corpus'
-    sublimit tables are in UF).
+    + ``pct``. A composite text ("10% del monto asegurado, máx UF 25.000") stays text.
+    A bare number takes the unit its verbatim names when it names exactly one; a bare
+    sublimit / coverage amount >= 100 is UF (the corpus' tables are in UF).
+
+    R2: a **deductible** with a bare number ("10") and a verbatim ("10% de la pérdida,
+    mínimo UF 10") shows the verbatim — the minimum is what tells two offers apart; the
+    same for any cell whose verbatim is a composite condition ("UF 5 cristal plano;
+    otros UF 3", "10% … máx UF 20.000"). A cover cell read as ``0`` whose verbatim says
+    "No contratado" reads ``present=false`` (not "UF 0"). "15" with a verbatim "15 días"
+    gets ``unit=days``; "10" with "10 años" reads "10 años".
     """
+    group_name = str(group or "")
     value = cell.get("value")
+    verbatim = cell.get("verbatim")
+    has_verbatim = isinstance(verbatim, str) and bool(verbatim.strip())
+    if not _plain_only and group_name != "exclusion" and has_verbatim and _is_plain(value):
+        if group_name != "deductible" and _NOT_INCLUDED_RE.search(verbatim) and (
+            value is None or _number(value) == 0 or _first_sentence_not_included(verbatim)
+        ):
+            # "Perjuicio por paralización: No contratado" read as UF 0 / nothing — or
+            # Southbridge's "Perjuicio por paralización no contratado. … ofrecido por
+            # UF 90.000" read as 90 000: the offer does NOT include it. Never "UF 0",
+            # "Incluida" or the offered amount as if it were cover (the round-3
+            # recommendation credited Southbridge with HDI's PxP from that cell).
+            out = {k: v for k, v in cell.items() if k != "unit"}
+            number = _number(value) if value is not None else None
+            if number:
+                out["numeric_value"] = int(number) if number == int(number) else float(number)
+            out["value"] = None
+            out["present"] = False
+            return out
+        if group_name == "deductible" or is_composite_condition(verbatim):
+            return _as_condition(cell, group)
     unit: str | None = None
     if isinstance(value, str):
         match = _SIMPLE_VALUE_RE.match(value)
@@ -486,13 +569,38 @@ def normalize_cell_value(cell: dict[str, Any], group: Any) -> dict[str, Any]:
     elif isinstance(value, bool) or not isinstance(value, (int, float)):
         return cell
     if unit is None:
-        unit = _unit_from_text(cell.get("verbatim"))
-    if unit is None and str(group or "") == "sublimit" and abs(value) >= 100:
+        unit = _unit_from_text(verbatim)
+    if unit is None and has_verbatim and not _plain_only:
+        word = _re.search(
+            rf"(?<![\d.,]){_re.escape(_plain_number(value))}{_COUNT_WORD_RE}", verbatim, _re.IGNORECASE
+        )
+        if word is not None:
+            token = word.group(1).lower()
+            if token.startswith("d"):
+                unit = "days"
+            elif token.startswith("h"):
+                unit = "hours"
+            else:
+                return {**cell, "value": f"{_plain_number(value)} {word.group(1)}", "numeric_value": value}
+    if unit is None and group_name in ("sublimit", "coverage") and abs(value) >= 100:
         unit = "uf"
     out = {**cell, "value": value}
     if unit is not None:
         out["unit"] = unit
     return out
+
+
+def _first_sentence_not_included(text: str) -> bool:
+    """"No contratado" / "no cotizado" stated in the verbatim's FIRST sentence."""
+    first = _re.split(r"[.;]\s", text.strip(), maxsplit=1)[0]
+    return _NOT_INCLUDED_RE.search(first) is not None
+
+
+def _plain_number(value: int | float) -> str:
+    """How a number appears in Spanish text: ``10`` / ``2,5``."""
+    if isinstance(value, float) and not value.is_integer():
+        return f"{value}".replace(".", ",")
+    return str(int(value))
 
 
 def finalize_dimensions(
@@ -600,6 +708,35 @@ def humanize_recommendation(
     out = dict(recommendation)
     out["rationale"] = _sub(out.get("rationale"))
     out["caveats"] = [_sub(c) for c in (out.get("caveats") or [])]
+    return out
+
+
+def _note_missing_totals(
+    recommendation: dict[str, Any] | None, readings: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """R5: a caveat per column whose prima total was NOT read — the recommendation must
+    not compare (or compute) a price it does not have. The round-2 comparison took the
+    exempt premium as net, added IVA and invented three totals."""
+    if not isinstance(recommendation, dict):
+        return recommendation
+    labels = reading_labels(readings)
+    missing = [
+        labels.get(r.get("comparison_source_id"))
+        for r in readings
+        if not r.get("is_wrong_file")
+        and (r.get("money_core") or {}).get("total_premium_uf") in (None, "")
+    ]
+    missing = [name for name in missing if name]
+    if not missing:
+        return recommendation
+    names = ", ".join(missing[:-1]) + (" y " if len(missing) > 1 else "") + missing[-1]
+    caveat = (
+        f"No se leyó la prima total de {names}: reintenta la lectura de esa cotización antes "
+        "de comparar precios (no se calcula desde la prima exenta ni la afecta)."
+    )
+    out = dict(recommendation)
+    caveats = [c for c in (out.get("caveats") or []) if c != caveat]
+    out["caveats"] = [caveat, *caveats]
     return out
 
 
@@ -907,6 +1044,8 @@ def recommend_dimensions(dimensions: list[dict[str, Any]], labels: dict[Any, str
             value = cell.get("value")
             if value is None:
                 value = _short_text(cell.get("verbatim"), 80)
+            elif isinstance(value, str):
+                value = _short_text(value, RECOMMEND_VALUE_CHARS)
             entry: dict[str, Any] = {}
             if value is not None:
                 entry["v"] = value
@@ -989,16 +1128,15 @@ def standardize_readings(
     1. :func:`prematch` places, in code, every facet whose label slug repeats across
        readings. 2. Above :data:`GROUP_SPLIT_MIN_FACETS` facets the still-unmatched ones go
        to the model, one call per group class with something left (:data:`MODEL_BUCKETS`),
-       answering only the MATCHES as references — and, IN PARALLEL, the recommend call
-       reads the provisional table (pre-matched rows + every unmatched facet as its own
-       row: the same content, not yet folded). Below it, one call matches AND recommends.
+       answering only the MATCHES as references. Below it, one call matches.
     3. Unmatched facets become rows of their own; :func:`fill_cells` +
        :func:`finalize_dimensions` rebuild the cells. The first failing alignment call in
-       bucket order blocks the step (a typed :class:`ai.AIError` propagates); a failing
-       recommend call is retried once sequentially, then blocks too.
+       bucket order blocks the step (a typed :class:`ai.AIError` propagates) unless it is
+       a timeout (:data:`SOFT_ALIGN_TIMEOUT`).
+    4. THEN the recommend call reads the FINAL table (review r3, R3) with each insurer's
+       name and prima total; a timeout keeps the table with a warning, any other error
+       blocks. A column without a read prima total gets a deterministic caveat (R5).
     """
-    import copy
-
     from app.services import ai
     from app.services.ai_models import AITask, model_for
 
@@ -1021,7 +1159,6 @@ def standardize_readings(
     }
 
     recommendation = None
-    rec_result = None
     new_rows: list[dict[str, Any]] = []
     split = total_facets > GROUP_SPLIT_MIN_FACETS
     batched = False
@@ -1034,24 +1171,22 @@ def standardize_readings(
         ]
         batched = len(units) > 1
         batch_count = max(len(units), 1)
-        provisional_pre = copy.deepcopy(pre)
-        provisional_rows: list[dict[str, Any]] = []
-        place_leftovers(readings=indexed, pre=provisional_pre, new_rows=provisional_rows,
-                        prior_structure=prior_structure)
-        provisional = _table(provisional_pre, provisional_rows, indexed, readings)
         step_timeout = min(_timeout(), ALIGN_CALL_TIMEOUT_SECONDS)
+        # Review r3 (R3): ONLY the alignment calls run here. The recommendation used to
+        # run in parallel over a provisional (unfolded) table and, non-deterministically,
+        # credited Southbridge with HDI's perjuicio por paralización; it now reads the
+        # FINAL table below (+15-40 s, accepted by the owner).
         jobs = {
             bucket: (lambda p=payload: _call(p, compare_model, timeout=step_timeout))
             for bucket, payload in units
         }
-        jobs["recommend"] = lambda: _recommend(provisional, readings, step_timeout)
-        outcomes = run_groups(jobs)
+        outcomes = run_groups(jobs) if jobs else {}
         timed_out: list[str] = []
         for bucket, _payload in units:  # deterministic: bucket order
             outcome = outcomes[bucket]
             if not outcome.ok:
                 error = first_error([outcome])
-                if SOFT_ALIGN_TIMEOUT and isinstance(error, ai.AITimeout) and outcomes["recommend"].ok:
+                if SOFT_ALIGN_TIMEOUT and isinstance(error, ai.AITimeout):
                     timed_out.append(bucket)
                     call_stats[bucket] = {"seconds": round(outcome.seconds, 2), "error": "timeout"}
                     continue
@@ -1072,22 +1207,16 @@ def standardize_readings(
                 f"La alineación de {pending} condición(es) tardó más de lo esperado: quedaron "
                 "en filas propias. Realinea para intentarlo de nuevo."
             )
-        rec_outcome = outcomes["recommend"]
-        if rec_outcome.ok:
-            rec_result = rec_outcome.value
-            call_stats["recommend"] = _stats(rec_result, rec_outcome.seconds)
-        else:
-            logger_note = f"{type(rec_outcome.error).__name__}: {rec_outcome.error}"
-            call_stats["recommend"] = {"seconds": round(rec_outcome.seconds, 2), "error": logger_note}
     elif residual_count:
         call_started = time.monotonic()
         payload = _residual_payload("all", indexed, pre, with_money=True)
-        r = _call(payload, compare_model, with_recommendation=True)
+        # R3: the single call only MATCHES; it saw the unmatched facets, not the whole
+        # table, so it no longer recommends — the dedicated call below reads the table.
+        r = _call(payload, compare_model)
         call_stats["submit"] = _stats(r, time.monotonic() - call_started)
         parsed = r.parsed or {}
         apply_rows(parsed.get("rows", parsed.get("dimensions")), bucket="all", readings=indexed,
                    pre=pre, new_rows=new_rows, prior_structure=prior_structure)
-        recommendation = ai._normalize_recommendation(parsed.get("recommendation"))
         model_name = r.model or compare_model
         prompt_tokens = (r.usage or {}).get("prompt_tokens") or 0
         completion_tokens = (r.usage or {}).get("completion_tokens") or 0
@@ -1102,28 +1231,33 @@ def standardize_readings(
             "committing an empty table"
         )
 
-    if rec_result is not None:
-        recommendation = ai._normalize_recommendation((rec_result.parsed or {}).get("recommendation"))
-        prompt_tokens += (rec_result.usage or {}).get("prompt_tokens") or 0
-        completion_tokens += (rec_result.usage or {}).get("completion_tokens") or 0
-    # ALWAYS produce a recommendation: no pick yet (small path without one, or the
-    # parallel call failed / named none) -> the dedicated call over the final table.
-    if recommendation is None or recommendation.get("recommended_comparison_source_id") is None:
-        call_started = time.monotonic()
+    # ALWAYS produce the recommendation, AFTER the alignment, over the FINAL table
+    # (R3) — insurer names + prima total travel in its input (``_recommend_messages``).
+    call_started = time.monotonic()
+    try:
         rec = _recommend(dimensions, readings, _recommend_timeout(call_started - started))
-        call_stats["recommend_final" if "recommend" in call_stats else "recommend"] = _stats(
-            rec, time.monotonic() - call_started
+    except ai.AITimeout:
+        if not (SOFT_ALIGN_TIMEOUT and dimensions):
+            raise
+        # The table is complete and correct; only the advice is missing. Keep the table
+        # (a re-align would redo ~1 min of work) and say so.
+        call_stats["recommend"] = {"seconds": round(time.monotonic() - call_started, 2), "error": "timeout"}
+        warnings.append(
+            "La recomendación tardó más de lo esperado y no se generó; la tabla sí quedó "
+            "alineada. Realinea para obtenerla."
         )
-        rec_value = ai._normalize_recommendation((rec.parsed or {}).get("recommendation"))
-        if rec_value is not None:
-            recommendation = rec_value
+        rec = None
+    if rec is not None:
+        call_stats["recommend"] = _stats(rec, time.monotonic() - call_started)
+        recommendation = ai._normalize_recommendation((rec.parsed or {}).get("recommendation"))
         prompt_tokens += (rec.usage or {}).get("prompt_tokens") or 0
         completion_tokens += (rec.usage or {}).get("completion_tokens") or 0
         if recommendation is None or recommendation.get("recommended_comparison_source_id") is None:
             warnings.append(
-                "The AI recommendation named no pick "
-                "(recommended_comparison_source_id is null); review the caveats manually."
+                "La IA no eligió una cotización recomendada: revisa las salvedades y decide."
             )
+    # R5: a column without a read prima total is said, never computed.
+    recommendation = _note_missing_totals(recommendation, readings)
 
     # The broker reads insurer names, never "columna 4" (A3).
     recommendation = humanize_recommendation(recommendation, reading_labels(readings))

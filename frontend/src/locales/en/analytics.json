@@ -130,7 +130,9 @@
     "claims": "Claims"
   },
   "documents": {
-    "download": "Download"
+    "download": "Download",
+    "emailName": "Email of {{date}}",
+    "code": "Code {{code}}"
   },
   "board": {
     "empty": "No accounts in this phase",

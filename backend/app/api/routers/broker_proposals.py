@@ -202,9 +202,14 @@ def create_broker_proposal(
             "total_premium_uf": str(winner.total_premium_uf)
             if winner.total_premium_uf is not None
             else None,
-            "comprehensive_rate_permille": str(winner.comprehensive_rate_permille)
-            if winner.comprehensive_rate_permille is not None
-            else None,
+            # Review r3 (R4): the rate the cotización states (a pre-fix "afecta +
+            # exenta" sum is corrected / dropped — same rule as the propuesta core).
+            "comprehensive_rate_permille": (
+                str(rate)
+                if (rate := ai_service._winner_core(db, winner).get("comprehensive_rate_permille"))
+                is not None
+                else None
+            ),
         },
     }
 

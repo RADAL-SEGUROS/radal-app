@@ -288,16 +288,23 @@ def test_submit_comparison_snapshots_table_and_recommendation(world, db, monkeyp
 
     assert result.used_ai is True
     assert result.batched is False
-    assert calls == ["submit_comparison"]  # small input: one call that also recommends
+    # Review r3 (R3): the small path's one call only matches; the recommendation is
+    # the dedicated call AFTER it, over the final table.
+    assert calls == ["submit_comparison", "recommend_comparison"]
     assert result.recommendation["recommended_comparison_source_id"] == sources[0].id
     keys = {entry["key"] for entry in result.dictionary}
     assert keys == {"sismo", "incendio", "robo"}
     assert result.canonical_version == 1
     dims = {d["key"]: d for d in result.table["dimensions"]}
     assert dims["sismo"]["scope"] == "common" and dims["sismo"]["group"] == "deductible"
-    # Review round 2 (A4): a plain "5%" is standardized to the number 5 + unit "pct".
-    assert [(c["comparison_source_id"], c["value"], c["unit"]) for c in dims["sismo"]["cells"]] == [
-        (sources[0].id, 5, "pct"), (sources[1].id, 5, "pct")
+    # Review round 3 (R2): a DEDUCTIBLE shows its condition text ("5% de la pérdida"),
+    # never the bare number; the parsed 5 + "pct" survive as numeric_value/_unit.
+    assert [
+        (c["comparison_source_id"], c["value"], c.get("unit"), c["numeric_value"], c["numeric_unit"])
+        for c in dims["sismo"]["cells"]
+    ] == [
+        (sources[0].id, "5% de la pérdida", None, 5, "pct"),
+        (sources[1].id, "5% de la pérdida", None, 5, "pct"),
     ]
     assert dims["incendio"]["scope"] == "extra"
     assert [c["comparison_source_id"] for c in dims["robo"]["cells"]] == [sources[1].id]
@@ -517,7 +524,7 @@ def test_submit_comparison_pickless_recommend_degrades_to_warning(world, db, mon
     # No 500: the table still committed, and the pick-less rec is preserved + flagged.
     assert result.recommendation is not None
     assert result.recommendation["recommended_comparison_source_id"] is None
-    assert any("no pick" in w for w in result.warnings)
+    assert any("no eligió una cotización recomendada" in w for w in result.warnings)
     db.refresh(comparison)
     assert comparison.status is ComparisonStatus.ALIGNED
 
